@@ -124,3 +124,36 @@ def test_oauth_state_is_signed_and_bound_to_user_and_connection(db_session, make
 
     with pytest.raises(ValueError, match="does not match"):
         service._validate_oauth_state(state, user_id=user.id, broker="upstox", connection_id=__import__("uuid").uuid4())
+
+
+def test_oauth_state_nonce_can_only_be_consumed_once(db_session, make_user):
+    from urllib.parse import parse_qs, urlparse
+
+    import jwt
+    import pytest
+
+    from app.core.config import settings
+    from app.models.broker_connection import BrokerConnection
+
+    user = make_user()
+    service = BrokerCredentialsService(db_session)
+    service.save_credentials(
+        user.id,
+        BrokerConnectionCreate(
+            broker="upstox",
+            api_key="api-key",
+            api_secret="api-secret",
+            redirect_uri="https://example.com/cb",
+        ),
+    )
+    state = parse_qs(urlparse(service.get_authorize_url(user.id, "upstox")).query)["state"][0]
+    claims = jwt.decode(state, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    conn = db_session.query(BrokerConnection).filter_by(user_id=user.id, broker="upstox").one()
+
+    service._consume_oauth_nonce(conn, claims["nonce"])
+    db_session.refresh(conn)
+    assert conn.oauth_state_nonce_hash is None
+    assert conn.oauth_state_expires_at is None
+
+    with pytest.raises(ValueError, match="already used"):
+        service._consume_oauth_nonce(conn, claims["nonce"])

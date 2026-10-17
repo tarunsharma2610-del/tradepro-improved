@@ -403,7 +403,7 @@ def _record_fill(repository, user, connection, intent, **overrides):
         "instrument_key": "NSE_EQ|TEST",
         "side": "BUY",
         "quantity": 1,
-        "price": "101.25",
+        "price": "99.25",
         "executed_at": datetime(2026, 10, 17, 10, 15, tzinfo=timezone.utc),
         "product": "D",
         "order_type": "LIMIT",
@@ -431,7 +431,7 @@ def test_record_broker_fill_is_idempotent_and_audited(db_session, make_user):
     assert created is True
     assert fill.broker_trade_id == "trade-stable-1"
     assert fill.quantity == 1
-    assert str(fill.price) == "101.2500"
+    assert str(fill.price) == "99.2500"
     assert db_session.query(BrokerFillIdentity).filter_by(
         broker_connection_id=connection.id, broker_trade_id="trade-stable-1"
     ).count() == 1
@@ -464,7 +464,7 @@ def test_reused_trade_id_with_different_payload_is_conflict(db_session, make_use
     _record_fill(repository, user, connection, intent)
 
     with pytest.raises(LiveOrderVersionConflict, match="different fill details"):
-        _record_fill(repository, user, connection, intent, price="102.25")
+        _record_fill(repository, user, connection, intent, price="99.50")
 
     assert db_session.query(BrokerFillIdentity).filter_by(
         broker_connection_id=connection.id, broker_trade_id="trade-stable-1"

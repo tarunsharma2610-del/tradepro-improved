@@ -9,6 +9,7 @@ Phase 2, rather than trusting this comment.
 """
 
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urlencode
 
@@ -251,6 +252,7 @@ class UpstoxAdapter(BrokerAdapter):
             except httpx.HTTPError as exc:
                 return BrokerCallResult(ok=False, error=f"Network error contacting Upstox: {exc}")
         return self._to_result(resp)
+
 
 def _validate_margin_instruments(instruments: Any) -> list[dict[str, Any]]:
     if not isinstance(instruments, list) or not instruments:

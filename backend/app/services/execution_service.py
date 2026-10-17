@@ -33,6 +33,7 @@ from app.repositories.position_repository import PositionRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.position_math import apply_fill
 from app.services.portfolio_risk_service import check_portfolio_order
+from app.services.market_data_stream_manager import market_data_stream_manager
 from app.services.transaction_costs import Segment, Side, calculate_costs
 
 
@@ -116,13 +117,9 @@ class ExecutionService:
         if access_token is None:
             return self._reject(order, "No connected broker with a live session — connect Upstox in Settings first.")
 
-        quote_result = await get_broker_adapter("upstox").get_quote(access_token, [instrument.instrument_key])
-        if not quote_result.ok:
-            return self._reject(order, f"Could not fetch a live price: {quote_result.error}")
-
-        ltp = _extract_ltp(quote_result.data, instrument.instrument_key)
+        ltp, quote_error = await self._get_ltp(portfolio.user_id, instrument.instrument_key, access_token)
         if ltp is None:
-            return self._reject(order, "Broker response didn't contain a readable last traded price.")
+            return self._reject(order, quote_error or "No fresh market price is available.")
 
         risk_reason = check_portfolio_order(
             self.db, portfolio, instrument, side=req.side.value, quantity=req.quantity,
@@ -219,14 +216,9 @@ class ExecutionService:
                 self.db.rollback()
                 continue
 
-            quote_result = await get_broker_adapter("upstox").get_quote(
-                access_token, [order.instrument.instrument_key]
+            ltp, quote_error = await self._get_ltp(
+                portfolio.user_id, order.instrument.instrument_key, access_token
             )
-            if not quote_result.ok:
-                self.db.rollback()
-                continue
-
-            ltp = _extract_ltp(quote_result.data, order.instrument.instrument_key)
             if ltp is None:
                 self.db.rollback()
                 continue
@@ -290,6 +282,22 @@ class ExecutionService:
             filled_count += 1
 
         return filled_count
+
+    async def _get_ltp(self, user_id: UUID, instrument_key: str, access_token: str) -> tuple[Decimal | None, str | None]:
+        """Prefer a fresh subscribed WebSocket tick; fall back to authenticated REST LTP."""
+        streamer = market_data_stream_manager.get(user_id)
+        if streamer is not None:
+            tick = streamer.latest_tick(instrument_key)
+            if tick is not None:
+                return Decimal(str(tick.ltp)), None
+
+        quote_result = await get_broker_adapter("upstox").get_quote(access_token, [instrument_key])
+        if not quote_result.ok:
+            return None, f"Could not fetch a live price: {quote_result.error}"
+        ltp = _extract_ltp(quote_result.data, instrument_key)
+        if ltp is None:
+            return None, "Broker response didn't contain a readable last traded price."
+        return ltp, None
 
     def _is_reducing_position(self, portfolio_id: UUID, instrument_id: UUID, side: Side, quantity: int) -> bool:
         position = (

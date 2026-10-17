@@ -50,7 +50,7 @@ Add a scheduled/on-demand worker that reads Upstox order and trade observations,
 
 ## Implementation sequence
 
-1. Introduce a narrow read-only client protocol and unit-tested adapter wrapper with explicit allowlisted methods. Contract fixtures must be based on current official response examples.
+1. [x] Introduced `backend/app/brokers/upstox/reconciliation_client.py`, a fixed-path GET-only client for order book, details, history and per-order trades. Mocked contract tests verify endpoint paths, query parameters, sanitized failures and absence of order-write methods. [Run 39056868434](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056868434) passed 309 tests, 1 warning. No network call to Upstox occurred.
 2. Implement a worker service with injected client, repository/session factory, clock and retry policy. No direct global app/session state and no long-lived DB transaction around network calls.
 3. Add tests for successful reconciliation, repeated runs, expired token, 403, 429/Retry-After, bounded 5xx retry, malformed responses, duplicate order records, ambiguous tag, duplicate/conflicting trade IDs, out-of-order order/trade observations, partial-fill/cancel races, worker lease contention, and restart after each persistence boundary.
 4. Run backend tests plus PostgreSQL 16 concurrency and reversible migrations. Test with mocks/recorded fixtures first. If sandbox credentials become available, run a read-only sandbox check only after explicit approval; do not submit a test order.

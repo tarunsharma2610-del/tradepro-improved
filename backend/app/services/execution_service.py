@@ -145,10 +145,6 @@ class ExecutionService:
         if ltp is None:
             return self._reject(order, "Broker response didn't contain a readable last traded price.")
 
-        value_limit_reason = self._order_value_limit_reason(portfolio, req.quantity, ltp)
-        if value_limit_reason:
-            return self._reject(order, value_limit_reason)
-
         costs = calculate_costs(req.segment, req.side, req.quantity, ltp)
 
         if req.side == Side.BUY:
@@ -163,6 +159,10 @@ class ExecutionService:
                     order,
                     f"Insufficient holdings for a delivery sell: hold {position.quantity}, tried to sell {req.quantity}.",
                 )
+
+        value_limit_reason = self._order_value_limit_reason(portfolio, req.quantity, ltp)
+        if value_limit_reason:
+            return self._reject(order, value_limit_reason)
 
         return self._fill(order, portfolio, instrument, req, ltp, costs)
 

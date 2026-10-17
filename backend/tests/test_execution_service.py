@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.brokers.base import BrokerCallResult
+from app.models.execution import Execution
 from app.models.order import Order
 from app.core.encryption import encrypt_value
 from app.repositories.portfolio_repository import PortfolioRepository

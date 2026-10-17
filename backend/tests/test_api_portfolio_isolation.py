@@ -200,3 +200,32 @@ def test_unsupported_derivative_segments_are_rejected_at_api_boundaries(client, 
     assert db_session.query(Order).filter(Order.portfolio_id == UUID(portfolio_id)).count() == 0
     assert db_session.query(Strategy).filter(Strategy.portfolio_id == UUID(portfolio_id)).count() == 0
     assert db_session.query(BacktestRun).count() == 0
+
+
+def test_broker_status_endpoint_rejects_paper_orders_and_enforces_ownership(client, db_session):
+    from app.repositories.instrument_repository import InstrumentRepository
+    from app.services.instrument_service import InstrumentService
+
+    _register_and_login(client, "status-owner@example.com")
+    portfolio_id = client.post(
+        "/api/v1/portfolios", json={"name": "Status test", "virtual_capital": "100000"}
+    ).json()["id"]
+    InstrumentService(db_session).seed_defaults()
+    instrument_id = str(InstrumentRepository(db_session).search("RELIANCE")[0].id)
+    placed = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/orders",
+        json={
+            "instrument_id": instrument_id, "side": "BUY", "order_type": "LIMIT",
+            "segment": "EQUITY_DELIVERY", "quantity": 1, "limit_price": "100",
+        },
+    )
+    assert placed.status_code == 201
+    order_id = placed.json()["id"]
+
+    own_status = client.get(f"/api/v1/portfolios/{portfolio_id}/orders/{order_id}/broker-status")
+    assert own_status.status_code == 400
+    assert "only allowed for LIVE" in own_status.json()["detail"]
+
+    _register_and_login(client, "status-intruder@example.com")
+    other_status = client.get(f"/api/v1/portfolios/{portfolio_id}/orders/{order_id}/broker-status")
+    assert other_status.status_code == 404

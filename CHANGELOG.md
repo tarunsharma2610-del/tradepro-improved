@@ -43,3 +43,8 @@
 ### Additional improvement — single-order value cap
 12. Added `MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL` (default 25%) to reject paper orders whose estimated notional exceeds the configured percentage of starting virtual capital. LIMIT orders use their limit price; MARKET orders use the fetched quote. Set to 0 to disable.
 13. Added tests for both LIMIT and MARKET order rejection above the cap. This is a per-order notional guard, not a portfolio exposure limit; derivative multipliers/lot-size data still require verification.
+
+### Additional improvement — read-only broker status reconciliation foundation
+14. Added nullable broker-order reference/status/check timestamp/error metadata and a forward migration.
+15. Added a read-only reconciliation service that checks ownership, refuses PAPER orders, requires a persisted broker order ID and usable Upstox session, validates the returned order ID, and records broker status without changing local order status, positions, or cash.
+16. Added mocked tests for successful status capture, PAPER-mode refusal, and mismatched broker order IDs. This is a foundation only: there is no live order placement or automatic fill/cancel reconciliation.

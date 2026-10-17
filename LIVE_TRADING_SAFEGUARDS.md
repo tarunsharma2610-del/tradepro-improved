@@ -265,3 +265,7 @@ Reconciliation status transitions now consult persisted, deduplicated fill quant
 
 ## 17 October 2026 — GET-only reconciliation client
 A separate `UpstoxReadOnlyReconciliationClient` now exposes only fixed-path GET methods for order book/details/history/trades. It cannot submit, modify or cancel orders; upstream response bodies and exception text are not surfaced on failure. Mocked contract tests passed [run 39056868434](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056868434): 309 passed, 1 warning. No real broker request has been made; a worker with connection scoping, token checks, retry limits and leases is still required. Live submission remains disabled.
+
+
+## 17 October 2026 — worker lease foundation
+A durable one-per-connection reconciliation lease now supports atomic claims, expiry/reclaim, renewal and stale-owner-safe completion. The model and reversible migration passed [run 39057273255](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39057273255), 318 tests, 1 warning. The lease is not connected to a worker yet. Do not infer that broker polling or live trading is enabled.

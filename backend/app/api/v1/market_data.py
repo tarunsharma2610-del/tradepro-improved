@@ -59,7 +59,7 @@ def market_data_stream_status(user: User = Depends(get_current_user)):
             "stale": False,
         }
     return {
-        "running": streamer._task is not None and not streamer._task.done(),
+        "running": streamer.running,
         "connected": streamer.connected,
         "mode": "ltpc",
         "instrument_count": len(streamer.instrument_keys),

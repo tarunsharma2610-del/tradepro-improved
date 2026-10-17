@@ -151,3 +151,10 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Added read-only `get_order_history(access_token, order_id=None, tag=None)` using the official `GET /v2/order/history` endpoint. At least one non-empty identifier is required; tags over 40 characters are rejected before a network call. Mocked tests cover tag-only, order-ID-only and invalid queries.
 - The first CI run exposed a missing `AsyncMock` import in the new invalid-query test. The CI log was inspected, the import was fixed in the follow-up commit, and latest CI passed: **200 tests passed, 1 warning**, clean SQLite migration, frontend TypeScript/build passed.
 - Latest verified code commit: `8b66df970d2dda91c060583ed6065c0101cd7837`. Next: create a live order state-machine design before implementing any live submission. See `PROGRESS.md`.
+
+
+## Live order state-machine design completed — 17 October 2026
+
+- Added `LIVE_ORDER_STATE_MACHINE.md` as a design-only artifact. It covers Upstox V3's multiple `data.order_ids`, stable tag recovery, unknown submission timeouts, broker-confirmed statuses, trade-ID deduplication, partial fills, cancel/modify confirmation, restart recovery, required schema changes, risk gates and test/release criteria.
+- No live execution code was added or enabled. The paper-only gate remains unchanged.
+- Next task: add an additive schema/model foundation for broker child orders, trade-ID deduplication and partial-fill status, with tests only; do not wire execution yet. See `PROGRESS.md`.

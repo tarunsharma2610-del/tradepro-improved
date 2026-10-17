@@ -39,3 +39,6 @@ See [AUDIT_REPORT.md](./AUDIT_REPORT.md) for findings, verification links and re
 
 - Read [`PROJECT_INSTRUCTIONS.md`](PROJECT_INSTRUCTIONS.md) before making changes.
 - Read [`PROGRESS.md`](PROGRESS.md) at the start of every continuation; update it after every tested and committed task.
+
+
+- Live execution design and prerequisites: [`LIVE_ORDER_STATE_MACHINE.md`](LIVE_ORDER_STATE_MACHINE.md). This is a design document, not an enabled live-order feature.

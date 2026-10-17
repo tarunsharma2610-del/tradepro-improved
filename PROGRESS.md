@@ -121,6 +121,10 @@ Added `get_order_trades(access_token, order_id)` to the adapter interface and Up
 
 Added `get_order_history(access_token, order_id=None, tag=None)` using the official `GET /v2/order/history` endpoint. It rejects empty identifiers, blank values and tags longer than 40 characters before any request. Mocked tests cover tag lookup, order-ID lookup, and invalid queries. Initial CI exposed a missing test import; the log was inspected, the import fixed in a follow-up commit, and the latest full suite passed: 200 passed, 1 warning, migration and frontend checks passed.
 
-## Current active task: design the live order state machine before implementation
+## Completed task: live order state-machine design
 
-Create/update a concise design artifact that maps the existing local order fields and Upstox responses into a safe live lifecycle. Explicitly cover V3 `data.order_ids` (including slicing/multiple IDs), stable tags and lookup after timeouts, broker-confirmed statuses, partial fills using `get_order_trades`, modify/cancel requests followed by confirmation, retry behavior, database transactions, and recovery after process restart. Identify the necessary schema changes (e.g. per-broker-order rows/partial fills) and risks before coding. Do not implement live submission or change the PAPER-only gate in this task.
+Added `LIVE_ORDER_STATE_MACHINE.md`, covering current audit findings, official Upstox V3 response shapes, multi-order mapping, stable tag recovery, partial fills, trade-ID deduplication, modify/cancel confirmation, timeout/restart recovery, risk gates, schema needs, tests and release criteria. This is design only; no live submission was implemented and the PAPER-only gate is unchanged.
+
+## Current active task: implement additive broker-order/trade schema foundation
+
+First re-read this design and inspect current `Order`, `Execution`, migrations and test fixtures. Add only the additive schema/model foundation for child broker orders, unique broker trade IDs and a partial-fill status. Do not wire any execution or reconciliation path to the new structures yet. Add model/migration tests and run the full backend suite plus SQLite migration check. Preserve all existing paper data and behavior.

@@ -114,3 +114,10 @@ Live trading is **NOT READY**. No live order placement should be enabled until c
 - Added `get_order_history` to the adapter contract and Upstox implementation using the official [Get Order History API](https://upstox.com/developer/api-documentation/get-order-history/). It accepts `order_id`, `tag`, or both; rejects empty queries, blank identifiers and tags longer than 40 characters before network access.
 - Mocked tests cover tag and order-ID queries plus invalid inputs. After fixing a missing test import found by CI, latest result is [200 backend tests passed, 1 warning, migration check passed](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033094768) and [frontend passed](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033094833).
 - This method is not wired into a live submit/recovery workflow. Next deliverable is a reviewed live order state-machine design; no live submission yet.
+
+
+## Live order state-machine design — 17 October 2026
+
+- Added [`LIVE_ORDER_STATE_MACHINE.md`](LIVE_ORDER_STATE_MACHINE.md), a design-only specification grounded in official Upstox docs for Place Order V3, Modify/Cancel V3, Order Details, Order History and Order Trades.
+- The design identifies the missing data model for one local order to multiple broker order IDs, unique trade IDs and partial fills; it also defines timeout recovery by stable tag, broker-confirmed cancel/modify states, atomic fill accounting, restart recovery and account-level risk gates.
+- This is documentation only; no live submission or accounting behavior changed. Next task is additive model/migration support with tests, still not wired to execution.

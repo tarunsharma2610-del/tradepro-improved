@@ -141,3 +141,9 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Added an adapter method for the official Upstox Order History API, supporting lookup by broker order ID and/or tag, with validation that blocks empty identifiers and tags over 40 characters before network access. Mocked tests cover all paths.
 - First CI attempt failed due to missing `AsyncMock` import; corrected in a follow-up commit. Latest CI passed: 200 backend tests, 1 warning, clean SQLite migration, frontend checks passed.
 - Next: document a broker-order state machine before implementing live execution, especially multi-order V3 responses, tag-based timeout recovery, partial fills, cancel/modify confirmation and restart safety.
+
+
+## Live order state-machine design — 17 October 2026
+
+- Added `LIVE_ORDER_STATE_MACHINE.md` before implementation. It documents current behavior, official endpoint response shapes, unknown timeout recovery, one-to-many broker order mapping, trade-level deduplication, partial-fill state transitions, confirmed modify/cancel, atomic accounting, restart recovery, risk gates and a test matrix.
+- No live submission path was implemented. Next task is schema/model groundwork only, with the existing PAPER-only guard preserved.

@@ -113,3 +113,8 @@
 - Added `get_order_history` to the broker interface and Upstox adapter, supporting order ID and/or stable tag with local validation and the documented 40-character tag limit.
 - Added mocked tests for tag lookup, order-ID lookup and invalid queries. The first CI run identified a missing `AsyncMock` import; fixed it, then verified the full suite.
 - CI on `8b66df970d2dda91c060583ed6065c0101cd7837`: backend **200 passed, 1 warning**, migration check passed, frontend checks passed.
+
+
+### 17 October 2026 — live order state-machine design
+- Added `LIVE_ORDER_STATE_MACHINE.md` to define a safe future live lifecycle before coding. It covers multi-ID V3 responses, tag-based timeout recovery, partial-fill/trade deduplication, cancel/modify confirmation, restart recovery, required schema and release gates.
+- Documentation only: no live order path added; PAPER-only execution gate unchanged.

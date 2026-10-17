@@ -32,3 +32,10 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - `backend/app/services/execution_service.py` now rejects order placement unless `TRADING_MODE` is exactly `PAPER` (case/whitespace normalized). This blocks LIVE and unknown values before portfolio/order processing.
 - Added regression test `test_live_mode_fails_closed_before_creating_order` in `backend/tests/test_execution_service.py`; it asserts LIVE mode raises and creates no order.
 - These changes are committed to the safety branch, but tests have not been executed in this environment. CI must pass before merge. This guard is a protective gate, not a live-execution implementation.
+
+
+## Audit-driven adapter correction
+- Repository-wide requirements review is recorded in `REQUIREMENTS_AUDIT.md`.
+- Updated `UpstoxAdapter.place_order` to use the current official `api-hft.upstox.com/v2/order/place` host; other adapter methods were not changed.
+- Added `backend/tests/test_upstox_adapter.py` using a mocked `_post` method. It verifies URL and payload only; no network request or real order is sent.
+- Awaiting CI on the latest branch commit before considering this adapter correction verified.

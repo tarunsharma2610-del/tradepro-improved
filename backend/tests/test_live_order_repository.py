@@ -347,7 +347,7 @@ def test_stale_open_status_after_full_fill_is_noop(db_session, make_user):
         user_id=user.id, intent_id=intent.id, expected_version=1, new_state="OPEN",
         broker_order_id="broker-order-filled",
     )
-    _record_fill(repository, user, connection, opened, quantity=1)
+    _record_fill(repository, user, connection, opened, quantity=1, broker_order_id="broker-order-filled")
     filled, changed = repository.apply_reconciliation_transition(
         user_id=user.id, intent_id=intent.id, expected_version=opened.version, new_state="FILLED",
         broker_order_id="broker-order-filled",
@@ -373,7 +373,7 @@ def test_cancelled_order_can_be_reconciled_to_filled_after_cancel_race(db_sessio
         user_id=user.id, intent_id=intent.id, expected_version=1, new_state="CANCELLED",
         broker_order_id="broker-order-cancel-race",
     )
-    _record_fill(repository, user, connection, cancelled, quantity=1)
+    _record_fill(repository, user, connection, cancelled, quantity=1, broker_order_id="broker-order-cancel-race")
     filled, changed = repository.apply_reconciliation_transition(
         user_id=user.id, intent_id=intent.id, expected_version=cancelled.version, new_state="FILLED",
         broker_order_id="broker-order-cancel-race", safe_details={"trade_evidence": "test"},

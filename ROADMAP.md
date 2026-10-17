@@ -76,3 +76,9 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - Commit changes to `tradepro-improved` and verify the exact commit SHA and GitHub Actions result. A successful older workflow does not validate a newer commit.
 - Distinguish implemented, unit-tested, sandbox-tested, staging-verified and production-verified states. Never claim a real Upstox session or order test without evidence.
 - Keep live trading disabled until all release gates and explicit authorization are complete.
+
+
+### Read-only reconciliation client — implementation started
+- [x] Added `backend/app/brokers/upstox/reconciliation_client.py`, a narrow fixed-path GET-only client for order book, order details, order history by order ID/tag, and per-order trades. It exposes no place/modify/cancel methods and classifies 401/403/429/5xx/network/timeout/non-JSON errors without returning response bodies.
+- [x] Added contract tests for documented endpoints, query parameters, missing token, sanitized failures and absence of write methods. [Run 39056868434](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056868434) passed **309 tests, 1 warning**; SQLite/PostgreSQL 16 migration checks passed.
+- [ ] Implement the worker orchestration, token/connection validation, bounded retries, job lease, order matching, fill import and safe summaries. No broker reads are called by the new client until the worker is implemented and invoked.

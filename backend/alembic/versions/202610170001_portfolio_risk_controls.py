@@ -20,7 +20,6 @@ def upgrade() -> None:
     op.add_column("portfolios", sa.Column("max_order_value", sa.Numeric(18, 2), nullable=True))
     op.add_column("portfolios", sa.Column("max_open_positions", sa.Integer(), nullable=True))
     op.add_column("portfolios", sa.Column("max_orders_per_day", sa.Integer(), nullable=True))
-    op.alter_column("portfolios", "risk_controls_enabled", server_default=None)
 
 
 def downgrade() -> None:

@@ -84,3 +84,34 @@ async def test_cancel_order_uses_official_upstox_v3_endpoint_without_network(mon
     assert captured["url"] == "https://api-hft.upstox.com/v3/order/cancel"
     assert captured["access_token"] == "test-token"
     assert captured["params"] == {"order_id": "sandbox-test-id"}
+
+
+@pytest.mark.asyncio
+async def test_get_order_trades_uses_official_read_only_endpoint_without_network(monkeypatch):
+    adapter = UpstoxAdapter()
+    captured = {}
+    response = {
+        "status": "success",
+        "data": [
+            {
+                "order_id": "sandbox-test-id",
+                "trade_id": "sandbox-trade-id",
+                "quantity": 1,
+                "average_price": 123.45,
+            }
+        ],
+    }
+
+    async def fake_get(url, access_token, params=None):
+        captured.update(url=url, access_token=access_token, params=params)
+        return BrokerCallResult(ok=True, data=response)
+
+    monkeypatch.setattr(adapter, "_get", fake_get)
+
+    result = await adapter.get_order_trades("test-token", "sandbox-test-id")
+
+    assert result.ok
+    assert captured["url"] == "https://api.upstox.com/v2/order/trades"
+    assert captured["access_token"] == "test-token"
+    assert captured["params"] == {"order_id": "sandbox-test-id"}
+    assert result.data["data"][0]["trade_id"] == "sandbox-trade-id"

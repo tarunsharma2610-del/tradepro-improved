@@ -130,6 +130,10 @@ class UpstoxAdapter(BrokerAdapter):
         # VERIFIED: upstox.com/developer/api-documentation/get-order-details
         return await self._get(f"{API_V2}/order/details", access_token, params={"order_id": order_id})
 
+    async def get_order_trades(self, access_token: str, order_id: str) -> BrokerCallResult:
+        # VERIFIED: upstox.com/developer/api-documentation/get-trades-by-order
+        return await self._get(f"{API_V2}/order/trades", access_token, params={"order_id": order_id})
+
     async def get_order_book(self, access_token: str) -> BrokerCallResult:
         # VERIFIED: upstox.com/developer/api-documentation/get-order-book
         return await self._get(f"{API_V2}/order/retrieve-all", access_token)

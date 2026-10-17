@@ -96,6 +96,11 @@ class BrokerAdapter(ABC):
         ...
 
     @abstractmethod
+    async def get_order_trades(self, access_token: str, order_id: str) -> BrokerCallResult:
+        """Return broker-reported fills/trades for one order; caller reconciles them safely."""
+        ...
+
+    @abstractmethod
     async def get_order_book(self, access_token: str) -> BrokerCallResult:
         ...
 

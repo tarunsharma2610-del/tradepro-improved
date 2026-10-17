@@ -34,6 +34,7 @@ from app.repositories.order_repository import OrderRepository
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.position_math import apply_fill
+from app.services.instrument_validation import validate_instrument_segment
 from app.services.transaction_costs import Segment, Side, calculate_costs
 
 
@@ -103,6 +104,11 @@ class ExecutionService:
         instrument = self.instruments.get_by_id(req.instrument_id)
         if instrument is None:
             raise OrderValidationError("Instrument not found.")
+
+        try:
+            validate_instrument_segment(instrument, req.segment)
+        except ValueError as exc:
+            raise OrderValidationError(str(exc)) from exc
 
         now = datetime.now(timezone.utc)
         order = Order(

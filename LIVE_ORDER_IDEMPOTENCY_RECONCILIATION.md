@@ -1,6 +1,6 @@
 # Durable Live-Order Idempotency and Broker Reconciliation — Design Only
 
-Status: reviewed design; NOT implemented. Live order placement remains disabled.
+Status: user-approved design; Phase 1 durable records/repository safeguards partially implemented. Broker submission and reconciliation remain NOT implemented; live order placement stays disabled.
 Date: 2026-10-17
 Scope: tradepro-improved only. Do not modify the original Tradepro repository.
 
@@ -152,3 +152,10 @@ Manual resolution must require appropriate authorization, reason, timestamp and 
 ## 10. Explicit non-goals / release blockers
 
 This document does not implement live placement, change the current execution path, enable live trading, run a database migration, connect to a real Upstox account, or submit any order. Do not infer real-broker behavior from mocks or from the presence of adapter methods. Until every gate is met, keep `TRADING_MODE=PAPER` and live submission hard-disabled.
+
+
+## Implementation checkpoint — Phase 1 — 2026-10-17
+
+The user explicitly approved this design. Phase 1 has added the intent, event, outbox and broker-fill identity SQLAlchemy models, additive migration `202610170002`, and repository safeguards. Canonical SHA-256 is derived by the repository from normalized JSON and authenticated user/portfolio/broker-connection scope. Same key + same payload reuses the intent; same key + different payload conflicts. Intent, initial audit event and outbox row are committed together. Ownership checks and unique constraints are covered by tests.
+
+Latest code/test checkpoint `397e760b8fabcd77ce1904b9c1350ca5ab0b3e00` passed GitHub Actions [run 39043177545](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043177545): 210 tests passed, 1 warning. This does not complete Gate 1: explicit concurrent race/rollback tests and staging migration verification against the deployment database engine remain open. No live order, broker POST, production migration, or reconciliation was performed.

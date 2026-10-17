@@ -1,0 +1,152 @@
+"""Repository safeguards for durable live-order intent creation.
+
+This module persists intent/audit/outbox records only. It deliberately has no broker adapter
+dependency and cannot submit, cancel, or reconcile broker orders.
+"""
+import re
+import uuid
+from typing import Any
+
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.models.broker_connection import BrokerConnection
+from app.models.live_order_records import LiveOrderEvent, LiveOrderIntent, LiveOrderOutbox
+from app.models.portfolio import Portfolio
+
+
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+class IdempotencyConflict(ValueError):
+    """The same client key was reused for a different economic request."""
+
+
+class LiveOrderRepository:
+    """Persist live intent + outbox + initial audit event as one DB transaction."""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_by_idempotency_key(
+        self, user_id: uuid.UUID, broker_connection_id: uuid.UUID, client_idempotency_key: str
+    ) -> LiveOrderIntent | None:
+        return (
+            self.db.query(LiveOrderIntent)
+            .filter(
+                LiveOrderIntent.user_id == user_id,
+                LiveOrderIntent.broker_connection_id == broker_connection_id,
+                LiveOrderIntent.client_idempotency_key == client_idempotency_key,
+            )
+            .first()
+        )
+
+    def create_or_get_intent(
+        self,
+        *,
+        user_id: uuid.UUID,
+        portfolio_id: uuid.UUID,
+        broker_connection_id: uuid.UUID,
+        client_idempotency_key: str,
+        request_hash: str,
+        order_snapshot: dict[str, Any],
+        correlation_id: str | None = None,
+    ) -> tuple[LiveOrderIntent, bool]:
+        """Return (intent, created). Same key/hash is idempotent; key/hash mismatch conflicts.
+
+        Ownership is checked against both portfolio and broker connection. The intent, outbox,
+        and first event are committed together. Unique constraints arbitrate concurrent requests.
+        """
+        key = client_idempotency_key.strip()
+        if not key or len(key) > 128:
+            raise ValueError("client_idempotency_key must contain 1-128 non-whitespace characters")
+        if not _SHA256.fullmatch(request_hash):
+            raise ValueError("request_hash must be a lowercase SHA-256 hex digest")
+        if not isinstance(order_snapshot, dict) or not order_snapshot:
+            raise ValueError("order_snapshot must be a non-empty normalized order object")
+
+        portfolio = self.db.query(Portfolio).filter(
+            Portfolio.id == portfolio_id, Portfolio.user_id == user_id
+        ).first()
+        connection = self.db.query(BrokerConnection).filter(
+            BrokerConnection.id == broker_connection_id, BrokerConnection.user_id == user_id
+        ).first()
+        if portfolio is None or connection is None:
+            raise ValueError("portfolio and broker connection must belong to the authenticated user")
+
+        existing = self.get_by_idempotency_key(user_id, broker_connection_id, key)
+        if existing is not None:
+            if existing.request_hash != request_hash:
+                raise IdempotencyConflict("idempotency key already exists with a different request payload")
+            return existing, False
+
+        intent = LiveOrderIntent(
+            user_id=user_id,
+            portfolio_id=portfolio_id,
+            broker_connection_id=broker_connection_id,
+            client_idempotency_key=key,
+            request_hash=request_hash,
+            order_snapshot=order_snapshot,
+            state="CREATED",
+        )
+        try:
+            self.db.add(intent)
+            self.db.flush()
+            self.db.add(LiveOrderOutbox(intent_id=intent.id, status="READY"))
+            self.db.add(
+                LiveOrderEvent(
+                    intent_id=intent.id,
+                    event_type="INTENT_CREATED",
+                    correlation_id=correlation_id,
+                    actor_user_id=user_id,
+                    safe_details={"state": "CREATED", "outbox": "READY"},
+                )
+            )
+            self.db.commit()
+            self.db.refresh(intent)
+            return intent, True
+        except IntegrityError:
+            # A concurrent request may have won the unique-key race. Roll back our entire
+            # transaction before looking up that winner; no orphan outbox/event is retained.
+            self.db.rollback()
+            winner = self.get_by_idempotency_key(user_id, broker_connection_id, key)
+            if winner is None:
+                raise
+            if winner.request_hash != request_hash:
+                raise IdempotencyConflict(
+                    "idempotency key already exists with a different request payload"
+                )
+            return winner, False
+
+    def append_event(
+        self,
+        *,
+        user_id: uuid.UUID,
+        intent_id: uuid.UUID,
+        event_type: str,
+        safe_details: dict[str, Any] | None = None,
+        correlation_id: str | None = None,
+    ) -> LiveOrderEvent:
+        """Append an audit event only for an intent owned by the authenticated user.
+
+        Callers must pass redacted, non-secret details; access tokens and authorization headers
+        must never be stored in event details.
+        """
+        if not event_type.strip() or len(event_type) > 50:
+            raise ValueError("event_type must contain 1-50 characters")
+        intent = self.db.query(LiveOrderIntent).filter(
+            LiveOrderIntent.id == intent_id, LiveOrderIntent.user_id == user_id
+        ).first()
+        if intent is None:
+            raise ValueError("live-order intent not found for authenticated user")
+        event = LiveOrderEvent(
+            intent_id=intent_id,
+            event_type=event_type,
+            correlation_id=correlation_id,
+            actor_user_id=user_id,
+            safe_details=safe_details,
+        )
+        self.db.add(event)
+        self.db.commit()
+        self.db.refresh(event)
+        return event

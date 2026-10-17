@@ -27,6 +27,7 @@ const navigation = [
   { href: "/backtests", title: "Strategy backtests", description: "Test a strategy on historical market data before using it." },
   { href: "/news", title: "Market news", description: "Review collected market news and related instruments." },
   { href: "/settings/broker", title: "Broker connection", description: "Connect and test your Upstox session." },
+  { href: "/reconciliation", title: "Reconciliation review", description: "Review read-only broker reconciliation runs and manual-review issues." },
   { href: "/settings/notifications", title: "Notifications", description: "Configure Telegram and WhatsApp notifications." },
 ];
 

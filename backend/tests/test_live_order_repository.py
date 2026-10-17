@@ -1,4 +1,3 @@
-import hashlib
 import uuid
 
 import pytest
@@ -40,13 +39,11 @@ def _intent_args(user, portfolio, connection, *, key="request-123", snapshot=Non
         "limit_price": "100.00",
         "product": "D",
     }
-    digest = hashlib.sha256(repr(sorted(snapshot.items())).encode()).hexdigest()
     return {
         "user_id": user.id,
         "portfolio_id": portfolio.id,
         "broker_connection_id": connection.id,
         "client_idempotency_key": key,
-        "request_hash": digest,
         "order_snapshot": snapshot,
         "correlation_id": "test-correlation",
     }
@@ -93,7 +90,6 @@ def test_same_key_with_different_request_hash_conflicts(db_session, make_user):
     repository.create_or_get_intent(**args)
 
     changed = dict(args)
-    changed["request_hash"] = hashlib.sha256(b"different economic request").hexdigest()
     changed["order_snapshot"] = {"instrument_key": "NSE_EQ|OTHER", "side": "BUY", "quantity": 1}
 
     with pytest.raises(IdempotencyConflict):
@@ -125,8 +121,8 @@ def test_repository_validates_key_and_hash(db_session, make_user):
         repository.create_or_get_intent(**args)
 
     args = _intent_args(user, portfolio, connection)
-    args["request_hash"] = "not-a-hash"
-    with pytest.raises(ValueError, match="SHA-256"):
+    args["order_snapshot"] = {"limit_price": float("nan")}
+    with pytest.raises(ValueError):
         repository.create_or_get_intent(**args)
 
 

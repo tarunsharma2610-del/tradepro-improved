@@ -11,7 +11,8 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 | Order input validation | Improved | Service boundary rejects non-positive quantities, unsupported order types, missing/non-positive LIMIT prices, and a limit price attached to MARKET orders. API schema also rejects non-positive limit prices. |
 | Quote price parsing | Improved | Rejects malformed, non-finite, zero, and negative LTP values before paper accounting. |
 | Paper limit orders | Implemented; tests passed | Worker checks pending PAPER LIMIT orders during market passes, fills only when LTP crosses the limit, uses limit-or-better pricing, shares cost/cash/position accounting, and rejects delivery sells without holdings. Owners can cancel pending orders from the portfolio page. |
-| Live order placement | Incomplete / not enabled | Shared execution service still records PAPER orders; broker order placement and execution reconciliation are not complete. Do not enable live orders. |
+| Live order placement | Incomplete / not enabled | Shared execution service still records PAPER orders; Phase 1 now has durable intent/outbox/audit/fill-identity storage and repository idempotency safeguards, but no broker placement or reconciliation worker. Do not enable live orders. |
+| Durable live-order records | Phase 1 partial; latest code CI passed | Additive Alembic revision `202610170002`, unique key + canonical request hash, ownership checks, transactionally persisted intent/outbox/initial event, and stable broker fill identity constraint. 210 tests passed in [run 39043177545](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043177545). Concurrent race/rollback tests and deployment-engine staging verification remain open. |
 | Strategy activation | Fixed | Strategy evaluation returns HOLD for inactive strategies before contacting the broker; regression test added. |
 | Daily risk controls | Portfolio-level manual controls implemented; strategy guard preserved | The portfolio settings UI/API supports manually configured daily realized-loss, estimated exposure, per-order value, open/pending position and daily-order limits. They are disabled by default, enforced on paper/strategy order paths, and calculated using the Asia/Kolkata day. Exposure remains a cost-basis estimate, not broker margin/mark-to-market risk. |
 | Broker OAuth | Improved | State is signed, expires after 10 minutes, and is bound to user/broker/connection. A nonce digest and expiry are persisted and consumed by a conditional database update, so repeated/concurrent callback attempts cannot consume the same state twice. |
@@ -120,3 +121,21 @@ Reviewed official Upstox Place Order V2/V3, Order History, Order Book, Order Det
 - Verified the prior documentation commit series exists on default branch `main`; latest prior progress commit `3263eda9d1329d17069dd4140162602631639a0b` has successful CI: [run 39040715054](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39040715054).
 - The new roadmap commit is `3024aed473f28409bd075ec7e764576890c4ecfa`; its own CI must be checked separately before reporting it green.
 - No application code or schema was changed by the roadmap addition. No tests were run locally, no production migration was run, and no real broker order was submitted.
+
+
+## Phase 1 — durable live-order records and repository safeguards — 2026-10-17
+
+### Implemented in `tradepro-improved`
+- User-approved design: `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`. The approval authorizes storage/repository safeguards only; it does not authorize enabling live trading.
+- Added `backend/app/models/live_order_records.py` with `LiveOrderIntent`, `LiveOrderEvent`, `LiveOrderOutbox`, and `BrokerFillIdentity`. Records include scoped idempotency uniqueness, canonical request hash storage, broker order identity uniqueness, optimistic version/attempt counters, audit correlation metadata, and stable broker trade ID uniqueness.
+- Added additive Alembic revision `backend/alembic/versions/202610170002_live_order_durability.py`, registered the models in `backend/app/models/__init__.py`, and added `backend/app/repositories/live_order_repository.py`.
+- Repository checks that both portfolio and broker connection belong to the authenticated user. It computes SHA-256 from deterministic canonical JSON plus user/portfolio/connection scope; the client cannot supply a hash that disagrees with the snapshot. Same key + same canonical payload returns the original intent; same key + different payload raises `IdempotencyConflict`. Intent, initial event and outbox row commit together; unique-key races roll back and re-read the winner.
+- Added `backend/tests/test_live_order_repository.py` for atomic record creation, idempotent reuse, payload conflict, ownership isolation, invalid/non-finite payload rejection, broker-fill uniqueness and audit ownership.
+- Exact code/test checkpoint `397e760b8fabcd77ce1904b9c1350ca5ab0b3e00` passed GitHub Actions [run 39043177545](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043177545): **210 passed, 1 warning**, including clean SQLite Alembic upgrade.
+- Two intermediate commits failed CI during the canonical-hash API/test-fixture transition; the later checkpoint corrected the mismatch and is green. Those failures are retained in Actions history rather than hidden.
+- No real broker order was submitted. No production database was migrated. This code does not yet implement a dispatch worker, live-order API, broker reconciliation, broker fill ingestion or concurrent race/rollback stress tests.
+
+### Remaining Gate 1 work
+- Add deterministic tests for concurrent same-key creation and transaction rollback atomicity.
+- Verify migration downgrade/upgrade and constraints against a backup-restored staging copy of the actual deployment database engine.
+- Continue to preserve PAPER/live isolation; live submission remains disabled.

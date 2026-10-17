@@ -23,9 +23,13 @@
 - The test suite uses mocks/SQLite and does not verify real broker execution.
 - No real broker orders were submitted.
 
+### Additional improvement — portfolio daily-loss guard
+7. Extended the existing risk engine to aggregate today's realized losses across every fill in a portfolio, including manual orders, and block new automated strategy entries when losses reach configurable PORTFOLIO_DAILY_LOSS_LIMIT_PCT of starting virtual capital (default 2%; set to 0 to disable).
+8. Added regression coverage below, at, and above the threshold. This only gates automated strategy entries; it does not guard manual order submission or provide a live-trading risk system.
+
 ### Remaining blockers
 - Durable order idempotency and broker reconciliation.
-- Portfolio-wide daily-loss, exposure, max-order-value/position-size controls and broker-error circuit breaker.
+- Portfolio-wide exposure, max-order-value/position-size controls and broker-error circuit breaker.
 - Complete live-order lifecycle (broker-confirmed partial/full fills, cancellation/modification, timeouts and restart recovery).
 - Verified full instrument-master sync and WebSocket feed.
 - Market-hours/holiday handling, operational monitoring and production TLS/staging verification.

@@ -212,3 +212,49 @@ async def test_cannot_place_an_order_on_another_users_portfolio(db_session, port
                 order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=1,
             ),
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_price", ["NaN", "Infinity", "-1", "0", "not-a-price"])
+async def test_invalid_quote_price_is_rejected_without_changing_portfolio(db_session, portfolio, instrument, bad_price):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    service = ExecutionService(db_session)
+
+    with _mock_quote(bad_price):
+        order = await service.place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="MARKET",
+                segment=Segment.EQUITY_DELIVERY,
+                quantity=1,
+            ),
+        )
+
+    assert order.status == "REJECTED"
+    assert "price" in order.rejection_reason.lower() or "last traded" in order.rejection_reason.lower()
+    db_session.refresh(p)
+    assert p.cash_balance == Decimal("100000")
+
+
+@pytest.mark.asyncio
+async def test_invalid_limit_order_input_is_rejected_before_database_order_creation(db_session, portfolio, instrument):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+
+    with pytest.raises(OrderValidationError, match="positive limit price"):
+        await service.place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="LIMIT",
+                segment=Segment.EQUITY_DELIVERY,
+                quantity=1,
+                limit_price=Decimal("0"),
+            ),
+        )

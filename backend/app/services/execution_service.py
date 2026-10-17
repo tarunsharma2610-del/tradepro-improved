@@ -15,7 +15,7 @@ crosses — see README known limitations.
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
@@ -71,6 +71,13 @@ class ExecutionService:
         instrument = self.instruments.get_by_id(req.instrument_id)
         if instrument is None:
             raise OrderValidationError("Instrument not found.")
+
+        if req.quantity <= 0:
+            raise OrderValidationError("Order quantity must be greater than zero.")
+        if req.order_type not in {"MARKET", "LIMIT"}:
+            raise OrderValidationError("Unsupported order type.")
+        if req.order_type == "LIMIT" and (req.limit_price is None or req.limit_price <= 0):
+            raise OrderValidationError("LIMIT orders require a positive limit price.")
 
         now = datetime.now(timezone.utc)
         order = Order(
@@ -185,12 +192,21 @@ def _extract_ltp(quote_data: Any, instrument_key: str) -> Decimal | None:
     if not isinstance(payload, dict):
         return None
 
+    def parse_price(value: Any) -> Decimal | None:
+        try:
+            price = Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+        return price if price.is_finite() and price > 0 else None
+
     direct = payload.get(instrument_key)
     if isinstance(direct, dict) and "last_price" in direct:
-        return Decimal(str(direct["last_price"]))
+        return parse_price(direct["last_price"])
 
     for value in payload.values():
         if isinstance(value, dict) and "last_price" in value:
-            return Decimal(str(value["last_price"]))
+            parsed = parse_price(value["last_price"])
+            if parsed is not None:
+                return parsed
 
     return None

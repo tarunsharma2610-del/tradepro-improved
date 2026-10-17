@@ -13,7 +13,7 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 | Paper limit orders | Implemented; tests passed | Worker checks pending PAPER LIMIT orders during market passes, fills only when LTP crosses the limit, uses limit-or-better pricing, shares cost/cash/position accounting, and rejects delivery sells without holdings. Owners can cancel pending orders from the portfolio page. |
 | Live order placement | Incomplete / not enabled | Shared execution service still records PAPER orders; broker order placement and execution reconciliation are not complete. Do not enable live orders. |
 | Strategy activation | Fixed | Strategy evaluation returns HOLD for inactive strategies before contacting the broker; regression test added. |
-| Daily risk controls | Partial | Existing strategy-level daily-loss guard remains. Portfolio-wide loss, exposure, and order-frequency caps still need implementation and tests. |
+| Daily risk controls | Partial | Existing strategy-level daily-loss guard remains. An environment-controlled emergency switch now blocks new automated strategy entries while allowing exits. Portfolio-wide loss, exposure, and order-frequency caps still need implementation and tests. |
 | Broker OAuth | Improved | State is signed, expires after 10 minutes, and is bound to user/broker/connection. A nonce digest and expiry are persisted and consumed by a conditional database update, so repeated/concurrent callback attempts cannot consume the same state twice. |
 | OAuth schema migration | Added; deployment not yet verified | `202608220001_oauth_state_replay.py` adds the two nullable state columns. Apply and verify migrations in a backup-safe staging environment before deploying to an existing database. |
 | Upstox instrument sync / streaming | Missing | Adapter still has unimplemented instrument-sync and market-data-streaming work. Implement against current official API documentation and test with paper data. |
@@ -32,6 +32,7 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 7. Added an authenticated cancel endpoint and portfolio UI action for pending paper orders, with ownership and status checks.
 8. Replaced the duplicate root broker-settings page with an account dashboard.
 9. Updated the frontend check command for Next.js 16.
+11. Added an environment-controlled emergency kill switch for automated strategy entries, with a regression test proving it blocks entry without creating a position; exits remain available.
 10. Added GitHub Actions workflows for backend tests and frontend typecheck/build.
 
 ## Verification
@@ -44,7 +45,7 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 ## Remaining high-priority work
 
-1. Add durable order idempotency/reconciliation and an emergency kill switch before any live-trading implementation.
+1. Add durable order idempotency/reconciliation before any live-trading implementation. The automated-entry kill switch is now present but must be included in deployment configuration and operational runbooks.
 2. Add portfolio-wide loss/exposure controls and an exchange holiday calendar.
 3. Implement instrument master sync and WebSocket market data using current official Upstox documentation.
 4. Verify the Alembic migration path in staging and check the current deployment configuration.

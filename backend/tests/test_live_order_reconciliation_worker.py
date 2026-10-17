@@ -4,7 +4,7 @@ import pytest
 
 from app.brokers.upstox.reconciliation_client import ReadOnlyBrokerResult
 from app.models.broker_connection import BrokerConnection
-from app.models.live_order_records import BrokerFillIdentity, LiveOrderIntent, LiveReconciliationLease, LiveReconciliationRun
+from app.models.live_order_records import BrokerFillIdentity, LiveOrderIntent, LiveReconciliationIssue, LiveReconciliationLease, LiveReconciliationRun
 from app.models.portfolio import Portfolio
 from app.repositories.live_order_repository import LiveOrderRepository
 from app.repositories.live_reconciliation_lease_repository import LiveReconciliationLeaseRepository
@@ -411,3 +411,56 @@ async def test_worker_persists_sanitized_failure_summary(db_session, make_user):
         "orders_seen": 0, "orders_matched": 0, "orders_unmatched": 0,
         "trades_seen": 0, "fills_inserted": 0, "duplicate_fills": 0, "conflicts": 0,
     }
+
+
+
+@pytest.mark.asyncio
+async def test_worker_persists_and_deduplicates_unmatched_order_review_issue(db_session, make_user):
+    user, portfolio, connection = _setup(db_session, make_user)
+    _intent(db_session, user, portfolio, connection, tag="different-local-tag")
+    client = _FakeReadClient(
+        orders=[_order(tag="broker-tag-without-match", order_id="manual-order-88")],
+        trades=[],
+    )
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token", sleeper=_no_sleep
+    )
+
+    first = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+    second = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    issues = db_session.query(LiveReconciliationIssue).filter_by(
+        broker_connection_id=connection.id, broker_order_id="manual-order-88"
+    ).all()
+    assert first.status == second.status == "COMPLETED"
+    assert len(issues) == 1
+    assert issues[0].issue_type == "UNMATCHED_ORDER"
+    assert issues[0].status == "OPEN"
+    assert issues[0].occurrence_count == 2
+    assert issues[0].safe_details == {
+        "match_status": "NO_MATCH", "reason_code": "ORDER_NOT_SAFELY_MATCHED",
+    }
+
+
+@pytest.mark.asyncio
+async def test_worker_persists_invalid_trade_as_safe_review_issue(db_session, make_user):
+    user, portfolio, connection = _setup(db_session, make_user)
+    client = _FakeReadClient(
+        orders=[],
+        trades=[_trade(average_price="NaN")],
+    )
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token", sleeper=_no_sleep
+    )
+
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    issue = db_session.query(LiveReconciliationIssue).filter_by(
+        broker_connection_id=connection.id, issue_type="INVALID_TRADE_RECORD"
+    ).one()
+    assert result.status == "COMPLETED_WITH_CONFLICTS"
+    assert issue.status == "OPEN"
+    assert issue.safe_details == {
+        "record_index": 0, "reason_code": "TRADE_NORMALIZATION_FAILED",
+    }
+    assert "NaN" not in str(issue.safe_details)

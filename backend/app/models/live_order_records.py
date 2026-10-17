@@ -153,3 +153,40 @@ class LiveReconciliationRun(BaseModel):
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # Only numeric counters; never store raw broker payloads or credentials here.
     summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class LiveReconciliationIssue(BaseModel):
+    """Deduplicated, credential-safe item requiring manual reconciliation review."""
+
+    __tablename__ = "live_reconciliation_issues"
+    __table_args__ = (
+        UniqueConstraint(
+            "broker_connection_id", "fingerprint",
+            name="uq_reconciliation_issue_connection_fingerprint",
+        ),
+        CheckConstraint("occurrence_count >= 1", name="ck_reconciliation_issue_occurrence_positive"),
+        CheckConstraint("status IN ('OPEN', 'RESOLVED')", name="ck_reconciliation_issue_status"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    broker_connection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("broker_connections.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("live_reconciliation_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    intent_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("live_order_intents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    issue_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    broker_order_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    broker_trade_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="OPEN", server_default="OPEN", index=True)
+    safe_details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    occurrence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

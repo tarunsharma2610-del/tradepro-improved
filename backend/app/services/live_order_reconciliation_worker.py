@@ -20,6 +20,7 @@ from app.models.live_order_records import BrokerFillIdentity, LiveOrderIntent
 from app.repositories.live_order_repository import LiveOrderRepository
 from app.repositories.live_reconciliation_lease_repository import LiveReconciliationLeaseRepository
 from app.repositories.live_order_reconciliation_run_repository import LiveReconciliationRunRepository
+from app.repositories.live_reconciliation_issue_repository import LiveReconciliationIssueRepository
 from app.services.live_order_reconciliation import (
     BrokerOrderDataError,
     ReconciliationIntentCandidate,
@@ -91,6 +92,7 @@ class LiveOrderReconciliationWorker:
         self.lease_seconds = lease_seconds
         self.lease_repository = LiveReconciliationLeaseRepository(db)
         self.run_repository = LiveReconciliationRunRepository(db)
+        self.issue_repository = LiveReconciliationIssueRepository(db)
         self.order_repository = LiveOrderRepository(db)
 
     async def run_for_connection(
@@ -130,7 +132,7 @@ class LiveOrderReconciliationWorker:
             return ReconciliationRunResult(status="FAILED", error_code="RUN_RECORD_CREATE_FAILED")
 
         try:
-            result = await self._run_claimed(user_id, broker_connection_id, lease_token)
+            result = await self._run_claimed(user_id, broker_connection_id, lease_token, run_id=run.id)
         except _WorkerFailure as exc:
             result = ReconciliationRunResult(status="FAILED", error_code=exc.code)
         except Exception:
@@ -209,7 +211,7 @@ class LiveOrderReconciliationWorker:
             raise _WorkerFailure("LEASE_LOST")
 
     async def _run_claimed(
-        self, user_id: UUID, connection_id: UUID, lease_token: UUID
+        self, user_id: UUID, connection_id: UUID, lease_token: UUID, *, run_id: UUID
     ) -> ReconciliationRunResult:
         access_token = self._get_access_token(user_id)
         if not access_token:
@@ -279,6 +281,12 @@ class LiveOrderReconciliationWorker:
                     result.duplicate_fills += 1
             except (BrokerOrderDataError, ValueError, RuntimeError):
                 result.conflicts += 1
+                self.issue_repository.record(
+                    user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
+                    issue_type="TRADE_PERSISTENCE_CONFLICT",
+                    broker_order_id=trade.broker_order_id, broker_trade_id=trade.broker_trade_id,
+                    safe_details={"reason_code": "TRADE_RECORD_REJECTED"},
+                )
 
         for index, record in enumerate(order_records):
             if index % 25 == 0:
@@ -288,6 +296,11 @@ class LiveOrderReconciliationWorker:
                 order = normalize_upstox_order(record)
             except BrokerOrderDataError:
                 result.conflicts += 1
+                self.issue_repository.record(
+                    user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
+                    issue_type="INVALID_ORDER_RECORD",
+                    safe_details={"record_index": index, "reason_code": "ORDER_NORMALIZATION_FAILED"},
+                )
                 continue
             match = match_broker_order_to_intent(
                 order, candidates, broker_connection_id=str(connection_id)
@@ -296,6 +309,12 @@ class LiveOrderReconciliationWorker:
                 result.orders_unmatched += 1
                 if match.status != "NO_MATCH":
                     result.conflicts += 1
+                self.issue_repository.record(
+                    user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
+                    issue_type="UNMATCHED_ORDER" if match.status == "NO_MATCH" else "ORDER_MATCH_REQUIRES_REVIEW",
+                    broker_order_id=order.broker_order_id,
+                    safe_details={"match_status": match.status, "reason_code": "ORDER_NOT_SAFELY_MATCHED"},
+                )
                 continue
 
             try:
@@ -310,6 +329,11 @@ class LiveOrderReconciliationWorker:
             ).first()
             if intent is None:
                 result.conflicts += 1
+                self.issue_repository.record(
+                    user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
+                    issue_type="MATCHED_INTENT_NOT_FOUND", broker_order_id=order.broker_order_id,
+                    safe_details={"reason_code": "MATCHED_INTENT_NOT_FOUND"},
+                )
                 continue
 
             # Link the order ID first without treating status alone as fill evidence.
@@ -337,6 +361,12 @@ class LiveOrderReconciliationWorker:
                 )
             except (ValueError, RuntimeError):
                 result.conflicts += 1
+                self.issue_repository.record(
+                    user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
+                    intent_id=intent_id, broker_order_id=order.broker_order_id,
+                    issue_type="ORDER_STATUS_TRANSITION_CONFLICT",
+                    safe_details={"reason_code": "ORDER_LINK_OR_STATUS_TRANSITION_REJECTED"},
+                )
                 continue
 
             # Consume this candidate as soon as its broker order ID is durably linked;
@@ -362,6 +392,12 @@ class LiveOrderReconciliationWorker:
                     )
                 except (ValueError, RuntimeError):
                     result.conflicts += 1
+                    self.issue_repository.record(
+                        user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
+                        intent_id=intent_id, broker_order_id=order.broker_order_id,
+                        broker_trade_id=fill.broker_trade_id, issue_type="FILL_LINK_CONFLICT",
+                        safe_details={"reason_code": "FILL_FAILED_INTENT_VALIDATION"},
+                    )
 
             refreshed = self.db.query(LiveOrderIntent).filter(
                 LiveOrderIntent.id == intent_id,
@@ -386,6 +422,12 @@ class LiveOrderReconciliationWorker:
                 result.orders_matched += 1
             except (ValueError, RuntimeError):
                 result.conflicts += 1
+                self.issue_repository.record(
+                    user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
+                    intent_id=intent_id, broker_order_id=order.broker_order_id,
+                    issue_type="ORDER_STATUS_TRANSITION_CONFLICT",
+                    safe_details={"reason_code": "BROKER_STATUS_CONFLICTS_WITH_FILL_EVIDENCE"},
+                )
 
         if result.conflicts:
             result.status = "COMPLETED_WITH_CONFLICTS"

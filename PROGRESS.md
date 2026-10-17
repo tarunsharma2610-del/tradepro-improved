@@ -19,13 +19,16 @@ Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b66302
 - [ ] OAuth schema migration needs staging verification before deployment.
 
 ## Current phase
-**Phase B — Audit live-execution safety before touching execution code.**
+**Phase C — Safety requirements mapped; next inspect existing paper/live isolation tests.**
 - Added `PROJECT_INSTRUCTIONS.md` with the mandatory workflow and safety rules (commit `8d7d9d8257f852f3d26e0564be8b521b0fe75764`).
 - Added this `PROGRESS.md` tracker (commit `9986380d8f4ee8939718c858ea9ab925da3f65b1`).
 - Inspected `backend/app/services/execution_service.py`, `backend/app/services/strategy_execution_service.py`, `backend/app/services/risk_engine.py`, `backend/app/core/config.py`, `backend/app/models/order.py`, `backend/app/brokers/upstox/adapter.py`, and relevant execution tests.
 - Confirmed the execution service currently creates orders with `trading_mode="PAPER"`; live broker order placement is not wired into this service. This is a deliberate safety boundary, not something to bypass.
 - Confirmed the risk engine currently covers strategy-specific realized daily loss only; portfolio-wide loss/exposure/order-frequency caps are not present in the inspected module.
 - Confirmed the Upstox adapter explicitly returns incomplete/not-implemented results for instrument-master sync and WebSocket streaming.
+- Added a requirements-to-code/test gap map to `AUDIT_REPORT.md` (commit `ed0d18a0f03a45274ced3a4f237fbcca74f8ac2e`). It maps paper/live isolation, idempotency, risk limits, kill-switch scope, instrument sync, streaming, and migration verification.
+- Corrected `README.md` so it no longer incorrectly lists the existing automated-entry kill switch as wholly unimplemented; it now distinguishes that switch from a global live-account kill switch (commit `611d5edbf476bc56682bb8af86ff8c216a38097e`).
+- Confirmed the backend CI workflow run for the preceding documentation commit succeeded: [run 39036087413](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036087413). This is documentation-change CI, not new application-code test coverage.
 - No application-code change or new test has been performed in this session. The GitHub connector can read/write repository files but cannot execute project test commands.
 
 ## Prior audit / CI evidence
@@ -41,4 +44,4 @@ After each coherent step, update this tracker with:
 6. The next single action.
 
 ## Next action
-Create a concrete requirements-to-code/test gap map in `AUDIT_REPORT.md`, prioritizing paper/live isolation and backend risk limits. Then implement and regression-test the smallest safe high-priority gap using an environment where tests can actually run. Do not wire or enable real order submission until broker reconciliation, risk controls, security and end-to-end tests are verified and the user explicitly authorizes it.
+Inspect existing `backend/tests/test_execution_service.py` and related broker tests to verify whether they explicitly assert that PAPER execution never calls `BrokerAdapter.place_order`. If missing, add a focused regression test and run it in a test-capable environment; if the available GitHub connector cannot edit/run code tests, report that limitation and do not pretend the test was executed. Do not wire or enable real order submission until broker reconciliation, risk controls, security and end-to-end tests are verified and the user explicitly authorizes it.

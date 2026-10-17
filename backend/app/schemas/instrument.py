@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -25,3 +26,6 @@ class InstrumentOut(BaseModel):
     trading_symbol: str
     name: str
     lot_size: int
+    expiry: date | None = None
+    strike_price: float | None = None
+    option_type: str | None = None

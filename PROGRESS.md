@@ -94,5 +94,12 @@ After each coherent step, update this tracker with:
 - Commit: `3a518d8f7605ab066297b37dc18f4df4d225259c`.
 - Backend CI passed: **195 tests passed, 1 warning**; SQLite Alembic migration verification passed. Workflow: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39039143042.
 
+## Latest continuation step — exact-instrument quote safety
+- Audited `_extract_ltp` in `backend/app/services/execution_service.py`. The old fallback scanned unrelated response entries when the requested key was absent, risking use of a different instrument's LTP.
+- Removed the arbitrary-entry fallback; quote parsing now returns no price unless the exact requested `instrument_key` has a valid positive finite `last_price`.
+- Added `test_quote_parser_uses_only_the_requested_instrument_key` in `backend/tests/test_execution_service.py`, covering both exact-key acceptance and wrong-key rejection.
+- Code commit: `8bddac0ae09e43d91b3da990dc7a014f6721c325`; regression-test commit: `7403739c5a1f97aaed84e145958f9aa05f2f3f61`.
+- CI passed: **196 tests passed, 1 warning**; SQLite Alembic migration verification passed. Workflow: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39039234333.
+
 ## Next action
-Fix unsafe quote parsing in `backend/app/services/execution_service.py`: `_extract_ltp` currently scans arbitrary response entries if the exact requested `instrument_key` is absent, which can accidentally price a paper fill with another instrument's quote. Make it fail closed and add a regression test, then run backend CI. Frontend TypeScript and production build passed for stream-control UI commit 6ec32fefda4ba357bde0fc5997cd32d6b58b4979: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093. The live instrument-master workflow passed with 123,930 active instruments in temporary SQLite: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129. Keep live trading disabled.
+Add a focused regression test for the manually configured `max_orders_per_day` portfolio cap, then run the backend suite and migration check. Keep all tests mocked/paper-only; no real broker orders. Frontend TypeScript and production build passed for stream-control UI commit 6ec32fefda4ba357bde0fc5997cd32d6b58b4979: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093. The live instrument-master workflow passed with 123,930 active instruments in temporary SQLite: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129. Keep live trading disabled.

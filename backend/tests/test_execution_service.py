@@ -9,7 +9,7 @@ from app.models.execution import Execution
 from app.models.order import Order
 from app.core.encryption import encrypt_value
 from app.repositories.portfolio_repository import PortfolioRepository
-from app.services.execution_service import ExecutionService, OrderValidationError
+from app.services.execution_service import ExecutionService, OrderValidationError, _extract_ltp
 from app.services.execution_service import PlaceOrderRequest as ServicePlaceOrderRequest
 from app.services.instrument_service import InstrumentService
 from app.services.transaction_costs import Segment, Side
@@ -724,3 +724,12 @@ async def test_paper_market_order_never_calls_broker_live_order_endpoint(db_sess
         assert order.trading_mode == "PAPER"
         assert order.status == "FILLED"
         adapter.place_order.assert_not_awaited()
+
+
+
+def test_quote_parser_uses_only_the_requested_instrument_key():
+    requested = "NSE_EQ|INE002A01018"
+    other = "NSE_EQ|OTHER_INSTRUMENT"
+
+    assert _extract_ltp({"data": {requested: {"last_price": "123.45"}}}, requested) == Decimal("123.45")
+    assert _extract_ltp({"data": {other: {"last_price": "9999.00"}}}, requested) is None

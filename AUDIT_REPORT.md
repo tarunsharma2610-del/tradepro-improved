@@ -23,7 +23,9 @@ Audit target: imported code on main in this repository. The original Tradepro re
 1. Strategy evaluation now returns HOLD immediately when a strategy is inactive. This closes a bypass in the manual evaluate path without changing worker behavior or active-strategy behavior.
 2. A regression test verifies an inactive strategy does not call the broker adapter.
 3. Broker OAuth now uses a signed, expiring state token bound to the user, broker, and connection; the frontend returns the state to the backend and the backend rejects mismatches before exchanging the code.
-4. Added a GitHub Actions workflow intended to run the backend test suite on relevant pushes and pull requests.
+4. Order execution now rejects invalid quantities, unsupported order types, and missing/non-positive limit prices at the service boundary.
+5. Last-traded-price parsing now rejects non-numeric, non-finite, zero, and negative prices instead of letting them enter paper accounting; regression tests cover those cases.
+6. Added a GitHub Actions workflow intended to run the backend test suite on relevant pushes and pull requests.
 
 ## Deliberately retained
 
@@ -36,4 +38,5 @@ Audit target: imported code on main in this repository. The original Tradepro re
 - Source-level inspection completed for the areas listed above.
 - The new tests are committed but have NOT yet been executed successfully. GitHub Actions recorded failed runs with zero jobs returned, so the test runner did not provide a test result; see the workflow run in the repository Actions tab. No test/build success is claimed here.
 - OAuth state is signed and expiring, but replay prevention still requires one-time state storage/consumption.
+- A local test run was not possible because this execution environment could not resolve github.com. GitHub Actions runs were marked failed but returned zero jobs, so they do not establish whether tests pass or fail.
 - Broker reconciliation, order deduplication, instrument sync, streaming, limit matching, portfolio-wide controls, and frontend dashboard correction remain open work items.

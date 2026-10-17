@@ -6,7 +6,9 @@ from sqlalchemy.exc import IntegrityError
 from app.models.broker_connection import BrokerConnection
 from app.models.live_order_records import BrokerFillIdentity, LiveOrderEvent, LiveOrderIntent, LiveOrderOutbox
 from app.models.portfolio import Portfolio
-from app.repositories.live_order_repository import (\n    IdempotencyConflict, LiveOrderRepository, LiveOrderVersionConflict, InvalidLiveOrderTransition,\n)
+from app.repositories.live_order_repository import (
+    IdempotencyConflict, LiveOrderRepository, LiveOrderVersionConflict, InvalidLiveOrderTransition,
+)
 
 
 def _account(db_session, user):

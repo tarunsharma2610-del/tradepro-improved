@@ -19,6 +19,7 @@ from app.models.broker_connection import BrokerConnection
 from app.models.live_order_records import BrokerFillIdentity, LiveOrderIntent
 from app.repositories.live_order_repository import LiveOrderRepository
 from app.repositories.live_reconciliation_lease_repository import LiveReconciliationLeaseRepository
+from app.repositories.live_order_reconciliation_run_repository import LiveReconciliationRunRepository
 from app.services.live_order_reconciliation import (
     BrokerOrderDataError,
     ReconciliationIntentCandidate,
@@ -39,6 +40,18 @@ class ReconciliationRunResult:
     fills_inserted: int = 0
     duplicate_fills: int = 0
     conflicts: int = 0
+    run_id: UUID | None = None
+
+    def safe_summary(self) -> dict[str, int]:
+        return {
+            "orders_seen": self.orders_seen,
+            "orders_matched": self.orders_matched,
+            "orders_unmatched": self.orders_unmatched,
+            "trades_seen": self.trades_seen,
+            "fills_inserted": self.fills_inserted,
+            "duplicate_fills": self.duplicate_fills,
+            "conflicts": self.conflicts,
+        }
 
 
 class _WorkerFailure(RuntimeError):
@@ -77,6 +90,7 @@ class LiveOrderReconciliationWorker:
         self.max_delay_seconds = max_delay_seconds
         self.lease_seconds = lease_seconds
         self.lease_repository = LiveReconciliationLeaseRepository(db)
+        self.run_repository = LiveReconciliationRunRepository(db)
         self.order_repository = LiveOrderRepository(db)
 
     async def run_for_connection(
@@ -102,6 +116,20 @@ class LiveOrderReconciliationWorker:
             return ReconciliationRunResult(status="LEASE_BUSY", error_code="LEASE_BUSY")
 
         try:
+            run = self.run_repository.start(
+                user_id=user_id,
+                broker_connection_id=broker_connection_id,
+            )
+        except Exception:
+            self.lease_repository.complete(
+                user_id=user_id,
+                broker_connection_id=broker_connection_id,
+                lease_token=lease_token,
+                error_code="RUN_RECORD_CREATE_FAILED",
+            )
+            return ReconciliationRunResult(status="FAILED", error_code="RUN_RECORD_CREATE_FAILED")
+
+        try:
             result = await self._run_claimed(user_id, broker_connection_id, lease_token)
         except _WorkerFailure as exc:
             result = ReconciliationRunResult(status="FAILED", error_code=exc.code)
@@ -121,6 +149,21 @@ class LiveOrderReconciliationWorker:
         if not completed:
             result.status = "LEASE_LOST"
             result.error_code = "LEASE_LOST"
+        result.run_id = run.id
+        try:
+            self.run_repository.finish(
+                run_id=run.id,
+                user_id=user_id,
+                broker_connection_id=broker_connection_id,
+                status=result.status,
+                error_code=result.error_code,
+                summary=result.safe_summary(),
+            )
+        except Exception:
+            # The broker work may have completed, but a durable summary failure is
+            # operationally significant and must not be reported as clean success.
+            result.status = "FAILED"
+            result.error_code = "RUN_SUMMARY_PERSISTENCE_FAILED"
         return result
 
     def _get_access_token(self, user_id: UUID) -> str | None:

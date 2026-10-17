@@ -128,3 +128,28 @@ class LiveReconciliationLease(BaseModel):
     last_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+
+class LiveReconciliationRun(BaseModel):
+    """Credential-safe durable summary of one read-only reconciliation attempt."""
+
+    __tablename__ = "live_reconciliation_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('RUNNING', 'COMPLETED', 'COMPLETED_WITH_CONFLICTS', 'FAILED', 'LEASE_LOST')",
+            name="ck_reconciliation_run_status",
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    broker_connection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("broker_connections.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="RUNNING", server_default="RUNNING", index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Only numeric counters; never store raw broker payloads or credentials here.
+    summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)

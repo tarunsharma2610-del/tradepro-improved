@@ -4,7 +4,7 @@ import pytest
 
 from app.brokers.upstox.reconciliation_client import ReadOnlyBrokerResult
 from app.models.broker_connection import BrokerConnection
-from app.models.live_order_records import BrokerFillIdentity, LiveOrderIntent, LiveReconciliationLease
+from app.models.live_order_records import BrokerFillIdentity, LiveOrderIntent, LiveReconciliationLease, LiveReconciliationRun
 from app.models.portfolio import Portfolio
 from app.repositories.live_order_repository import LiveOrderRepository
 from app.repositories.live_reconciliation_lease_repository import LiveReconciliationLeaseRepository
@@ -365,3 +365,49 @@ async def test_worker_rejects_malformed_order_envelope_without_persisting_eviden
     assert intent.state == "CREATED"
     assert intent.broker_order_id is None
     assert db_session.query(BrokerFillIdentity).count() == 0
+
+
+
+@pytest.mark.asyncio
+async def test_worker_persists_credential_safe_success_summary(db_session, make_user):
+    user, portfolio, connection = _setup(db_session, make_user)
+    _intent(db_session, user, portfolio, connection)
+    client = _FakeReadClient(orders=[_order()], trades=[_trade()])
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "never-persist-this-token",
+        sleeper=_no_sleep,
+    )
+
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    run = db_session.query(LiveReconciliationRun).filter_by(id=result.run_id).one()
+    assert result.status == "COMPLETED"
+    assert run.status == "COMPLETED"
+    assert run.completed_at is not None
+    assert run.error_code is None
+    assert run.summary == {
+        "orders_seen": 1, "orders_matched": 1, "orders_unmatched": 0,
+        "trades_seen": 1, "fills_inserted": 1, "duplicate_fills": 0, "conflicts": 0,
+    }
+    assert "never-persist-this-token" not in str(run.summary)
+
+
+@pytest.mark.asyncio
+async def test_worker_persists_sanitized_failure_summary(db_session, make_user):
+    user, portfolio, connection = _setup(db_session, make_user)
+    client = _FakeReadClient(
+        order_results=[ReadOnlyBrokerResult(False, status_code=403, error_code="FORBIDDEN")],
+    )
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token", sleeper=_no_sleep,
+    )
+
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    run = db_session.query(LiveReconciliationRun).filter_by(id=result.run_id).one()
+    assert run.status == "FAILED"
+    assert run.error_code == "FORBIDDEN"
+    assert run.summary == {
+        "orders_seen": 0, "orders_matched": 0, "orders_unmatched": 0,
+        "trades_seen": 0, "fills_inserted": 0, "duplicate_fills": 0, "conflicts": 0,
+    }

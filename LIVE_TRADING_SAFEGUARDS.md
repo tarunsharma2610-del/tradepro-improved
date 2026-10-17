@@ -241,3 +241,7 @@ Do not claim exactly-once broker submission based on local database idempotency 
 ## Phase 1 verification checkpoint — 2026-10-17
 
 The current automated CI run [39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046) passed 215 tests and verified Alembic upgrade → downgrade → re-upgrade on clean SQLite and PostgreSQL 16. The simultaneous idempotency test uses two independent PostgreSQL sessions. This is CI evidence only; it does not replace a backup-restored staging migration check against the actual deployment database. No production migration or real broker order was performed. Live submission remains disabled.
+
+
+## 17 October 2026 — Phase 2 repository-only implementation note
+The improved repository now has pure broker-order status normalization, strict candidate matching, and a versioned repository method for persisting a matched observation plus audit event atomically. These are not broker integration: no order-book/history/trades API is called by this code, no fill is imported, and no live order is placed or cancelled. A successful CI run is not a staging or production verification. Keep live submission disabled and require the remaining roadmap gates and explicit authorization before adding submission behavior.

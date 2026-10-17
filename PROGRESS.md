@@ -19,7 +19,7 @@ Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b66302
 - [ ] OAuth schema migration needs staging verification before deployment.
 
 ## Current phase
-**Phase F — Multi-segment instrument sync implemented; comprehensive CI passed, final defensive validation run pending.**
+**Phase F complete — multi-segment instrument sync implemented and backend CI passed. Next: portfolio-wide risk controls.**
 - Added `PROJECT_INSTRUCTIONS.md` with the mandatory workflow and safety rules (commit `8d7d9d8257f852f3d26e0564be8b521b0fe75764`).
 - Added this `PROGRESS.md` tracker (commit `9986380d8f4ee8939718c858ea9ab925da3f65b1`).
 - Inspected `backend/app/services/execution_service.py`, `backend/app/services/strategy_execution_service.py`, `backend/app/services/risk_engine.py`, `backend/app/core/config.py`, `backend/app/models/order.py`, `backend/app/brokers/upstox/adapter.py`, and relevant execution tests.
@@ -55,7 +55,9 @@ After each coherent step, update this tracker with:
 - Added derivative metadata (`expiry`, `strike_price`, `option_type`) to the instrument search response schema.
 - Expanded `backend/tests/test_instrument_service.py` to cover multiple exchanges/segments, equity/index/futures/options normalization, expiry/strike/option metadata, unsupported record filtering, malformed/HTTP failure safety, and schema serialization.
 - Updated the adapter comment, README and audit report to describe actual catalog sync ownership and remaining gaps. No real Upstox download, production sync, live order or database migration was run.
-- CI for the expanded all-segment test set passed: **172 tests passed, 1 warning**, with SQLite migration verification in [run 39036649142](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036649142). This run predates the final defensive validation tweaks that reject absurd expiry values and enforce segment/exchange consistency; latest run [39036689089](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036689089) is still in progress at tracker update time. An earlier intermediate run failed because a futures test fixture omitted the now-required expiry; the fixture was corrected to include realistic expiry metadata. Do not mark the latest commit fully green until run 39036689089 completes.
+- Final defensive validation rejects impossible expiry timestamps, requires derivative expiry and option strike metadata, enforces segment/exchange/key consistency, and accepts exchange-specific equity board codes based on the equity segment.
+- Final backend CI for code commit `c63c5cd195b4f9c464ab1bfa494deb2879687c9a` passed: **172 tests passed, 1 warning**, and the SQLite Alembic migration verification step also passed. [View run 39036689089](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036689089).
+- No live Upstox file download was run. No production sync, production migration, or real order was performed. Existing expired/stale instruments are not automatically deactivated yet.
 
 ## Next action
-Confirm the latest backend CI run `39036689089` (or the newest run on the current HEAD) passes the full test suite and SQLite migration check. If green, mark this phase complete and review the admin sync endpoint and operational safeguards; then move to portfolio-wide risk limits. Keep live trading disabled.
+Next audit and design portfolio-wide risk controls (per-portfolio daily loss and open exposure), with explicit configuration semantics and tests. After that, add a safe expiry/deactivation policy for instrument snapshots only if snapshot completeness can be validated. Then implement Upstox WebSocket market data with authorized-URL handling, reconnect/heartbeat/stale-data controls, and mocked tests. Keep live trading disabled.

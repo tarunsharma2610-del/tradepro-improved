@@ -34,3 +34,9 @@ jobs:
           MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: python -m pytest -q
+      - name: Verify Alembic migrations on SQLite
+        env:
+          DATABASE_URL: "sqlite:///./migration-check.db"
+          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
+          SECRET_KEY: "test-secret-key-not-for-production"
+        run: alembic upgrade head

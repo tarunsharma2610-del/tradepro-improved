@@ -294,6 +294,10 @@ class LiveOrderReconciliationWorker:
                 result.conflicts += 1
                 continue
 
+            # Consume this candidate as soon as its broker order ID is durably linked;
+            # a reused tag must not let a second broker order claim the same intent.
+            candidates = [candidate for candidate in candidates if candidate.intent_id != match.intent_id]
+
             # Link only trade rows with this exact broker order ID. Economic checks,
             # quantity caps and limit-price protection run inside the repository.
             fills = self.db.query(BrokerFillIdentity).filter(
@@ -333,7 +337,6 @@ class LiveOrderReconciliationWorker:
                     correlation_id=f"reconcile:{connection_id}",
                 )
                 result.orders_matched += 1
-                candidates = [candidate for candidate in candidates if candidate.intent_id != match.intent_id]
             except (ValueError, RuntimeError):
                 result.conflicts += 1
 

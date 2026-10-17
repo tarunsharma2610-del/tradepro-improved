@@ -306,10 +306,26 @@ class LiveOrderRepository:
                 requested_quantity = int(expected_quantity)
             except (TypeError, ValueError) as exc:
                 raise ValueError("linked intent quantity is invalid") from exc
-            if isinstance(expected_quantity, bool) or requested_quantity <= 0:
+            if (
+                isinstance(expected_quantity, bool)
+                or requested_quantity <= 0
+                or str(expected_quantity).strip() not in {str(requested_quantity), f"{requested_quantity}.0"}
+            ):
                 raise ValueError("linked intent quantity is invalid")
             if quantity > requested_quantity:
                 raise LiveOrderVersionConflict("single fill quantity exceeds linked intent quantity")
+            if normalized_order_type in {"LIMIT", "SL"}:
+                raw_limit = snapshot.get("limit_price", snapshot.get("price"))
+                try:
+                    limit_price = Decimal(str(raw_limit))
+                except (InvalidOperation, TypeError, ValueError) as exc:
+                    raise ValueError("linked intent limit price is invalid") from exc
+                if not limit_price.is_finite() or limit_price <= 0:
+                    raise ValueError("linked intent limit price is invalid")
+                if normalized_side == "BUY" and normalized_price > limit_price:
+                    raise LiveOrderVersionConflict("buy fill price is worse than the linked limit price")
+                if normalized_side == "SELL" and normalized_price < limit_price:
+                    raise LiveOrderVersionConflict("sell fill price is worse than the linked limit price")
 
         stored_details = dict(safe_details or {})
         for key, value in (("normalized_product", normalized_product), ("normalized_order_type", normalized_order_type)):

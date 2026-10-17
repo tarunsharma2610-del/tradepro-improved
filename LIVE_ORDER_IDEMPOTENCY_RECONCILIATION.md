@@ -1,6 +1,6 @@
 # Durable Live-Order Idempotency and Broker Reconciliation
 
-Status: user-approved design; Phase 1 durable records/repository safeguards are CI-tested. Phase 2 has a pure broker-order normalization foundation only; fetching/persisting reconciliation results, fill ingestion and broker submission remain NOT implemented. Live order placement stays disabled.
+Status: user-approved design; Phase 1 durable records/repository safeguards are CI-tested. Phase 2 has pure order/trade normalization, strict intent matching, versioned status persistence and individual broker-fill identity persistence. Broker reads/worker, fill aggregation/accounting and broker submission remain NOT implemented. Live order placement stays disabled.
 Date: 2026-10-17
 Scope: tradepro-improved only. Do not modify the original Tradepro repository.
 
@@ -190,3 +190,12 @@ Latest code/test checkpoint `5508b272efe55997252e8d8a51fdd29761a1070b` passed Gi
 - Exact code checkpoint b3332b839b6f2c39bf2ae678e1aa62ac1f2a3409 passed [GitHub Actions run 39050941218](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050941218): 261 passed, 1 warning, with SQLite/PostgreSQL 16 migration checks.
 - Two intermediate CI attempts failed due to a malformed test import and an undefined prior-state variable; both were corrected, and the final run passed. No broker API reads, fill ingestion, order submission/cancellation or production migration occurred.
 - Next: add a pure validated broker trade/fill normalizer, then a transactionally idempotent fill repository method using the existing unique broker-connection + broker-trade-ID constraint.
+
+
+## 14. Implementation checkpoint — normalized trade and idempotent fill identity persistence
+
+- Official Upstox per-order trades response documents `trade_id`, `order_id`, `instrument_token`, `transaction_type`, `quantity`, `average_price`, and `exchange_timestamp`; `trade_id` is the stable identity for each execution. See [Get Order Trades](https://upstox.com/developer/api-documentation/get-trades-by-order/).
+- Added pure `normalize_upstox_trade()`; malformed identifiers, side, quantity, price or timestamp are rejected. Documented exchange-local timestamps are converted to UTC. This performs no network calls.
+- Added repository-only `record_broker_fill()`. It scopes the write to an authenticated user's broker connection and optionally a matched intent in the same connection. It uses the unique `(broker_connection_id, broker_trade_id)` constraint. Identical duplicate deliveries are no-ops; reused IDs with different economic details fail closed. Linked fill + `BROKER_FILL_RECORDED` audit event commit atomically.
+- Exact code/test checkpoint `001a6eed2bd7090e2c7a4d3a8f2f87e9d7fa62bc` passed [run 39052203329](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052203329): 274 passed, 1 warning, with SQLite/PostgreSQL 16 migration checks.
+- This stores raw individual fill identity only. It does not reconcile the fill's instrument/side/quantity/price against the immutable intent snapshot, aggregate partial fills, update `Order`/`Execution`/`Position`/cash/P&L, fetch broker data, or run a worker. These are the next gates; no live submission is available.

@@ -212,6 +212,28 @@ class LiveOrderRepository:
         self.db.refresh(event)
         return event
 
+    def apply_reconciliation_transition(
+        self,
+        *,
+        user_id: uuid.UUID,
+        intent_id: uuid.UUID,
+        expected_version: int,
+        new_state: str,
+        broker_order_id: str | None = None,
+        safe_details: dict[str, Any] | None = None,
+        correlation_id: str | None = None,
+    ) -> tuple[LiveOrderIntent, bool]:
+        return _apply_reconciliation_transition(
+            self,
+            user_id=user_id,
+            intent_id=intent_id,
+            expected_version=expected_version,
+            new_state=new_state,
+            broker_order_id=broker_order_id,
+            safe_details=safe_details,
+            correlation_id=correlation_id,
+        )
+
 
 class LiveOrderVersionConflict(RuntimeError):
     """The intent changed since the caller's expected version or a unique link conflicted."""
@@ -303,7 +325,7 @@ def _apply_reconciliation_transition(
                 LiveOrderIntent.id == intent_id,
                 LiveOrderIntent.user_id == user_id,
                 LiveOrderIntent.version == expected_version,
-                LiveOrderIntent.state == intent.state,
+                LiveOrderIntent.state == previous_state,
             )
             .values(**values)
         )
@@ -312,7 +334,7 @@ def _apply_reconciliation_transition(
             raise LiveOrderVersionConflict("live-order intent changed concurrently; reload before applying observation")
 
         details: dict[str, Any] = {
-            "previous_state": intent.state,
+            "previous_state": previous_state,
             "new_state": state,
             "previous_version": expected_version,
             "new_version": expected_version + 1,
@@ -345,5 +367,3 @@ def _apply_reconciliation_transition(
     ).one()
     return updated, True
 
-
-LiveOrderRepository.apply_reconciliation_transition = _apply_reconciliation_transition

@@ -115,3 +115,9 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - Added run and issue list endpoints, typed response schemas and a query repository; queries always scope by authenticated `user_id`, with optional connection/status/type filters and a hard maximum limit of 100.
 - Added HTTP tests for unauthenticated rejection, cross-user isolation, connection filtering, status filtering, invalid status/limit and safe response fields. Exact code commit [`f65b4ba`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/f65b4ba20ce9a1dacfe40580d8042cd98f36c19f) passed [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705): **345 passed, 1 warning**, plus SQLite/PostgreSQL 16 reversible migrations.
 - The API is read-only: no issue resolution, run trigger, broker call or order action is exposed. Frontend UI and historical trade window support remain open.
+
+
+### Reconciliation review UI checkpoint — 2026-10-17
+- Added `frontend/app/reconciliation/page.tsx` and dashboard navigation link. The page lists recent safe run summaries and issues from the authenticated read API, supports issue-status filtering and manual refresh, and exposes no action to trigger reconciliation or resolve an issue.
+- Exact commit [`e4343dc`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e4343dcb225c1f332b6c89399694d0a29a5df739) passed [frontend checks](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060564743) and [backend CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060564787): TypeScript/Next.js build succeeded; **345 backend tests passed, 1 warning**, and SQLite/PostgreSQL 16 migration checks passed.
+- Remaining: issue-resolution workflow, stale-run recovery, crash-boundary tests and historical trade window/pagination support. No live broker request or order action occurred.

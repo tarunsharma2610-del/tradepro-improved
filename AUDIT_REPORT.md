@@ -248,3 +248,9 @@ Reviewed official Upstox Place Order V2/V3, Order History, Order Book, Order Det
 - Tests cover unauthenticated access, user A versus user B isolation, filtering by another user's connection returning no records, status filter validation, maximum limit and no token leakage in issue responses.
 - Exact code commit [`f65b4ba`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/f65b4ba20ce9a1dacfe40580d8042cd98f36c19f) passed [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705): **345 passed, 1 warning**, and SQLite/PostgreSQL 16 upgrade/downgrade/re-upgrade checks.
 - API is read-only; it cannot start a worker, resolve an issue, place/cancel orders or update portfolio accounting. Frontend UI, issue-resolution workflow, stale-run recovery, crash-boundary tests and historical trade pagination remain open.
+
+
+### Phase 2 — reconciliation review UI — 2026-10-17
+- Added `frontend/app/reconciliation/page.tsx` and a dashboard navigation item. It loads owner-scoped run summaries/issues, displays sanitized details and counters, filters issue status, and supports manual refresh. No trigger, resolve, retry or order mutation controls are exposed.
+- Exact commit [`e4343dcb225c1f332b6c89399694d0a29a5df739`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e4343dcb225c1f332b6c89399694d0a29a5df739) passed [frontend checks](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060564743) and [backend CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060564787): TypeScript/Next.js build passed; 345 tests passed, 1 warning; reversible SQLite/PostgreSQL 16 migrations passed.
+- Remaining: issue resolution workflow, stale `RUNNING` recovery, crash-boundary/restart tests, historical trade pagination and a separately approved read-only sandbox verification. No real broker request/order action or accounting update occurred.

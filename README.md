@@ -108,3 +108,7 @@ The worker now persists deduplicated `live_reconciliation_issues` records for ma
 
 ### Read-only reconciliation review endpoints
 Authenticated users can list their own safe run summaries at `GET /api/v1/reconciliation/runs` and manual-review issues at `GET /api/v1/reconciliation/issues`. Both routes are owner-scoped, support bounded filters and return sanitized schema fields only. Cross-user/auth tests passed in [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705): 345 passed, 1 warning, plus SQLite/PostgreSQL 16 migration checks. These endpoints do not trigger a worker or mutate issues/orders; frontend display and a separately reviewed resolution workflow are not implemented.
+
+
+### Reconciliation review screen
+The dashboard now links to `/reconciliation`, a read-only screen showing recent reconciliation run summaries and manual-review issues. It supports filtering by issue status and refreshing the list. It does not trigger broker reads or resolve issues. Frontend TypeScript/Next.js checks and backend CI passed for [commit e4343dcb](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e4343dcb225c1f332b6c89399694d0a29a5df739): 345 backend tests passed, 1 warning; SQLite/PostgreSQL 16 migrations passed. Issue resolution, stale-run recovery and historical trade windows remain unimplemented.

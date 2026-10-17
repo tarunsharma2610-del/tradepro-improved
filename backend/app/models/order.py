@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Uuid, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -16,6 +16,7 @@ class Order(BaseModel):
     than a schema migration plus a rewrite of this table."""
 
     __tablename__ = "orders"
+    __table_args__ = (UniqueConstraint("portfolio_id", "idempotency_key", name="uq_orders_portfolio_idempotency_key"),)
 
     portfolio_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
     instrument_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("instruments.id"), index=True)
@@ -33,6 +34,7 @@ class Order(BaseModel):
     trading_mode: Mapped[str] = mapped_column(String(5), nullable=False, default="PAPER")  # PAPER, LIVE — see app/core/config.py
     execution_reason: Mapped[str] = mapped_column(String(20), nullable=False, default="MANUAL")  # MANUAL today; STRATEGY/BACKTEST in later phases
     strategy_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)  # populated starting Phase 3
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     placed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     filled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

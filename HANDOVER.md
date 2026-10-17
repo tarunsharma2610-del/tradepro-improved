@@ -104,3 +104,11 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Both idempotency checks compare `execution_reason` and `strategy_id`, preventing a reused key from returning a manual order for a strategy request or vice versa.
 - Tests cover repeated same-candle entry, missing timestamp, and cross-scope key reuse. One initial test run failed because the test assumed ₹30,000 exceeded the default cap despite the fixture having ₹500,000 capital; the exact fixture value was checked, and the test was corrected to set a deterministic 1% cap. Latest backend suite passed: **193 passed, 1 warning**; SQLite migration and frontend checks passed.
 - Latest verified code commit: `e9f8b7bb56f3300d1016195a773a26845d94d717`. See `PROGRESS.md` for links and the next live-execution audit task.
+
+
+## Upstox V3 place-order endpoint correction — 17 October 2026
+
+- The official Upstox docs mark the legacy V2 place-order page as deprecated and document Place Order V3 at `https://api-hft.upstox.com/v3/order/place`. V3 returns `data.order_ids` (a list), not the V2 `data.order_id` shape.
+- Updated only the existing adapter method and its mocked regression test; it remains unconnected to the paper execution path. No live orders or real network requests were made.
+- Verified commit: `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b`; backend **193 passed, 1 warning** and clean SQLite migration; frontend TypeScript/build passed. See `PROGRESS.md`.
+- Next: audit adapter subclasses and add the official V3 modify/cancel methods with mocked tests, without wiring them into live execution.

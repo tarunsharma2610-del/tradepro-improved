@@ -80,3 +80,8 @@
 - Reused keys must match strategy/manual execution reason and strategy ID, in addition to order parameters.
 - Added regression tests for repeated same-candle entry, missing timestamps and cross-scope key reuse. First run exposed a test setup assumption (₹30,000 did not exceed the 25% cap on ₹500,000 virtual capital); the test was corrected with an explicit 1% cap.
 - Latest verified code commit `e9f8b7bb56f3300d1016195a773a26845d94d717`: backend **193 passed, 1 warning**, migration upgrade passed, frontend TypeScript/build passed.
+
+
+### 17 October 2026 — Upstox Place Order V3
+- Updated `UpstoxAdapter.place_order` to the official V3 endpoint after verifying the current docs mark V2 place-order as deprecated. Updated the mocked test to assert the V3 URL and `data.order_ids` response shape.
+- CI on `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b`: backend **193 passed, 1 warning**, migration upgrade passed, frontend checks passed. No live requests.

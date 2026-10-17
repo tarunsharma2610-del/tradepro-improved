@@ -101,3 +101,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Strategy order submissions now use deterministic per-candle keys and refuse automated order creation when the latest candle timestamp is invalid. Key-reuse validation includes strategy ID and execution reason.
 - Tests cover same-candle repeated entry, missing timestamp, and cross-scope key reuse. The first new test run failed because its assumed notional-cap threshold was wrong for the fixture's ₹500,000 virtual capital; the fixture and cap were verified, and the test now sets a deterministic 1% cap. Latest CI: 193 passed, 1 warning, SQLite migration passed, frontend TypeScript/build passed.
 - Next audited area: existing Upstox order adapter and reconciliation/status foundation. Live submission remains disabled.
+
+
+## Upstox order endpoint audit and fix — 17 October 2026
+
+- Verified current official Upstox docs: legacy V2 Place Order is marked deprecated; Place Order V3 uses `https://api-hft.upstox.com/v3/order/place` and returns a list at `data.order_ids`. The adapter now uses the V3 URL; its test is mocked and checks that response shape. No real broker request was made.
+- V3 modify and cancel endpoints are available, but the app's abstract adapter contract currently lacks those operations. Next step is to inspect adapter subclasses/test doubles, then add V3 adapter methods and mocked tests only. They must not be wired to live execution or change local order accounting yet.
+- CI on `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b`: backend 193 passed, 1 warning, clean migration; frontend TypeScript/build passed.

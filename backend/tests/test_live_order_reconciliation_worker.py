@@ -275,3 +275,93 @@ async def test_execution_status_without_trade_evidence_is_unknown_then_recovers(
     assert second.status == "COMPLETED"
     assert intent.state == "FILLED"
     assert db_session.query(BrokerFillIdentity).filter_by(intent_id=intent.id).count() == 1
+
+
+
+@pytest.mark.asyncio
+async def test_worker_does_not_retry_forbidden_response(db_session, make_user):
+    user, portfolio, connection = _setup(db_session, make_user)
+    intent = _intent(db_session, user, portfolio, connection)
+    client = _FakeReadClient(
+        order_results=[ReadOnlyBrokerResult(False, status_code=403, error_code="FORBIDDEN")],
+    )
+    delays = []
+
+    async def sleep(delay):
+        delays.append(delay)
+
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=sleep, max_attempts=3,
+    )
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    db_session.refresh(intent)
+    assert result.status == "FAILED"
+    assert result.error_code == "FORBIDDEN"
+    assert [call[0] for call in client.calls] == ["orders"]
+    assert delays == []
+    assert intent.state == "CREATED"
+    assert db_session.query(BrokerFillIdentity).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_worker_bounds_server_error_retries_before_any_mutation(db_session, make_user):
+    user, portfolio, connection = _setup(db_session, make_user)
+    intent = _intent(db_session, user, portfolio, connection)
+    client = _FakeReadClient(
+        order_results=[
+            ReadOnlyBrokerResult(False, status_code=503, error_code="UPSTREAM_SERVER_ERROR"),
+            ReadOnlyBrokerResult(False, status_code=503, error_code="UPSTREAM_SERVER_ERROR"),
+            ReadOnlyBrokerResult(False, status_code=503, error_code="UPSTREAM_SERVER_ERROR"),
+        ],
+    )
+    delays = []
+
+    async def sleep(delay):
+        delays.append(delay)
+
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=sleep, max_attempts=3, base_delay_seconds=0.25, max_delay_seconds=1,
+    )
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    db_session.refresh(intent)
+    assert result.status == "FAILED"
+    assert result.error_code == "UPSTREAM_SERVER_ERROR"
+    assert [call[0] for call in client.calls] == ["orders", "orders", "orders"]
+    assert delays == [0.25, 0.5]
+    assert intent.state == "CREATED"
+    assert intent.broker_order_id is None
+    assert db_session.query(BrokerFillIdentity).count() == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [
+    None,
+    {},
+    {"status": "error", "data": []},
+    {"status": "success", "data": {"unexpected": "object"}},
+    {"status": "success", "data": [None]},
+])
+async def test_worker_rejects_malformed_order_envelope_without_persisting_evidence(
+    body, db_session, make_user
+):
+    user, portfolio, connection = _setup(db_session, make_user)
+    intent = _intent(db_session, user, portfolio, connection)
+    client = _FakeReadClient(
+        order_results=[ReadOnlyBrokerResult(True, body, 200)],
+        trade_results=[ReadOnlyBrokerResult(True, {"status": "success", "data": [_trade()]}, 200)],
+    )
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token", sleeper=_no_sleep
+    )
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    db_session.refresh(intent)
+    assert result.status == "FAILED"
+    assert result.error_code in {"INVALID_RESPONSE_ENVELOPE", "INVALID_RESPONSE_DATA"}
+    assert intent.state == "CREATED"
+    assert intent.broker_order_id is None
+    assert db_session.query(BrokerFillIdentity).count() == 0

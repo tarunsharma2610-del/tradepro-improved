@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.brokers.base import BrokerCallResult
+from app.models.order import Order
 from app.core.encryption import encrypt_value
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.services.execution_service import ExecutionService, OrderValidationError
@@ -489,6 +491,47 @@ async def test_manual_portfolio_order_value_limit_rejects_limit_order(db_session
 
     assert order.status == "REJECTED"
     assert "order value" in order.rejection_reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_pending_limit_orders_count_toward_estimated_portfolio_exposure(db_session, portfolio, instrument):
+    user, p = portfolio
+    p.risk_controls_enabled = True
+    p.max_open_exposure = Decimal("3000")
+    from app.repositories.instrument_repository import InstrumentRepository
+
+    InstrumentService(db_session).seed_defaults()
+    second_instrument = next(
+        item for item in InstrumentRepository(db_session).search("TCS")
+        if item.id != instrument.id
+    )
+    db_session.add(Order(
+        portfolio_id=p.id,
+        instrument_id=instrument.id,
+        side="BUY",
+        order_type="LIMIT",
+        segment="EQUITY_DELIVERY",
+        quantity=1,
+        limit_price=Decimal("2000"),
+        status="PENDING",
+        trading_mode="PAPER",
+        execution_reason="MANUAL",
+        strategy_id=None,
+        placed_at=datetime.now(timezone.utc),
+    ))
+    db_session.commit()
+
+    order = await ExecutionService(db_session).place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id, instrument_id=second_instrument.id, side=Side.BUY,
+            order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=1,
+            limit_price=Decimal("1500"),
+        ),
+    )
+
+    assert order.status == "REJECTED"
+    assert "including pending limit orders" in order.rejection_reason.lower()
 
 
 @pytest.mark.asyncio

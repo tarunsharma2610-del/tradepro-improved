@@ -73,3 +73,10 @@
 - Added `PROJECT_INSTRUCTIONS.md`, a verbatim copy of the complete `Pasted text(6).txt` requirements, and `PROGRESS.md`, a persistent continuation checklist/state log.
 - Added a populated legacy-database regression test for strategy-position migration backfill. It verifies realized P&L, weighted average/open allocation, long-only over-sell attribution, unchanged aggregate position/cash, and repeat upgrade.
 - Verification on commit `1fe681246cb88a9505302a1763128c51ab72802d`: backend **190 passed, 1 warning** plus clean SQLite migration upgrade; frontend TypeScript and Next.js build passed.
+
+
+### 17 October 2026 — strategy idempotency hardening
+- Strategy orders now use stable per-candle idempotency keys; no strategy order is submitted when candle timestamp parsing fails.
+- Reused keys must match strategy/manual execution reason and strategy ID, in addition to order parameters.
+- Added regression tests for repeated same-candle entry, missing timestamps and cross-scope key reuse. First run exposed a test setup assumption (₹30,000 did not exceed the 25% cap on ₹500,000 virtual capital); the test was corrected with an explicit 1% cap.
+- Latest verified code commit `e9f8b7bb56f3300d1016195a773a26845d94d717`: backend **193 passed, 1 warning**, migration upgrade passed, frontend TypeScript/build passed.

@@ -95,3 +95,12 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - It verifies per-execution strategy P&L attribution, closed and open strategy allocations, weighted average entry price, legacy over-sell handling, preservation of aggregate portfolio positions/cash, and a second no-op upgrade.
 - CI passed on commit `1fe681246cb88a9505302a1763128c51ab72802d`: **190 tests passed, 1 warning**, and SQLite migration upgrade succeeded. Frontend TypeScript/build also passed for that commit.
 - See `PROGRESS.md` for current task sequence. Next task is to audit existing order idempotency call sites and repeated strategy evaluation before changing any code.
+
+
+## Strategy idempotency hardening completed — 17 October 2026
+
+- Audit found that manual UI order submission already retained its idempotency key on failed requests, so that workflow was retained unchanged.
+- Strategy entries/exits now supply a deterministic key scoped to strategy ID, action side and latest candle timestamp. Automated entry/exit is skipped if the latest candle timestamp is unavailable, because a safe retry key cannot be constructed.
+- Both idempotency checks compare `execution_reason` and `strategy_id`, preventing a reused key from returning a manual order for a strategy request or vice versa.
+- Tests cover repeated same-candle entry, missing timestamp, and cross-scope key reuse. One initial test run failed because the test assumed ₹30,000 exceeded the default cap despite the fixture having ₹500,000 capital; the exact fixture value was checked, and the test was corrected to set a deterministic 1% cap. Latest backend suite passed: **193 passed, 1 warning**; SQLite migration and frontend checks passed.
+- Latest verified code commit: `e9f8b7bb56f3300d1016195a773a26845d94d717`. See `PROGRESS.md` for links and the next live-execution audit task.

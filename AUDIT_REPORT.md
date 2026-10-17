@@ -93,3 +93,11 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Latest verified backend CI: **188 tests passed, 1 warning**, with the full SQLite migration chain successful: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030790984.
 - The latest frontend TypeScript and Next.js build checks passed after an earlier intermittent Google-font resolver failure: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030941702.
 - No real broker orders were placed. Live trading remains **NOT READY**.
+
+
+## Idempotency hardening and verification — 17 October 2026
+
+- Manual UI retry-key handling already existed and was retained.
+- Strategy order submissions now use deterministic per-candle keys and refuse automated order creation when the latest candle timestamp is invalid. Key-reuse validation includes strategy ID and execution reason.
+- Tests cover same-candle repeated entry, missing timestamp, and cross-scope key reuse. The first new test run failed because its assumed notional-cap threshold was wrong for the fixture's ₹500,000 virtual capital; the fixture and cap were verified, and the test now sets a deterministic 1% cap. Latest CI: 193 passed, 1 warning, SQLite migration passed, frontend TypeScript/build passed.
+- Next audited area: existing Upstox order adapter and reconciliation/status foundation. Live submission remains disabled.

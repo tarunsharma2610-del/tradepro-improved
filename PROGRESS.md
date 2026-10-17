@@ -26,7 +26,9 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 - At that point, branch head was `ac93eb82688d573f9839da48ef1182d9929e56c4`; main remained `2cf83089070e064c61f3b75fcb6b663021cbf625`.
 - PR #1 was open, draft, and not merged.
 - Baseline CI before the migration regression test: backend [run 39031184000](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184000) — 189 passed, 1 warning, clean SQLite Alembic upgrade; frontend [run 39031184092](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184092) — TypeScript and Next.js build passed.
-- Migration regression-test commit: `1fe681246cb88a9505302a1763128c51ab72802d` — [backend run 39031526388](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526388) **190 passed, 1 warning**, and clean SQLite Alembic upgrade passed; [frontend run 39031526360](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526360) TypeScript and Next.js build passed.
+- Migration regression-test commit: `1fe681246cb88a9505302a1763128c51ab72802d` — [backend run 39031526388](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526388) 190 passed, 1 warning; clean SQLite Alembic upgrade; [frontend run 39031526360](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526360) passed.
+- Latest idempotency code commit: `044243476acce70dccc02fcc0e9d61b98bcd62ff`. Its first backend run failed because the test assumed a ₹30,000 quote exceeded the default cap, but the strategy test fixture has ₹500,000 virtual capital (25% cap = ₹125,000). This was a test-setup defect, not a strategy-idempotency failure. The test was made deterministic by explicitly setting a 1% cap.
+- Latest verified code commit: `e9f8b7bb56f3300d1016195a773a26845d94d717` — [backend run 39032153163](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032153163) **193 passed, 1 warning**, clean SQLite Alembic upgrade; [frontend run 39032153157](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032153157) TypeScript and Next.js build passed.
 - These checks validate the listed commit only, not future changes. Re-check CI after each code commit.
 
 ## Completed and committed work (safety branch)
@@ -40,7 +42,9 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 7. Added a migration to backfill strategy-specific P&L and open strategy allocations from existing strategy-tagged executions.
 8. Added `PROJECT_INSTRUCTIONS.md` with the complete verbatim instruction text from `Pasted text(6).txt`, and this persistent `PROGRESS.md` with current branch/CI state and next step.
 9. Added `backend/tests/test_strategy_position_migration.py`, which upgrades a populated database from revision 002 to head and verifies closed/open positions, weighted average, realized P&L, over-sell attribution, preservation of aggregate positions/cash, and repeat upgrade. It passed in CI.
-10. Updated README, audit, handover, changelog and live-safeguards documentation across the branch.
+10. Strategy orders now use stable keys scoped to strategy + side + latest candle timestamp. Strategies skip automated order submission if the latest candle has no parseable timestamp. Idempotency validation also rejects reusing the same key across manual vs strategy orders or different strategy IDs.
+11. Added tests for repeated same-candle entry retries, missing candle timestamps and idempotency-key scope. Latest suite: 193 passed, 1 warning; migration and frontend checks passed.
+12. Updated README, audit, handover, changelog and live-safeguards documentation across the branch.
 
 ## Known limitations / not complete
 
@@ -57,14 +61,14 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 
 **Current focus:** trading safety and accounting correctness, before implementing live submission.
 
-**Next task (do not skip the audit):** add a targeted migration regression test for `202610170003_strategy_position_attribution.py` that starts from revision `202610170002`, seeds realistic legacy strategy-tagged BUY/SELL executions and existing strategy/instrument/portfolio rows, upgrades to head, and verifies:
+**Completed task:** add a targeted migration regression test for `202610170003_strategy_position_attribution.py` that starts from revision `202610170002`, seeds realistic legacy strategy-tagged BUY/SELL executions and existing strategy/instrument/portfolio rows, upgrades to head, and verifies:
 - the new `strategy_realized_pnl` values on historical executions;
 - remaining open strategy quantity and average entry price;
 - realized P&L for a fully closed strategy position;
 - correct handling of legacy strategy-tagged sales that would create a negative position under the new long-only strategy allocation;
 - idempotent/clean upgrade behavior and no loss of aggregate portfolio records.
 
-Before writing that test, inspect `backend/alembic/env.py`, the three latest migrations, test/dependency setup and CI workflow. Pick a migration-test method compatible with the repository's actual configuration. Do not change the migration's behavior unless a test demonstrates a defect. Add the smallest test and run it in CI. If the populated-data test fails, stop and diagnose the exact migration/data issue before editing it again.
+Completed verification: the populated legacy migration test passed as part of the full CI suite (193 passed).
 
 ## Task state
 
@@ -80,3 +84,8 @@ Before writing that test, inspect `backend/alembic/env.py`, the three latest mig
 ## Next-task audit plan — stable order idempotency
 
 **Task:** inspect the existing order-creation callers and worker/scheduler paths to determine whether they generate/reuse a stable idempotency key for retries and repeated strategy evaluations. Do not add a second idempotency service: first inspect the existing `ExecutionService`, order API schemas/routes, frontend order submit handler, strategy scheduler/worker, and current idempotency tests. Identify whether the key is generated client-side, persisted, reused for the same logical action, and scoped correctly. Then implement only the proven gap and add a regression test for repeated evaluation/retry. Keep paper/live isolation and existing API contracts intact. No live orders.
+
+
+## Current active task: audit live broker execution readiness
+
+**Next step:** review existing `BrokerAdapter` methods, Upstox adapter endpoints, `BrokerReconciliationService`, broker-status API, order metadata/model, OAuth/token handling, risk checks and tests. Do not wire real submission into the paper service. First map what exists vs what is missing and validate endpoint semantics against current official Upstox documentation. The first implementation task should be the smallest safe read-only or state-management improvement with mocked tests; keep the PAPER-only guard and never place real orders.

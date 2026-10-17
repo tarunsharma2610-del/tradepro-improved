@@ -7,6 +7,8 @@ import pytest
 
 from app.brokers.base import BrokerCallResult
 from app.core.encryption import encrypt_value
+from app.models.execution import Execution
+from app.models.order import Order
 from app.models.strategy import Strategy
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.services.instrument_service import InstrumentService
@@ -218,3 +220,42 @@ async def test_inactive_strategy_cannot_be_evaluated_even_via_manual_service_cal
     assert result.signal == Signal.HOLD.value
     assert "inactive" in result.reason.lower()
     adapter.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "realized_pnl,should_block",
+    [(Decimal("-9999.99"), False), (Decimal("-10000.00"), True), (Decimal("-12000.00"), True)],
+)
+def test_portfolio_daily_loss_limit_blocks_all_strategy_entries(
+    db_session, portfolio, instrument, monkeypatch, realized_pnl, should_block
+):
+    """Losses from a manual/non-strategy fill count toward the portfolio cap."""
+    from app.core.config import settings
+    from app.services.risk_engine import check_can_enter
+
+    _, p = portfolio
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    monkeypatch.setattr(settings, "PORTFOLIO_DAILY_LOSS_LIMIT_PCT", Decimal("2.0"))
+
+    order = Order(
+        portfolio_id=p.id, instrument_id=instrument.id, side="SELL",
+        order_type="MARKET", segment="EQUITY_DELIVERY", quantity=1,
+        status="FILLED", trading_mode="PAPER", execution_reason="MANUAL",
+        strategy_id=None, placed_at=datetime.now(timezone.utc), filled_at=datetime.now(timezone.utc),
+    )
+    db_session.add(order)
+    db_session.flush()
+    db_session.add(Execution(
+        order_id=order.id, portfolio_id=p.id, instrument_id=instrument.id,
+        side="SELL", quantity=1, price=Decimal("100"), gross_value=Decimal("100"),
+        brokerage=Decimal("0"), stt=Decimal("0"), exchange_charges=Decimal("0"),
+        sebi_charges=Decimal("0"), stamp_duty=Decimal("0"), gst=Decimal("0"),
+        total_charges=Decimal("0"), realized_pnl=realized_pnl, executed_at=datetime.now(timezone.utc),
+    ))
+    db_session.commit()
+
+    result = check_can_enter(db_session, strategy)
+    assert result.allowed is (not should_block)
+    if should_block:
+        assert result.reason is not None
+        assert "portfolio daily loss limit" in result.reason.lower()

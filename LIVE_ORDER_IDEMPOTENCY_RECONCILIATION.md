@@ -199,3 +199,10 @@ Latest code/test checkpoint `5508b272efe55997252e8d8a51fdd29761a1070b` passed Gi
 - Added repository-only `record_broker_fill()`. It scopes the write to an authenticated user's broker connection and optionally a matched intent in the same connection. It uses the unique `(broker_connection_id, broker_trade_id)` constraint. Identical duplicate deliveries are no-ops; reused IDs with different economic details fail closed. Linked fill + `BROKER_FILL_RECORDED` audit event commit atomically.
 - Exact code/test checkpoint `001a6eed2bd7090e2c7a4d3a8f2f87e9d7fa62bc` passed [run 39052203329](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052203329): 274 passed, 1 warning, with SQLite/PostgreSQL 16 migration checks.
 - This stores raw individual fill identity only. It does not reconcile the fill's instrument/side/quantity/price against the immutable intent snapshot, aggregate partial fills, update `Order`/`Execution`/`Position`/cash/P&L, fetch broker data, or run a worker. These are the next gates; no live submission is available.
+
+
+## 15. Fill-to-intent economic checks
+
+`record_broker_fill()` now fails closed unless a linked intent already references the same broker order ID. The observed fill must match the immutable intent's instrument, side, order type and product. Requested quantity must be a positive integer; one fill and the aggregate persisted fills cannot exceed the requested order quantity. For LIMIT/SL orders, BUY fills cannot exceed the limit price and SELL fills cannot be below it. These checks run before the fill is persisted.
+
+Tests include instrument mismatch, missing broker-order linkage, aggregate partial-fill overrun and buy/sell limit-price violations. Exact checkpoint [run 39052939770](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052939770) passed 279 tests, 1 warning, with SQLite/PostgreSQL 16 migration checks. This is local validation only; no broker read or execution-accounting update is made. Next: quarantine/relink unmatched fills and reconcile out-of-order broker statuses against actual trade records.

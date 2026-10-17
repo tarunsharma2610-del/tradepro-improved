@@ -25,7 +25,7 @@ type Order = {
   placed_at: string;
 };
 
-const SEGMENTS = ["EQUITY_DELIVERY", "EQUITY_INTRADAY", "FUTURES", "OPTIONS"];
+const SEGMENTS = ["EQUITY_DELIVERY", "EQUITY_INTRADAY"];
 
 export default function PortfolioDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -213,6 +213,9 @@ export default function PortfolioDetailPage() {
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-ink/50 dark:text-paper/50">
+                Futures and options are disabled until verified derivative instruments and contract risk controls are available.
+              </p>
             </div>
           </div>
 

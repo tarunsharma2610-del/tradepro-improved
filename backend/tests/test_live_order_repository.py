@@ -466,7 +466,7 @@ def test_fill_ingestion_rejects_intent_from_another_broker_connection(db_session
     portfolio, connection = _account(db_session, user)
     other_connection = BrokerConnection(
         user_id=user.id,
-        broker="upstox",
+        broker="zerodha",
         api_key_encrypted="other-encrypted-key",
         api_secret_encrypted="other-encrypted-secret",
         redirect_uri="https://example.invalid/callback",

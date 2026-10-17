@@ -22,7 +22,11 @@ Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b66302
 **Phase B — Audit live-execution safety before touching execution code.**
 - Added `PROJECT_INSTRUCTIONS.md` with the mandatory workflow and safety rules (commit `8d7d9d8257f852f3d26e0564be8b521b0fe75764`).
 - Added this `PROGRESS.md` tracker (commit `9986380d8f4ee8939718c858ea9ab925da3f65b1`).
-- No application-code change or new test has been performed in this session. The GitHub connector does not execute the project's test commands.
+- Inspected `backend/app/services/execution_service.py`, `backend/app/services/strategy_execution_service.py`, `backend/app/services/risk_engine.py`, `backend/app/core/config.py`, `backend/app/models/order.py`, `backend/app/brokers/upstox/adapter.py`, and relevant execution tests.
+- Confirmed the execution service currently creates orders with `trading_mode="PAPER"`; live broker order placement is not wired into this service. This is a deliberate safety boundary, not something to bypass.
+- Confirmed the risk engine currently covers strategy-specific realized daily loss only; portfolio-wide loss/exposure/order-frequency caps are not present in the inspected module.
+- Confirmed the Upstox adapter explicitly returns incomplete/not-implemented results for instrument-master sync and WebSocket streaming.
+- No application-code change or new test has been performed in this session. The GitHub connector can read/write repository files but cannot execute project test commands.
 
 ## Prior audit / CI evidence
 See `AUDIT_REPORT.md` and `LIVE_TRADING_SAFEGUARDS.md`. Audit report links to a prior backend CI run (167 passed, 1 deprecation warning) and reports frontend typecheck/build success. Treat these as prior reported results unless verified again through current Actions.
@@ -37,4 +41,4 @@ After each coherent step, update this tracker with:
 6. The next single action.
 
 ## Next action
-Inspect the current live-order path, risk checks, and related tests; map each live-trading requirement to concrete code/tests. Then address only a demonstrated high-priority safety gap with focused regression tests. Keep real order submission disabled until all safety requirements are verified and explicitly authorized.
+Create a concrete requirements-to-code/test gap map in `AUDIT_REPORT.md`, prioritizing paper/live isolation and backend risk limits. Then implement and regression-test the smallest safe high-priority gap using an environment where tests can actually run. Do not wire or enable real order submission until broker reconciliation, risk controls, security and end-to-end tests are verified and the user explicitly authorizes it.

@@ -54,7 +54,9 @@ def test_simultaneous_same_key_requests_create_one_intent_and_outbox():
                 redirect_uri="https://example.invalid/callback",
                 is_connected=False,
             )
-            session.add_all([user, portfolio, connection])
+            session.add(user)
+            session.commit()
+            session.add_all([portfolio, connection])
             session.commit()
 
         args = {

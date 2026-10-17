@@ -28,6 +28,7 @@ def check_portfolio_order(
     estimated_price: Decimal,
     reducing_position: bool = False,
     check_order_count: bool = True,
+    exclude_order_id=None,
 ) -> str | None:
     """Return a human-readable rejection reason, or None when allowed."""
     if not portfolio.risk_controls_enabled:
@@ -76,25 +77,41 @@ def check_portfolio_order(
         .filter(Position.portfolio_id == portfolio.id, Position.quantity != 0)
         .all()
     )
-    open_positions = len(positions)
+    existing_instruments = {p.instrument_id for p in positions}
     existing_exposure = sum(
         (abs(Decimal(str(p.quantity))) * abs(Decimal(str(p.avg_price))) for p in positions),
         Decimal("0"),
     )
-    current_position = next((p for p in positions if p.instrument_id == instrument.id), None)
+    pending_query = (
+        db.query(Order)
+        .filter(
+            Order.portfolio_id == portfolio.id,
+            Order.status == "PENDING",
+            Order.order_type == "LIMIT",
+            Order.limit_price.is_not(None),
+        )
+    )
+    if exclude_order_id is not None:
+        pending_query = pending_query.filter(Order.id != exclude_order_id)
+    pending_orders = pending_query.all()
+    pending_exposure = sum(
+        (Decimal(str(order.quantity)) * Decimal(str(order.limit_price)) for order in pending_orders),
+        Decimal("0"),
+    )
+    projected_instruments = existing_instruments | {order.instrument_id for order in pending_orders}
     if (
         portfolio.max_open_positions is not None
-        and current_position is None
-        and open_positions >= portfolio.max_open_positions
+        and instrument.id not in projected_instruments
+        and len(projected_instruments) >= portfolio.max_open_positions
     ):
-        return f"Portfolio risk limit: maximum {portfolio.max_open_positions} open positions reached."
+        return f"Portfolio risk limit: maximum {portfolio.max_open_positions} open or pending positions reached."
 
     if portfolio.max_open_exposure is not None:
-        projected_exposure = existing_exposure + order_value
+        projected_exposure = existing_exposure + pending_exposure + order_value
         if projected_exposure > Decimal(str(portfolio.max_open_exposure)):
             return (
                 f"Portfolio risk limit: estimated exposure ₹{projected_exposure:.2f} "
-                f"would exceed cap ₹{portfolio.max_open_exposure}."
+                f"including pending limit orders would exceed cap ₹{portfolio.max_open_exposure}."
             )
 
     return None

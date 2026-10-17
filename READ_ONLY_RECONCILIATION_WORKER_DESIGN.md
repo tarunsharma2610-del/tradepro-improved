@@ -66,3 +66,7 @@ Add a scheduled/on-demand worker that reads Upstox order and trade observations,
 - CI is green and evidence distinguishes mocked tests from any sandbox/staging verification.
 
 No worker, real API read, production migration, accounting update or order action is implemented by this document.
+
+
+## Lease foundation checkpoint — 2026-10-17
+`LiveReconciliationLease` and `LiveReconciliationLeaseRepository` are now implemented with Alembic revision `202610170003`. Claims are atomic and owner-scoped; expiry allows reclaim; renewal requires the current unexpired token; completion is token-guarded. [Run 39057273255](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39057273255) passed 318 tests, 1 warning, and SQLite/PostgreSQL 16 migration checks. The worker still does not exist or call the lease.

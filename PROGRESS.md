@@ -154,3 +154,18 @@ Review the live-order idempotency/reconciliation gap and write a safe implementa
 - No application code changed, no migration ran, no live broker session was used, and no orders were submitted. Tests were not rerun because this step only adds design documentation.
 - Current phase: design review; implementation is deliberately not started.
 - Next action: cross-link the reviewed design and correct status/roadmap language in `ARCHITECTURE.md`, `LIVE_TRADING_SAFEGUARDS.md`, `README.md`, `AUDIT_REPORT.md` and this progress tracker. Keep live submission disabled.
+
+
+### Cross-document update — 2026-10-17
+- Added the design-only document and cross-linked the safety boundary across architecture, safeguards, README, audit and persistent instructions.
+- Commits:
+  - Design: `f74386a99722d761bcd23848f442cb754dd0e231`
+  - Progress checkpoint: `23038aec23be3ea84f5f7b311b58b07a7a20e79e`
+  - Architecture: `dca8482b9f3959ed4708955aed25b1129e6d8673`
+  - Live safeguards: `0543eb7fce6aa874bd565764ed89768c0b1c5146`
+  - README: `230ff457e61136b249edaed435c9b3b9ef11a320`
+  - Audit: `412f02f1864896bca8eba6239083e20aebefefcb`
+  - Persistent instructions: `9b6133132d11aec17fa63d409ee476aceaaeb34c`
+- Documentation commits through architecture have green CI: [design](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39040603270), [progress](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39040613801), [architecture](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39040622827). Safeguards, README, audit and instruction commits were still running/queued at the latest check; verify their final result before claiming the full series is green.
+- This was documentation/design only; no application tests were rerun locally, no code/migration was added, and no broker order was submitted.
+- **Next action:** verify final CI for the full documentation commit series and inspect the final cross-links. After that, wait for design approval before Phase 1 schema/repository implementation.

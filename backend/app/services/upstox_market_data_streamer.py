@@ -71,6 +71,10 @@ class UpstoxMarketDataStreamer:
     def connected(self) -> bool:
         return self._connected
 
+    @property
+    def running(self) -> bool:
+        return self._task is not None and not self._task.done()
+
     def latest_tick(self, instrument_key: str) -> MarketTick | None:
         """Return only fresh data; callers must fail closed when this is None."""
         tick = self._ticks.get(instrument_key)

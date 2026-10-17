@@ -3,6 +3,8 @@ import pytest
 from app.services.live_order_reconciliation import (
     BrokerOrderDataError,
     normalize_upstox_order,
+    ReconciliationIntentCandidate,
+    match_broker_order_to_intent,
 )
 
 
@@ -16,6 +18,8 @@ def _order(**overrides):
         "quantity": 10,
         "filled_quantity": 0,
         "average_price": 0,
+        "price": 100,
+        "trigger_price": 0,
         "product": "D",
         "tag": "opaque-correlation",
     }
@@ -109,3 +113,90 @@ def test_cancelled_order_pending_quantity_does_not_imply_fill():
     result = normalize_upstox_order(_order(status="cancelled", pending_quantity=10))
     assert result.state == "CANCELLED"
     assert result.filled_quantity == 0
+
+
+def _candidate(*, intent_id="intent-1", connection="connection-1", order_id=None, tag="opaque-correlation", snapshot=None):
+    return ReconciliationIntentCandidate(
+        intent_id=intent_id,
+        broker_connection_id=connection,
+        broker_order_id=order_id,
+        broker_tag=tag,
+        order_snapshot=snapshot or {
+            "instrument_key": "NSE_EQ|INE062A01020",
+            "side": "BUY",
+            "order_type": "LIMIT",
+            "quantity": 10,
+            "limit_price": "100.00",
+            "product": "D",
+        },
+    )
+
+
+def test_intent_match_requires_exact_tag_and_all_economic_fields():
+    order = normalize_upstox_order(_order())
+    result = match_broker_order_to_intent(order, [_candidate()], broker_connection_id="connection-1")
+    assert result.status == "MATCHED"
+    assert result.intent_id == "intent-1"
+
+
+def test_existing_broker_order_id_is_strong_correlation_but_not_economic_override():
+    order = normalize_upstox_order(_order(order_id="upstox-order-123"))
+    result = match_broker_order_to_intent(
+        order, [_candidate(order_id="upstox-order-123", tag="different-tag")],
+        broker_connection_id="connection-1",
+    )
+    assert result.status == "MATCHED"
+
+
+def test_tag_match_with_wrong_instrument_is_quarantined():
+    order = normalize_upstox_order(_order())
+    candidate = _candidate(snapshot={
+        "instrument_key": "NSE_EQ|WRONG", "side": "BUY", "order_type": "LIMIT",
+        "quantity": 10, "limit_price": "100.00", "product": "D",
+    })
+    result = match_broker_order_to_intent(order, [candidate], broker_connection_id="connection-1")
+    assert result.status == "ECONOMIC_MISMATCH"
+    assert result.intent_id == "intent-1"
+
+
+def test_tag_alone_cannot_match_missing_product_or_price():
+    order = normalize_upstox_order(_order())
+    missing_product = _candidate(snapshot={
+        "instrument_key": "NSE_EQ|INE062A01020", "side": "BUY", "order_type": "LIMIT",
+        "quantity": 10, "limit_price": "100.00",
+    })
+    result = match_broker_order_to_intent(order, [missing_product], broker_connection_id="connection-1")
+    assert result.status == "ECONOMIC_MISMATCH"
+
+
+def test_duplicate_tag_matches_are_ambiguous_even_if_economics_match():
+    order = normalize_upstox_order(_order())
+    result = match_broker_order_to_intent(
+        order, [_candidate(intent_id="one"), _candidate(intent_id="two")],
+        broker_connection_id="connection-1",
+    )
+    assert result.status == "AMBIGUOUS"
+    assert result.intent_id is None
+
+
+def test_candidates_from_another_broker_connection_are_never_linked():
+    order = normalize_upstox_order(_order())
+    result = match_broker_order_to_intent(
+        order, [_candidate(connection="another-connection")],
+        broker_connection_id="connection-1",
+    )
+    assert result.status == "NO_MATCH"
+
+
+def test_unknown_or_conflicting_broker_status_is_not_auto_linked():
+    order = normalize_upstox_order(_order(status="future unknown status"))
+    result = match_broker_order_to_intent(order, [_candidate()], broker_connection_id="connection-1")
+    assert result.status == "NEEDS_REVIEW"
+
+
+def test_broker_order_id_match_with_wrong_quantity_is_quarantined():
+    order = normalize_upstox_order(_order(order_id="upstox-order-123", quantity=9))
+    result = match_broker_order_to_intent(
+        order, [_candidate(order_id="upstox-order-123")], broker_connection_id="connection-1"
+    )
+    assert result.status == "ECONOMIC_MISMATCH"

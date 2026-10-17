@@ -105,3 +105,67 @@ def test_simultaneous_same_key_requests_create_one_intent_and_outbox():
     finally:
         Base.metadata.drop_all(engine)
         engine.dispose()
+
+
+
+def test_simultaneous_reconciliation_lease_claims_allow_only_one_worker():
+    from datetime import datetime, timezone
+
+    from app.models import __dict__ as _registered_models  # noqa: F401
+    from app.core.database import Base
+    from app.models.broker_connection import BrokerConnection
+    from app.models.live_order_records import LiveReconciliationLease
+    from app.models.user import User
+    from app.repositories.live_reconciliation_lease_repository import LiveReconciliationLeaseRepository
+
+    engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        owner_id = uuid.uuid4()
+        connection_id = uuid.uuid4()
+        with SessionLocal() as session:
+            user = User(
+                id=owner_id,
+                email=f"lease-concurrency-{owner_id}@example.invalid",
+                password_hash="test-only",
+                full_name="Lease Concurrency Test",
+            )
+            session.add(user)
+            session.commit()
+            session.add(BrokerConnection(
+                id=connection_id,
+                user_id=owner_id,
+                broker="upstox",
+                api_key_encrypted="test-only",
+                api_secret_encrypted="test-only",
+                redirect_uri="https://example.invalid/callback",
+                is_connected=False,
+            ))
+            session.commit()
+
+        now = datetime.now(timezone.utc)
+
+        def claim():
+            with SessionLocal() as session:
+                return LiveReconciliationLeaseRepository(session).claim(
+                    user_id=owner_id,
+                    broker_connection_id=connection_id,
+                    now=now,
+                    lease_seconds=120,
+                )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda _: claim(), range(2)))
+
+        assert sum(token is not None for token in results) == 1
+        winner = next(token for token in results if token is not None)
+        with SessionLocal() as session:
+            lease = session.query(LiveReconciliationLease).filter_by(
+                broker_connection_id=connection_id
+            ).one()
+            assert lease.lease_token == winner
+            assert lease.generation == 1
+    finally:
+        Base.metadata.drop_all(engine)
+        engine.dispose()

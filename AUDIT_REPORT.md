@@ -113,3 +113,10 @@ Reviewed official Upstox Place Order V2/V3, Order History, Order Book, Order Det
 - No tests were rerun for the documentation-only design step. Existing historical CI results above remain historical evidence, not validation of live trading.
 - Live order placement/reconciliation remains **not implemented and not enabled**. Required future work: schema/repository and concurrency tests; reconciliation-only service; sandbox-only outbox submission with crash/timeout drills; fill dedupe; staging restore/migration verification; operational alerts/runbook; broker/account and compliance checks; explicit authorization.
 - Next action: cross-document consistency review and CI confirmation for this documentation commit series. Do not start live-order code until the design review gate is accepted.
+
+
+## Roadmap and commit-integrity review — 2026-10-17
+- Added [ROADMAP.md](ROADMAP.md) to consolidate the verified status, phased implementation plan and release gates across market-data, risk, live-order safety and deployment verification.
+- Verified the prior documentation commit series exists on default branch `main`; latest prior progress commit `3263eda9d1329d17069dd4140162602631639a0b` has successful CI: [run 39040715054](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39040715054).
+- The new roadmap commit is `3024aed473f28409bd075ec7e764576890c4ecfa`; its own CI must be checked separately before reporting it green.
+- No application code or schema was changed by the roadmap addition. No tests were run locally, no production migration was run, and no real broker order was submitted.

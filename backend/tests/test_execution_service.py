@@ -449,6 +449,65 @@ async def test_filled_order_cannot_be_cancelled(db_session, portfolio, instrumen
 
 
 @pytest.mark.asyncio
+async def test_manual_portfolio_order_value_limit_rejects_market_order(db_session, portfolio, instrument):
+    user, p = portfolio
+    p.risk_controls_enabled = True
+    p.max_order_value = Decimal("1000")
+    db_session.commit()
+    _connect_fake_broker(db_session, user.id)
+
+    with _mock_quote("2500"):
+        order = await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=1,
+            ),
+        )
+
+    assert order.status == "REJECTED"
+    assert "order value" in order.rejection_reason.lower()
+    db_session.refresh(p)
+    assert p.cash_balance == Decimal("100000")
+
+
+@pytest.mark.asyncio
+async def test_manual_portfolio_order_value_limit_rejects_limit_order(db_session, portfolio, instrument):
+    user, p = portfolio
+    p.risk_controls_enabled = True
+    p.max_order_value = Decimal("1000")
+    db_session.commit()
+
+    order = await ExecutionService(db_session).place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+            order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=1,
+            limit_price=Decimal("2500"),
+        ),
+    )
+
+    assert order.status == "REJECTED"
+    assert "order value" in order.rejection_reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_portfolio_risk_controls_disabled_by_default(db_session, portfolio, instrument):
+    user, p = portfolio
+    assert p.risk_controls_enabled is False
+    _connect_fake_broker(db_session, user.id)
+    with _mock_quote("2500"):
+        order = await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=1,
+            ),
+        )
+    assert order.status == "FILLED"
+
+
+@pytest.mark.asyncio
 async def test_paper_market_order_never_calls_broker_live_order_endpoint(db_session, portfolio, instrument):
     """A paper fill may read a live quote, but must never submit a real order."""
     user, p = portfolio

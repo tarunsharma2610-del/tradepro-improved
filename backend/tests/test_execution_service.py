@@ -653,6 +653,36 @@ async def test_pending_limit_orders_count_toward_estimated_portfolio_exposure(db
 
 
 @pytest.mark.asyncio
+async def test_portfolio_open_position_cap_rejects_new_instrument(db_session, portfolio, instrument):
+    from app.models.position import Position
+    from app.repositories.instrument_repository import InstrumentRepository
+
+    user, p = portfolio
+    p.risk_controls_enabled = True
+    p.max_open_positions = 1
+    db_session.add(Position(
+        portfolio_id=p.id, instrument_id=instrument.id,
+        quantity=2, avg_price=Decimal("100"), realized_pnl=Decimal("0"),
+    ))
+    db_session.commit()
+
+    InstrumentService(db_session).seed_defaults()
+    second_instrument = InstrumentRepository(db_session).search("TCS")[0]
+
+    order = await ExecutionService(db_session).place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id, instrument_id=second_instrument.id, side=Side.BUY,
+            order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=1,
+            limit_price=Decimal("100"),
+        ),
+    )
+
+    assert order.status == "REJECTED"
+    assert "open or pending positions" in order.rejection_reason.lower()
+
+
+@pytest.mark.asyncio
 async def test_portfolio_risk_controls_disabled_by_default(db_session, portfolio, instrument):
     user, p = portfolio
     assert p.risk_controls_enabled is False

@@ -91,3 +91,25 @@ This workstream added portfolio risk settings/enforcement, snapshot-gated expiry
 - Frontend TypeScript and production build passed for stream-control UI: [workflow 39037642093](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093).
 - Remaining release blockers: authenticated real-session WebSocket test; multi-worker/shared stream state; backup-safe staging migration against the actual deployment DB; and idempotent live order submission plus broker reconciliation and emergency stop. No live orders were submitted. Keep live trading disabled.
 - Next safe step: document idempotency and reconciliation design against the existing adapter/order model/audit trail before implementing live order submission.
+
+
+## Live-order idempotency/reconciliation design review — 2026-10-17
+
+### Source review findings
+- `backend/app/models/order.py` stores local order intent/status but has no durable client idempotency key, broker connection/order identity, submission-attempt ledger or reconciliation state.
+- `backend/app/models/execution.py` can represent multiple executions conceptually but has no broker trade ID uniqueness guard to deduplicate imported fills.
+- `backend/app/repositories/order_repository.py` performs ordinary create/save commits; it does not implement a transactional outbox or an atomic idempotency claim.
+- `backend/app/services/execution_service.py` constructs `trading_mode="PAPER"` orders. Keep that behavior isolated; do not connect this method directly to live broker submission.
+- `backend/app/brokers/base.py` and `backend/app/brokers/upstox/adapter.py` expose order placement, status, order-book, positions and holdings calls, but adapter methods alone do not provide durable idempotency, uncertain-submit recovery, fill deduplication or reconciliation orchestration.
+
+### Design deliverable
+Added [`LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md) (commit `f74386a99722d761bcd23848f442cb754dd0e231`). It defines additive intent/event/outbox/fill identity records; key + canonical request hash semantics; unknown-submit handling and no blind retries; broker history/order-book/trade reconciliation; partial-fill and cancellation-race handling; risk/kill-switch rechecks; migration and deployment gates; implementation phases; and a regression-test matrix. Related architecture/safety/README documentation links this design.
+
+### Official API contract notes
+Reviewed official Upstox Place Order V2/V3, Order History, Order Book, Order Details and Order Trades pages. Upstox tags support correlation and history lookup; this design does **not** assume a tag is broker-enforced idempotency. External exactly-once submission cannot be promised by a local database alone; ambiguous network outcomes must be reconciled before any further submission.
+
+### Status and verification
+- This step changed documentation only. No application code or database schema changed, no migration ran and no real broker session/order was used.
+- No tests were rerun for the documentation-only design step. Existing historical CI results above remain historical evidence, not validation of live trading.
+- Live order placement/reconciliation remains **not implemented and not enabled**. Required future work: schema/repository and concurrency tests; reconciliation-only service; sandbox-only outbox submission with crash/timeout drills; fill dedupe; staging restore/migration verification; operational alerts/runbook; broker/account and compliance checks; explicit authorization.
+- Next action: cross-document consistency review and CI confirmation for this documentation commit series. Do not start live-order code until the design review gate is accepted.

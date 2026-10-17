@@ -133,3 +133,13 @@ After each coherent step, update this tracker with:
 
 ## Next action
 Review the live-order idempotency/reconciliation gap and write a safe implementation plan before any live-order code. Live order placement remains intentionally unimplemented; do not connect it to the paper execution service or submit real orders. Frontend TypeScript and production build passed for stream-control UI commit 6ec32fefda4ba357bde0fc5997cd32d6b58b4979: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093. The live instrument-master workflow passed with 123,930 active instruments in temporary SQLite: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129. Keep live trading disabled.
+
+
+## Checkpoint — 2026-10-17 (verified against latest default-branch CI)
+- Re-read `PROJECT_INSTRUCTIONS.md`, `PROGRESS.md`, `README.md` and `AUDIT_REPORT.md`. This checkpoint reconciles older audit text with the latest verified state.
+- Latest CI after documentation changes: [39039714203](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39039714203) — **203 passed, 1 warning**; clean SQLite Alembic migration chain reached `202610170001` (manually configurable portfolio risk controls).
+- Regression coverage already on `main`: portfolio daily order cap, incomplete instrument-master snapshot rejection, WebSocket silence reconnect, authorization URL allow/deny checks, and official-format V3 authorization success path. Do not duplicate tests without inspecting current files.
+- Upstream instrument-master verification previously passed in disposable in-memory SQLite: **123,930 active instruments**; workflow [39037390129](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129). This is not a production sync.
+- Frontend TypeScript/build passed for stream-control UI: [39037642093](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093). Stream manager is process-local; deploy one API worker until shared state is implemented.
+- Still unverified: real OAuth-authenticated WebSocket; backup-safe staging migration against the actual deployed DB; multi-worker stream sharing; and live order workflow. Live order placement remains unimplemented and disabled.
+- **Next step:** inspect broker adapter, order model, audit trail and execution service; write a design for idempotency keys, uncertain-submit handling and broker reconciliation before coding. Preserve paper/live isolation; do not submit live orders.

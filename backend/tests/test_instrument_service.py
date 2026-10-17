@@ -81,6 +81,7 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
         _record("NSE_FO", "NSE", "PE", "NSE_FO|NO_STRIKE", "BAD OPTION", expiry=1798675200000),
         _record("NSE_EQ", "BSE", "EQ", "NSE_EQ|WRONG_EXCHANGE", "WRONG"),
     ]
+    monkeypatch.setattr("app.services.instrument_service.MIN_VALID_SNAPSHOT_RECORDS", 1)
     response = FakeResponse(200, gzip.compress(json.dumps(records).encode("utf-8")))
     fake_client = FakeAsyncClient(response)
     monkeypatch.setattr(
@@ -130,6 +131,46 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
     commodity_future = repo.get_by_key("MCX_FO|GOLD123")
     assert commodity_future.exchange == "MCX"
     assert commodity_future.instrument_type == "FUTURES"
+
+
+@pytest.mark.asyncio
+async def test_validated_snapshot_deactivates_missing_and_expired_contracts_atomically(db_session, monkeypatch):
+    repo = InstrumentRepository(db_session)
+    repo.upsert(
+        instrument_key="NSE_EQ|DELISTED",
+        exchange="NSE", segment="NSE_EQ", instrument_type="EQUITY",
+        trading_symbol="DELISTED", name="Delisted", lot_size=1,
+        tick_size=Decimal("0.05"), expiry=None, strike_price=None,
+        option_type=None, is_active=True,
+    )
+    repo.upsert(
+        instrument_key="NSE_FO|EXPIRED",
+        exchange="NSE", segment="NSE_FO", instrument_type="FUTURES",
+        trading_symbol="EXPIRED", name="Expired future", lot_size=1,
+        tick_size=Decimal("0.05"), expiry=date(2026, 10, 16),
+        strike_price=None, option_type=None, is_active=True,
+    )
+    records = [
+        _record("NSE_EQ", "NSE", "EQ", "NSE_EQ|LIVE", "LIVE"),
+        _record("NSE_INDEX", "NSE", "INDEX", "NSE_INDEX|NIFTY", "NIFTY"),
+        _record("NSE_FO", "NSE", "FUT", "NSE_FO|EXPIRED", "EXPIRED", expiry=1792108800000),
+        _record("BSE_EQ", "BSE", "EQ", "BSE_EQ|LIVE2", "LIVE2"),
+        _record("BSE_INDEX", "BSE", "INDEX", "BSE_INDEX|SENSEX", "SENSEX"),
+        _record("BSE_FO", "BSE", "CE", "BSE_FO|OPTION", "OPTION", expiry=1798675200000, strike_price=80000),
+        _record("MCX_FO", "MCX", "FUT", "MCX_FO|GOLD", "GOLD", expiry=1798675200000),
+    ]
+    monkeypatch.setattr("app.services.instrument_service.MIN_VALID_SNAPSHOT_RECORDS", 1)
+    fake_client = FakeAsyncClient(FakeResponse(200, gzip.compress(json.dumps(records).encode("utf-8"))))
+    monkeypatch.setattr("app.services.instrument_service.httpx.AsyncClient", lambda **kwargs: fake_client)
+
+    ok, message = await InstrumentService(db_session).sync_from_upstox()
+
+    assert ok is True
+    assert "deactivated" in message
+    assert repo.get_by_key("NSE_EQ|DELISTED").is_active is False
+    assert repo.get_by_key("NSE_FO|EXPIRED").is_active is False
+    assert repo.get_by_key("NSE_EQ|LIVE").is_active is True
+    assert repo.get_by_key("BSE_FO|OPTION").is_active is True
 
 
 @pytest.mark.asyncio

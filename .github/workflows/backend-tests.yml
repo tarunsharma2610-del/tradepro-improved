@@ -14,6 +14,20 @@ jobs:
   pytest:
     name: Backend pytest
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tradepro_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tradepro_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -31,12 +45,23 @@ jobs:
       - name: Run test suite
         env:
           DATABASE_URL: "sqlite:///:memory:"
+          TEST_POSTGRES_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
           MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: python -m pytest -q
       - name: Verify Alembic upgrade, downgrade and re-upgrade on SQLite
         env:
           DATABASE_URL: "sqlite:///./migration-check.db"
+          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
+          SECRET_KEY: "test-secret-key-not-for-production"
+        run: |
+          alembic upgrade head
+          alembic downgrade 202610170001
+          alembic upgrade head
+
+      - name: Verify Alembic upgrade, downgrade and re-upgrade on PostgreSQL 16
+        env:
+          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
           MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: |

@@ -118,3 +118,9 @@
 ### 17 October 2026 — live order state-machine design
 - Added `LIVE_ORDER_STATE_MACHINE.md` to define a safe future live lifecycle before coding. It covers multi-ID V3 responses, tag-based timeout recovery, partial-fill/trade deduplication, cancel/modify confirmation, restart recovery, required schema and release gates.
 - Documentation only: no live order path added; PAPER-only execution gate unchanged.
+
+
+### 17 October 2026 — additive live broker schema foundation
+- Added `BrokerOrder` child rows (supports multiple broker IDs per local order), a unique nullable `Order.broker_tag`, expanded order status width, and broker-order/trade ID fields on `Execution` with per-broker trade-ID uniqueness.
+- Added migration `202610170004_live_broker_order_state.py` and a populated legacy database regression test. Paper order/execution data remains intact; duplicate broker order IDs/trade IDs are blocked.
+- CI on `dbd83c878753e7a0cb6e2a7935c55378ee56d7cb`: backend **201 passed, 1 warning**, migration check passed, frontend checks passed. New fields remain unused by execution.

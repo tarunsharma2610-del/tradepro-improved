@@ -147,3 +147,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 - Added `LIVE_ORDER_STATE_MACHINE.md` before implementation. It documents current behavior, official endpoint response shapes, unknown timeout recovery, one-to-many broker order mapping, trade-level deduplication, partial-fill state transitions, confirmed modify/cancel, atomic accounting, restart recovery, risk gates and a test matrix.
 - No live submission path was implemented. Next task is schema/model groundwork only, with the existing PAPER-only guard preserved.
+
+
+## Broker-order schema foundation — 17 October 2026
+
+- Added a child `BrokerOrder` table, stable local broker tag, wider status field and unique broker trade-ID metadata on executions, with additive migration 004. The migration test validates a populated pre-migration database and proves existing paper data is preserved.
+- Latest CI: 201 backend tests passed, 1 warning, clean SQLite migration, frontend checks passed. New schema is not wired into any live order flow.
+- Next: pure response-validation helpers for V3 order IDs, order details, history and trade payloads; then review them before a live service exists.

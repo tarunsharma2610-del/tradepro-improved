@@ -121,3 +121,10 @@ Live trading is **NOT READY**. No live order placement should be enabled until c
 - Added [`LIVE_ORDER_STATE_MACHINE.md`](LIVE_ORDER_STATE_MACHINE.md), a design-only specification grounded in official Upstox docs for Place Order V3, Modify/Cancel V3, Order Details, Order History and Order Trades.
 - The design identifies the missing data model for one local order to multiple broker order IDs, unique trade IDs and partial fills; it also defines timeout recovery by stable tag, broker-confirmed cancel/modify states, atomic fill accounting, restart recovery and account-level risk gates.
 - This is documentation only; no live submission or accounting behavior changed. Next task is additive model/migration support with tests, still not wired to execution.
+
+
+## Broker-order schema foundation — 17 October 2026
+
+- Added migration `202610170004_live_broker_order_state.py`, a `BrokerOrder` child model for one-to-many broker IDs, a unique nullable stable tag on local orders, wider order status field, and nullable execution fields for child-order linkage and per-broker unique trade IDs.
+- Populated migration test upgrades from revision 003 and verifies preservation of paper data, multi-child mapping, duplicate ID/trade rejection and `PARTIALLY_FILLED` storage. Latest CI: [201 passed, 1 warning, clean migration](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033460748); [frontend passed](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033460785).
+- Schema only: no live execution or reconciliation path uses these new fields yet. Next step is pure response validation/mapping helpers before any live service is wired.

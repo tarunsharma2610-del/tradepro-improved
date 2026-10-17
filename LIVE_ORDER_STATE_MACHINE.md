@@ -105,3 +105,8 @@ All tests below must use mocked HTTP or an authorized Upstox sandbox; never plac
 7. Obtain explicit user authorization before enabling any real order path.
 
 **Current release decision: Live Trading is NOT READY. The current adapter methods are foundations only; the PAPER-only execution gate must remain unchanged.**
+
+
+## Schema foundation status update — 17 October 2026
+
+The first schema-only implementation step is now committed in migration `202610170004_live_broker_order_state.py`: `BrokerOrder` supports multiple broker IDs per local order; `Order.broker_tag` is unique when populated; order status width supports partial/unknown states; and `Execution` has a child-order reference plus per-broker trade-ID uniqueness. The populated migration regression test passed. No execution/reconciliation code uses these fields yet.

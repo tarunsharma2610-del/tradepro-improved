@@ -158,3 +158,11 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Added `LIVE_ORDER_STATE_MACHINE.md` as a design-only artifact. It covers Upstox V3's multiple `data.order_ids`, stable tag recovery, unknown submission timeouts, broker-confirmed statuses, trade-ID deduplication, partial fills, cancel/modify confirmation, restart recovery, required schema changes, risk gates and test/release criteria.
 - No live execution code was added or enabled. The paper-only gate remains unchanged.
 - Next task: add an additive schema/model foundation for broker child orders, trade-ID deduplication and partial-fill status, with tests only; do not wire execution yet. See `PROGRESS.md`.
+
+
+## Additive broker-order schema foundation completed — 17 October 2026
+
+- Added `BrokerOrder` rows for one-to-many local-order to broker-order mapping, a unique nullable `Order.broker_tag`, expanded `Order.status` length, and nullable `Execution` fields for broker child-order reference and unique broker trade ID per broker.
+- Added forward migration `202610170004_live_broker_order_state.py` and a populated-database migration regression test. Existing paper order/execution values are preserved; the test verifies multiple child IDs, duplicate broker-order/trade rejection and `PARTIALLY_FILLED` status storage.
+- New schema is not wired into execution/reconciliation. CI on `dbd83c878753e7a0cb6e2a7935c55378ee56d7cb`: backend **201 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
+- Next: pure typed response-validation helpers for Upstox V3 place, order details, history and trades payloads. No live orders. See `PROGRESS.md` and `LIVE_ORDER_STATE_MACHINE.md`.

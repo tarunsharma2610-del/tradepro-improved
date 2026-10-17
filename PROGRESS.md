@@ -3,7 +3,9 @@
 Last updated: 2026-10-17
 Repository: https://github.com/tarunsharma2610-del/tradepro-improved
 Branch: `main`
-Current HEAD at tracker creation: `2cf83089070e064c61f3b75fcb6b663021cbf625`
+Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b663021cbf625`
+- `PROJECT_INSTRUCTIONS.md` commit: `8d7d9d8257f852f3d26e0564be8b521b0fe75764`
+- `PROGRESS.md` initial commit: `9986380d8f4ee8939718c858ea9ab925da3f65b1`
 
 ## Current state
 - [x] Separate improved repository exists; original `Tradepro` repo is to remain untouched.
@@ -17,8 +19,10 @@ Current HEAD at tracker creation: `2cf83089070e064c61f3b75fcb6b663021cbf625`
 - [ ] OAuth schema migration needs staging verification before deployment.
 
 ## Current phase
-**Phase A — Establish persistent instructions and evidence-based continuation.**
-No application-code change or new test has been performed in this session yet.
+**Phase B — Audit live-execution safety before touching execution code.**
+- Added `PROJECT_INSTRUCTIONS.md` with the mandatory workflow and safety rules (commit `8d7d9d8257f852f3d26e0564be8b521b0fe75764`).
+- Added this `PROGRESS.md` tracker (commit `9986380d8f4ee8939718c858ea9ab925da3f65b1`).
+- No application-code change or new test has been performed in this session. The GitHub connector does not execute the project's test commands.
 
 ## Prior audit / CI evidence
 See `AUDIT_REPORT.md` and `LIVE_TRADING_SAFEGUARDS.md`. Audit report links to a prior backend CI run (167 passed, 1 deprecation warning) and reports frontend typecheck/build success. Treat these as prior reported results unless verified again through current Actions.
@@ -33,4 +37,4 @@ After each coherent step, update this tracker with:
 6. The next single action.
 
 ## Next action
-After committing this tracker and `PROJECT_INSTRUCTIONS.md`, inspect the current live-order path, risk checks, and related tests; map each live-trading requirement to concrete code/tests. Then address only a demonstrated high-priority safety gap with focused regression tests. Keep real order submission disabled until all safety requirements are verified and explicitly authorized.
+Inspect the current live-order path, risk checks, and related tests; map each live-trading requirement to concrete code/tests. Then address only a demonstrated high-priority safety gap with focused regression tests. Keep real order submission disabled until all safety requirements are verified and explicitly authorized.

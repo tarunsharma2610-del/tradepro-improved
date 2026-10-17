@@ -446,3 +446,31 @@ async def test_filled_order_cannot_be_cancelled(db_session, portfolio, instrumen
     assert order.status == "FILLED"
     with pytest.raises(OrderValidationError, match="Only pending orders"):
         service.cancel_order(user.id, p.id, order.id)
+
+
+@pytest.mark.asyncio
+async def test_paper_market_order_never_calls_broker_live_order_endpoint(db_session, portfolio, instrument):
+    """A paper fill may read a live quote, but must never submit a real order."""
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    service = ExecutionService(db_session)
+
+    with _mock_quote("2500.00") as adapter_factory:
+        adapter = adapter_factory.return_value
+        adapter.place_order = AsyncMock()
+
+        order = await service.place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="MARKET",
+                segment=Segment.EQUITY_DELIVERY,
+                quantity=1,
+            ),
+        )
+
+        assert order.trading_mode == "PAPER"
+        assert order.status == "FILLED"
+        adapter.place_order.assert_not_awaited()

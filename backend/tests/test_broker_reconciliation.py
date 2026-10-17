@@ -120,3 +120,31 @@ async def test_broker_status_check_rejects_mismatched_broker_order_id(
     assert order.broker_status is None
     assert "did not match" in order.broker_status_error
     assert order.status == "PENDING"
+
+
+@pytest.mark.asyncio
+async def test_broker_status_check_rejects_missing_broker_order_id(
+    db_session, portfolio, instrument, monkeypatch
+):
+    user, _p = portfolio
+    order = _live_order(db_session, portfolio, instrument)
+    adapter = SimpleNamespace(
+        get_order_status=AsyncMock(return_value=BrokerCallResult(
+            ok=True, data={"data": {"status": "complete"}}
+        ))
+    )
+    monkeypatch.setattr("app.services.broker_reconciliation_service.get_broker_adapter", lambda _name: adapter)
+    monkeypatch.setattr(
+        "app.services.broker_reconciliation_service.BrokerCredentialsService.get_access_token",
+        lambda _self, _user_id, _broker: "fake-token",
+    )
+
+    result = await BrokerReconciliationService(db_session).check_order_status(user.id, order.id)
+
+    db_session.refresh(order)
+    assert result.ok is False
+    assert order.broker_status is None
+    assert "did not include" in order.broker_status_error
+    assert order.status == "PENDING"
+    assert order.filled_at is None
+    adapter.get_order_status.assert_awaited_once_with("fake-token", "upstox-123")

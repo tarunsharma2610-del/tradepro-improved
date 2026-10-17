@@ -71,7 +71,12 @@ class BrokerReconciliationService:
             return BrokerStatusCheck(str(order.id), False, order.broker_status, order.broker_status_error)
 
         returned_order_id = payload.get("order_id")
-        if returned_order_id is not None and str(returned_order_id) != order.broker_order_id:
+        if returned_order_id is None or not str(returned_order_id).strip():
+            order.broker_status_error = "Broker response did not include the requested broker order_id."
+            self.db.add(order)
+            self.db.commit()
+            return BrokerStatusCheck(str(order.id), False, order.broker_status, order.broker_status_error)
+        if str(returned_order_id) != order.broker_order_id:
             order.broker_status_error = "Broker response order_id did not match the requested broker order."
             self.db.add(order)
             self.db.commit()

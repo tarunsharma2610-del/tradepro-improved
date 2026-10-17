@@ -28,6 +28,7 @@ from app.services.candle_parsing import parse_candles
 from app.services.execution_service import ExecutionService
 from app.services.execution_service import PlaceOrderRequest as ServicePlaceOrderRequest
 from app.services.indicators import Candle
+from app.services.instrument_validation import validate_instrument_segment
 from app.services.notification_service import NotificationService
 from app.services.position_math import check_trailing_stop
 from app.services.strategy_engine import IndicatorWeights, Signal, compute_score, decide
@@ -60,6 +61,11 @@ class StrategyExecutionService:
         # Enforce activation here so manual calls cannot bypass the worker's active check.
         if not strategy.is_active:
             return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Strategy is inactive; activate it before evaluation.")
+
+        try:
+            validate_instrument_segment(strategy.instrument, strategy.segment)
+        except ValueError as exc:
+            return EvaluationResult(str(strategy.id), Signal.HOLD.value, str(exc))
 
         portfolio = self.portfolios.get_by_id(strategy.portfolio_id)
         if portfolio is None:

@@ -11,7 +11,7 @@ not accidentally disable tradable instruments.
 
 import gzip
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 import httpx
@@ -44,7 +44,7 @@ _EQUITY_TYPES = {"EQ", "BE"}
 _OPTION_TYPES = {"CE", "PE"}
 
 
-def _expiry_date(value) -> datetime.date | None:
+def _expiry_date(value) -> date | None:
     """Convert Upstox epoch-milliseconds or ISO date into an expiry date."""
     if value in (None, ""):
         return None

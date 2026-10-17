@@ -91,21 +91,25 @@ def test_parse_order_history_accepts_empty_list_and_valid_rows():
     assert rows[0].transaction_type == "SELL"
 
 
-def test_parse_order_history_rejects_mismatched_and_duplicate_order_ids():
+def test_parse_order_history_accepts_multiple_status_events_for_one_order_and_rejects_mismatch():
+    # Order History is a timeline; Upstox can return multiple status events
+    # carrying the same order_id. These are not duplicate child orders.
+    history = parse_order_history(
+        {
+            "status": "success",
+            "data": [
+                {"order_id": "child-1", "status": "open pending", "quantity": 1},
+                {"order_id": "child-1", "status": "open", "quantity": 1},
+                {"order_id": "child-1", "status": "complete", "quantity": 1},
+            ],
+        }
+    )
+    assert [entry.status for entry in history] == ["open pending", "open", "complete"]
+
     with pytest.raises(ValueError, match="does not match"):
         parse_order_history(
             {"status": "success", "data": [{"order_id": "other", "status": "open", "quantity": 1}]},
             expected_order_id="child-1",
-        )
-    with pytest.raises(ValueError, match="duplicate"):
-        parse_order_history(
-            {
-                "status": "success",
-                "data": [
-                    {"order_id": "child-1", "status": "open", "quantity": 1},
-                    {"order_id": "child-1", "status": "complete", "quantity": 1},
-                ],
-            }
         )
 
 

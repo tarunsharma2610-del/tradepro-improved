@@ -88,8 +88,6 @@ def parse_order_history(payload: Any, expected_order_id: str | None = None) -> t
     expected = _required_text(expected_order_id, "expected_order_id") if expected_order_id is not None else None
     rows = _success_data(payload, list, "order-history")
     result: list[BrokerOrderHistoryEntry] = []
-    seen_ids: set[str] = set()
-
     for index, row in enumerate(rows):
         prefix = f"data[{index}]"
         if not isinstance(row, dict):
@@ -97,10 +95,6 @@ def parse_order_history(payload: Any, expected_order_id: str | None = None) -> t
         order_id = _required_text(row.get("order_id"), f"{prefix}.order_id")
         if expected is not None and order_id != expected:
             raise ValueError("Order History response order_id does not match the requested broker order.")
-        if order_id in seen_ids:
-            raise ValueError("Order History response contains duplicate broker order IDs.")
-        seen_ids.add(order_id)
-
         status = _required_text(row.get("status"), f"{prefix}.status")
         quantity = _required_int(row.get("quantity"), f"{prefix}.quantity", minimum=1)
         filled_raw = row.get("filled_quantity")

@@ -247,6 +247,7 @@ class ExecutionService:
                 estimated_price=fill_price,
                 reducing_position=self._is_reducing_position(portfolio.id, order.instrument_id, side, order.quantity),
                 check_order_count=False,
+                exclude_order_id=order.id,
             )
             if risk_reason:
                 self._reject(order, risk_reason)

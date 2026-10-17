@@ -210,18 +210,18 @@ Review the live-order idempotency/reconciliation gap and write a safe implementa
 - `backend/app/models/__init__.py`: registers the new models with SQLAlchemy metadata.
 - `backend/alembic/versions/202610170002_live_order_durability.py`: additive migration after `202610170001`, with reversible table/index creation.
 - `backend/app/repositories/live_order_repository.py`: validates authenticated-user ownership of both portfolio and broker connection; derives SHA-256 from deterministic canonical JSON plus user/portfolio/connection scope; same key + same payload reuses the existing intent; same key + different payload raises `IdempotencyConflict`; persists intent, initial audit event and outbox row in one transaction; handles a unique-key race by rollback and winner lookup.
-- `backend/tests/test_live_order_repository.py`: covers transactionally created records, duplicate reuse, payload conflict, ownership isolation, invalid key/non-finite payload rejection, duplicate broker-fill identity, audit ownership and rollback atomicity.
+- `backend/tests/test_live_order_repository.py`: covers transactionally created records, duplicate reuse, payload conflict, ownership isolation, invalid key/non-finite payload rejection, duplicate broker-fill identity, audit ownership, rollback atomicity and deterministic independent-session winner recovery. True simultaneous multi-transaction contention remains unverified.
 - Updated `ROADMAP.md`, `AUDIT_REPORT.md`, `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`, `ARCHITECTURE.md`, `LIVE_TRADING_SAFEGUARDS.md`, `README.md` and `PROJECT_INSTRUCTIONS.md` to record approval, current implementation boundary and evidence.
 
 ### Verification
-- Latest application-code/test commit: `54671fd57f21e93938c4c265d29266e50b5f350c`.
-- Exact-commit GitHub Actions: [run 39043386194](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043386194) — **211 tests passed, 1 warning**; clean SQLite `alembic upgrade head` passed.
+- Latest application-code/test commit: `c098d1c23bd4d422e6d86c56e43c2c65e22d8ab4`.
+- Exact-commit GitHub Actions: [run 39043589541](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043589541) — **212 tests passed, 1 warning**; clean SQLite `alembic upgrade head` passed.
 - The intermediate canonical-hash API/test mismatch caused two red runs (39043143640 and 39043156888); the fixture was corrected and the later exact code checkpoint passed. Failures are not concealed.
-- Documentation update commits: roadmap `4c180c79609ea70d69202a675fc488e9bcd8cb50`; audit `2f0d257d60f433f95b1fc3a748692ca9ced2eac9`; README `2a66095026bd3cf589e16a94af1133f068bdc04f`; design `beabddea4392e5579c10b41502b7075c7cedbe1c`; architecture `d8f8fb9be71edc7f29fed9d31579a63654a7aea4`; safeguards `c1bc5babe0e1ba700fbb048b213d37c7f2d01f39`; instructions `a23e84155f3cdd8faea135cddb4906cf03a4723f`. Their CI verification is being checked independently; the final progress commit must also be checked.
+- Documentation update commits (latest status wording): roadmap `a855f40c3e0d64ccaebf0efa36b103a03a4f8364`; audit `fc333b7046c8dd9ce535fac062d19b4c76412725`; README `89bd3899ffb7d8cf0460546fd76a027deeb28e34`; design `81eb7f3eef8fad2db88942eeec884cae075a437c`; architecture `d8f8fb9be71edc7f29fed9d31579a63654a7aea4`; safeguards `c1bc5babe0e1ba700fbb048b213d37c7f2d01f39`; instructions `a23e84155f3cdd8faea135cddb4906cf03a4723f`. Their CI verification and this progress update's exact-commit CI must be checked independently.
 - No broker order POST, cancellation, live reconciliation, production migration or real-money test was performed.
 
 ### Remaining Phase 1 gates
-- Add an explicit concurrent duplicate-key race test using independent database sessions/transactions.
+- Add true simultaneous multi-transaction contention coverage against the deployment database engine; current independent-session test deterministically simulates the competing commit and exercises winner recovery.
 - Verify migration downgrade/upgrade and constraints on a backup-restored staging copy of the actual deployment database engine.
 - Review append-only audit enforcement and safe-details redaction policy before any API exposes these records.
 - No live-order API, dispatcher worker or reconciliation service is part of this phase. Keep live trading disabled.

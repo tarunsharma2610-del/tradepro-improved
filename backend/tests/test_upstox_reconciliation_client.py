@@ -8,9 +8,10 @@ from app.brokers.upstox.reconciliation_client import (
 
 
 class _Response:
-    def __init__(self, status_code=200, body=None):
+    def __init__(self, status_code=200, body=None, headers=None):
         self.status_code = status_code
         self.body = body if body is not None else {"status": "success", "data": []}
+        self.headers = headers or {}
 
     def json(self):
         if self.body == "not-json":
@@ -147,3 +148,25 @@ def test_read_only_client_exposes_no_order_write_methods():
     assert not hasattr(client, "place_order")
     assert not hasattr(client, "modify_order")
     assert not hasattr(client, "cancel_order")
+
+
+
+@pytest.mark.asyncio
+async def test_daily_trade_history_uses_documented_get_endpoint(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    result = await client.get_trades_for_day("test-token")
+    assert result.ok is True
+    assert fake_httpx.calls[0]["url"] == f"{API_V2}/order/trades/get-trades-for-day"
+    assert fake_httpx.calls[0]["params"] is None
+
+
+@pytest.mark.asyncio
+async def test_retry_after_metadata_is_exposed_without_response_body(fake_httpx):
+    fake_httpx.response = _Response(
+        429, body={"message": "private error body"}, headers={"Retry-After": "3"}
+    )
+    result = await UpstoxReadOnlyReconciliationClient().get_order_book("test-token")
+    assert result.ok is False
+    assert result.error_code == "RATE_LIMITED"
+    assert result.retry_after_seconds == 3.0
+    assert "private error body" not in repr(result)

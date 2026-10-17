@@ -336,22 +336,30 @@ def test_reconciliation_transition_rejects_stale_version(db_session, make_user):
     assert intent.version == 2
 
 
-def test_reconciliation_transition_rejects_terminal_state_regression(db_session, make_user):
+def test_stale_open_status_after_full_fill_is_noop(db_session, make_user):
     user = make_user()
     portfolio, connection = _account(db_session, user)
     intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
         **_intent_args(user, portfolio, connection)
     )
     repository = LiveOrderRepository(db_session)
-    filled, _ = repository.apply_reconciliation_transition(
-        user_id=user.id, intent_id=intent.id, expected_version=1, new_state="FILLED",
+    opened, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1, new_state="OPEN",
         broker_order_id="broker-order-filled",
     )
+    _record_fill(repository, user, connection, opened, quantity=1)
+    filled, changed = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=opened.version, new_state="FILLED",
+        broker_order_id="broker-order-filled",
+    )
+    assert changed is True
+    assert filled.state == "FILLED"
 
-    with pytest.raises(InvalidLiveOrderTransition, match="not allowed"):
-        repository.apply_reconciliation_transition(
-            user_id=user.id, intent_id=intent.id, expected_version=filled.version, new_state="OPEN"
-        )
+    replay, changed = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=filled.version, new_state="OPEN"
+    )
+    assert changed is False
+    assert replay.state == "FILLED"
 
 
 def test_cancelled_order_can_be_reconciled_to_filled_after_cancel_race(db_session, make_user):
@@ -365,6 +373,7 @@ def test_cancelled_order_can_be_reconciled_to_filled_after_cancel_race(db_sessio
         user_id=user.id, intent_id=intent.id, expected_version=1, new_state="CANCELLED",
         broker_order_id="broker-order-cancel-race",
     )
+    _record_fill(repository, user, connection, cancelled, quantity=1)
     filled, changed = repository.apply_reconciliation_transition(
         user_id=user.id, intent_id=intent.id, expected_version=cancelled.version, new_state="FILLED",
         broker_order_id="broker-order-cancel-race", safe_details={"trade_evidence": "test"},

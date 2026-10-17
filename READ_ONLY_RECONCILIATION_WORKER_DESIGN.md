@@ -1,6 +1,6 @@
 # Read-only broker reconciliation worker — design and implementation gate
 
-Status: design only, not implemented. Reviewed 2026-10-17. Scope is the separate `tradepro-improved` repository. Live submission and cancellation remain disabled.
+Status: worker implementation exists and is mocked-CI-tested; operational invocation and any real broker read remain gated. Reviewed 2026-10-17. Scope is the separate `tradepro-improved` repository. Live submission and cancellation remain disabled.
 
 ## Goal
 
@@ -51,10 +51,10 @@ Add a scheduled/on-demand worker that reads Upstox order and trade observations,
 ## Implementation sequence
 
 1. [x] Introduced `backend/app/brokers/upstox/reconciliation_client.py`, a fixed-path GET-only client for order book, details, history and per-order trades. Mocked contract tests verify endpoint paths, query parameters, sanitized failures and absence of order-write methods. [Run 39056868434](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056868434) passed 309 tests, 1 warning. No network call to Upstox occurred.
-2. Implement a worker service with injected client, repository/session factory, clock and retry policy. No direct global app/session state and no long-lived DB transaction around network calls.
-3. Add tests for successful reconciliation, repeated runs, expired token, 403, 429/Retry-After, bounded 5xx retry, malformed responses, duplicate order records, ambiguous tag, duplicate/conflicting trade IDs, out-of-order order/trade observations, partial-fill/cancel races, worker lease contention, and restart after each persistence boundary.
+2. [x] Implemented `backend/app/services/live_order_reconciliation_worker.py` with an injected read-only client, SQLAlchemy session, token provider override for tests, bounded retry policy and durable per-connection lease. No long-lived DB transaction is intentionally held across the two initial network reads.
+3. [x] Added worker tests for successful reconciliation, repeated-run fill deduplication, expired/missing token, 403 without retry, 429/Retry-After, bounded 5xx retry, malformed response envelopes/data, cross-user rejection, lease contention, unmatched trades, and recovery from UNKNOWN when later trade evidence appears. Existing normalizer/repository tests cover ambiguous tags, duplicate/conflicting trade IDs, out-of-order status and partial-fill/cancel races. Remaining: broaden duplicate order record and crash-boundary coverage.
 4. Run backend tests plus PostgreSQL 16 concurrency and reversible migrations. Test with mocks/recorded fixtures first. If sandbox credentials become available, run a read-only sandbox check only after explicit approval; do not submit a test order.
-5. Update audit, architecture, roadmap and progress with exact commits and green CI. Only then consider the next separate phase: reconciling broker trades into accounting models under its own design and tests.
+5. [ ] Continue updating audit, architecture, roadmap and progress with exact commits and green CI. The worker is not automatically scheduled or exposed through an API route. Next verify pagination/session-day semantics against current official docs and decide how to persist and expose run summaries/manual-review items. Accounting integration remains a separate reviewed phase.
 
 ## Exit criteria
 
@@ -65,8 +65,14 @@ Add a scheduled/on-demand worker that reads Upstox order and trade observations,
 - Credentials and raw sensitive bodies never enter logs/audit.
 - CI is green and evidence distinguishes mocked tests from any sandbox/staging verification.
 
-No worker, real API read, production migration, accounting update or order action is implemented by this document.
+The worker implementation is in `backend/app/services/live_order_reconciliation_worker.py`. It has only the read-only client injected and does not expose broker write operations. Tests use mocks: no real API read, production migration, accounting update or order action has occurred.
 
 
 ## Lease foundation checkpoint — 2026-10-17
 `LiveReconciliationLease` and `LiveReconciliationLeaseRepository` are now implemented with Alembic revision `202610170003`. Claims are atomic and owner-scoped; expiry allows reclaim; renewal requires the current unexpired token; completion is token-guarded. [Run 39057273255](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39057273255) passed 318 tests, 1 warning, and SQLite/PostgreSQL 16 migration checks. The worker still does not exist or call the lease.
+
+
+## Implementation checkpoint — 2026-10-17
+- Worker commit: [`4ee8427`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/4ee8427f890f7c31021e30f7b36177e2f3f227c3).
+- Latest test commit: [`bffeefc`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/bffeefc7921fd96c8fbeab1b201eb3088e87f497); [run 39058734080](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39058734080) passed 338 tests, 1 warning, plus SQLite/PostgreSQL 16 reversible migration checks.
+- The worker currently reads the order book and daily trades, not historical windows; it is not scheduled or wired to an endpoint. It writes fill identities and reconciliation state only, never local portfolio positions, cash, P&L or Order/Execution accounting.

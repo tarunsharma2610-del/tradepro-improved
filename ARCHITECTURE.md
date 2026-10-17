@@ -294,3 +294,7 @@ The ordered delivery sequence and evidence requirements are maintained in [ROADM
 
 ## Read-only Upstox reconciliation client — 2026-10-17
 `app/brokers/upstox/reconciliation_client.py` is a separate narrow client with fixed GET-only methods for order book, details, history and per-order trades. It has no place/modify/cancel methods and returns sanitized error categories rather than raw upstream error bodies. Contract tests use a mocked HTTP client; they do not make real Upstox requests. Exact test checkpoint [run 39056868434](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056868434) passed 309 tests, 1 warning. The worker still does not exist; it must validate connection ownership/token usability, rate-limit and retry policy, and durable matching before any real read is triggered.
+
+
+## Reconciliation worker lease — 2026-10-17
+`LiveReconciliationLease` stores one lease per broker connection. `LiveReconciliationLeaseRepository` claims by compare-and-set, permits reclaim only after expiry, supports renewal only for the current unexpired token, and token-guards completion so an expired/stale worker cannot clear a newer lease. Alembic revision `202610170003` adds the table and CI verifies upgrade/downgrade/re-upgrade on SQLite and PostgreSQL 16. The lease is a foundation only; no worker invokes it yet.

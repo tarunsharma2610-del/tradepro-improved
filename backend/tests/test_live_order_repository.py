@@ -180,3 +180,39 @@ def test_failed_commit_rolls_back_intent_event_and_outbox(db_session, make_user,
     assert db_session.query(LiveOrderIntent).count() == 0
     assert db_session.query(LiveOrderOutbox).count() == 0
     assert db_session.query(LiveOrderEvent).count() == 0
+
+
+def test_unique_key_race_returns_committed_winner(db_session, make_user, monkeypatch):
+    from sqlalchemy.orm import Session
+
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    args = _intent_args(user, portfolio, connection)
+    repository = LiveOrderRepository(db_session)
+    real_commit = db_session.commit
+    injected = {"done": False}
+
+    def simulate_competing_commit():
+        if not injected["done"]:
+            injected["done"] = True
+            # Release this transaction before a second independent session commits the winner.
+            db_session.rollback()
+            other = Session(bind=db_session.get_bind())
+            try:
+                winner, created = LiveOrderRepository(other).create_or_get_intent(**args)
+                assert created is True
+                injected["winner_id"] = winner.id
+            finally:
+                other.close()
+            raise IntegrityError("simulated unique-key race", {}, Exception("concurrent winner committed"))
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", simulate_competing_commit)
+    intent, created = repository.create_or_get_intent(**args)
+
+    assert created is False
+    assert str(intent.id) == str(injected["winner_id"])
+    monkeypatch.undo()
+    assert db_session.query(LiveOrderIntent).count() == 1
+    assert db_session.query(LiveOrderOutbox).count() == 1
+    assert db_session.query(LiveOrderEvent).count() == 1

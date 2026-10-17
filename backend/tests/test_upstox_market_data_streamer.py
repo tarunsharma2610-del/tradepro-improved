@@ -132,3 +132,41 @@ async def test_stream_reconnects_after_silence_timeout(monkeypatch):
 
     assert connects == 2
     assert streamer.connected is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "authorized_url",
+    [
+        "http://feed.upstox.com/unsafe",
+        "wss://evil.example/unsafe",
+        "wss://upstox.com.evil.example/unsafe",
+    ],
+)
+async def test_authorization_rejects_non_tls_or_non_upstox_hosts(monkeypatch, authorized_url):
+    streamer = _streamer()
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"data": {"authorized_redirect_uri": authorized_url}}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, *args, **kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr("app.services.upstox_market_data_streamer.httpx.AsyncClient", FakeClient)
+
+    with pytest.raises(ValueError, match="invalid WebSocket authorization URL"):
+        await streamer._authorized_url("test-access-token")

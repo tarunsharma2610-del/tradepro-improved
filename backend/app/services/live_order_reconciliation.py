@@ -1,9 +1,11 @@
-"""Pure normalization helpers for broker order observations.
+"""Pure normalization helpers for broker order and trade observations.
 
 This module deliberately performs no network calls and has no database dependency.
 Unknown or inconsistent broker data is escalated, never guessed into a terminal state.
 """
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
 
 
@@ -273,3 +275,102 @@ def match_broker_order_to_intent(
     if order.needs_review or order.state == "RECONCILIATION_REQUIRED":
         return IntentMatchResult("NEEDS_REVIEW", candidate.intent_id, "broker observation is flagged for manual review")
     return IntentMatchResult("MATCHED", candidate.intent_id, "unique correlation and all required economic fields match")
+
+
+
+@dataclass(frozen=True)
+class NormalizedBrokerFill:
+    """Validated single executed trade from Upstox order-trades response."""
+    broker_trade_id: str
+    broker_order_id: str
+    instrument_key: str
+    side: str
+    quantity: int
+    price: Decimal
+    executed_at: datetime
+    product: str | None
+    exchange: str | None
+    order_type: str | None
+    trading_symbol: str | None
+    exchange_order_id: str | None
+    order_ref_id: str | None
+
+
+def _parse_upstox_trade_timestamp(value: Any) -> datetime:
+    if not isinstance(value, str) or not value.strip():
+        raise BrokerOrderDataError("trade timestamp is missing")
+    raw = value.strip()
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        parsed = None
+        for fmt in ("%d-%b-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                parsed = datetime.strptime(raw, fmt)
+                break
+            except ValueError:
+                continue
+        if parsed is None:
+            raise BrokerOrderDataError("trade timestamp format is unsupported")
+    if parsed.tzinfo is None:
+        # Upstox's documented exchange_timestamp is exchange-local time (India).
+        from zoneinfo import ZoneInfo
+        parsed = parsed.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+    return parsed.astimezone(timezone.utc)
+
+
+def normalize_upstox_trade(record: Mapping[str, Any]) -> NormalizedBrokerFill:
+    """Validate one Upstox GET /order/trades record; no network or persistence.
+
+    Uses exchange_timestamp as execution time, trade_id as the stable fill identity,
+    and average_price as the execution price documented by Upstox.
+    """
+    if not isinstance(record, Mapping):
+        raise BrokerOrderDataError("trade record must be an object")
+    trade_id = _required_text(record, "trade_id")
+    order_id = _required_text(record, "order_id")
+    instrument = _required_text(record, "instrument_token")
+    side = _required_text(record, "transaction_type").upper()
+    if side not in {"BUY", "SELL"}:
+        raise BrokerOrderDataError("transaction_type must be BUY or SELL")
+    quantity = _nonnegative_int(record.get("quantity"), "quantity")
+    if quantity <= 0:
+        raise BrokerOrderDataError("trade quantity must be positive")
+    raw_price = record.get("average_price")
+    try:
+        price = Decimal(str(raw_price))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise BrokerOrderDataError("average_price must be a finite positive number") from exc
+    if not price.is_finite() or price <= 0:
+        raise BrokerOrderDataError("average_price must be a finite positive number")
+    if len(trade_id) > 128 or len(order_id) > 128 or len(instrument) > 128:
+        raise BrokerOrderDataError("trade, order and instrument identifiers must be at most 128 characters")
+
+    product_value = record.get("product")
+    order_type_value = record.get("order_type")
+    exchange_value = record.get("exchange")
+    symbol_value = record.get("trading_symbol") or record.get("tradingsymbol")
+    exchange_order_value = record.get("exchange_order_id")
+    order_ref_value = record.get("order_ref_id")
+    def optional_text(value: Any, field: str, limit: int = 128) -> str | None:
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str) or not value.strip() or len(value.strip()) > limit:
+            raise BrokerOrderDataError(f"{field} must be non-empty text of at most {limit} characters")
+        return value.strip()
+
+    return NormalizedBrokerFill(
+        broker_trade_id=trade_id,
+        broker_order_id=order_id,
+        instrument_key=instrument,
+        side=side,
+        quantity=quantity,
+        price=price,
+        executed_at=_parse_upstox_trade_timestamp(record.get("exchange_timestamp")),
+        product=optional_text(product_value, "product", 16),
+        exchange=optional_text(exchange_value, "exchange", 16),
+        order_type=optional_text(order_type_value, "order_type", 16),
+        trading_symbol=optional_text(symbol_value, "trading_symbol"),
+        exchange_order_id=optional_text(exchange_order_value, "exchange_order_id"),
+        order_ref_id=optional_text(order_ref_value, "order_ref_id"),
+    )

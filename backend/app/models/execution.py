@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Uuid, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -18,6 +18,9 @@ class Execution(BaseModel):
     distinct, auditable numbers, not a single collapsed figure."""
 
     __tablename__ = "executions"
+    __table_args__ = (
+        UniqueConstraint("broker_name", "broker_trade_id", name="uq_executions_broker_trade_id"),
+    )
 
     order_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("orders.id", ondelete="CASCADE"), index=True)
     portfolio_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
@@ -40,5 +43,18 @@ class Execution(BaseModel):
     # Realized P&L attributable to THIS fill specifically (0 for fills that
     # open/add to a position rather than close one) — see position_math.py.
     realized_pnl: Mapped[float] = mapped_column(Numeric(18, 2), default=0, nullable=False)
+    # Strategy-specific realized P&L uses the strategy allocation basis; NULL
+    # on legacy/manual fills, with legacy strategy rows falling back to realized_pnl.
+    strategy_realized_pnl: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+
+    # Populated only for broker-confirmed live fills. Unique broker trade IDs
+    # make replayed reconciliation responses idempotent. Paper executions leave
+    # these nullable fields unset.
+    broker_order_ref_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("broker_orders.id", ondelete="SET NULL", name="fk_executions_broker_order_ref_id"),
+        nullable=True, index=True,
+    )
+    broker_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    broker_trade_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

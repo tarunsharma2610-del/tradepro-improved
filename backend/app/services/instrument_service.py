@@ -4,11 +4,11 @@ large-caps with correct ISINs, enough to exercise the whole trading engine
 against genuinely real instrument identifiers without depending on a
 successful bulk sync first.
 
-`sync_from_upstox()` is best-effort: community reports (checked Aug 2026)
-disagree on the exact current file format/URL for Upstox's public
-instrument master and some report 403s on automated access — confirm
-against the live Instruments docs page before depending on this for a
-production data feed rather than the seed set above.
+`sync_from_upstox()` uses the official Upstox complete JSON BOD instrument
+file URL. The importer intentionally filters to `NSE_EQ` only today; it does
+not map derivative contract fields, and the unit/normalization of the source
+`tick_size` still needs verification before tick-increment enforcement or
+F&O support is enabled.
 """
 
 import gzip
@@ -71,9 +71,8 @@ class InstrumentService:
 
         if resp.status_code != 200:
             return False, (
-                f"Instrument master fetch failed ({resp.status_code}). This endpoint's exact URL/format "
-                "wasn't independently confirmed — check the current one at "
-                "upstox.com/developer/api-documentation/instruments/ and update _INSTRUMENT_MASTER_URL."
+                f"Instrument master fetch failed ({resp.status_code}). Check availability and the current official file link at "
+                "upstox.com/developer/api-documentation/instruments/ before retrying."
             )
 
         try:

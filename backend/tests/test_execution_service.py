@@ -5,6 +5,7 @@ import pytest
 
 from app.brokers.base import BrokerCallResult
 from app.core.encryption import encrypt_value
+from app.models.strategy import Strategy
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.services.execution_service import ExecutionService, OrderValidationError
 from app.services.execution_service import PlaceOrderRequest as ServicePlaceOrderRequest
@@ -446,3 +447,281 @@ async def test_filled_order_cannot_be_cancelled(db_session, portfolio, instrumen
     assert order.status == "FILLED"
     with pytest.raises(OrderValidationError, match="Only pending orders"):
         service.cancel_order(user.id, p.id, order.id)
+
+
+@pytest.mark.asyncio
+async def test_live_mode_fails_closed_before_creating_order(db_session, portfolio, instrument, monkeypatch):
+    """LIVE mode must not create a paper order or reach broker execution."""
+    from app.core.config import settings
+    from app.models.order import Order
+
+    user, p = portfolio
+    monkeypatch.setattr(settings, "TRADING_MODE", "LIVE")
+    before = db_session.query(Order).count()
+
+    with pytest.raises(OrderValidationError, match="Live trading is not implemented"):
+        await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="MARKET",
+                segment=Segment.EQUITY_DELIVERY,
+                quantity=1,
+            ),
+        )
+
+    assert db_session.query(Order).count() == before
+
+
+@pytest.mark.asyncio
+async def test_repeated_idempotency_key_returns_existing_order_without_duplicate(db_session, portfolio, instrument):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    request = ServicePlaceOrderRequest(
+        portfolio_id=p.id,
+        instrument_id=instrument.id,
+        side=Side.BUY,
+        order_type="LIMIT",
+        segment=Segment.EQUITY_DELIVERY,
+        quantity=2,
+        limit_price=Decimal("2400"),
+        idempotency_key="client-retry-001",
+    )
+    first = await service.place_order(user.id, request)
+    second = await service.place_order(user.id, request)
+
+    from app.models.order import Order
+    assert second.id == first.id
+    assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == 1
+
+
+@pytest.mark.asyncio
+async def test_idempotency_key_cannot_be_reused_for_different_payload(db_session, portfolio, instrument):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    await service.place_order(user.id, ServicePlaceOrderRequest(
+        portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+        order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=2,
+        limit_price=Decimal("2400"), idempotency_key="client-retry-002",
+    ))
+    with pytest.raises(OrderValidationError, match="different order request"):
+        await service.place_order(user.id, ServicePlaceOrderRequest(
+            portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+            order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=3,
+            limit_price=Decimal("2400"), idempotency_key="client-retry-002",
+        ))
+
+
+@pytest.mark.asyncio
+async def test_limit_order_rejected_above_configured_order_value_cap(db_session, portfolio, instrument, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL", Decimal("25.0"))
+    user, p = portfolio
+
+    order = await ExecutionService(db_session).place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+            order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=11,
+            limit_price=Decimal("2400"),
+        ),
+    )
+
+    assert order.status == "REJECTED"
+    assert "maximum order value" in order.rejection_reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_market_order_rejected_above_configured_order_value_cap(db_session, portfolio, instrument, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL", Decimal("25.0"))
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+
+    with _mock_quote("2500"):
+        order = await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=11,
+            ),
+        )
+
+    assert order.status == "REJECTED"
+    assert "maximum order value" in order.rejection_reason.lower()
+    db_session.refresh(p)
+    assert p.cash_balance == Decimal("100000")
+
+
+@pytest.mark.asyncio
+async def test_fill_accounting_rolls_back_atomically_if_execution_persistence_fails(
+    db_session, portfolio, instrument
+):
+    """A failed fill must not leave a FILLED order, changed cash, or a changed
+    position without the corresponding execution row."""
+    from sqlalchemy import event
+
+    from app.models.execution import Execution
+    from app.models.order import Order
+    from app.models.position import Position
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+
+    def fail_execution_insert(_mapper, _connection, _target):
+        raise RuntimeError("simulated execution persistence failure")
+
+    event.listen(Execution, "before_insert", fail_execution_insert)
+    try:
+        with _mock_quote("2500.00"):
+            with pytest.raises(RuntimeError, match="simulated execution persistence failure"):
+                await ExecutionService(db_session).place_order(
+                    user.id,
+                    ServicePlaceOrderRequest(
+                        portfolio_id=p.id,
+                        instrument_id=instrument.id,
+                        side=Side.BUY,
+                        order_type="MARKET",
+                        segment=Segment.EQUITY_DELIVERY,
+                        quantity=1,
+                    ),
+                )
+    finally:
+        event.remove(Execution, "before_insert", fail_execution_insert)
+
+    # Roll back any failed SQLAlchemy unit of work before inspecting persisted state.
+    db_session.rollback()
+    db_session.expire_all()
+
+    assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == 0
+    assert db_session.query(Execution).filter(Execution.portfolio_id == p.id).count() == 0
+    assert db_session.query(Position).filter(Position.portfolio_id == p.id).count() == 0
+    db_session.refresh(p)
+    assert p.cash_balance == Decimal("100000")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unsupported_segment", [Segment.FUTURES, Segment.OPTIONS])
+async def test_derivative_order_is_rejected_until_contract_risk_support_exists(
+    db_session, portfolio, instrument, monkeypatch, unsupported_segment
+):
+    """The current instrument master is equity-only; never price an equity as F&O."""
+    from types import SimpleNamespace
+
+    from app.models.order import Order
+
+    user, p = portfolio
+    adapter = SimpleNamespace(get_quote=AsyncMock())
+    monkeypatch.setattr("app.services.execution_service.get_broker_adapter", lambda _name: adapter)
+    before = db_session.query(Order).filter(Order.portfolio_id == p.id).count()
+
+    with pytest.raises(OrderValidationError, match="Futures and options are not enabled"):
+        await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="MARKET",
+                segment=unsupported_segment,
+                quantity=1,
+            ),
+        )
+
+    adapter.get_quote.assert_not_awaited()
+    assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == before
+
+
+@pytest.mark.asyncio
+async def test_manual_delivery_sell_cannot_sell_shares_allocated_to_strategy(db_session, portfolio, instrument):
+    from app.models.strategy import Strategy
+    from app.models.strategy_position import StrategyPosition
+    from app.services.execution_service import ExecutionService, PlaceOrderRequest
+    from app.services.transaction_costs import Segment as OrderSegment, Side as OrderSide
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = Strategy(
+        portfolio_id=p.id, instrument_id=instrument.id, name="Allocation test",
+        segment="EQUITY_INTRADAY", quantity=1, is_active=True,
+        rsi_weight=Decimal("0"), sma_crossover_weight=Decimal("0"), macd_weight=Decimal("0"),
+        volume_spike_weight=Decimal("0"), momentum_weight=Decimal("1"),
+        entry_score_threshold=Decimal("0.3"), exit_score_threshold=Decimal("-0.3"),
+        trailing_stop_pct=Decimal("2"), max_daily_loss=Decimal("1000"),
+    )
+    db_session.add(strategy)
+    db_session.commit()
+
+    with _mock_quote("100.00"):
+        await ExecutionService(db_session).place_order(
+            user.id, PlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=OrderSide.BUY,
+                order_type="MARKET", segment=OrderSegment.EQUITY_DELIVERY, quantity=5,
+            )
+        )
+
+    # Use a direct strategy order to create one strategy-owned share allocation.
+    with _mock_quote("120.00"):
+        strategy_buy = await ExecutionService(db_session).place_order(
+            user.id, PlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=OrderSide.BUY,
+                order_type="MARKET", segment=OrderSegment.EQUITY_INTRADAY, quantity=1,
+                execution_reason="STRATEGY", strategy_id=strategy.id,
+            )
+        )
+    assert strategy_buy.status == "FILLED"
+    allocation = db_session.query(StrategyPosition).filter_by(strategy_id=strategy.id).one()
+    assert allocation.quantity == 1
+
+    with _mock_quote("130.00"):
+        sell = await ExecutionService(db_session).place_order(
+            user.id, PlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=OrderSide.SELL,
+                order_type="MARKET", segment=OrderSegment.EQUITY_DELIVERY, quantity=6,
+            )
+        )
+    assert sell.status == "REJECTED"
+    assert "unallocated delivery holdings" in sell.rejection_reason.lower()
+    db_session.refresh(allocation)
+    assert allocation.quantity == 1
+
+
+@pytest.mark.asyncio
+async def test_idempotency_key_cannot_be_reused_between_manual_and_strategy_order(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = Strategy(
+        portfolio_id=p.id, instrument_id=instrument.id, name="Idempotency scope test",
+        segment="EQUITY_INTRADAY", quantity=1, is_active=True,
+        rsi_weight=Decimal("0"), sma_crossover_weight=Decimal("0"), macd_weight=Decimal("0"),
+        volume_spike_weight=Decimal("0"), momentum_weight=Decimal("1"),
+        entry_score_threshold=Decimal("0.3"), exit_score_threshold=Decimal("-0.3"),
+        trailing_stop_pct=Decimal("2"), max_daily_loss=Decimal("1000"),
+    )
+    db_session.add(strategy)
+    db_session.commit()
+
+    request_key = "same-key-manual-strategy"
+    with _mock_quote("100.00"):
+        manual_order = await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_INTRADAY, quantity=1,
+                idempotency_key=request_key,
+            ),
+        )
+    assert manual_order.status == "FILLED"
+
+    with pytest.raises(OrderValidationError, match="different order request"):
+        await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_INTRADAY, quantity=1,
+                execution_reason="STRATEGY", strategy_id=strategy.id,
+                idempotency_key=request_key,
+            ),
+        )

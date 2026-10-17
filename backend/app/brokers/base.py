@@ -82,7 +82,29 @@ class BrokerAdapter(ABC):
         ...
 
     @abstractmethod
+    async def modify_order(self, access_token: str, order: dict[str, Any]) -> BrokerCallResult:
+        """Modify an open/pending broker order; callers must reconcile the result."""
+        ...
+
+    @abstractmethod
+    async def cancel_order(self, access_token: str, order_id: str) -> BrokerCallResult:
+        """Request broker cancellation; callers must verify the resulting state."""
+        ...
+
+    @abstractmethod
     async def get_order_status(self, access_token: str, order_id: str) -> BrokerCallResult:
+        ...
+
+    @abstractmethod
+    async def get_order_trades(self, access_token: str, order_id: str) -> BrokerCallResult:
+        """Return broker-reported fills/trades for one order; caller reconciles them safely."""
+        ...
+
+    @abstractmethod
+    async def get_order_history(
+        self, access_token: str, order_id: str | None = None, tag: str | None = None
+    ) -> BrokerCallResult:
+        """Read order status history by broker order ID and/or stable tag."""
         ...
 
     @abstractmethod
@@ -90,6 +112,18 @@ class BrokerAdapter(ABC):
         ...
 
     # --- Positions & holdings ---
+    @abstractmethod
+    async def get_funds_and_margin(self, access_token: str) -> BrokerCallResult:
+        """Return the broker-reported funds and margin snapshot."""
+        ...
+
+    @abstractmethod
+    async def get_margin_details(
+        self, access_token: str, instruments: list[dict[str, Any]]
+    ) -> BrokerCallResult:
+        """Return estimated broker margin for one or more proposed instruments."""
+        ...
+
     @abstractmethod
     async def get_positions(self, access_token: str) -> BrokerCallResult:
         ...

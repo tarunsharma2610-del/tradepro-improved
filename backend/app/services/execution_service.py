@@ -18,7 +18,11 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from app.core.config import settings
 
 from app.brokers.registry import get_broker_adapter
 from app.models.execution import Execution
@@ -26,12 +30,14 @@ from app.models.instrument import Instrument
 from app.models.order import Order
 from app.models.portfolio import Portfolio
 from app.models.position import Position
+from app.models.strategy import Strategy
+from app.models.strategy_position import StrategyPosition
 from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.order_repository import OrderRepository
 from app.repositories.portfolio_repository import PortfolioRepository
-from app.repositories.position_repository import PositionRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.position_math import apply_fill
+from app.services.instrument_validation import validate_instrument_segment
 from app.services.transaction_costs import Segment, Side, calculate_costs
 
 
@@ -52,6 +58,7 @@ class PlaceOrderRequest:
     limit_price: Decimal | None = None
     execution_reason: str = "MANUAL"  # "STRATEGY" when called from strategy_execution_service
     strategy_id: UUID | None = None
+    idempotency_key: str | None = None
 
 
 class ExecutionService:
@@ -59,13 +66,22 @@ class ExecutionService:
         self.db = db
         self.portfolios = PortfolioRepository(db)
         self.orders = OrderRepository(db)
-        self.positions = PositionRepository(db)
         self.instruments = InstrumentRepository(db)
         self.broker_credentials = BrokerCredentialsService(db)
 
     async def place_order(self, user_id: UUID, req: PlaceOrderRequest) -> Order:
+        # Fail closed: this service implements PAPER accounting only. Until a separately
+        # reviewed live execution lifecycle exists, refuse LIVE or unknown modes here.
+        if settings.TRADING_MODE.strip().upper() != "PAPER":
+            raise OrderValidationError(
+                "Live trading is not implemented in this build. Set TRADING_MODE=PAPER; "
+                "no broker order was submitted."
+            )
+
         # Validate at the service boundary as well as the HTTP schema: strategy
         # automation and future internal callers do not pass through Pydantic.
+        if req.execution_reason == "STRATEGY" and req.strategy_id is None:
+            raise OrderValidationError("Strategy orders require a strategy_id.")
         if req.quantity <= 0:
             raise OrderValidationError("Quantity must be greater than zero.")
         if req.order_type not in {"MARKET", "LIMIT"}:
@@ -80,9 +96,24 @@ class ExecutionService:
         if portfolio is None:
             raise OrderValidationError("Portfolio not found.")
 
+        if req.idempotency_key:
+            existing = (
+                self.db.query(Order)
+                .filter(Order.portfolio_id == portfolio.id, Order.idempotency_key == req.idempotency_key)
+                .first()
+            )
+            if existing is not None:
+                self._ensure_same_idempotent_request(existing, req)
+                return existing
+
         instrument = self.instruments.get_by_id(req.instrument_id)
         if instrument is None:
             raise OrderValidationError("Instrument not found.")
+
+        try:
+            validate_instrument_segment(instrument, req.segment)
+        except ValueError as exc:
+            raise OrderValidationError(str(exc)) from exc
 
         now = datetime.now(timezone.utc)
         order = Order(
@@ -97,12 +128,19 @@ class ExecutionService:
             trading_mode="PAPER",
             execution_reason=req.execution_reason,
             strategy_id=req.strategy_id,
+            idempotency_key=req.idempotency_key,
             placed_at=now,
         )
 
         if req.order_type == "LIMIT":
+            # The limit is the worst price accepted by the paper matcher, so it
+            # is a conservative estimate of this order's notional value.
+            limit_reason = self._order_value_limit_reason(portfolio, req.quantity, req.limit_price)
+            if limit_reason:
+                return self._reject(order, limit_reason)
             # The worker fills this later if the market quote crosses the limit.
-            return self.orders.create(order)
+            saved, _created = self._persist_order(order)
+            return saved
 
         access_token = self.broker_credentials.get_access_token(user_id, "upstox")
         if access_token is None:
@@ -123,13 +161,9 @@ class ExecutionService:
             if Decimal(str(portfolio.cash_balance)) < required_cash:
                 return self._reject(order, f"Insufficient virtual capital: need {required_cash}, have {portfolio.cash_balance}.")
 
-        if req.side == Side.SELL and req.segment == Segment.EQUITY_DELIVERY:
-            position = self.positions.get_or_create(portfolio.id, instrument.id)
-            if position.quantity < req.quantity:
-                return self._reject(
-                    order,
-                    f"Insufficient holdings for a delivery sell: hold {position.quantity}, tried to sell {req.quantity}.",
-                )
+        value_limit_reason = self._order_value_limit_reason(portfolio, req.quantity, ltp)
+        if value_limit_reason:
+            return self._reject(order, value_limit_reason)
 
         return self._fill(order, portfolio, instrument, req, ltp, costs)
 
@@ -267,52 +301,264 @@ class ExecutionService:
     def _reject(self, order: Order, reason: str) -> Order:
         order.status = "REJECTED"
         order.rejection_reason = reason
-        return self.orders.create(order)
+        saved, _created = self._persist_order(order)
+        return saved
 
     def _fill(self, order: Order, portfolio: Portfolio, instrument: Instrument, req: PlaceOrderRequest, ltp: Decimal, costs) -> Order:
+        """Apply one paper fill atomically, protecting cash and allocated shares."""
         now = datetime.now(timezone.utc)
-        order.status = "FILLED"
-        order.filled_at = now
-        order = self.orders.create(order)
+        try:
+            locked_portfolio = (
+                self.db.query(Portfolio)
+                .filter(Portfolio.id == portfolio.id)
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            if locked_portfolio is None:
+                raise OrderValidationError("Portfolio not found.")
 
-        position = self.positions.get_or_create(portfolio.id, instrument.id)
-        update = apply_fill(
-            position_quantity=position.quantity,
-            position_avg_price=Decimal(str(position.avg_price)),
-            side=req.side,
-            fill_quantity=req.quantity,
-            fill_price=ltp,
-        )
-        position.quantity = update.new_quantity
-        position.avg_price = update.new_avg_price
-        position.realized_pnl = Decimal(str(position.realized_pnl)) + update.realized_pnl
-        self.positions.save(position)
+            strategy_position = None
+            if req.execution_reason == "STRATEGY":
+                strategy = (
+                    self.db.query(Strategy)
+                    .filter(
+                        Strategy.id == req.strategy_id,
+                        Strategy.portfolio_id == locked_portfolio.id,
+                        Strategy.instrument_id == instrument.id,
+                    )
+                    .with_for_update()
+                    .first()
+                )
+                if strategy is None:
+                    raise OrderValidationError("Strategy not found for this portfolio and instrument.")
+                strategy_position = (
+                    self.db.query(StrategyPosition)
+                    .filter(StrategyPosition.strategy_id == req.strategy_id)
+                    .with_for_update()
+                    .populate_existing()
+                    .first()
+                )
+                if strategy_position is None:
+                    strategy_position = StrategyPosition(
+                        strategy_id=req.strategy_id,
+                        portfolio_id=locked_portfolio.id,
+                        instrument_id=instrument.id,
+                        quantity=0,
+                        avg_price=0,
+                        realized_pnl=0,
+                    )
 
-        portfolio.cash_balance = Decimal(str(portfolio.cash_balance)) + costs.net_cash_impact
-        self.portfolios.save(portfolio)
+                if req.side == Side.BUY and strategy_position.quantity != 0:
+                    return self._reject(order, "Strategy already owns an open position; duplicate entry rejected.")
+                if req.side == Side.SELL and (
+                    strategy_position.quantity <= 0 or req.quantity > strategy_position.quantity
+                ):
+                    return self._reject(
+                        order,
+                        f"Strategy does not own enough shares to exit: owns {strategy_position.quantity}, tried to sell {req.quantity}.",
+                    )
 
-        execution = Execution(
-            order_id=order.id,
-            portfolio_id=portfolio.id,
-            instrument_id=instrument.id,
-            side=req.side.value,
-            quantity=req.quantity,
-            price=ltp,
-            gross_value=costs.gross_value,
-            brokerage=costs.brokerage,
-            stt=costs.stt,
-            exchange_charges=costs.exchange_charges,
-            sebi_charges=costs.sebi_charges,
-            stamp_duty=costs.stamp_duty,
-            gst=costs.gst,
-            total_charges=costs.total_charges,
-            realized_pnl=update.realized_pnl,
-            executed_at=now,
-        )
-        self.db.add(execution)
-        self.db.commit()
+            if req.side == Side.BUY:
+                required_cash = costs.gross_value + costs.total_charges
+                if Decimal(str(locked_portfolio.cash_balance)) < required_cash:
+                    return self._reject(
+                        order,
+                        f"Insufficient virtual capital: need {required_cash}, have {locked_portfolio.cash_balance}.",
+                    )
 
-        return order
+            position = (
+                self.db.query(Position)
+                .filter(
+                    Position.portfolio_id == locked_portfolio.id,
+                    Position.instrument_id == instrument.id,
+                )
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            held_quantity = position.quantity if position is not None else 0
+
+            if req.side == Side.SELL and req.execution_reason != "STRATEGY":
+                allocated = (
+                    self.db.query(func.coalesce(func.sum(StrategyPosition.quantity), 0))
+                    .filter(
+                        StrategyPosition.portfolio_id == locked_portfolio.id,
+                        StrategyPosition.instrument_id == instrument.id,
+                        StrategyPosition.quantity > 0,
+                    )
+                    .scalar()
+                )
+                available = max(held_quantity - int(allocated or 0), 0)
+                if req.segment == Segment.EQUITY_DELIVERY and available < req.quantity:
+                    return self._reject(
+                        order,
+                        f"Insufficient unallocated delivery holdings: available {available}, tried to sell {req.quantity}.",
+                    )
+                if held_quantity > 0 and available < req.quantity:
+                    return self._reject(
+                        order,
+                        f"Shares reserved by strategy positions: available to sell {available}, tried to sell {req.quantity}.",
+                    )
+
+            if position is None:
+                position = Position(
+                    portfolio_id=locked_portfolio.id,
+                    instrument_id=instrument.id,
+                    quantity=0,
+                    avg_price=0,
+                    realized_pnl=0,
+                )
+                self.db.add(position)
+
+            order.status = "FILLED"
+            order.filled_at = now
+            self.db.add(order)
+            try:
+                # Flush only the order row first; related accounting remains uncommitted.
+                self.db.flush()
+            except IntegrityError:
+                self.db.rollback()
+                if not order.idempotency_key:
+                    raise
+                existing = (
+                    self.db.query(Order)
+                    .filter(
+                        Order.portfolio_id == order.portfolio_id,
+                        Order.idempotency_key == order.idempotency_key,
+                    )
+                    .first()
+                )
+                if existing is None:
+                    raise
+                self._ensure_same_order_payload(existing, order)
+                return existing
+
+            update = apply_fill(
+                position_quantity=position.quantity,
+                position_avg_price=Decimal(str(position.avg_price)),
+                side=req.side,
+                fill_quantity=req.quantity,
+                fill_price=ltp,
+            )
+            position.quantity = update.new_quantity
+            position.avg_price = update.new_avg_price
+            position.realized_pnl = Decimal(str(position.realized_pnl)) + update.realized_pnl
+
+            strategy_realized_pnl = None
+            if strategy_position is not None:
+                strategy_update = apply_fill(
+                    position_quantity=strategy_position.quantity,
+                    position_avg_price=Decimal(str(strategy_position.avg_price)),
+                    side=req.side,
+                    fill_quantity=req.quantity,
+                    fill_price=ltp,
+                )
+                strategy_position.quantity = strategy_update.new_quantity
+                strategy_position.avg_price = strategy_update.new_avg_price
+                strategy_position.realized_pnl = Decimal(str(strategy_position.realized_pnl)) + strategy_update.realized_pnl
+                strategy_realized_pnl = strategy_update.realized_pnl
+                self.db.add(strategy_position)
+
+            locked_portfolio.cash_balance = (
+                Decimal(str(locked_portfolio.cash_balance)) + costs.net_cash_impact
+            )
+
+            execution = Execution(
+                order_id=order.id,
+                portfolio_id=locked_portfolio.id,
+                instrument_id=instrument.id,
+                side=req.side.value,
+                quantity=req.quantity,
+                price=ltp,
+                gross_value=costs.gross_value,
+                brokerage=costs.brokerage,
+                stt=costs.stt,
+                exchange_charges=costs.exchange_charges,
+                sebi_charges=costs.sebi_charges,
+                stamp_duty=costs.stamp_duty,
+                gst=costs.gst,
+                total_charges=costs.total_charges,
+                realized_pnl=update.realized_pnl,
+                strategy_realized_pnl=strategy_realized_pnl,
+                executed_at=now,
+            )
+            self.db.add_all([position, locked_portfolio, execution])
+            self.db.commit()
+            self.db.refresh(order)
+            return order
+        except Exception:
+            self.db.rollback()
+            raise
+
+    @staticmethod
+    def _order_value_limit_reason(portfolio: Portfolio, quantity: int, price: Decimal | None) -> str | None:
+        limit_pct = Decimal(str(settings.MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL))
+        if limit_pct <= 0 or price is None:
+            return None
+        estimated_value = Decimal(quantity) * Decimal(str(price))
+        maximum_value = Decimal(str(portfolio.virtual_capital)) * limit_pct / Decimal("100")
+        if estimated_value > maximum_value:
+            return (
+                f"Maximum order value exceeded: estimated ₹{estimated_value} is above "
+                f"₹{maximum_value} ({limit_pct}% of starting virtual capital)."
+            )
+        return None
+
+    def _persist_order(self, order: Order) -> tuple[Order, bool]:
+        """Persist once; the database uniqueness constraint arbitrates concurrent retries."""
+        try:
+            return self.orders.create(order), True
+        except IntegrityError:
+            self.db.rollback()
+            if not order.idempotency_key:
+                raise
+            existing = (
+                self.db.query(Order)
+                .filter(
+                    Order.portfolio_id == order.portfolio_id,
+                    Order.idempotency_key == order.idempotency_key,
+                )
+                .first()
+            )
+            if existing is None:
+                raise
+            self._ensure_same_order_payload(existing, order)
+            return existing, False
+
+    @staticmethod
+    def _ensure_same_idempotent_request(existing: Order, req: PlaceOrderRequest) -> None:
+        if (
+            existing.instrument_id != req.instrument_id
+            or existing.side != req.side.value
+            or existing.order_type != req.order_type
+            or existing.segment != req.segment.value
+            or existing.quantity != req.quantity
+            or (None if existing.limit_price is None else Decimal(str(existing.limit_price))) != req.limit_price
+            or existing.execution_reason != req.execution_reason
+            or existing.strategy_id != req.strategy_id
+        ):
+            raise OrderValidationError(
+                "Idempotency key was already used for a different order request. Use a new key."
+            )
+
+    @staticmethod
+    def _ensure_same_order_payload(existing: Order, candidate: Order) -> None:
+        existing_price = None if existing.limit_price is None else Decimal(str(existing.limit_price))
+        candidate_price = None if candidate.limit_price is None else Decimal(str(candidate.limit_price))
+        if (
+            existing.instrument_id != candidate.instrument_id
+            or existing.side != candidate.side
+            or existing.order_type != candidate.order_type
+            or existing.segment != candidate.segment
+            or existing.quantity != candidate.quantity
+            or existing_price != candidate_price
+            or existing.execution_reason != candidate.execution_reason
+            or existing.strategy_id != candidate.strategy_id
+        ):
+            raise OrderValidationError(
+                "Idempotency key was already used for a different order request. Use a new key."
+            )
 
 
 def _extract_ltp(quote_data: Any, instrument_key: str) -> Decimal | None:

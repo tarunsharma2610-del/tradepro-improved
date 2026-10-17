@@ -151,8 +151,8 @@ export default function DashboardPage() {
         <Card className="mt-3">
           <p className="text-sm text-ink/70 dark:text-paper/70">
             Market orders in the current implementation simulate fills using the broker&apos;s latest price.
-            Limit orders remain pending until a limit-order matcher is implemented. Verify orders and positions
-            before relying on results; do not use this application for live orders yet.
+            Limit orders remain pending until the worker confirms that the latest price crosses the limit. Verify
+            orders and positions before relying on results; do not use this application for live orders yet.
           </p>
         </Card>
       </section>

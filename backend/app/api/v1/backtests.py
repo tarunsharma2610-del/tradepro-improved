@@ -10,6 +10,7 @@ from app.repositories.backtest_repository import BacktestRepository
 from app.repositories.instrument_repository import InstrumentRepository
 from app.schemas.backtest import BacktestCreate, BacktestOut, BacktestTradeOut
 from app.services.backtest_service import BacktestService
+from app.services.instrument_validation import validate_instrument_segment
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
 
@@ -24,6 +25,10 @@ async def create_backtest(payload: BacktestCreate, db: Session = Depends(get_db)
     instrument = InstrumentRepository(db).get_by_id(payload.instrument_id)
     if instrument is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Instrument not found.")
+    try:
+        validate_instrument_segment(instrument, payload.segment)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     if payload.to_date <= payload.from_date:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "to_date must be after from_date.")
 

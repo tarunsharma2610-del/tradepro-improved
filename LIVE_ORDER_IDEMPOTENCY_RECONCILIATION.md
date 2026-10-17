@@ -232,3 +232,10 @@ Tests cover the pure resolver and repository application for stale OPEN, partial
 Added `app/brokers/upstox/reconciliation_client.py`, a fixed-path GET-only client for order book, order details, order history (by order ID or tag) and per-order trades. It intentionally exposes no place/modify/cancel methods. Failures return sanitized categories for missing token, 401, 403, 429, 5xx, other client errors, timeout, network error and non-JSON response; raw upstream response bodies and exception strings are not returned.
 
 The mocked contract tests verify endpoint paths and parameters, safe failure handling and absence of write methods. Exact checkpoint [run 39056868434](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056868434) passed 309 tests, 1 warning, plus SQLite/PostgreSQL 16 migration checks. These tests do not call Upstox. The next step is the worker orchestrator, which must inject this narrow client, validate the user-owned broker connection and token, and implement bounded retry/backoff/lease behavior before it makes reads.
+
+
+## 19. Per-connection reconciliation lease foundation
+
+Alembic revision `202610170003` creates `live_reconciliation_leases`, unique by broker connection, with a lease token, expiry, generation counter, last-start/completion timestamps and a sanitized error category. `LiveReconciliationLeaseRepository` enforces authenticated-user ownership, bounded lease durations, atomic claim/reclaim, renewal by the current unexpired token and token-guarded completion. Expired workers cannot complete or release a newer owner's lease.
+
+The lease is not yet called by a worker. Exact test checkpoint [run 39057273255](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39057273255) passed 318 tests, 1 warning, and reversible SQLite/PostgreSQL 16 migration checks. Next is worker orchestration using the GET-only client, including token checks, bounded retry/backoff and real PostgreSQL contention tests.

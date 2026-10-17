@@ -683,6 +683,44 @@ async def test_portfolio_open_position_cap_rejects_new_instrument(db_session, po
 
 
 @pytest.mark.asyncio
+async def test_portfolio_daily_order_cap_rejects_additional_order(db_session, portfolio, instrument):
+    user, p = portfolio
+    p.risk_controls_enabled = True
+    p.max_orders_per_day = 1
+    now = datetime.now(timezone.utc)
+    db_session.add(Order(
+        portfolio_id=p.id, instrument_id=instrument.id, side="BUY",
+        order_type="LIMIT", segment="EQUITY_DELIVERY", quantity=1,
+        limit_price=Decimal("100"), status="CANCELLED", trading_mode="PAPER",
+        execution_reason="MANUAL", strategy_id=None, placed_at=now,
+    ))
+    db_session.commit()
+
+    # A cancelled order must not consume the daily order allowance.
+    allowed = await ExecutionService(db_session).place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+            order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=1,
+            limit_price=Decimal("100"),
+        ),
+    )
+    assert allowed.status == "PENDING"
+
+    # The next request is rejected because the active order now consumes the cap.
+    rejected = await ExecutionService(db_session).place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+            order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=1,
+            limit_price=Decimal("100"),
+        ),
+    )
+    assert rejected.status == "REJECTED"
+    assert "daily order cap" in rejected.rejection_reason.lower()
+
+
+@pytest.mark.asyncio
 async def test_portfolio_risk_controls_disabled_by_default(db_session, portfolio, instrument):
     user, p = portfolio
     assert p.risk_controls_enabled is False

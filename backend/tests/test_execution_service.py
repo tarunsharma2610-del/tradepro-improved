@@ -379,3 +379,70 @@ async def test_crossed_delivery_limit_sell_without_holdings_is_rejected(db_sessi
     assert filled == 0
     assert order.status == "REJECTED"
     assert "holdings" in order.rejection_reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_pending_paper_limit_order_can_be_cancelled(db_session, portfolio, instrument):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    order = await service.place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id,
+            instrument_id=instrument.id,
+            side=Side.BUY,
+            order_type="LIMIT",
+            segment=Segment.EQUITY_DELIVERY,
+            quantity=1,
+            limit_price=Decimal("2400"),
+        ),
+    )
+
+    cancelled = service.cancel_order(user.id, p.id, order.id)
+
+    assert cancelled.status == "CANCELLED"
+
+
+@pytest.mark.asyncio
+async def test_cannot_cancel_another_users_order(db_session, portfolio, instrument, make_user):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    order = await service.place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id,
+            instrument_id=instrument.id,
+            side=Side.BUY,
+            order_type="LIMIT",
+            segment=Segment.EQUITY_DELIVERY,
+            quantity=1,
+            limit_price=Decimal("2400"),
+        ),
+    )
+    other_user = make_user(email="order-owner-check@example.com")
+
+    with pytest.raises(OrderValidationError, match="Portfolio not found"):
+        service.cancel_order(other_user.id, p.id, order.id)
+
+
+@pytest.mark.asyncio
+async def test_filled_order_cannot_be_cancelled(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    service = ExecutionService(db_session)
+    with _mock_quote("2300"):
+        order = await service.place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="MARKET",
+                segment=Segment.EQUITY_DELIVERY,
+                quantity=1,
+            ),
+        )
+
+    assert order.status == "FILLED"
+    with pytest.raises(OrderValidationError, match="Only pending orders"):
+        service.cancel_order(user.id, p.id, order.id)

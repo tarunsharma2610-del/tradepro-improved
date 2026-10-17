@@ -77,10 +77,12 @@ class UpstoxAdapter(BrokerAdapter):
 
     # --- Instruments ---
     async def sync_instruments(self) -> BrokerCallResult:
+        # Catalog synchronization is intentionally handled by
+        # app.services.instrument_service, which owns persistence and batch
+        # upserts. This adapter method is not used by the admin sync endpoint.
         return BrokerCallResult(
             ok=False,
-            error="Instrument master sync is implemented in Phase 2 (needs local caching/storage, "
-            "not just an HTTP call — see Upstox 'Instruments' docs for the gzipped JSON file URLs).",
+            error="Instrument catalog sync is provided by InstrumentService; this adapter method is not implemented.",
         )
 
     # --- Market data ---

@@ -257,3 +257,7 @@ Linked fill identity persistence now requires the same broker order ID already l
 
 ## 17 October 2026 — unmatched-fill relinking
 Unmatched individual fills may now be linked later using a conditional update after rechecking authenticated user/connection, broker order ID, instrument, side, product, order type, quantity ceilings and limit-price constraints. A linked fill cannot be silently reassigned; the link and audit event are atomic. CI [run 39053352921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053352921) passed 281 tests. No broker reads, worker, live accounting or order submission is present.
+
+
+## 17 October 2026 — out-of-order status/fill safeguard
+Reconciliation status transitions now consult persisted, deduplicated fill quantity. Stale active order states cannot overwrite known partial fills; partial fills plus cancellation remain explicit; contradictory partial/full or reject/fill observations are quarantined. Audit events preserve observed status and resolution reason. Exact test run [39056392873](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056392873) passed 294 tests, 1 warning. The read-only worker is design-only; no broker reads, order actions or portfolio accounting updates are implemented. Live submission remains disabled.

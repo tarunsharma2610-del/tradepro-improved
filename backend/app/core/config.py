@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     # This is not a complete risk system and does not enable live trading.
     PORTFOLIO_DAILY_LOSS_LIMIT_PCT: Decimal = Decimal("2.0")
 
+    # Maximum estimated notional value for one new order as a percentage of
+    # starting virtual capital. Set to 0 to disable this paper-order guard.
+    MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL: Decimal = Decimal("25.0")
+
     @property
     def is_live_trading_enabled(self) -> bool:
         return self.TRADING_MODE.upper() == "LIVE"

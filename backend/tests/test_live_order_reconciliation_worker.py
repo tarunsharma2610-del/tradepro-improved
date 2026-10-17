@@ -249,3 +249,29 @@ async def test_worker_stores_unmatched_trade_without_linking_to_wrong_intent(db_
     assert result.orders_unmatched == 1
     fill = db_session.query(BrokerFillIdentity).filter_by(broker_trade_id="manual-trade-77").one()
     assert fill.intent_id is None
+
+
+
+@pytest.mark.asyncio
+async def test_execution_status_without_trade_evidence_is_unknown_then_recovers(db_session, make_user):
+    user, portfolio, connection = _setup(db_session, make_user)
+    intent = _intent(db_session, user, portfolio, connection)
+    client = _FakeReadClient(orders=[_order()], trades=[])
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token", sleeper=_no_sleep
+    )
+
+    first = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+    db_session.refresh(intent)
+    assert first.status == "COMPLETED_WITH_CONFLICTS"
+    assert intent.state == "UNKNOWN"
+    assert intent.broker_order_id == "broker-order-1"
+    assert db_session.query(BrokerFillIdentity).count() == 0
+
+    # A later read supplies the actual trade. UNKNOWN is recoverable and can become FILLED.
+    client.trades = [_trade()]
+    second = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+    db_session.refresh(intent)
+    assert second.status == "COMPLETED"
+    assert intent.state == "FILLED"
+    assert db_session.query(BrokerFillIdentity).filter_by(intent_id=intent.id).count() == 1

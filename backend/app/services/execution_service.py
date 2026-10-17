@@ -368,12 +368,11 @@ class ExecutionService:
 
 
 def _extract_ltp(quote_data: Any, instrument_key: str) -> Decimal | None:
-    """Defensive on purpose: the exact key Upstox nests quotes under in the
-    response wasn't independently confirmed against a live account, only
-    against a documented curl example — see app/brokers/upstox/adapter.py.
-    This tries the documented shape first, then falls back to scanning for
-    any entry that looks like a quote, and gives up (returns None) rather
-    than guessing a number if neither works."""
+    """Return only the requested instrument's quote; never guess from another key.
+
+    A missing requested key is a failed quote, not permission to use a
+    different instrument's price for paper accounting.
+    """
     if not isinstance(quote_data, dict):
         return None
     payload = quote_data.get("data", quote_data)
@@ -390,11 +389,5 @@ def _extract_ltp(quote_data: Any, instrument_key: str) -> Decimal | None:
     direct = payload.get(instrument_key)
     if isinstance(direct, dict) and "last_price" in direct:
         return parse_price(direct["last_price"])
-
-    for value in payload.values():
-        if isinstance(value, dict) and "last_price" in value:
-            parsed = parse_price(value["last_price"])
-            if parsed is not None:
-                return parsed
 
     return None

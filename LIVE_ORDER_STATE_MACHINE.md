@@ -110,3 +110,8 @@ All tests below must use mocked HTTP or an authorized Upstox sandbox; never plac
 ## Schema foundation status update — 17 October 2026
 
 The first schema-only implementation step is now committed in migration `202610170004_live_broker_order_state.py`: `BrokerOrder` supports multiple broker IDs per local order; `Order.broker_tag` is unique when populated; order status width supports partial/unknown states; and `Execution` has a child-order reference plus per-broker trade-ID uniqueness. The populated migration regression test passed. No execution/reconciliation code uses these fields yet.
+
+
+## Response validation helper status update — 17 October 2026
+
+Added pure typed parsing helpers in `backend/app/brokers/upstox/response_parsing.py` for Place Order V3 IDs, Order Details, Order History and Order Trades. They are tested but not wired into any live submission or accounting path. The history parser intentionally allows repeated order IDs because the official endpoint can return multiple status events for one order.

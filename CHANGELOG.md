@@ -124,3 +124,9 @@
 - Added `BrokerOrder` child rows (supports multiple broker IDs per local order), a unique nullable `Order.broker_tag`, expanded order status width, and broker-order/trade ID fields on `Execution` with per-broker trade-ID uniqueness.
 - Added migration `202610170004_live_broker_order_state.py` and a populated legacy database regression test. Paper order/execution data remains intact; duplicate broker order IDs/trade IDs are blocked.
 - CI on `dbd83c878753e7a0cb6e2a7935c55378ee56d7cb`: backend **201 passed, 1 warning**, migration check passed, frontend checks passed. New fields remain unused by execution.
+
+
+### 17 October 2026 — pure Upstox response parsers
+- Added typed pure parsers for Place Order V3, Order Details, Order History and Order Trades payloads. Tests cover malformed fields, mismatched identities, duplicate child/trade IDs, invalid quantities/prices, and empty history/trade results.
+- Cross-checking official docs showed Order History may contain multiple timeline events with the same order ID; parser and test now accept that valid response shape.
+- CI on `0d1ececff933e3271576096756192036963805ba`: backend **223 passed, 1 warning**, migration check passed, frontend checks passed.

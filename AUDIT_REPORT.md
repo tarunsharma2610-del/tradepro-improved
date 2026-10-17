@@ -154,3 +154,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Added a child `BrokerOrder` table, stable local broker tag, wider status field and unique broker trade-ID metadata on executions, with additive migration 004. The migration test validates a populated pre-migration database and proves existing paper data is preserved.
 - Latest CI: 201 backend tests passed, 1 warning, clean SQLite migration, frontend checks passed. New schema is not wired into any live order flow.
 - Next: pure response-validation helpers for V3 order IDs, order details, history and trade payloads; then review them before a live service exists.
+
+
+## Pure broker response validation — 17 October 2026
+
+- Added pure typed parsers for V3 Place Order, Order Details, Order History and Order Trades responses with targeted malformed-data/identity/quantity/price tests.
+- Corrected the parser to allow repeated order IDs in Order History because that endpoint is a status timeline, not a unique-order list.
+- Latest CI: 223 backend tests passed, 1 warning, clean migration, frontend checks passed. Next is an audit of live pre-trade risk controls before any live submission service.

@@ -166,3 +166,11 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Added forward migration `202610170004_live_broker_order_state.py` and a populated-database migration regression test. Existing paper order/execution values are preserved; the test verifies multiple child IDs, duplicate broker-order/trade rejection and `PARTIALLY_FILLED` status storage.
 - New schema is not wired into execution/reconciliation. CI on `dbd83c878753e7a0cb6e2a7935c55378ee56d7cb`: backend **201 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
 - Next: pure typed response-validation helpers for Upstox V3 place, order details, history and trades payloads. No live orders. See `PROGRESS.md` and `LIVE_ORDER_STATE_MACHINE.md`.
+
+
+## Pure Upstox response parsers completed — 17 October 2026
+
+- Added `backend/app/brokers/upstox/response_parsing.py` with typed parsers for Place Order V3 child IDs, Order Details, Order History and Order Trades. They are pure functions: no HTTP or DB calls.
+- Tests cover malformed/missing fields, mismatched IDs, duplicate place IDs/trade IDs, invalid quantities/prices, and empty history/trade lists. Official docs confirm Order History is a status timeline, so repeated order IDs for different status events are valid; the parser was corrected accordingly.
+- Latest verified code commit: `0d1ececff933e3271576096756192036963805ba`: backend **223 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
+- Next: audit the risk controls needed for a separate live service; do not wire live submission. See `PROGRESS.md`.

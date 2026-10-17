@@ -101,5 +101,11 @@ After each coherent step, update this tracker with:
 - Code commit: `8bddac0ae09e43d91b3da990dc7a014f6721c325`; regression-test commit: `7403739c5a1f97aaed84e145958f9aa05f2f3f61`.
 - CI passed: **196 tests passed, 1 warning**; SQLite Alembic migration verification passed. Workflow: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39039234333.
 
+## Latest continuation step — daily order-count risk cap
+- Added `test_portfolio_daily_order_cap_rejects_additional_order` in `backend/tests/test_execution_service.py`. It verifies cancelled orders do not consume the daily allowance, the first active order is accepted, and the next order is rejected at the configured cap.
+- Commit: `167d67fdb953f0b75991e3e809062c845733b877`.
+- Backend CI passed: **197 tests passed, 1 warning**; SQLite Alembic migration verification passed. Workflow: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39039335585.
+- The exact-instrument quote safety change and max-open-position cap test are also recorded above; live trading remains disabled.
+
 ## Next action
-Add a focused regression test for the manually configured `max_orders_per_day` portfolio cap, then run the backend suite and migration check. Keep all tests mocked/paper-only; no real broker orders. Frontend TypeScript and production build passed for stream-control UI commit 6ec32fefda4ba357bde0fc5997cd32d6b58b4979: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093. The live instrument-master workflow passed with 123,930 active instruments in temporary SQLite: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129. Keep live trading disabled.
+Inspect the Upstox V3 stream reconnect/heartbeat code and current tests. Add focused mocked regression coverage for reconnect after stream silence or socket failure, then run backend CI. Live OAuth streaming still requires the user's authenticated session and must not be falsely marked verified. Frontend TypeScript and production build passed for stream-control UI commit 6ec32fefda4ba357bde0fc5997cd32d6b58b4979: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093. The live instrument-master workflow passed with 123,930 active instruments in temporary SQLite: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129. Keep live trading disabled.

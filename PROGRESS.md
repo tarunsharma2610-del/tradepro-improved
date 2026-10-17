@@ -144,3 +144,13 @@ Review the live-order idempotency/reconciliation gap and write a safe implementa
 - Still unverified: real OAuth-authenticated WebSocket; backup-safe staging migration against the actual deployed DB; multi-worker stream sharing; and live order workflow. Live order placement remains unimplemented and disabled.
 - README refreshed in commit `92d328f5f16ac1df114f06249dc645165524fc11`; audit refreshed in commit `128bbf4265012acbde32e06b69af118ebdafed6f`. The latest documentation commit's CI run [39040259560](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39040259560) was still in progress at checkpoint time; do not claim it passed until completed.
 - **Next step:** inspect broker adapter, order model, audit trail and execution service; write a design for idempotency keys, uncertain-submit handling and broker reconciliation before coding. Preserve paper/live isolation; do not submit live orders.
+
+
+## Latest continuation — durable live-order idempotency/reconciliation design (2026-10-17)
+- Re-read `PROJECT_INSTRUCTIONS.md`, `PROGRESS.md`, `README.md`, `AUDIT_REPORT.md`, `ARCHITECTURE.md`, `LIVE_TRADING_SAFEGUARDS.md`, order/execution models, order repository, execution service, broker interface, Upstox adapter and execution tests.
+- Confirmed current boundary: `ExecutionService.place_order()` still constructs PAPER orders; no complete live orchestration, durable idempotency key, submit-attempt ledger, broker-fill dedupe identity or reconciliation workflow exists. The adapter methods alone do not make live trading safe.
+- Created `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` as a design-only plan (commit `f74386a99722d761bcd23848f442cb754dd0e231`). It specifies additive intent/event/outbox/fill identity records, key+payload-hash semantics, uncertain-submit behavior, no blind retries, broker reconciliation, partial-fill dedupe, cancellation races, risk recheck, kill switch, migration gates, implementation phases and a regression-test matrix.
+- Reviewed official Upstox documentation for Place Order V2/V3, Order History, Order Book, Order Details and Order Trades. A broker `tag` is treated as correlation/search, NOT as guaranteed broker-enforced idempotency. Sources are linked in the design file.
+- No application code changed, no migration ran, no live broker session was used, and no orders were submitted. Tests were not rerun because this step only adds design documentation.
+- Current phase: design review; implementation is deliberately not started.
+- Next action: cross-link the reviewed design and correct status/roadmap language in `ARCHITECTURE.md`, `LIVE_TRADING_SAFEGUARDS.md`, `README.md`, `AUDIT_REPORT.md` and this progress tracker. Keep live submission disabled.

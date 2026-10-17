@@ -19,7 +19,7 @@ Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b66302
 - [ ] OAuth schema migration needs staging verification before deployment.
 
 ## Current phase
-**Phase C — Safety requirements mapped; next inspect existing paper/live isolation tests.**
+**Phase D — Paper/live isolation regression test added and CI verified.**
 - Added `PROJECT_INSTRUCTIONS.md` with the mandatory workflow and safety rules (commit `8d7d9d8257f852f3d26e0564be8b521b0fe75764`).
 - Added this `PROGRESS.md` tracker (commit `9986380d8f4ee8939718c858ea9ab925da3f65b1`).
 - Inspected `backend/app/services/execution_service.py`, `backend/app/services/strategy_execution_service.py`, `backend/app/services/risk_engine.py`, `backend/app/core/config.py`, `backend/app/models/order.py`, `backend/app/brokers/upstox/adapter.py`, and relevant execution tests.
@@ -29,7 +29,9 @@ Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b66302
 - Added a requirements-to-code/test gap map to `AUDIT_REPORT.md` (commit `ed0d18a0f03a45274ced3a4f237fbcca74f8ac2e`). It maps paper/live isolation, idempotency, risk limits, kill-switch scope, instrument sync, streaming, and migration verification.
 - Corrected `README.md` so it no longer incorrectly lists the existing automated-entry kill switch as wholly unimplemented; it now distinguishes that switch from a global live-account kill switch (commit `611d5edbf476bc56682bb8af86ff8c216a38097e`).
 - Confirmed the backend CI workflow run for the preceding documentation commit succeeded: [run 39036087413](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036087413). This is documentation-change CI, not new application-code test coverage.
-- No application-code change or new test has been performed in this session. The GitHub connector can read/write repository files but cannot execute project test commands.
+- Added `test_paper_market_order_never_calls_broker_live_order_endpoint` in `backend/tests/test_execution_service.py` (commit `07afe398ec85dffd00969355bb9362e9848f81ad`). It asserts the simulated order is `PAPER`, fills as expected using a mocked quote, and never awaits the broker's real `place_order` method.
+- GitHub Actions backend workflow passed for that test commit, including the full pytest suite and SQLite Alembic migration verification: [run 39036217193](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036217193). The Actions job is green; no live broker orders were submitted.
+- Audit documentation commit: `ed0d18a0f03a45274ced3a4f237fbcca74f8ac2e`; README clarification commit: `611d5edbf476bc56682bb8af86ff8c216a38097e`.
 
 ## Prior audit / CI evidence
 See `AUDIT_REPORT.md` and `LIVE_TRADING_SAFEGUARDS.md`. Audit report links to a prior backend CI run (167 passed, 1 deprecation warning) and reports frontend typecheck/build success. Treat these as prior reported results unless verified again through current Actions.
@@ -44,4 +46,4 @@ After each coherent step, update this tracker with:
 6. The next single action.
 
 ## Next action
-Inspect existing `backend/tests/test_execution_service.py` and related broker tests to verify whether they explicitly assert that PAPER execution never calls `BrokerAdapter.place_order`. If missing, add a focused regression test and run it in a test-capable environment; if the available GitHub connector cannot edit/run code tests, report that limitation and do not pretend the test was executed. Do not wire or enable real order submission until broker reconciliation, risk controls, security and end-to-end tests are verified and the user explicitly authorizes it.
+Inspect and test portfolio-wide risk controls next. First map the portfolio/position/execution models and current risk tests, then propose a small fail-closed risk-engine addition with precise semantics for daily realized loss, open exposure and concurrent entries. Add focused regression tests and rely on CI results before marking the step complete. Keep live trading disabled.

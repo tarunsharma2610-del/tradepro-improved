@@ -34,6 +34,7 @@ Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b66302
 - Audit documentation commits: `ed0d18a0f03a45274ced3a4f237fbcca74f8ac2e` and `8940872208ca851f8ee27b4087aaa0e1445a8ae6`; README clarification commits: `611d5edbf476bc56682bb8af86ff8c216a38097e` and `ca35809b97f3eb970a94b61f4395b7036f2aa0ae`.
 - Verified official Upstox documentation confirms the BOD instrument master is available as gzip-compressed JSON and recommends `instrument_key`; the current `InstrumentService` already syncs NSE_EQ only, while the adapter-level method remains a stub. See https://upstox.com/developer/api-documentation/instruments/.
 - Updated the stale `InstrumentService` module docstring to reflect the actual scope (commit `3d28863309a224977764593688eb32a6161f13ff`).
+- Refined `AUDIT_REPORT.md` after tests passed, recording the CI run and clarifying the existing sync is partial rather than wholly missing (commit `b9b8976482ac8b80cb3c39c8e448688b0c898769`).
 - Added `backend/tests/test_instrument_service.py` with mocked successful gzip/JSON sync (NSE_EQ imported, NSE_FO ignored) and HTTP-failure/no-write coverage (commit `9f0e15ff274ce0b8aa3faa74aaa2427c2da750b0`). Backend CI passed including the full pytest suite and SQLite migration verification: [run 39036316771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036316771).
 
 ## Prior audit / CI evidence
@@ -49,4 +50,4 @@ After each coherent step, update this tracker with:
 6. The next single action.
 
 ## Next action
-Next audit the portfolio-wide risk-control design and existing settings/API surfaces. Do not invent loss/exposure thresholds: determine whether limits should be per portfolio, configurable, and persisted, and map the required migration/UI/tests before implementing. In parallel, plan the full NSE/BSE/MCX/F&O instrument sync from the verified official JSON schema without deactivating instruments on a partial/failed download. Keep live trading disabled.
+Next design a persisted per-portfolio risk-limit contract (daily loss and exposure), including default values, API validation, UI and migration requirements, without silently choosing financial thresholds. Then implement in small commits with regression tests. After that, expand instrument sync beyond NSE equities only after designing safe segment mapping, expiry handling, transaction batching and failure-safe deactivation. Keep live trading disabled.

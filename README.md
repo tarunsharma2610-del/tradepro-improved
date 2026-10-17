@@ -33,3 +33,9 @@ See [AUDIT_REPORT.md](./AUDIT_REPORT.md) for findings, verification links and re
 - **Live trading:** is **not implemented** by the shared execution service. Setting `TRADING_MODE=LIVE` is not sufficient to make real broker orders happen; do not treat this repository as ready for live trading.
 - **Broker OAuth migration:** the new Alembic migration adds one-time OAuth state fields. Back up the database and verify `alembic upgrade head` in staging before deploying to an existing database.
 - **Remaining work:** a complete live broker-order lifecycle and restart-safe reconciliation; broker-side idempotency and evaluation-level retry keys for strategy scheduling; portfolio exposure limits and a broker-error circuit breaker; full instrument-master support beyond NSE equities, tick-size unit normalization and derivative lot/margin accounting; exchange holiday handling; WebSocket market data; and production TLS/staging verification. Client idempotency is now integrated in the manual order UI; strategy entries have a position-allocation/locking guard. A PAPER-only gate, paper-order cap and automated-entry kill switch exist, but they are not a complete live risk system.
+
+
+## Persistent project instructions and progress
+
+- Read [`PROJECT_INSTRUCTIONS.md`](PROJECT_INSTRUCTIONS.md) before making changes.
+- Read [`PROGRESS.md`](PROGRESS.md) at the start of every continuation; update it after every tested and committed task.

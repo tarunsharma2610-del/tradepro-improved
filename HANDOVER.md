@@ -78,3 +78,12 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Latest verified backend CI: **188 tests passed, 1 warning**, plus clean SQLite migration upgrade: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030790984.
 - Frontend TypeScript passed, but the latest Next.js build failed in the Google-font resolver; an earlier build of unchanged frontend code passed. Re-run before merge and treat the build as unresolved until latest CI passes.
 - Next: validate migration backfill on populated staging data; add evaluation-level de-duplication for strategy scheduling; address remaining instrument-master/tick-size gaps; keep live trading disabled.
+
+
+## Mandatory continuation checkpoint — 17 October 2026
+
+- Read `PROJECT_INSTRUCTIONS.md` and `PROGRESS.md` first at the start of every session.
+- Latest verified code commit before the instruction/progress documentation commit: `ac93eb82688d573f9839da48ef1182d9929e56c4`.
+- CI at that commit: backend **189 passed, 1 warning** plus clean SQLite migration; frontend TypeScript and Next.js build passed. Links are recorded in `PROGRESS.md`.
+- Next task: create a populated pre-migration regression test for `202610170003_strategy_position_attribution.py`. Inspect migration/test/CI setup first; do not alter migration logic unless the test proves a defect.
+- Live trading remains not ready; PR #1 is draft/open/unmerged. Original `Tradepro` remains untouched.

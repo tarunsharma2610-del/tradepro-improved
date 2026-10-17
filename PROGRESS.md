@@ -300,3 +300,15 @@ Each updated Markdown file's exact commit has its own successful GitHub Actions 
 The latest verified application/test checkpoint remains `dd36b48a92057ad50618f6f9941f908832c9cea3` with [run 39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046): 215 passed, 1 warning, plus SQLite/PostgreSQL 16 reversible migration checks. This is separate from the documentation commits' own green CI runs.
 
 Actual deployment database engine and access to a backup-restored staging copy are not established by repository CI. Gate 1 remains open until that environment is verified. No live broker submission, production migration or reconciliation worker was introduced.
+
+
+## Phase 2 — conservative broker order normalization — 2026-10-17
+
+- Added `backend/app/services/live_order_reconciliation.py`, a pure normalization module with no network, database, submit or cancel capability.
+- Added `backend/tests/test_live_order_reconciliation.py` for documented Upstox order statuses, partial/full-fill consistency, unknown statuses, missing fields, invalid quantities/prices and the cancelled-order pending-quantity edge case.
+- The normalizer preserves the broker's raw status, maps only known documented statuses, rejects malformed/inconsistent fields, and flags unknown or contradictory observations as `RECONCILIATION_REQUIRED` rather than guessing.
+- Source contract references: [Upstox order book](https://upstox.com/developer/api-documentation/get-order-book/), [order details](https://upstox.com/developer/api-documentation/get-order-details/), [order history](https://upstox.com/developer/api-documentation/get-order-history/) and [order-status appendix](https://upstox.com/developer/api-documentation/appendix/order-status/). These APIs report current-day order records; durable local history and cross-session recovery remain future work.
+- Exact test commit: `b37452210bf07ad03acee1495e0627fae1378582`; GitHub Actions [run 39049395091](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049395091) passed **247 tests, 1 warning**, including SQLite/PostgreSQL 16 reversible migration checks.
+- Earlier implementation-only commit `c5f0f937367b9d74610d8ddef2885da6b309fa48` also passed existing CI: [run 39049387990](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049387990).
+- This is a tested Phase 2 foundation, not a complete reconciliation worker. It does not fetch broker data, persist status transitions, link broker orders to intents, import fills, or place/cancel orders. Live trading remains disabled.
+- Next step: add strict local-intent-to-broker-record matching and duplicate/ambiguous-match handling with tests; do not link an order based on tag alone or unknown/mismatched economics.

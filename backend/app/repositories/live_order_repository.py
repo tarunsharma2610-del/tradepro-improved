@@ -224,6 +224,8 @@ class LiveOrderRepository:
         quantity: int,
         price: Any,
         executed_at: datetime,
+        product: str,
+        order_type: str,
         intent_id: uuid.UUID | None = None,
         safe_details: dict[str, Any] | None = None,
         correlation_id: str | None = None,
@@ -247,6 +249,10 @@ class LiveOrderRepository:
         normalized_side = required(side, "side", 4).upper()
         if normalized_side not in {"BUY", "SELL"}:
             raise ValueError("side must be BUY or SELL")
+        normalized_product = required(product, "product", 16).upper()
+        normalized_order_type = required(order_type, "order_type", 16).upper()
+        if normalized_order_type not in {"MARKET", "LIMIT", "SL", "SL-M"}:
+            raise ValueError("order_type is not supported")
         if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("quantity must be a positive integer")
         try:
@@ -276,8 +282,40 @@ class LiveOrderRepository:
             ).first()
             if intent is None:
                 raise ValueError("matched intent not found for authenticated user and broker connection")
-            if intent.broker_order_id and intent.broker_order_id != order_id:
-                raise LiveOrderVersionConflict("fill broker order ID differs from the linked intent")
+            if intent.broker_order_id != order_id:
+                raise LiveOrderVersionConflict("fill must match an intent already linked to this broker order ID")
+            snapshot = intent.order_snapshot or {}
+            expected_instrument = snapshot.get("instrument_key", snapshot.get("instrument_token"))
+            expected_side = snapshot.get("side", snapshot.get("transaction_type"))
+            expected_type = snapshot.get("order_type")
+            expected_product = snapshot.get("product")
+            expected_quantity = snapshot.get("quantity")
+            if not all(value is not None for value in (
+                expected_instrument, expected_side, expected_type, expected_product, expected_quantity
+            )):
+                raise ValueError("linked intent is missing required economic fields")
+            if str(expected_instrument).strip() != instrument:
+                raise LiveOrderVersionConflict("fill instrument differs from linked intent")
+            if str(expected_side).strip().upper() != normalized_side:
+                raise LiveOrderVersionConflict("fill side differs from linked intent")
+            if str(expected_type).strip().upper() != normalized_order_type:
+                raise LiveOrderVersionConflict("fill order type differs from linked intent")
+            if str(expected_product).strip().upper() != normalized_product:
+                raise LiveOrderVersionConflict("fill product differs from linked intent")
+            try:
+                requested_quantity = int(expected_quantity)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("linked intent quantity is invalid") from exc
+            if isinstance(expected_quantity, bool) or requested_quantity <= 0:
+                raise ValueError("linked intent quantity is invalid")
+            if quantity > requested_quantity:
+                raise LiveOrderVersionConflict("single fill quantity exceeds linked intent quantity")
+
+        stored_details = dict(safe_details or {})
+        for key, value in (("normalized_product", normalized_product), ("normalized_order_type", normalized_order_type)):
+            if key in stored_details and stored_details[key] != value:
+                raise ValueError(f"safe_details {key} conflicts with normalized fill data")
+            stored_details[key] = value
 
         def same_payload(existing: BrokerFillIdentity) -> bool:
             old_time = existing.executed_at
@@ -294,7 +332,7 @@ class LiveOrderRepository:
                 and existing.quantity == quantity
                 and Decimal(str(existing.price)) == normalized_price
                 and old_time.astimezone(timezone.utc) == new_time.astimezone(timezone.utc)
-                and (existing.safe_details or {}) == (safe_details or {})
+                and (existing.safe_details or {}) == stored_details
             )
 
         existing = self.db.query(BrokerFillIdentity).filter(
@@ -316,8 +354,16 @@ class LiveOrderRepository:
             quantity=quantity,
             price=normalized_price,
             executed_at=executed_at,
-            safe_details=safe_details,
+            safe_details=stored_details,
         )
+        if intent_id is not None:
+            already_recorded = self.db.query(BrokerFillIdentity).filter(
+                BrokerFillIdentity.intent_id == intent_id
+            ).all()
+            recorded_quantity = sum(item.quantity for item in already_recorded)
+            snapshot_quantity = int(intent.order_snapshot["quantity"])
+            if recorded_quantity + quantity > snapshot_quantity:
+                raise LiveOrderVersionConflict("aggregate fill quantity would exceed linked intent quantity")
         self.db.add(fill)
         try:
             self.db.flush()
@@ -333,6 +379,8 @@ class LiveOrderRepository:
                         "quantity": quantity,
                         "price": str(normalized_price),
                         "side": normalized_side,
+                        "product": normalized_product,
+                        "order_type": normalized_order_type,
                     },
                 ))
             self.db.commit()

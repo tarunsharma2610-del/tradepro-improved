@@ -511,3 +511,44 @@ async def test_idempotency_key_cannot_be_reused_for_different_payload(db_session
             order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=3,
             limit_price=Decimal("2400"), idempotency_key="client-retry-002",
         ))
+
+
+@pytest.mark.asyncio
+async def test_limit_order_rejected_above_configured_order_value_cap(db_session, portfolio, instrument, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL", Decimal("25.0"))
+    user, p = portfolio
+
+    order = await ExecutionService(db_session).place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+            order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=11,
+            limit_price=Decimal("2400"),
+        ),
+    )
+
+    assert order.status == "REJECTED"
+    assert "maximum order value" in order.rejection_reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_market_order_rejected_above_configured_order_value_cap(db_session, portfolio, instrument, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL", Decimal("25.0"))
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+
+    with _mock_quote("2500"):
+        order = await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=11,
+            ),
+        )
+
+    assert order.status == "REJECTED"
+    assert "maximum order value" in order.rejection_reason.lower()
+    db_session.refresh(p)
+    assert p.cash_balance == Decimal("100000")

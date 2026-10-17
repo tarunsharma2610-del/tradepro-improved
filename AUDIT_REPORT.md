@@ -50,3 +50,34 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 3. Implement instrument master sync and WebSocket market data using current official Upstox documentation.
 4. Verify the Alembic migration path in staging and check the current deployment configuration.
 5. Review remaining analytics and backtest behavior against the requested product requirements.
+
+
+## Requirements-to-code/test gap map (reviewed 2026-10-17)
+
+This is a repository-source review, not a live-broker certification. The current backend CI run for commit `a8faa2581a05778df0f7d30a7a0fb3f0d4e6164a` completed successfully (workflow run [39036087413](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036087413)). That run was triggered by documentation changes; it confirms the existing test workflow is green, not that untested live-trading features work.
+
+| Requirement | Source evidence reviewed | Status | Next safe action |
+|---|---|---|---|
+| Paper orders must not submit real orders | `backend/app/services/execution_service.py` constructs orders with `trading_mode="PAPER"`; `backend/app/brokers/base.py` defines broker placement separately | Existing separation; add an explicit regression test that PAPER execution never calls adapter `place_order` | Inspect existing test coverage and add a mock assertion if absent |
+| Live order lifecycle and reconciliation | `ExecutionService.place_order` simulates accounting; adapter has `place_order`, `get_order_status`, `get_order_book`, `get_positions`, but no live orchestration service was found in reviewed files | Not implemented / not enabled | Design a separate live execution service only after idempotency, risk and broker rules are specified; no real orders in tests |
+| Duplicate submission protection | `Order` model has no visible broker idempotency key in reviewed fields; safeguards document calls this out | Gap | Define unique client intent key + persisted submission state and retry semantics before live execution |
+| Strategy-specific daily loss | `backend/app/services/risk_engine.py` checks strategy's realized loss today | Partial, strategy-level only | Preserve and test; clarify UTC calendar-day vs Indian exchange session day |
+| Portfolio-wide loss / exposure / order-frequency caps | Not present in reviewed `risk_engine.py`; architecture/audit also list as remaining work | Gap | Design Decimal-based limits and account/portfolio aggregation; add tests for threshold, boundary, concurrent entry and fail-closed behavior |
+| Emergency stop for automated entries | `backend/app/core/config.py` exposes `AUTOMATED_ENTRIES_ENABLED`; `strategy_execution_service.py` blocks entries while preserving exits | Implemented for automated strategy entries, not manual paper orders or live orders | Add runbook/monitoring; do not describe as a global account-wide live kill switch |
+| Upstox instrument master | `backend/app/brokers/upstox/adapter.py::sync_instruments` returns an explicit not-implemented result | Gap | Confirm current official file endpoint, schema, compression and instrument-key format; add parser/refresh tests before wiring |
+| Upstox WebSocket market data | Adapter stream URL method returns an explicit not-implemented result; no complete stream client verified in this review | Gap | Confirm current official authorization handshake and message schema; implement reconnect/heartbeat/stale-data handling and mocked tests |
+| OAuth replay prevention | Audit documents persisted nonce digest, expiry and conditional consumption; migration file exists | CI clean-SQLite tested; production/staging not verified | Backup and validate upgrade against a staging copy of the actual DB before deployment |
+| Production migration safety | Existing clean SQLite migration CI is not equivalent to the deployed DB engine/data | Unverified | Record DB engine/version, backup, staging upgrade and rollback plan before deployment |
+| Frontend checks | Existing CI reports typecheck and production build | Historical CI reported green; no frontend changes in this audit step | Keep CI required for future frontend changes |
+
+### Review sequence / acceptance gates
+
+1. Add or verify the paper/live adapter isolation regression test. It must fail if a PAPER order path calls `BrokerAdapter.place_order`.
+2. Add portfolio-level risk controls in a separate, testable risk module only after defining how realized and unrealized P&L, open orders, positions, and time-zone/session boundaries are calculated.
+3. Add instrument sync and streaming separately, against current official Upstox docs and mocked fixtures.
+4. Treat idempotent live order submission, broker reconciliation, account-level emergency stop, static-IP/2FA/session requirements, authorization and applicable compliance review as mandatory blockers before any real-order feature.
+5. Run full backend/frontend CI after code changes; do not call CI triggered by docs a code regression test.
+
+### Scope boundary
+
+No application code was changed by this audit documentation update. No live orders were submitted. No production or staging migration was run. Live trading remains unimplemented and must remain disabled.

@@ -19,6 +19,7 @@ type RiskSettings = {
 };
 type InstrumentBrief = { id: string; trading_symbol: string; exchange: string };
 type Instrument = InstrumentBrief & { instrument_key: string; name: string; segment: string };
+type StreamStatus = { running: boolean; connected: boolean; instrument_count?: number; quotes: Record<string, { ltp: number; received_at: string; stale: boolean } | null> };
 type Position = { instrument: InstrumentBrief; quantity: number; avg_price: string; realized_pnl: string };
 type Order = {
   id: string;
@@ -47,6 +48,9 @@ export default function PortfolioDetailPage() {
   });
   const [savingRisk, setSavingRisk] = useState(false);
   const [riskMessage, setRiskMessage] = useState<string | null>(null);
+  const [streamActive, setStreamActive] = useState(false);
+  const [streamStatus, setStreamStatus] = useState<StreamStatus | null>(null);
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Instrument[]>([]);
@@ -105,6 +109,47 @@ export default function PortfolioDetailPage() {
       setOrders(ord);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not load this portfolio.");
+    }
+  }
+
+  useEffect(() => {
+    if (!streamActive || !selected) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const result = await api.get<StreamStatus>("/market-data/stream");
+        if (!cancelled) setStreamStatus(result);
+      } catch (err) {
+        if (!cancelled) setStreamError(err instanceof ApiError ? err.message : "Could not read stream status.");
+      }
+    };
+    void poll();
+    const handle = setInterval(() => void poll(), 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(handle);
+    };
+  }, [streamActive, selected]);
+
+  async function onStartStream() {
+    if (!selected) return;
+    setStreamError(null);
+    try {
+      await api.post("/market-data/stream", { instrument_keys: [selected.instrument_key] });
+      setStreamActive(true);
+    } catch (err) {
+      setStreamError(err instanceof ApiError ? err.message : "Could not start market stream.");
+    }
+  }
+
+  async function onStopStream() {
+    setStreamError(null);
+    try {
+      await api.del("/market-data/stream");
+      setStreamActive(false);
+      setStreamStatus(null);
+    } catch (err) {
+      setStreamError(err instanceof ApiError ? err.message : "Could not stop market stream.");
     }
   }
 
@@ -276,6 +321,32 @@ export default function PortfolioDetailPage() {
               </ul>
             )}
           </div>
+
+          {selected && (
+            <div className="space-y-2 rounded-md border border-ink/10 p-3 dark:border-paper/10">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="ghost" onClick={() => void onStartStream()}>
+                  {streamActive ? "Restart stream for selected instrument" : "Start live price stream"}
+                </Button>
+                {streamActive && <Button type="button" variant="ghost" onClick={() => void onStopStream()}>Stop stream</Button>}
+                <span className="text-xs text-ink/50 dark:text-paper/50">
+                  {streamStatus?.connected ? "Connected" : streamActive ? "Connecting…" : "Not streaming"}
+                </span>
+              </div>
+              {streamStatus?.quotes?.[selected.instrument_key] && (
+                <p className="text-sm">
+                  Live LTP: <strong>₹{streamStatus.quotes[selected.instrument_key]!.ltp.toFixed(2)}</strong>
+                  <span className="ml-2 text-xs text-ink/50 dark:text-paper/50">
+                    Updated {new Date(streamStatus.quotes[selected.instrument_key]!.received_at).toLocaleTimeString()}
+                  </span>
+                </p>
+              )}
+              <p className="text-xs text-ink/50 dark:text-paper/50">
+                This user-level stream subscription is replaced when you start a stream for another instrument. Stale quotes are hidden.
+              </p>
+              {streamError && <p className="text-sm text-loss">{streamError}</p>}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">

@@ -36,5 +36,12 @@ class Order(BaseModel):
     strategy_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)  # populated starting Phase 3
     idempotency_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Read-only broker reconciliation metadata. These fields do not make a
+    # paper order live and must not drive local cash/position accounting.
+    broker_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    broker_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    broker_status_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    broker_status_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     placed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     filled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

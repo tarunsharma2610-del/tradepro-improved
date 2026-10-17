@@ -151,3 +151,50 @@ def test_owner_can_cancel_pending_limit_order_but_another_user_cannot(client, db
     cancelled = client.delete(f"/api/v1/portfolios/{portfolio_id}/orders/{order_id}")
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "CANCELLED"
+
+
+def test_unsupported_derivative_segments_are_rejected_at_api_boundaries(client, db_session):
+    """Equity-only master data must never be priced/accounted as F&O."""
+    from app.models.backtest import BacktestRun
+    from app.models.order import Order
+    from app.models.strategy import Strategy
+    from app.repositories.instrument_repository import InstrumentRepository
+    from app.services.instrument_service import InstrumentService
+
+    _register_and_login(client, "unsupported-segment@example.com")
+    portfolio_id = client.post(
+        "/api/v1/portfolios", json={"name": "Equity only", "virtual_capital": "100000"}
+    ).json()["id"]
+    InstrumentService(db_session).seed_defaults()
+    instrument_id = str(InstrumentRepository(db_session).search("RELIANCE")[0].id)
+
+    order_response = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/orders",
+        json={
+            "instrument_id": instrument_id, "side": "BUY", "order_type": "MARKET",
+            "segment": "FUTURES", "quantity": 1,
+        },
+    )
+    strategy_response = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/strategies",
+        json={
+            "instrument_id": instrument_id, "name": "Invalid options strategy",
+            "segment": "OPTIONS", "quantity": 1, "max_daily_loss": "1000",
+        },
+    )
+    backtest_response = client.post(
+        "/api/v1/backtests",
+        json={
+            "instrument_id": instrument_id, "name": "Invalid futures backtest",
+            "segment": "FUTURES", "from_date": "2026-08-01", "to_date": "2026-08-15",
+            "initial_capital": "100000", "quantity": 1,
+        },
+    )
+
+    assert order_response.status_code == 400
+    assert "Futures and options are not enabled" in order_response.json()["detail"]
+    assert strategy_response.status_code == 400
+    assert backtest_response.status_code == 400
+    assert db_session.query(Order).filter(Order.portfolio_id == portfolio_id).count() == 0
+    assert db_session.query(Strategy).filter(Strategy.portfolio_id == portfolio_id).count() == 0
+    assert db_session.query(BacktestRun).count() == 0

@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.broker_connection import BrokerConnection
-from app.models.live_order_records import LiveOrderEvent, LiveOrderIntent, LiveOrderOutbox
+from app.models.live_order_records import BrokerFillIdentity, LiveOrderEvent, LiveOrderIntent, LiveOrderOutbox
 from app.models.portfolio import Portfolio
 
 
@@ -211,6 +211,145 @@ class LiveOrderRepository:
         self.db.commit()
         self.db.refresh(event)
         return event
+
+    def record_broker_fill(
+        self,
+        *,
+        user_id: uuid.UUID,
+        broker_connection_id: uuid.UUID,
+        broker_trade_id: str,
+        broker_order_id: str,
+        instrument_key: str,
+        side: str,
+        quantity: int,
+        price: Any,
+        executed_at: datetime,
+        intent_id: uuid.UUID | None = None,
+        safe_details: dict[str, Any] | None = None,
+        correlation_id: str | None = None,
+    ) -> tuple[BrokerFillIdentity, bool]:
+        """Atomically persist one validated broker trade and audit event, idempotently.
+
+        No broker I/O occurs here. The caller must normalize and match the trade first.
+        Duplicate trade IDs with identical economic details are no-ops; a duplicate ID
+        carrying different details is a conflict requiring manual reconciliation.
+        """
+        from decimal import Decimal, InvalidOperation
+
+        def required(value: str, field: str, max_length: int = 128) -> str:
+            if not isinstance(value, str) or not value.strip() or len(value.strip()) > max_length:
+                raise ValueError(f"{field} must contain 1-{max_length} characters")
+            return value.strip()
+
+        trade_id = required(broker_trade_id, "broker_trade_id")
+        order_id = required(broker_order_id, "broker_order_id")
+        instrument = required(instrument_key, "instrument_key")
+        normalized_side = required(side, "side", 4).upper()
+        if normalized_side not in {"BUY", "SELL"}:
+            raise ValueError("side must be BUY or SELL")
+        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
+            raise ValueError("quantity must be a positive integer")
+        try:
+            normalized_price = Decimal(str(price))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError("price must be finite and positive") from exc
+        if not normalized_price.is_finite() or normalized_price <= 0:
+            raise ValueError("price must be finite and positive")
+        if not isinstance(executed_at, datetime) or executed_at.tzinfo is None:
+            raise ValueError("executed_at must be timezone-aware")
+        if safe_details is not None:
+            if not isinstance(safe_details, dict):
+                raise ValueError("safe_details must be a JSON object")
+            _validate_safe_json(safe_details, field_name="safe_details")
+
+        connection = self.db.query(BrokerConnection).filter(
+            BrokerConnection.id == broker_connection_id,
+            BrokerConnection.user_id == user_id,
+        ).first()
+        if connection is None:
+            raise ValueError("broker connection not found for authenticated user")
+        if intent_id is not None:
+            intent = self.db.query(LiveOrderIntent).filter(
+                LiveOrderIntent.id == intent_id,
+                LiveOrderIntent.user_id == user_id,
+                LiveOrderIntent.broker_connection_id == broker_connection_id,
+            ).first()
+            if intent is None:
+                raise ValueError("matched intent not found for authenticated user and broker connection")
+            if intent.broker_order_id and intent.broker_order_id != order_id:
+                raise LiveOrderVersionConflict("fill broker order ID differs from the linked intent")
+
+        def same_payload(existing: BrokerFillIdentity) -> bool:
+            old_time = existing.executed_at
+            new_time = executed_at
+            if old_time.tzinfo is None:
+                old_time = old_time.replace(tzinfo=timezone.utc)
+            if new_time.tzinfo is None:
+                new_time = new_time.replace(tzinfo=timezone.utc)
+            return (
+                existing.broker_order_id == order_id
+                and existing.intent_id == intent_id
+                and existing.instrument_key == instrument
+                and existing.side == normalized_side
+                and existing.quantity == quantity
+                and Decimal(str(existing.price)) == normalized_price
+                and old_time.astimezone(timezone.utc) == new_time.astimezone(timezone.utc)
+                and (existing.safe_details or {}) == (safe_details or {})
+            )
+
+        existing = self.db.query(BrokerFillIdentity).filter(
+            BrokerFillIdentity.broker_connection_id == broker_connection_id,
+            BrokerFillIdentity.broker_trade_id == trade_id,
+        ).first()
+        if existing is not None:
+            if not same_payload(existing):
+                raise LiveOrderVersionConflict("broker trade ID already exists with different fill details")
+            return existing, False
+
+        fill = BrokerFillIdentity(
+            broker_connection_id=broker_connection_id,
+            intent_id=intent_id,
+            broker_order_id=order_id,
+            broker_trade_id=trade_id,
+            instrument_key=instrument,
+            side=normalized_side,
+            quantity=quantity,
+            price=normalized_price,
+            executed_at=executed_at,
+            safe_details=safe_details,
+        )
+        self.db.add(fill)
+        try:
+            self.db.flush()
+            if intent_id is not None:
+                self.db.add(LiveOrderEvent(
+                    intent_id=intent_id,
+                    event_type="BROKER_FILL_RECORDED",
+                    correlation_id=correlation_id,
+                    actor_user_id=None,
+                    safe_details={
+                        "broker_trade_id": trade_id,
+                        "broker_order_id": order_id,
+                        "quantity": quantity,
+                        "price": str(normalized_price),
+                        "side": normalized_side,
+                    },
+                ))
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            winner = self.db.query(BrokerFillIdentity).filter(
+                BrokerFillIdentity.broker_connection_id == broker_connection_id,
+                BrokerFillIdentity.broker_trade_id == trade_id,
+            ).first()
+            if winner is not None and same_payload(winner):
+                return winner, False
+            raise LiveOrderVersionConflict("broker trade ID raced with a different fill payload") from exc
+        except Exception:
+            self.db.rollback()
+            raise
+        self.db.refresh(fill)
+        return fill, True
 
     def apply_reconciliation_transition(
         self,

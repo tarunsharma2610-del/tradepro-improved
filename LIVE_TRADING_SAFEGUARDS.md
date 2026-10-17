@@ -211,3 +211,28 @@ a coding project, and it comes before any of the engineering safeguards
 above start to matter. No amount of code in this repository changes
 that. If live trading for your users specifically is a real goal, that
 conversation is the actual next step.
+
+
+## Durable idempotency and reconciliation — reviewed design checkpoint (2026-10-17)
+
+The implementation-level design is in [`LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md). This is a proposal, not a completed feature. The current shared execution service remains PAPER-only; do not wire it to `UpstoxAdapter.place_order()`.
+
+Required minimum before any live-order implementation:
+
+1. Create a durable intent with a unique idempotency key scoped to user and broker connection, plus a canonical hash of all economic order fields. Same key/same payload returns the original intent; same key/different payload is rejected.
+2. Commit intent, risk decision, audit event and dispatch record before network I/O. Treat the external POST as an uncertain side effect: timeout/crash after send means UNKNOWN, not safe-to-retry.
+3. Use a broker tag only as correlation/search unless Upstox explicitly documents idempotency semantics. Reconcile using documented order history, order book, order details and trades. If zero/multiple/mismatched matches leave uncertainty, block automatic resubmission and alert.
+4. Persist broker order IDs, normalize statuses, and deduplicate fills by stable broker trade identity. A placement acknowledgment is not a fill; cancellation acknowledgment is not proof no fill occurred.
+5. Recheck portfolio/account risk and account-level kill switch immediately before dispatch. Pending and unknown orders reserve exposure. Preserve paper/live isolation.
+6. Use additive, reviewed migrations; test uniqueness races, process crashes, duplicate requests, partial fills, sliced orders, cancellation races and multi-worker contention. Test on clean SQLite and a backup-restored staging copy of the actual deployment DB engine before deployment.
+7. Never test by submitting real orders. Live release requires official API-contract verification, broker/account setup and applicable compliance review, sandbox drills, operational alerts/runbook, explicit user authorization and a limited controlled pilot.
+
+Official Upstox API documentation reviewed for this design:
+- [Place Order V2](https://upstox.com/developer/api-documentation/place-order/)
+- [Place Order V3](https://upstox.com/developer/api-documentation/v3/place-order/)
+- [Order History](https://upstox.com/developer/api-documentation/get-order-history/)
+- [Order Book](https://upstox.com/developer/api-documentation/get-order-book/)
+- [Order Details](https://upstox.com/developer/api-documentation/get-order-details/)
+- [Order Trades](https://upstox.com/developer/api-documentation/get-trades-by-order/)
+
+Do not claim exactly-once broker submission based on local database idempotency alone. The design targets durable intent deduplication and safe reconciliation, with no blind retries for ambiguous external outcomes.

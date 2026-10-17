@@ -489,6 +489,43 @@ async def test_execution_falls_back_to_rest_when_websocket_quote_is_stale(db_ses
 
 
 @pytest.mark.asyncio
+async def test_portfolio_daily_realized_loss_limit_blocks_new_entry(db_session, portfolio, instrument):
+    user, p = portfolio
+    p.risk_controls_enabled = True
+    p.max_daily_loss = Decimal("500")
+    now = datetime.now(timezone.utc)
+    filled_order = Order(
+        portfolio_id=p.id, instrument_id=instrument.id, side="SELL",
+        order_type="MARKET", segment="EQUITY_INTRADAY", quantity=1,
+        limit_price=None, status="FILLED", trading_mode="PAPER",
+        execution_reason="MANUAL", strategy_id=None, placed_at=now, filled_at=now,
+    )
+    db_session.add(filled_order)
+    db_session.flush()
+    db_session.add(Execution(
+        order_id=filled_order.id, portfolio_id=p.id, instrument_id=instrument.id,
+        side="SELL", quantity=1, price=Decimal("100"), gross_value=Decimal("100"),
+        brokerage=Decimal("0"), stt=Decimal("0"), exchange_charges=Decimal("0"),
+        sebi_charges=Decimal("0"), stamp_duty=Decimal("0"), gst=Decimal("0"),
+        total_charges=Decimal("0"), realized_pnl=Decimal("-500"), executed_at=now,
+    ))
+    db_session.commit()
+    _connect_fake_broker(db_session, user.id)
+
+    with _mock_quote("2500"):
+        order = await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=1,
+            ),
+        )
+
+    assert order.status == "REJECTED"
+    assert "daily realized loss" in order.rejection_reason.lower()
+
+
+@pytest.mark.asyncio
 async def test_manual_portfolio_order_value_limit_rejects_market_order(db_session, portfolio, instrument):
     user, p = portfolio
     p.risk_controls_enabled = True

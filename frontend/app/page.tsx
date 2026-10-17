@@ -1,12 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { api, ApiError } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { ApiError, api } from "@/lib/api";
 
-type Connection = {
+type Portfolio = {
+  id: string;
+  name: string;
+  virtual_capital: string;
+  cash_balance: string;
+};
+
+type BrokerConnection = {
   id: string;
   broker: string;
   api_key_masked: string;
@@ -15,165 +22,140 @@ type Connection = {
   last_error: string | null;
 };
 
-export default function BrokerSettingsPage() {
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [apiKey, setApiKey] = useState("");
-  const [apiSecret, setApiSecret] = useState("");
-  const [redirectUri, setRedirectUri] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [busyBroker, setBusyBroker] = useState<string | null>(null);
+const navigation = [
+  { href: "/portfolios", title: "Portfolios", description: "Manage virtual capital, positions, orders and P&L." },
+  { href: "/backtests", title: "Strategy backtests", description: "Test a strategy on historical market data before using it." },
+  { href: "/news", title: "Market news", description: "Review collected market news and related instruments." },
+  { href: "/settings/broker", title: "Broker connection", description: "Connect and test your Upstox session." },
+  { href: "/settings/notifications", title: "Notifications", description: "Configure Telegram and WhatsApp notifications." },
+];
+
+function inr(value: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+export default function DashboardPage() {
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [connections, setConnections] = useState<BrokerConnection[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setRedirectUri(`${window.location.origin}/settings/broker/callback`);
+    let active = true;
+
+    async function loadDashboard() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [portfolioList, brokerList] = await Promise.all([
+          api.get<Portfolio[]>("/portfolios"),
+          api.get<BrokerConnection[]>("/settings/broker"),
+        ]);
+        if (!active) return;
+        setPortfolios(portfolioList);
+        setConnections(brokerList);
+      } catch (err) {
+        if (!active) return;
+        if (err instanceof ApiError && err.status === 401) {
+          setNeedsLogin(true);
+          setError("Please log in to view your trading dashboard.");
+        } else {
+          setError(err instanceof ApiError ? err.message : "Could not load your dashboard.");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
     }
-    refresh();
+
+    void loadDashboard();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  async function refresh() {
-    try {
-      const list = await api.get<Connection[]>("/settings/broker");
-      setConnections(list);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not load broker connections.");
-    }
-  }
-
-  async function onSave(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setNotice(null);
-    setSaving(true);
-    try {
-      await api.put("/settings/broker", { broker: "upstox", api_key: apiKey, api_secret: apiSecret, redirect_uri: redirectUri });
-      setApiKey("");
-      setApiSecret("");
-      setNotice("Saved. Click \u201cConnect via Upstox\u201d below to finish linking your account.");
-      await refresh();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save credentials.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function onConnect(broker: string) {
-    setBusyBroker(broker);
-    setError(null);
-    try {
-      const { authorize_url } = await api.get<{ authorize_url: string }>(`/settings/broker/${broker}/authorize-url`);
-      window.location.href = authorize_url;
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not start the broker login.");
-      setBusyBroker(null);
-    }
-  }
-
-  async function onTest(broker: string) {
-    setBusyBroker(broker);
-    setError(null);
-    setNotice(null);
-    try {
-      const result = await api.post<{ success: boolean; message: string }>(`/settings/broker/${broker}/test`);
-      setNotice(result.message);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Connection test failed.");
-    } finally {
-      setBusyBroker(null);
-    }
-  }
-
-  async function onRemove(broker: string) {
-    setBusyBroker(broker);
-    setError(null);
-    try {
-      await api.del(`/settings/broker/${broker}`);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not remove connection.");
-    } finally {
-      setBusyBroker(null);
-    }
-  }
+  const startingCapital = portfolios.reduce((sum, p) => sum + Number(p.virtual_capital || 0), 0);
+  const availableCash = portfolios.reduce((sum, p) => sum + Number(p.cash_balance || 0), 0);
+  const connectedBrokers = connections.filter((connection) => connection.is_connected).length;
 
   return (
-    <div className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-semibold">Broker connections</h1>
-      <p className="mt-1 text-sm text-ink/60 dark:text-paper/60">
-        Your Upstox API key and secret are encrypted before they touch the database and are never sent back to the
-        browser in full. This replaces putting broker keys in a <code className="tabular">.env</code> file.
-      </p>
-
-      {connections.length > 0 && (
-        <div className="mt-6 space-y-3">
-          {connections.map((c) => (
-            <Card key={c.id} className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium capitalize">{c.broker}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      c.is_connected ? "bg-gain/15 text-gain" : "bg-caution/15 text-caution"
-                    }`}
-                  >
-                    {c.is_connected ? "Connected" : "Not connected"}
-                  </span>
-                </div>
-                <p className="tabular mt-1 text-sm text-ink/50 dark:text-paper/50">{c.api_key_masked}</p>
-                {c.last_error && <p className="mt-1 text-sm text-loss">{c.last_error}</p>}
-              </div>
-              <div className="flex gap-2">
-                {!c.is_connected && (
-                  <Button variant="ghost" disabled={busyBroker === c.broker} onClick={() => onConnect(c.broker)}>
-                    Connect via Upstox
-                  </Button>
-                )}
-                {c.is_connected && (
-                  <Button variant="ghost" disabled={busyBroker === c.broker} onClick={() => onTest(c.broker)}>
-                    Test
-                  </Button>
-                )}
-                <Button variant="ghost" disabled={busyBroker === c.broker} onClick={() => onRemove(c.broker)}>
-                  Remove
-                </Button>
-              </div>
-            </Card>
-          ))}
+    <main className="mx-auto max-w-6xl space-y-8 p-6 sm:p-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wide text-accent">Tradepro</p>
+          <h1 className="mt-1 text-3xl font-semibold">Trading dashboard</h1>
+          <p className="mt-2 max-w-2xl text-sm text-ink/60 dark:text-paper/60">
+            A single place to review your paper-trading portfolios, backtests and broker connection.
+            Live trading is not enabled by this dashboard.
+          </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/portfolios"><Button>Open portfolios</Button></Link>
+          <Link href="/settings/broker"><Button variant="ghost">Broker settings</Button></Link>
+        </div>
+      </header>
+
+      {error && (
+        <Card className="border-loss/30">
+          <p className="text-sm text-loss">{error}</p>
+          {needsLogin && <div className="mt-3"><Link href="/login"><Button>Go to login</Button></Link></div>}
+        </Card>
       )}
 
-      <Card className="mt-6">
-        <form onSubmit={onSave} className="space-y-4">
-          <h2 className="font-medium">Add or update Upstox credentials</h2>
-          <Input label="API key" required value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-          <Input
-            label="API secret"
-            type="password"
-            required
-            value={apiSecret}
-            onChange={(e) => setApiSecret(e.target.value)}
-          />
-          <Input
-            label="Redirect URI"
-            required
-            value={redirectUri}
-            onChange={(e) => setRedirectUri(e.target.value)}
-          />
-          <p className="-mt-2 text-xs text-ink/50 dark:text-paper/50">
-            Register this exact URL as the redirect URI in your Upstox developer app.
+      <section aria-label="Account summary" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <p className="text-sm text-ink/60 dark:text-paper/60">Portfolios</p>
+          <p className="mt-2 text-2xl font-semibold tabular">{loading ? "—" : portfolios.length}</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-ink/60 dark:text-paper/60">Starting virtual capital</p>
+          <p className="mt-2 text-2xl font-semibold tabular">{loading ? "—" : inr(startingCapital)}</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-ink/60 dark:text-paper/60">Available virtual cash</p>
+          <p className="mt-2 text-2xl font-semibold tabular">{loading ? "—" : inr(availableCash)}</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-ink/60 dark:text-paper/60">Connected brokers</p>
+          <p className="mt-2 text-2xl font-semibold tabular">
+            {loading ? "—" : `${connectedBrokers} / ${connections.length}`}
           </p>
+          <p className="mt-1 text-xs text-ink/50 dark:text-paper/50">Connection status only; not a live-trading indicator.</p>
+        </Card>
+      </section>
 
-          {error && <p className="text-sm text-loss">{error}</p>}
-          {notice && <p className="text-sm text-gain">{notice}</p>}
+      <section>
+        <div className="mb-3">
+          <h2 className="text-xl font-semibold">Workspace</h2>
+          <p className="mt-1 text-sm text-ink/60 dark:text-paper/60">Open a section to continue.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {navigation.map((item) => (
+            <Link key={item.href} href={item.href} className="block">
+              <Card className="h-full transition-colors hover:border-accent">
+                <h3 className="font-medium">{item.title}</h3>
+                <p className="mt-2 text-sm text-ink/60 dark:text-paper/60">{item.description}</p>
+                <p className="mt-4 text-sm font-medium text-accent">Open section →</p>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save credentials"}
-          </Button>
-        </form>
-      </Card>
-    </div>
+      <section>
+        <h2 className="text-xl font-semibold">Paper-trading safety</h2>
+        <Card className="mt-3">
+          <p className="text-sm text-ink/70 dark:text-paper/70">
+            Market orders in the current implementation simulate fills using the broker&apos;s latest price.
+            Limit orders remain pending until a limit-order matcher is implemented. Verify orders and positions
+            before relying on results; do not use this application for live orders yet.
+          </p>
+        </Card>
+      </section>
+    </main>
   );
 }

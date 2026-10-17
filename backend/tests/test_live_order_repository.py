@@ -402,9 +402,11 @@ def _record_fill(repository, user, connection, intent, **overrides):
         "broker_order_id": "broker-order-1",
         "instrument_key": "NSE_EQ|TEST",
         "side": "BUY",
-        "quantity": 2,
+        "quantity": 1,
         "price": "101.25",
         "executed_at": datetime(2026, 10, 17, 10, 15, tzinfo=timezone.utc),
+        "product": "D",
+        "order_type": "LIMIT",
         "intent_id": intent.id if intent else None,
         "safe_details": {"exchange": "NSE"},
         "correlation_id": "fill-test",
@@ -420,6 +422,10 @@ def test_record_broker_fill_is_idempotent_and_audited(db_session, make_user):
         **_intent_args(user, portfolio, connection)
     )
     repository = LiveOrderRepository(db_session)
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
 
     fill, created = _record_fill(repository, user, connection, intent)
     assert created is True
@@ -451,10 +457,14 @@ def test_reused_trade_id_with_different_payload_is_conflict(db_session, make_use
         **_intent_args(user, portfolio, connection)
     )
     repository = LiveOrderRepository(db_session)
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
     _record_fill(repository, user, connection, intent)
 
     with pytest.raises(LiveOrderVersionConflict, match="different fill details"):
-        _record_fill(repository, user, connection, intent, quantity=3)
+        _record_fill(repository, user, connection, intent, price="102.25")
 
     assert db_session.query(BrokerFillIdentity).filter_by(
         broker_connection_id=connection.id, broker_trade_id="trade-stable-1"

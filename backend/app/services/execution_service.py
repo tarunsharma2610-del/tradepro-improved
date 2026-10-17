@@ -26,6 +26,7 @@ from app.models.execution import Execution
 from app.models.instrument import Instrument
 from app.models.order import Order
 from app.models.portfolio import Portfolio
+from app.models.position import Position
 from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.order_repository import OrderRepository
 from app.repositories.portfolio_repository import PortfolioRepository
@@ -139,6 +140,115 @@ class ExecutionService:
                 )
 
         return self._fill(order, portfolio, instrument, req, ltp, costs)
+
+    async def match_pending_limit_orders(self, limit: int = 100) -> int:
+        """Fill crossed PAPER LIMIT orders using current broker quotes.
+
+        Uses the same cost, position and cash accounting as market orders.
+        The conditional row lock/status predicate prevents two PostgreSQL
+        workers from matching the same pending order concurrently.
+        """
+        pending_ids = [
+            row[0]
+            for row in (
+                self.db.query(Order.id)
+                .filter(
+                    Order.status == "PENDING",
+                    Order.order_type == "LIMIT",
+                    Order.trading_mode == "PAPER",
+                )
+                .order_by(Order.placed_at.asc())
+                .limit(max(1, min(limit, 500)))
+                .all()
+            )
+        ]
+        filled_count = 0
+
+        for order_id in pending_ids:
+            order = (
+                self.db.query(Order)
+                .filter(
+                    Order.id == order_id,
+                    Order.status == "PENDING",
+                    Order.order_type == "LIMIT",
+                    Order.trading_mode == "PAPER",
+                )
+                .with_for_update(skip_locked=True)
+                .first()
+            )
+            if order is None:
+                continue
+
+            portfolio = self.db.get(Portfolio, order.portfolio_id)
+            if portfolio is None:
+                self.db.rollback()
+                continue
+
+            access_token = self.broker_credentials.get_access_token(portfolio.user_id, "upstox")
+            if access_token is None:
+                self.db.rollback()
+                continue
+
+            quote_result = await get_broker_adapter("upstox").get_quote(
+                access_token, [order.instrument.instrument_key]
+            )
+            if not quote_result.ok:
+                self.db.rollback()
+                continue
+
+            ltp = _extract_ltp(quote_result.data, order.instrument.instrument_key)
+            if ltp is None:
+                self.db.rollback()
+                continue
+
+            side = Side(order.side)
+            limit_price = Decimal(str(order.limit_price))
+            crossed = (side == Side.BUY and ltp <= limit_price) or (side == Side.SELL and ltp >= limit_price)
+            if not crossed:
+                self.db.rollback()
+                continue
+
+            # A limit order can receive price improvement, never a worse
+            # fill than its limit: BUY fills at min(LTP, limit), SELL at max.
+            fill_price = min(ltp, limit_price) if side == Side.BUY else max(ltp, limit_price)
+            segment = Segment(order.segment)
+            costs = calculate_costs(segment, side, order.quantity, fill_price)
+
+            if side == Side.BUY:
+                required_cash = costs.gross_value + costs.total_charges
+                if Decimal(str(portfolio.cash_balance)) < required_cash:
+                    self._reject(order, f"Insufficient virtual capital at limit fill: need {required_cash}, have {portfolio.cash_balance}.")
+                    continue
+
+            if side == Side.SELL and segment == Segment.EQUITY_DELIVERY:
+                position = (
+                    self.db.query(Position)
+                    .filter(Position.portfolio_id == portfolio.id, Position.instrument_id == order.instrument_id)
+                    .first()
+                )
+                held_quantity = position.quantity if position is not None else 0
+                if held_quantity < order.quantity:
+                    self._reject(
+                        order,
+                        f"Insufficient holdings for a delivery limit sell: hold {held_quantity}, tried to sell {order.quantity}.",
+                    )
+                    continue
+
+            req = PlaceOrderRequest(
+                portfolio_id=order.portfolio_id,
+                instrument_id=order.instrument_id,
+                side=side,
+                order_type="LIMIT",
+                segment=segment,
+                quantity=order.quantity,
+                limit_price=limit_price,
+                execution_reason=order.execution_reason,
+                strategy_id=order.strategy_id,
+            )
+            self._fill(order, portfolio, order.instrument, req, fill_price, costs)
+            filled_count += 1
+
+        return filled_count
 
     def _reject(self, order: Order, reason: str) -> Order:
         order.status = "REJECTED"

@@ -104,6 +104,7 @@ async def place_order(
                 segment=Segment(payload.segment),
                 quantity=payload.quantity,
                 limit_price=payload.limit_price,
+                idempotency_key=payload.idempotency_key,
             ),
         )
     except OrderValidationError as exc:

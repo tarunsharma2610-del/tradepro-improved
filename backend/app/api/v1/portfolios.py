@@ -58,6 +58,21 @@ def list_orders(portfolio_id: UUID, db: Session = Depends(get_db), user: User = 
     return OrderRepository(db).list_for_portfolio(portfolio_id)
 
 
+@router.delete("/{portfolio_id}/orders/{order_id}", response_model=OrderOut)
+def cancel_order(
+    portfolio_id: UUID,
+    order_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    try:
+        return ExecutionService(db).cancel_order(user.id, portfolio_id, order_id)
+    except OrderValidationError as exc:
+        message = str(exc)
+        code = status.HTTP_404_NOT_FOUND if message in {"Portfolio not found.", "Order not found."} else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(code, message)
+
+
 @router.get("/{portfolio_id}/executions", response_model=list[ExecutionOut])
 def list_executions(portfolio_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     _get_owned_portfolio(db, user, portfolio_id)

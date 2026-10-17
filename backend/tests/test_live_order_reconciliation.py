@@ -5,6 +5,7 @@ from app.services.live_order_reconciliation import (
     normalize_upstox_order,
     ReconciliationIntentCandidate,
     match_broker_order_to_intent,
+    normalize_upstox_trade,
 )
 
 
@@ -200,3 +201,54 @@ def test_broker_order_id_match_with_wrong_quantity_is_quarantined():
         order, [_candidate(order_id="upstox-order-123")], broker_connection_id="connection-1"
     )
     assert result.status == "ECONOMIC_MISMATCH"
+
+
+
+def test_upstox_trade_normalization_uses_trade_id_and_exchange_timestamp():
+    trade = normalize_upstox_trade({
+        "trade_id": "trade-77",
+        "order_id": "order-42",
+        "instrument_token": "NSE_EQ|INE062A01020",
+        "transaction_type": "BUY",
+        "quantity": 2,
+        "average_price": 101.25,
+        "exchange_timestamp": "17-Oct-2026 10:15:30",
+        "product": "D",
+        "exchange": "NSE",
+        "order_type": "LIMIT",
+        "trading_symbol": "SBIN-EQ",
+        "exchange_order_id": "exchange-42",
+        "order_ref_id": "ref-42",
+    })
+    assert trade.broker_trade_id == "trade-77"
+    assert trade.broker_order_id == "order-42"
+    assert trade.quantity == 2
+    assert str(trade.price) == "101.25"
+    assert trade.executed_at.isoformat() == "2026-10-17T04:45:30+00:00"
+    assert trade.side == "BUY"
+    assert trade.product == "D"
+
+
+@pytest.mark.parametrize("changes", [
+    {"trade_id": ""},
+    {"order_id": None},
+    {"transaction_type": "HOLD"},
+    {"quantity": 0},
+    {"quantity": True},
+    {"average_price": 0},
+    {"average_price": "NaN"},
+    {"exchange_timestamp": "not-a-timestamp"},
+])
+def test_upstox_trade_normalization_rejects_invalid_economic_fields(changes):
+    record = {
+        "trade_id": "trade-77",
+        "order_id": "order-42",
+        "instrument_token": "NSE_EQ|INE062A01020",
+        "transaction_type": "BUY",
+        "quantity": 2,
+        "average_price": 101.25,
+        "exchange_timestamp": "17-Oct-2026 10:15:30",
+    }
+    record.update(changes)
+    with pytest.raises(BrokerOrderDataError):
+        normalize_upstox_trade(record)

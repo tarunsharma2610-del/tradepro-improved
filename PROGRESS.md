@@ -362,4 +362,4 @@ The exact documentation commits for versioned reconciliation persistence have su
 
 The latest application-code checkpoint remains b3332b839b6f2c39bf2ae678e1aa62ac1f2a3409, [run 39050941218](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050941218): 261 passed, 1 warning, and SQLite/PostgreSQL 16 migration checks passed. Documentation CI is separate from this application-code verification.
 
-- Final roadmap cleanup commit f4e22341829300c8613bf14ac6f4f4f89444a6cd removes a duplicate fill-ingestion checklist line; latest roadmap CI is being checked separately.
+- Final roadmap cleanup commit f4e22341829300c8613bf14ac6f4f4f89444a6cd removes a duplicate fill-ingestion checklist line; roadmap cleanup CI passed [run 39051273827](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39051273827).

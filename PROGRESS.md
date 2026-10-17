@@ -432,7 +432,14 @@ Exact fill economic validation code/test checkpoint remains [run 39052939770](ht
 - `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` 4130229c5b9f0d5d13ed00e0f18d71c0837d06eb: [run 39053515056](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053515056) — success.
 - `README.md` e0b1bcda069fa2267f3d27817c8c1595f39c3ef0: [run 39053533797](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053533797) — success.
 - `LIVE_TRADING_SAFEGUARDS.md` 98a49a064cbde8f916183923f9dbcc17774cb0dc: [run 39053545257](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053545257) — success.
-- `PROJECT_INSTRUCTIONS.md` 5488ef3baba3187b6945b87265a63562b430325a: [run 39053579681](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053579681) — success.
+- `PROJECT_INSTRUCTIONS.md` 5488ef3baba3187b6945b87265a63562b430325a: [run 39053678487](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053678487) — success.
 - `PROGRESS.md` checkpoint e97cb3112612946d8a08f5d9618645026df66343: [run 39053579681](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053579681) — success.
 
 The verified code checkpoint for unmatched fill relinking remains [run 39053352921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053352921): 281 passed, 1 warning, with SQLite/PostgreSQL 16 migration checks.
+
+
+### Final checkpoint — 2026-10-17
+- Latest documentation-verification commit `c11c80d1c5cb0835fbcd59ebe6d0cd153ed97539` passed [GitHub Actions run 39053681082](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053681082).
+- Latest implementation test evidence for safe unmatched-fill linking: [run 39053352921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053352921), 281 passed, 1 warning; SQLite/PostgreSQL 16 migrations passed. Latest fill-to-intent economic validation: [run 39052939770](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052939770), 279 passed, 1 warning.
+- All seven documentation commits for the unmatched-fill relinking checkpoint have successful exact-commit CI runs. No production deploy, database migration, broker API call, live order or live accounting occurred.
+- Next implementation step remains explicit out-of-order status/fill reconciliation rules and tests, then design a read-only broker reconciliation worker with session expiry, rate-limit/backoff, and current-trading-day limitations before adding any broker reads.

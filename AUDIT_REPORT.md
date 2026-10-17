@@ -60,3 +60,11 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Confirmed that instrument master sync and WebSocket streaming return explicit not-implemented errors, and that current risk controls are strategy-level rather than portfolio-wide.
 - Implemented a fail-closed guard in `backend/app/services/execution_service.py`: order placement now refuses `TRADING_MODE` values other than `PAPER`. Added regression test `test_live_mode_fails_closed_before_creating_order` in `backend/tests/test_execution_service.py`. The test has not yet been run in this environment; CI verification is still required.
 - This continuation has not placed any broker orders. Live trading remains not ready.
+
+
+## Audit-driven change — 17 October 2026
+
+- The repository audit found the existing Upstox adapter used `https://api.upstox.com/v2/order/place`, while the current official Place Order documentation marks the older host deprecated and documents `https://api-hft.upstox.com/v2/order/place`. Updated only the adapter's place-order host; other broker methods were retained unchanged.
+- Added `backend/tests/test_upstox_adapter.py`, a mocked test that verifies the endpoint URL and payload without making a network request or placing a real order.
+- Added `REQUIREMENTS_AUDIT.md` mapping requirements to existing code, gaps, and a prioritized change plan.
+- The new adapter test has not yet been confirmed by CI at the time of this update. The fail-closed guard had already passed the previous backend CI run; rerun CI for the latest commit before merging.

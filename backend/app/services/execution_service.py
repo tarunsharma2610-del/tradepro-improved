@@ -64,6 +64,18 @@ class ExecutionService:
         self.broker_credentials = BrokerCredentialsService(db)
 
     async def place_order(self, user_id: UUID, req: PlaceOrderRequest) -> Order:
+        # Validate at the service boundary as well as the HTTP schema: strategy
+        # automation and future internal callers do not pass through Pydantic.
+        if req.quantity <= 0:
+            raise OrderValidationError("Quantity must be greater than zero.")
+        if req.order_type not in {"MARKET", "LIMIT"}:
+            raise OrderValidationError("Order type must be MARKET or LIMIT.")
+        if req.order_type == "LIMIT":
+            if req.limit_price is None or req.limit_price <= 0:
+                raise OrderValidationError("LIMIT orders require a positive limit price.")
+        elif req.limit_price is not None:
+            raise OrderValidationError("MARKET orders must not include a limit price.")
+
         portfolio = self.portfolios.get_for_user(user_id, req.portfolio_id)
         if portfolio is None:
             raise OrderValidationError("Portfolio not found.")

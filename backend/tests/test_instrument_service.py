@@ -174,6 +174,35 @@ async def test_validated_snapshot_deactivates_missing_and_expired_contracts_atom
 
 
 @pytest.mark.asyncio
+async def test_incomplete_snapshot_never_deactivates_existing_catalog(db_session, monkeypatch):
+    repo = InstrumentRepository(db_session)
+    repo.upsert(
+        instrument_key="NSE_EQ|EXISTING",
+        exchange="NSE", segment="NSE_EQ", instrument_type="EQUITY",
+        trading_symbol="EXISTING", name="Existing instrument", lot_size=1,
+        tick_size=Decimal("0.05"), expiry=None, strike_price=None,
+        option_type=None, is_active=True,
+    )
+    # A syntactically valid but incomplete snapshot omits required exchange segments.
+    records = [_record("NSE_EQ", "NSE", "EQ", "NSE_EQ|NEW", "NEW")]
+    response = FakeResponse(200, gzip.compress(json.dumps(records).encode("utf-8")))
+    monkeypatch.setattr(
+        "app.services.instrument_service.MIN_VALID_SNAPSHOT_RECORDS", 1
+    )
+    monkeypatch.setattr(
+        "app.services.instrument_service.httpx.AsyncClient",
+        lambda **kwargs: FakeAsyncClient(response),
+    )
+
+    ok, message = await InstrumentService(db_session).sync_from_upstox()
+
+    assert ok is False
+    assert "missing required segments" in message
+    assert repo.get_by_key("NSE_EQ|EXISTING").is_active is True
+    assert repo.get_by_key("NSE_EQ|NEW") is None
+
+
+@pytest.mark.asyncio
 async def test_sync_from_upstox_preserves_catalog_when_download_fails(db_session, monkeypatch):
     repo = InstrumentRepository(db_session)
     repo.upsert(

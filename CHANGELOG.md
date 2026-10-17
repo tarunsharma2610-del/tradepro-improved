@@ -48,3 +48,7 @@
 14. Added nullable broker-order reference/status/check timestamp/error metadata and a forward migration.
 15. Added a read-only reconciliation service that checks ownership, refuses PAPER orders, requires a persisted broker order ID and usable Upstox session, validates the returned order ID, and records broker status without changing local order status, positions, or cash.
 16. Added mocked tests for successful status capture, PAPER-mode refusal, and mismatched broker order IDs. This is a foundation only: there is no live order placement or automatic fill/cancel reconciliation.
+
+### Additional improvement — authenticated broker-status API
+17. Exposed a read-only authenticated endpoint `GET /portfolios/{portfolio_id}/orders/{order_id}/broker-status`. It checks portfolio ownership and returns the reconciliation service result. It does not place orders or modify local execution/accounting status.
+18. The endpoint is useful only for a LIVE order that already has a stored broker order ID and a valid Upstox session; the app still has no live submission lifecycle.

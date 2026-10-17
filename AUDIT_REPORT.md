@@ -10,7 +10,7 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 | Paper market orders | Implemented, still needs operational validation | Uses Upstox LTP for simulated fills and records transaction costs and position/cash updates. Never fall back to a made-up price. |
 | Order input validation | Improved | Service boundary rejects non-positive quantities, unsupported order types, missing/non-positive LIMIT prices, and a limit price attached to MARKET orders. API schema also rejects non-positive limit prices. |
 | Quote price parsing | Improved | Rejects malformed, non-finite, zero, and negative LTP values before paper accounting. |
-| Paper limit orders | Missing matcher | LIMIT orders remain PENDING; they are not automatically filled when market price crosses. |
+| Paper limit orders | Implemented; tests passed | Worker checks pending PAPER LIMIT orders during market passes, fills only when LTP crosses the limit, uses limit-or-better pricing, and shares cost/cash/position accounting. Delivery sells require holdings. |
 | Live order placement | Incomplete / not enabled | Shared execution service still records PAPER orders; broker order placement and execution reconciliation are not complete. Do not enable live orders. |
 | Strategy activation | Fixed | Strategy evaluation returns HOLD for inactive strategies before contacting the broker; regression test added. |
 | Daily risk controls | Partial | Existing strategy-level daily-loss guard remains. Portfolio-wide loss, exposure, and order-frequency caps still need implementation and tests. |

@@ -168,9 +168,10 @@ export default function BacktestsPage() {
               <select value={segment} onChange={(e) => setSegment(e.target.value)} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
                 <option value="EQUITY_INTRADAY">Equity intraday</option>
                 <option value="EQUITY_DELIVERY">Equity delivery</option>
-                <option value="FUTURES">Futures</option>
-                <option value="OPTIONS">Options</option>
               </select>
+              <p className="text-xs text-ink/50 dark:text-paper/50">
+                Derivative backtests are disabled until verified contract data and sizing are implemented.
+              </p>
             </div>
             <Input label="Quantity" type="number" min={1} required value={quantity} onChange={(e) => setQuantity(e.target.value)} />
           </div>

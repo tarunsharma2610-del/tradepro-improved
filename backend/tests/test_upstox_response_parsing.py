@@ -2,6 +2,7 @@ import pytest
 from decimal import Decimal
 
 from app.brokers.upstox.response_parsing import (
+    parse_funds_and_margin_v3,
     parse_order_details,
     parse_order_history,
     parse_order_trades,
@@ -153,3 +154,67 @@ def test_parse_order_trades_accepts_empty_and_valid_trade_rows():
 def test_parse_order_trades_rejects_malformed_or_duplicate_trades(rows):
     with pytest.raises(ValueError):
         parse_order_trades({"status": "success", "data": rows}, "child-1")
+
+
+def _funds_v3_payload():
+    return {
+        "status": "success",
+        "data": {
+            "available_to_trade": {
+                "total": 5379.03,
+                "cash_available_to_trade": {
+                    "total": 5117.34,
+                    "margin_used": {
+                        "loss": {"realised": 2.50, "unrealised": 1.25},
+                    },
+                },
+                "pledge_available_to_trade": {"total": 261.69},
+            },
+            "unavailable_to_trade": {
+                "cash_unavailable_to_trade": {
+                    "unsettled_profit": {"todays_profit": -5.0, "previous_days": 10.0}
+                },
+                "pledge_unavailable_to_trade": {"equity": 0.0, "mutual_funds": 0.0},
+            },
+        },
+    }
+
+
+def test_parse_funds_and_margin_v3_keeps_cash_and_pledged_margin_separate():
+    funds = parse_funds_and_margin_v3(_funds_v3_payload())
+    assert funds.available_to_trade_total == Decimal("5379.03")
+    assert funds.cash_available_to_trade_total == Decimal("5117.34")
+    assert funds.pledge_available_to_trade_total == Decimal("261.69")
+    assert funds.realized_loss == Decimal("2.50")
+    assert funds.unrealized_loss == Decimal("1.25")
+    assert funds.unsettled_profit_today == Decimal("-5.0")
+    assert funds.unsettled_profit_previous_days == Decimal("10.0")
+    # The total is not an alias for cash: pledged margin must not be silently
+    # treated as withdrawable/settled cash by future risk code.
+    assert funds.available_to_trade_total != funds.cash_available_to_trade_total
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda p: p.update(status="error"),
+        lambda p: p["data"].pop("available_to_trade"),
+        lambda p: p["data"]["available_to_trade"].pop("cash_available_to_trade"),
+        lambda p: p["data"]["available_to_trade"].pop("pledge_available_to_trade"),
+        lambda p: p["data"]["available_to_trade"].update(total="NaN"),
+        lambda p: p["data"]["available_to_trade"]["cash_available_to_trade"].update(total=-1),
+        lambda p: p["data"]["available_to_trade"]["cash_available_to_trade"]["margin_used"]["loss"].update(unrealised="Infinity"),
+        lambda p: p["data"]["unavailable_to_trade"]["cash_unavailable_to_trade"]["unsettled_profit"].update(todays_profit="not-a-number"),
+    ],
+)
+def test_parse_funds_and_margin_v3_rejects_error_or_malformed_values(mutate):
+    payload = _funds_v3_payload()
+    mutate(payload)
+    with pytest.raises(ValueError):
+        parse_funds_and_margin_v3(payload)
+
+
+def test_parse_funds_and_margin_v3_rejects_423_maintenance_error_payload():
+    payload = {"status": "error", "errors": [{"errorCode": "UDAPI100072"}]}
+    with pytest.raises(ValueError, match="not marked successful"):
+        parse_funds_and_margin_v3(payload)

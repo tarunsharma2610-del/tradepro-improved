@@ -9,6 +9,19 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class FundsAndMarginV3:
+    """Validated funds snapshot; cash and pledged margin remain separate."""
+
+    available_to_trade_total: Decimal
+    cash_available_to_trade_total: Decimal
+    pledge_available_to_trade_total: Decimal
+    realized_loss: Decimal
+    unrealized_loss: Decimal
+    unsettled_profit_today: Decimal
+    unsettled_profit_previous_days: Decimal
+
+
+@dataclass(frozen=True)
 class BrokerOrderDetails:
     order_id: str
     status: str
@@ -41,6 +54,71 @@ class BrokerTrade:
     side: str
     instrument_token: str | None = None
     exchange_timestamp: str | None = None
+
+
+def parse_funds_and_margin_v3(payload: Any) -> FundsAndMarginV3:
+    """Validate Funds & Margin V3 while keeping cash separate from pledge margin.
+
+    `available_to_trade_total` includes cash and pledged collateral; callers
+    must not treat it as a pure cash balance.
+    """
+    data = _success_data(payload, dict, "funds-and-margin-v3")
+    available = _required_object(data.get("available_to_trade"), "data.available_to_trade")
+    cash = _required_object(
+        available.get("cash_available_to_trade"),
+        "data.available_to_trade.cash_available_to_trade",
+    )
+    pledge = _required_object(
+        available.get("pledge_available_to_trade"),
+        "data.available_to_trade.pledge_available_to_trade",
+    )
+    cash_margin_used = _required_object(
+        cash.get("margin_used"),
+        "data.available_to_trade.cash_available_to_trade.margin_used",
+    )
+    losses = _required_object(
+        cash_margin_used.get("loss"),
+        "data.available_to_trade.cash_available_to_trade.margin_used.loss",
+    )
+    unavailable = _required_object(data.get("unavailable_to_trade"), "data.unavailable_to_trade")
+    cash_unavailable = _required_object(
+        unavailable.get("cash_unavailable_to_trade"),
+        "data.unavailable_to_trade.cash_unavailable_to_trade",
+    )
+    unsettled = _required_object(
+        cash_unavailable.get("unsettled_profit"),
+        "data.unavailable_to_trade.cash_unavailable_to_trade.unsettled_profit",
+    )
+
+    return FundsAndMarginV3(
+        available_to_trade_total=_decimal(
+            available.get("total"), "data.available_to_trade.total", allow_zero=True
+        ),
+        cash_available_to_trade_total=_decimal(
+            cash.get("total"), "data.available_to_trade.cash_available_to_trade.total", allow_zero=True
+        ),
+        pledge_available_to_trade_total=_decimal(
+            pledge.get("total"), "data.available_to_trade.pledge_available_to_trade.total", allow_zero=True
+        ),
+        realized_loss=_decimal(
+            losses.get("realised"),
+            "data.available_to_trade.cash_available_to_trade.margin_used.loss.realised",
+            allow_zero=True,
+        ),
+        unrealized_loss=_decimal(
+            losses.get("unrealised"),
+            "data.available_to_trade.cash_available_to_trade.margin_used.loss.unrealised",
+            allow_zero=True,
+        ),
+        unsettled_profit_today=_signed_decimal(
+            unsettled.get("todays_profit"),
+            "data.unavailable_to_trade.cash_unavailable_to_trade.unsettled_profit.todays_profit",
+        ),
+        unsettled_profit_previous_days=_signed_decimal(
+            unsettled.get("previous_days"),
+            "data.unavailable_to_trade.cash_unavailable_to_trade.unsettled_profit.previous_days",
+        ),
+    )
 
 
 def parse_place_order_response(payload: Any) -> tuple[str, ...]:
@@ -165,6 +243,24 @@ def _success_data(payload: Any, expected_type: type, endpoint: str) -> Any:
     if not isinstance(data, expected_type):
         raise ValueError(f"Upstox {endpoint} response has an invalid data payload.")
     return data
+
+
+def _required_object(value: Any, field: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{field} must be an object.")
+    return value
+
+
+def _signed_decimal(value: Any, field: str) -> Decimal:
+    if isinstance(value, bool) or value is None:
+        raise ValueError(f"{field} must be a valid numeric amount.")
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        raise ValueError(f"{field} must be a valid numeric amount.") from None
+    if not number.is_finite():
+        raise ValueError(f"{field} must be a finite numeric amount.")
+    return number
 
 
 def _required_text(value: Any, field: str) -> str:

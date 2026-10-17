@@ -58,6 +58,7 @@ class UpstoxMarketDataStreamer:
 
         self.token_provider = token_provider
         self.instrument_keys = keys
+        self._instrument_key_set = set(keys)
         self.on_tick = on_tick
         self.stale_after_seconds = stale_after_seconds
         self.silence_timeout_seconds = silence_timeout_seconds
@@ -183,6 +184,8 @@ class UpstoxMarketDataStreamer:
         received_at = datetime.now(timezone.utc)
         received_monotonic = time.monotonic()
         for key, feed in response.feeds.items():
+            if key not in self._instrument_key_set:
+                continue
             union = feed.WhichOneof("FeedUnion")
             ltpc = None
             if union == "ltpc":

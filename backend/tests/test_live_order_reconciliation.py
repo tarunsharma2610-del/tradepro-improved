@@ -6,6 +6,7 @@ from app.services.live_order_reconciliation import (
     ReconciliationIntentCandidate,
     match_broker_order_to_intent,
     normalize_upstox_trade,
+    resolve_order_state_with_fill_evidence,
 )
 
 
@@ -252,3 +253,27 @@ def test_upstox_trade_normalization_rejects_invalid_economic_fields(changes):
     record.update(changes)
     with pytest.raises(BrokerOrderDataError):
         normalize_upstox_trade(record)
+
+
+
+@pytest.mark.parametrize(
+    ("observed", "requested", "persisted", "expected"),
+    [
+        ("OPEN", 10, 3, "PARTIALLY_FILLED"),
+        ("PENDING", 10, 3, "PARTIALLY_FILLED"),
+        ("CANCEL_PENDING", 10, 3, "PARTIALLY_FILLED"),
+        ("CANCELLED", 10, 3, "PARTIALLY_FILLED_CANCELLED"),
+        ("CANCELLED", 10, 10, "FILLED"),
+        ("OPEN", 10, 10, "FILLED"),
+        ("FILLED", 10, 3, "RECONCILIATION_REQUIRED"),
+        ("REJECTED", 10, 3, "RECONCILIATION_REQUIRED"),
+        ("OPEN", 10, 11, "RECONCILIATION_REQUIRED"),
+        ("OPEN", 0, 1, "RECONCILIATION_REQUIRED"),
+    ],
+)
+def test_fill_evidence_resolves_out_of_order_order_status(observed, requested, persisted, expected):
+    result = resolve_order_state_with_fill_evidence(
+        observed, requested_quantity=requested, persisted_fill_quantity=persisted
+    )
+    assert result.state == expected
+    assert result.reason

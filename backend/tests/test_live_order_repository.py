@@ -684,9 +684,10 @@ def test_stale_open_status_cannot_overwrite_persisted_partial_fill(db_session, m
     )
     assert changed is True
     assert updated.state == "PARTIALLY_FILLED"
-    event = db_session.query(LiveOrderEvent).filter_by(
+    events = db_session.query(LiveOrderEvent).filter_by(
         intent_id=intent.id, event_type="BROKER_STATUS_RECONCILED"
-    ).order_by(LiveOrderEvent.created_at.desc()).first()
+    ).all()
+    event = next(item for item in events if item.safe_details["new_state"] == "PARTIALLY_FILLED")
     assert event.safe_details["observed_broker_state"] == "OPEN"
     assert event.safe_details["persisted_fill_quantity"] == 3
 

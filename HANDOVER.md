@@ -61,3 +61,9 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - `BrokerReconciliationService.check_order_status(user_id, local_order_id)` checks ownership, requires `trading_mode=LIVE`, a persisted broker ID, and a usable Upstox token. It calls the existing adapter's order-status endpoint and verifies a returned order ID if present.
 - It records the broker's raw status only. It intentionally does **not** infer local fills/cancellations or mutate positions/cash. No API/worker calls it yet and no live orders can currently be submitted by this application.
 - Mocked tests cover a valid status response, PAPER order refusal, and mismatched broker order IDs. CI must pass before merge.
+
+
+## Broker status API
+- Authenticated endpoint: `GET /api/v1/portfolios/{portfolio_id}/orders/{order_id}/broker-status` (prefix may be configured by the app router).
+- It verifies portfolio ownership and delegates to the read-only reconciliation service. It cannot place orders and will reject PAPER orders or LIVE orders without a stored broker ID/session.
+- This endpoint is not evidence that live order placement is implemented. Do not enable live mode based on this status endpoint alone.

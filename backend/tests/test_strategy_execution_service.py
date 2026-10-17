@@ -183,6 +183,29 @@ async def test_paused_strategy_does_not_enter(db_session, portfolio, instrument)
     assert position.quantity == 0  # never entered
 
 
+
+@pytest.mark.asyncio
+async def test_emergency_kill_switch_blocks_new_entries_but_does_not_disable_evaluation(db_session, portfolio, instrument, monkeypatch):
+    from app.core.config import settings
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    monkeypatch.setattr(settings, "AUTOMATED_ENTRIES_ENABLED", False)
+    service = StrategyExecutionService(db_session)
+
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        result = await service.evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+    assert "kill switch" in result.reason.lower()
+
+    from app.repositories.position_repository import PositionRepository
+    position = PositionRepository(db_session).get_or_create(p.id, instrument.id)
+    assert position.quantity == 0
+
+
 @pytest.mark.asyncio
 async def test_inactive_strategy_cannot_be_evaluated_even_via_manual_service_call(db_session, portfolio, instrument):
     _, p = portfolio

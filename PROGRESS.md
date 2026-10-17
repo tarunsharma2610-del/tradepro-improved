@@ -88,5 +88,11 @@ After each coherent step, update this tracker with:
 - Exposure uses cost-basis estimates, not broker margin, greeks-based risk, or mark-to-market P&L. Daily loss cap is based on realized P&L only.
 - OAuth schema migration needs backup-safe staging verification before deployment.
 
+## Latest continuation step — portfolio position-cap regression test
+- Inspected the current `PROJECT_INSTRUCTIONS.md`, `PROGRESS.md`, `README.md`, `AUDIT_REPORT.md`, current `main` tree and recent GitHub Actions before editing.
+- Added `test_portfolio_open_position_cap_rejects_new_instrument` in `backend/tests/test_execution_service.py`. It proves a manually configured max-open-position cap rejects a new instrument when an existing position already occupies the cap; no real broker order is submitted.
+- Commit: `3a518d8f7605ab066297b37dc18f4df4d225259c`.
+- Backend CI passed: **195 tests passed, 1 warning**; SQLite Alembic migration verification passed. Workflow: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39039143042.
+
 ## Next action
-Backend CI passed for code commit dc0faae66d730ddc3494f1bc453aa75c8ba85532: 194 tests passed, 1 warning, and SQLite Alembic migration verification passed. Daily risk limits use the Asia/Kolkata market-session day, with a regression test at the midnight boundary. Workflow: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037826596. Frontend TypeScript and production build passed for stream-control UI commit 6ec32fefda4ba357bde0fc5997cd32d6b58b4979: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093. The live instrument-master workflow passed with 123,930 active instruments in temporary SQLite: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129. Keep live trading disabled.
+Fix unsafe quote parsing in `backend/app/services/execution_service.py`: `_extract_ltp` currently scans arbitrary response entries if the exact requested `instrument_key` is absent, which can accidentally price a paper fill with another instrument's quote. Make it fail closed and add a regression test, then run backend CI. Frontend TypeScript and production build passed for stream-control UI commit 6ec32fefda4ba357bde0fc5997cd32d6b58b4979: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093. The live instrument-master workflow passed with 123,930 active instruments in temporary SQLite: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129. Keep live trading disabled.

@@ -281,7 +281,7 @@ Reviewed design and implementation gates live in [`LIVE_ORDER_IDEMPOTENCY_RECONC
 - Recheck risk and account-level kill switch at dispatch time. Unknown/pending intents reserve exposure until resolved. Paper execution must remain structurally unable to call the live placement method.
 - Add schema only through reviewed additive migrations, test clean SQLite and staging copies of the deployed DB engine, and never migrate production during implementation.
 
-Phase 1 now includes durable idempotency schema and repository safeguards, but no live submission service or reconciliation worker. Keep live submission disabled until all design gates, sandbox tests, staging verification, operational controls and explicit user authorization are complete. Official Upstox order-history/order-book/trade endpoints and links are documented in `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`.
+Phase 1 now includes durable idempotency schema and repository safeguards, including rejection of credential-like keys in persisted snapshots/audit details, but no live submission service or reconciliation worker. Keep live submission disabled until all design gates, sandbox tests, staging verification, operational controls and explicit user authorization are complete. Official Upstox order-history/order-book/trade endpoints and links are documented in `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`.
 
 
 ## Roadmap and delivery gates

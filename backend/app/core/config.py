@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     # doc for exactly why flipping this alone was never going to be enough.
     TRADING_MODE: str = "PAPER"
 
+    # Emergency stop for automated strategy entries. Set AUTOMATED_ENTRIES_ENABLED=false
+    # in the backend environment and restart the API/worker to block new entries.
+    # Strategy exits remain enabled so existing positions can still be closed.
+    AUTOMATED_ENTRIES_ENABLED: bool = True
+
     @property
     def is_live_trading_enabled(self) -> bool:
         return self.TRADING_MODE.upper() == "LIVE"

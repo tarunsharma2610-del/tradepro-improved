@@ -658,3 +658,84 @@ def test_unmatched_fill_link_rejects_economic_mismatch(db_session, make_user):
     assert db_session.query(LiveOrderEvent).filter_by(
         intent_id=intent.id, event_type="BROKER_FILL_LINKED"
     ).count() == 0
+
+
+
+def test_stale_open_status_cannot_overwrite_persisted_partial_fill(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    snapshot = {
+        "instrument_key": "NSE_EQ|TEST", "side": "BUY", "order_type": "LIMIT",
+        "quantity": 10, "limit_price": "100.00", "product": "D",
+    }
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection, snapshot=snapshot)
+    )
+    repository = LiveOrderRepository(db_session)
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
+    _record_fill(repository, user, connection, intent, quantity=3)
+    updated, changed = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=intent.version,
+        new_state="OPEN", broker_order_id="broker-order-1",
+        safe_details={"raw_status": "open", "filled_quantity": 0},
+    )
+    assert changed is True
+    assert updated.state == "PARTIALLY_FILLED"
+    event = db_session.query(LiveOrderEvent).filter_by(
+        intent_id=intent.id, event_type="BROKER_STATUS_RECONCILED"
+    ).order_by(LiveOrderEvent.created_at.desc()).first()
+    assert event.safe_details["observed_broker_state"] == "OPEN"
+    assert event.safe_details["persisted_fill_quantity"] == 3
+
+
+def test_partial_fill_then_cancel_is_preserved_as_combined_state(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    snapshot = {
+        "instrument_key": "NSE_EQ|TEST", "side": "BUY", "order_type": "LIMIT",
+        "quantity": 10, "limit_price": "100.00", "product": "D",
+    }
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection, snapshot=snapshot)
+    )
+    repository = LiveOrderRepository(db_session)
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
+    _record_fill(repository, user, connection, intent, quantity=3)
+    updated, changed = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=intent.version,
+        new_state="CANCELLED", broker_order_id="broker-order-1",
+        safe_details={"raw_status": "cancelled", "filled_quantity": 3},
+    )
+    assert changed is True
+    assert updated.state == "PARTIALLY_FILLED_CANCELLED"
+    assert updated.version == 3
+
+
+def test_full_persisted_fill_wins_over_stale_cancel_status(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    snapshot = {
+        "instrument_key": "NSE_EQ|TEST", "side": "BUY", "order_type": "LIMIT",
+        "quantity": 10, "limit_price": "100.00", "product": "D",
+    }
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection, snapshot=snapshot)
+    )
+    repository = LiveOrderRepository(db_session)
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
+    _record_fill(repository, user, connection, intent, quantity=10)
+    updated, changed = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=intent.version,
+        new_state="CANCELLED", broker_order_id="broker-order-1",
+    )
+    assert changed is True
+    assert updated.state == "FILLED"

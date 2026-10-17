@@ -574,16 +574,17 @@ class InvalidLiveOrderTransition(ValueError):
 
 
 _ALLOWED_RECONCILIATION_TRANSITIONS = {
-    "CREATED": {"PENDING", "OPEN", "TRIGGER_PENDING", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
-    "UNKNOWN": {"PENDING", "OPEN", "TRIGGER_PENDING", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "RECONCILIATION_REQUIRED"},
-    "PENDING": {"OPEN", "TRIGGER_PENDING", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
-    "TRIGGER_PENDING": {"PENDING", "OPEN", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
-    "OPEN": {"PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
-    "PARTIALLY_FILLED": {"FILLED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
-    "CANCEL_PENDING": {"OPEN", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "CREATED": {"PENDING", "OPEN", "TRIGGER_PENDING", "PARTIALLY_FILLED", "PARTIALLY_FILLED_CANCELLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "UNKNOWN": {"PENDING", "OPEN", "TRIGGER_PENDING", "PARTIALLY_FILLED", "PARTIALLY_FILLED_CANCELLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "RECONCILIATION_REQUIRED"},
+    "PENDING": {"OPEN", "TRIGGER_PENDING", "PARTIALLY_FILLED", "PARTIALLY_FILLED_CANCELLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "TRIGGER_PENDING": {"PENDING", "OPEN", "PARTIALLY_FILLED", "PARTIALLY_FILLED_CANCELLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "OPEN": {"PARTIALLY_FILLED", "PARTIALLY_FILLED_CANCELLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "PARTIALLY_FILLED": {"FILLED", "PARTIALLY_FILLED_CANCELLED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "CANCEL_PENDING": {"OPEN", "PARTIALLY_FILLED", "PARTIALLY_FILLED_CANCELLED", "FILLED", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
     # A cancel can race with execution; broker trades may prove a cancelled order
     # partially or fully filled. Rejected/filled contradictions require quarantine.
-    "CANCELLED": {"PARTIALLY_FILLED", "FILLED", "RECONCILIATION_REQUIRED"},
+    "CANCELLED": {"PARTIALLY_FILLED", "PARTIALLY_FILLED_CANCELLED", "FILLED", "RECONCILIATION_REQUIRED"},
+    "PARTIALLY_FILLED_CANCELLED": {"FILLED", "RECONCILIATION_REQUIRED"},
     "FILLED": set(),
     "REJECTED": {"RECONCILIATION_REQUIRED"},
     "RECONCILIATION_REQUIRED": set(),
@@ -636,6 +637,24 @@ def _apply_reconciliation_transition(
         raise LiveOrderVersionConflict("live-order intent version changed; reload before applying observation")
     if intent.broker_order_id and broker_order_id and intent.broker_order_id != broker_order_id:
         raise LiveOrderVersionConflict("intent is already linked to a different broker order ID")
+
+    observed_state = state
+    fill_rows = self.db.query(BrokerFillIdentity.quantity).filter(
+        BrokerFillIdentity.intent_id == intent_id
+    ).all()
+    persisted_fill_quantity = sum(int(row[0]) for row in fill_rows)
+    try:
+        requested_quantity = int((intent.order_snapshot or {}).get("quantity", 0))
+    except (TypeError, ValueError):
+        requested_quantity = 0
+    from app.services.live_order_reconciliation import resolve_order_state_with_fill_evidence
+    fill_resolution = resolve_order_state_with_fill_evidence(
+        observed_state,
+        requested_quantity=requested_quantity,
+        persisted_fill_quantity=persisted_fill_quantity,
+    )
+    state = fill_resolution.state
+
     if intent.state == state and (broker_order_id is None or intent.broker_order_id == broker_order_id):
         return intent, False
     previous_state = intent.state
@@ -672,6 +691,9 @@ def _apply_reconciliation_transition(
         }
         if broker_order_id is not None:
             details["broker_order_id"] = broker_order_id
+        details["observed_broker_state"] = observed_state
+        details["fill_evidence_resolution"] = fill_resolution.reason
+        details["persisted_fill_quantity"] = persisted_fill_quantity
         if safe_details:
             details["broker_observation"] = safe_details
         _validate_safe_json(details, field_name="safe_details")

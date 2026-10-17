@@ -8,6 +8,30 @@ from app.brokers.base import BrokerCallResult
 from app.models.order import Order
 from app.services.broker_reconciliation_service import BrokerReconciliationService
 
+from decimal import Decimal
+
+import pytest
+
+from app.repositories.portfolio_repository import PortfolioRepository
+from app.services.instrument_service import InstrumentService
+
+
+@pytest.fixture()
+def instrument(db_session):
+    InstrumentService(db_session).seed_defaults()
+    from app.repositories.instrument_repository import InstrumentRepository
+    return InstrumentRepository(db_session).search("RELIANCE")[0]
+
+
+@pytest.fixture()
+def portfolio(db_session, make_user):
+    user = make_user()
+    p = PortfolioRepository(db_session).create(
+        user_id=user.id, name="Main", virtual_capital=Decimal("100000")
+    )
+    return user, p
+
+
 
 def _live_order(db_session, portfolio, instrument, *, trading_mode="LIVE", broker_order_id="upstox-123"):
     _user, p = portfolio

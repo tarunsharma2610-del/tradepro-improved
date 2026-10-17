@@ -125,3 +125,8 @@ The existing risk engine gates automated strategy entries using realized losses;
 ## Funds & Margin V3 adapter status — 17 October 2026
 
 The adapter now has read-only `get_funds_and_margin` using the official V3 endpoint and `Api-Version: 3.0`. Tests cover the documented response envelope and the daily 00:00–05:30 IST maintenance response (423). This raw response is not yet used by any risk decision. The next step is a pure parser that keeps cash available and pledged margin distinct.
+
+
+## Funds response parser status — 17 October 2026
+
+The pure `parse_funds_and_margin_v3` parser is implemented and tested. It intentionally separates total available-to-trade from cash and pledge margin; this avoids treating pledged collateral as cash. It is not connected to order approval. Next is read-only instrument-specific margin calculation support, still without live execution wiring.

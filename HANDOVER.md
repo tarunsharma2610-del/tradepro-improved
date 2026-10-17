@@ -189,3 +189,11 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Mocked tests validate endpoint, API-version/auth headers, response shape and 423 error propagation. The data is not used to approve orders.
 - Latest verified code commit `6f92a7f9ead0f9fe2da6222e122945a3f419bd1c`: backend **225 passed, 1 warning**, clean migration; frontend TypeScript/build passed.
 - Next: add a pure typed funds-response parser that keeps cash separate from pledged margin and validates all numeric fields. See `PROGRESS.md`.
+
+
+## Funds & Margin V3 parsing completed — 17 October 2026
+
+- Added `FundsAndMarginV3` and pure `parse_funds_and_margin_v3`. It keeps total available-to-trade, cash available and pledged margin as separate fields; validates required nested structure and finite amounts; and permits signed unsettled profit/loss values without allowing negative available balances.
+- Tests cover valid payload, missing fields, malformed/NaN/Infinity/negative values and error/423 response envelopes. No risk decision uses this parser yet.
+- Latest verified code commit `27e87cca48c03528f5fe5fee5816ff2aa4438caa`: backend **235 passed, 1 warning**, clean migration; frontend TypeScript/build passed.
+- Next: add read-only Upstox instrument margin calculation API support with mocked tests. See `PROGRESS.md`.

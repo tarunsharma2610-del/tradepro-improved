@@ -174,3 +174,9 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 - Added a read-only Upstox Funds & Margin V3 method and tests for endpoint, `Api-Version: 3.0`, response shape and 423 maintenance error. The response is not wired into risk checks.
 - Latest CI: 225 backend tests passed, 1 warning, clean SQLite migration, frontend checks passed. Next: pure typed parsing of funds/cash/pledge values; do not use it to approve orders until the complete risk system exists.
+
+
+## Funds & Margin V3 parser — 17 October 2026
+
+- Added typed parsing for available-to-trade total, cash available, pledged margin, realized/unrealized losses and signed unsettled profit. The parser is strict about required nested structure and rejects malformed/non-finite amounts. No order approval path uses it.
+- CI: 235 backend tests passed, 1 warning, clean migration and frontend checks passed. Next read-only foundation is instrument-specific margin calculation.

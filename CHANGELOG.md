@@ -141,3 +141,9 @@
 - Added `get_funds_and_margin` to the broker interface and Upstox adapter using the official V3 URL and required `Api-Version: 3.0` header.
 - Added mocked tests for endpoint, auth/API-version headers, response shape and 423 maintenance error handling. No live requests; not used in order approval.
 - CI on `6f92a7f9ead0f9fe2da6222e122945a3f419bd1c`: backend **225 passed, 1 warning**, migration check passed, frontend checks passed.
+
+
+### 17 October 2026 — typed Funds & Margin V3 parser
+- Added `FundsAndMarginV3` and `parse_funds_and_margin_v3` to validate nested funds data while keeping available-to-trade, cash and pledged margin separate. Includes realized/unrealized losses and signed unsettled-profit fields.
+- Added tests for valid response, missing fields, invalid numeric values and error/423 envelopes. Not wired to order approval.
+- CI on `27e87cca48c03528f5fe5fee5816ff2aa4438caa`: backend **235 passed, 1 warning**, migration check passed, frontend checks passed.

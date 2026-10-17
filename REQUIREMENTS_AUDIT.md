@@ -152,3 +152,10 @@ Live trading is **NOT READY**. No live order placement should be enabled until c
 - Mocked tests verify URL, header, response shape and maintenance error propagation. The data is not yet used by risk checks.
 - Latest CI: [225 passed, 1 warning, clean migration](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033992221); [frontend passed](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033992223).
 - Next: parse this nested response into a typed object and preserve separate cash vs pledged margin fields before any risk logic uses it.
+
+
+## Funds & Margin V3 parser — 17 October 2026
+
+- Added a pure typed parser for the official Funds & Margin V3 response. It keeps `available_to_trade.total`, `cash_available_to_trade.total`, and `pledge_available_to_trade.total` distinct; parses realized/unrealized loss; and supports signed unsettled-profit/loss amounts. It rejects malformed structure and non-finite/negative available balances.
+- Tests cover valid response, missing nested fields, NaN/Infinity, negative available balances, malformed unsettled profit and error/423 envelopes. Latest CI: [235 passed, 1 warning, migration passed](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39034164505); [frontend passed](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39034164514).
+- Next: read-only instrument margin calculation API support, still not used to authorize orders.

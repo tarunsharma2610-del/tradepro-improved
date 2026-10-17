@@ -19,7 +19,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 | Upstox V3 WebSocket authorization/reconnect protections | Partial implementation and unit/regression coverage | Real authorized session test remains open; shared stream state across workers remains open |
 | Portfolio-wide risk controls | Existing configurable controls, still require deployment-aware review | Confirm atomic reservations, exposure semantics and user-adjustable thresholds; don't represent cost-basis/realized-loss checks as mark-to-market broker margin |
 | Durable live-order idempotency | Phase 1 partially implemented; CI green for latest code checkpoint | Add concurrency/race tests and cross-database migration review; no broker submission |
-| Broker order/trade reconciliation | Phase 2 foundation implemented and CI-tested; full reconciliation not implemented | Pure Upstox status/field normalizer only; unknown/inconsistent records require review. Next: safe intent matching, then fill identity ingestion. No broker reads, persistence transitions, or order placement yet |
+| Broker order/trade reconciliation | Phase 2 repository foundation implemented and CI-tested; broker reads/worker remain unimplemented | Pure order/trade normalizers, strict intent matching, versioned status persistence and idempotent fill identity storage exist. No broker reads, reconciliation worker, or order placement. |
 | Live submission orchestration | Not implemented / disabled | Sandbox-only workflow after prior phases pass |
 | Production deployment verification | Incomplete | Backup-restored staging migration against actual DB engine, rollback/restore drill and operational runbook |
 
@@ -42,13 +42,14 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - [ ] Verify upgrade/downgrade and constraints against a backup-restored staging copy of the actual deployment DB engine. No production migration has run.
 - Scope boundary: no worker, API route or code path submits/cancels/reconciles broker orders in this phase.
 
-### Gate 2 — Reconciliation-only workflow — foundation in progress
+### Gate 2 — Reconciliation-only workflow — repository foundation implemented; broker integration remains open
 - [x] Add pure normalization for documented Upstox order book/details/history statuses and required fields; preserve raw status and route unknown/inconsistent records to review. Tested in [run 39049395091](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049395091).
 - [x] Add pure strict intent matcher: scope candidates to the authenticated broker connection, prefer an existing broker order ID, otherwise require one exact broker tag and exact instrument/side/type/quantity/product plus applicable price fields. Multiple candidates, cross-connection candidates, economic mismatches and unknown/contradictory broker states are not auto-linked. Tests passed in [run 39050424898](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050424898).
 - [x] Add repository-only status transition persistence with an allowlist of state transitions, optimistic version/state compare-and-set, broker-order-ID uniqueness handling, atomic audit event, credential-field validation and idempotent same-state no-op. [Run 39050941218](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050941218) passed 261 tests, 1 warning, plus SQLite/PostgreSQL 16 reversible migrations.
-- [ ] Add idempotent broker fill normalization/ingestion using stable trade IDs; don't mark fills from order status alone.
-- Deduplicate fills by documented stable broker trade identity.
-- Handle partial fills, duplicate/out-of-order updates, missing/multiple tag matches, unknown statuses, API outages, session boundaries and sliced orders.
+- [x] Add pure Upstox per-order trade normalizer using documented `trade_id`, `order_id`, `instrument_token`, `transaction_type`, `quantity`, `average_price` and `exchange_timestamp`; unknown/malformed fields are rejected. [Run 39052075052](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052075052).
+- [x] Add repository-only `record_broker_fill()` keyed by broker connection + stable trade ID; atomically persist fill and linked intent audit event; identical replays are no-ops, conflicting replays fail closed, and cross-connection intent linking is rejected. [Run 39052203329](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052203329) passed 274 tests, 1 warning, plus SQLite/PostgreSQL 16 migration checks.
+- [ ] Add fill-vs-intent economic validation at ingestion boundary, aggregate partial fills against broker order quantities, and handle duplicate/out-of-order/revision observations.
+- Still handle partial-fill aggregation, duplicate/out-of-order status updates, missing/multiple tag matches, API outages, session boundaries and sliced orders. The current fill repository stores individual trades; it does not calculate positions or update local Order/Execution rows.
 - No order-placement call in this phase.
 
 ### Gate 3 — Disabled sandbox submission workflow

@@ -8,7 +8,9 @@ snapshot reconciliation path used by the application.
 import asyncio
 import json
 import sys
-from collections import Counter
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import Session
@@ -21,8 +23,6 @@ from app.services.instrument_service import (
     InstrumentService,
     _REQUIRED_SNAPSHOT_SEGMENTS,
 )
-
-EXPECTED_SEGMENTS = _REQUIRED_SNAPSHOT_SEGMENTS | {"NCD_FO", "BCD_FO", "NSE_COM"}
 
 
 async def main() -> int:

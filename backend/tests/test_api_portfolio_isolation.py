@@ -116,3 +116,38 @@ def test_user_cannot_read_or_delete_another_users_backtest(client, db_session):
     assert client.get(f"/api/v1/backtests/{backtest_id}/trades").status_code == 404
     assert client.delete(f"/api/v1/backtests/{backtest_id}").status_code == 404
     assert client.get("/api/v1/backtests").json() == []
+
+
+def test_owner_can_cancel_pending_limit_order_but_another_user_cannot(client, db_session):
+    from app.services.instrument_service import InstrumentService
+    from app.repositories.instrument_repository import InstrumentRepository
+
+    _register_and_login(client, "limit-owner@example.com")
+    portfolio_id = client.post(
+        "/api/v1/portfolios", json={"name": "Limit test", "virtual_capital": "100000"}
+    ).json()["id"]
+    InstrumentService(db_session).seed_defaults()
+    instrument_id = str(InstrumentRepository(db_session).search("RELIANCE")[0].id)
+
+    placed = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/orders",
+        json={
+            "instrument_id": instrument_id,
+            "side": "BUY",
+            "order_type": "LIMIT",
+            "segment": "EQUITY_DELIVERY",
+            "quantity": 1,
+            "limit_price": "2400",
+        },
+    )
+    assert placed.status_code == 201
+    order_id = placed.json()["id"]
+    assert placed.json()["status"] == "PENDING"
+
+    _register_and_login(client, "limit-intruder@example.com")
+    assert client.delete(f"/api/v1/portfolios/{portfolio_id}/orders/{order_id}").status_code == 404
+
+    _register_and_login(client, "limit-owner@example.com")
+    cancelled = client.delete(f"/api/v1/portfolios/{portfolio_id}/orders/{order_id}")
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "CANCELLED"

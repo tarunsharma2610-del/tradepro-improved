@@ -34,7 +34,7 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 ## Verification
 
-- **Backend:** GitHub Actions run passed — **160 tests passed, 1 deprecation warning**. [View backend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025425365).
+- **Backend:** GitHub Actions run passed — **163 tests passed, 1 deprecation warning**, including the paper LIMIT matcher tests. [View backend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025586943).
 - **Frontend:** TypeScript check and Next.js production build passed. [View frontend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025402726).
 - The tests use SQLite and mocked broker calls; they do not prove a live Upstox session or live market-order execution works.
 - The OAuth migration has been added to the repository but has not been applied to your production database.
@@ -42,9 +42,8 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 ## Remaining high-priority work
 
-1. Add a paper LIMIT-order matcher with idempotent fills and tests.
-2. Add order deduplication, reconciliation, and a kill switch before any live-trading implementation.
-3. Add portfolio-wide loss/exposure controls and a market-hours/holiday calendar.
-4. Implement instrument master sync and WebSocket market data using current official Upstox documentation.
-5. Verify the Alembic migration path in staging and check the current deployment configuration.
-6. Review remaining dashboard, analytics, and backtest behavior against the requested product requirements.
+1. Add durable order idempotency/reconciliation and an emergency kill switch before any live-trading implementation.
+2. Add portfolio-wide loss/exposure controls and an exchange holiday calendar.
+3. Implement instrument master sync and WebSocket market data using current official Upstox documentation.
+4. Verify the Alembic migration path in staging and check the current deployment configuration.
+5. Review remaining analytics and backtest behavior against the requested product requirements.

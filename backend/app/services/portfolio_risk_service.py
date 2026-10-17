@@ -27,6 +27,7 @@ def check_portfolio_order(
     quantity: int,
     estimated_price: Decimal,
     reducing_position: bool = False,
+    check_order_count: bool = True,
 ) -> str | None:
     """Return a human-readable rejection reason, or None when allowed."""
     if not portfolio.risk_controls_enabled:
@@ -59,7 +60,7 @@ def check_portfolio_order(
         if loss >= Decimal(str(portfolio.max_daily_loss)):
             return f"Portfolio risk limit: daily realized loss ₹{loss:.2f} has reached cap ₹{portfolio.max_daily_loss}."
 
-    if portfolio.max_orders_per_day is not None:
+    if check_order_count and portfolio.max_orders_per_day is not None:
         orders_today = (
             db.query(func.count(Order.id))
             .filter(Order.portfolio_id == portfolio.id)

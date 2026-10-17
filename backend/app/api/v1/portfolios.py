@@ -14,7 +14,7 @@ from app.repositories.order_repository import OrderRepository
 from app.schemas.analytics import PortfolioAnalyticsOut, StrategyAnalyticsOut
 from app.schemas.assistant import AssistantAskRequest, AssistantAskResponse
 from app.schemas.order import ExecutionOut, OrderOut, PlaceOrderRequest, PositionOut
-from app.schemas.portfolio import PortfolioCreate, PortfolioOut
+from app.schemas.portfolio import PortfolioCreate, PortfolioOut, PortfolioRiskSettings
 from app.services.ai_assistant_service import AIAssistantService, AssistantError
 from app.services import analytics_service
 from app.services.execution_service import ExecutionService, OrderValidationError
@@ -44,6 +44,22 @@ def _get_owned_portfolio(db: Session, user: User, portfolio_id: UUID):
 @router.get("/{portfolio_id}", response_model=PortfolioOut)
 def get_portfolio(portfolio_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return _get_owned_portfolio(db, user, portfolio_id)
+
+
+@router.patch("/{portfolio_id}/risk-settings", response_model=PortfolioOut)
+def update_portfolio_risk_settings(
+    portfolio_id: UUID,
+    payload: PortfolioRiskSettings,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    portfolio = _get_owned_portfolio(db, user, portfolio_id)
+    for field, value in payload.model_dump().items():
+        setattr(portfolio, field, value)
+    db.add(portfolio)
+    db.commit()
+    db.refresh(portfolio)
+    return portfolio
 
 
 @router.get("/{portfolio_id}/positions", response_model=list[PositionOut])

@@ -285,3 +285,7 @@ The worker now records count-only run summaries and sanitized error categories i
 
 ## Owner-scoped reconciliation listing API — 2026-10-17
 Two authenticated read-only endpoints expose safe run summaries and review issues for the current user only. The query repository scopes by `user_id`; limits are bounded; response schemas do not return raw broker bodies or tokens. They cannot start a reconciliation job or resolve/mutate an issue. Cross-user isolation tests passed in [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705), 345 passed, 1 warning. No live order action is enabled.
+
+
+## Read-only reconciliation UI — 2026-10-17
+A `/reconciliation` frontend page displays owner-scoped run summaries and sanitized issues. It has no worker-trigger or issue-resolution control, and the API is read-only. TypeScript/Next.js build and backend CI passed for commit `e4343dcb225c1f332b6c89399694d0a29a5df739`. The UI is not evidence of a real broker reconciliation pass; no live order path is enabled.

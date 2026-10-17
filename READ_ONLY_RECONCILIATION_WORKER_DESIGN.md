@@ -88,3 +88,7 @@ The worker implementation is in `backend/app/services/live_order_reconciliation_
 
 ## Read-only review listing endpoints — 2026-10-17
 Added authenticated `GET /api/v1/reconciliation/runs` and `GET /api/v1/reconciliation/issues`. Queries are scoped to the authenticated user, filters are bounded and response schemas expose only safe summary/issue fields. No endpoint triggers the worker or changes issue status. Tests for authentication, cross-user isolation and filter validation passed in [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705): 345 passed, 1 warning. Frontend review UI, issue-resolution workflow and stale-run recovery remain separate next steps.
+
+
+## Review UI checkpoint — 2026-10-17
+Added a dashboard-linked `/reconciliation` page that displays recent run summaries and manual-review issues through the authenticated read-only API. It filters issue status and allows refreshing, but cannot trigger a run or resolve issues. Commit `e4343dcb225c1f332b6c89399694d0a29a5df739` passed frontend TypeScript/Next.js checks and backend CI (345 passed, 1 warning). Next: stale-run recovery and crash-boundary tests, then historical trade API pagination/session-window work.

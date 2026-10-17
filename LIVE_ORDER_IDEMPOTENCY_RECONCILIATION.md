@@ -259,3 +259,7 @@ Added `LiveReconciliationIssue` and migration `202610170005`. The worker now rec
 
 ## Owner-scoped read API checkpoint — 2026-10-17
 The platform now has authenticated read-only endpoints for reconciliation runs and issues. They scope all queries to the authenticated user and expose only typed safe summaries/details, with a hard maximum of 100 rows. Cross-user isolation tests passed in [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705): 345 passed, 1 warning. They do not start a worker or mutate issues/orders; UI and issue resolution remain out of scope.
+
+
+## Reconciliation review UI checkpoint — 2026-10-17
+A dashboard-linked `/reconciliation` page now displays safe run counters and manual-review issues from owner-scoped read-only endpoints. It exposes no worker trigger or issue-resolution mutation. Exact UI commit `e4343dcb225c1f332b6c89399694d0a29a5df739` passed frontend checks and backend CI (345 passed, 1 warning). Live submission and accounting integration remain disabled.

@@ -80,3 +80,7 @@ Linked fill persistence now requires the same broker order ID and exact instrume
 
 ### Phase 2 unmatched-fill recovery foundation — 17 October 2026
 A previously unmatched fill can now be linked to a local intent later, but only after broker order ID, account, instrument, side, product, order type, quantity and limit-price checks pass. The link and audit event are atomic; repeat linking is a no-op. [Run 39053352921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053352921) passed 281 tests, 1 warning. No broker polling or live accounting is implemented.
+
+
+### Phase 2 out-of-order status/fill checkpoint — 17 October 2026
+Order-state persistence now resolves broker status against already-persisted individual fill evidence before applying a transition. A stale OPEN/PENDING status cannot erase known partial fills; a partial fill followed by cancellation is represented separately; contradictory quantities/statuses are quarantined for review. Exact code checkpoint [run 39056392873](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056392873) passed **294 tests, 1 warning**, including SQLite/PostgreSQL 16 migration checks. The read-only broker worker remains design-only; no live broker reads, order actions or accounting updates are implemented. See [READ_ONLY_RECONCILIATION_WORKER_DESIGN.md](READ_ONLY_RECONCILIATION_WORKER_DESIGN.md).

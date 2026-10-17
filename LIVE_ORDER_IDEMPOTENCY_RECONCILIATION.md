@@ -1,4 +1,4 @@
-# Durable Live-Order Idempotency and Broker Reconciliation — Design Only
+# Durable Live-Order Idempotency and Broker Reconciliation
 
 Status: user-approved design; Phase 1 durable records/repository safeguards partially implemented. Broker submission and reconciliation remain NOT implemented; live order placement stays disabled.
 Date: 2026-10-17
@@ -158,4 +158,4 @@ This document does not implement live placement, change the current execution pa
 
 The user explicitly approved this design. Phase 1 has added the intent, event, outbox and broker-fill identity SQLAlchemy models, additive migration `202610170002`, and repository safeguards. Canonical SHA-256 is derived by the repository from normalized JSON and authenticated user/portfolio/broker-connection scope. Same key + same payload reuses the intent; same key + different payload conflicts. Intent, initial audit event and outbox row are committed together. Ownership checks and unique constraints are covered by tests.
 
-Latest code/test checkpoint `397e760b8fabcd77ce1904b9c1350ca5ab0b3e00` passed GitHub Actions [run 39043177545](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043177545): 210 tests passed, 1 warning. This does not complete Gate 1: explicit concurrent race/rollback tests and staging migration verification against the deployment database engine remain open. No live order, broker POST, production migration, or reconciliation was performed.
+Latest code/test checkpoint `54671fd57f21e93938c4c265d29266e50b5f350c` passed GitHub Actions [run 39043386194](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043386194): 211 tests passed, 1 warning, including clean SQLite `alembic upgrade head`. This does not complete Gate 1: explicit concurrent race/rollback tests and staging migration verification against the deployment database engine remain open. No live order, broker POST, production migration, or reconciliation was performed.

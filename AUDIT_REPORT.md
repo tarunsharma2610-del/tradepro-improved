@@ -168,3 +168,9 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - The existing risk engine gates automated strategy entries on realized P&L; manual orders bypass it. Paper order value/cash/holding checks are not live controls, and unrealized drawdown is not included.
 - Broker interface has no funds/margin method. Current Upstox Funds & Margin V3 (released 10 April 2026) provides `available_to_trade.total` at `GET /v3/user/get-funds-and-margin` with `Api-Version: 3.0`. Next task is read-only adapter support, not live submission.
 - Live all-order exposure/loss/rate limits, stale quote/session checks and a live-account circuit breaker remain gaps. The automated strategy-entry stop must not be presented as a live account kill switch.
+
+
+## Funds & Margin V3 adapter — 17 October 2026
+
+- Added a read-only Upstox Funds & Margin V3 method and tests for endpoint, `Api-Version: 3.0`, response shape and 423 maintenance error. The response is not wired into risk checks.
+- Latest CI: 225 backend tests passed, 1 warning, clean SQLite migration, frontend checks passed. Next: pure typed parsing of funds/cash/pledge values; do not use it to approve orders until the complete risk system exists.

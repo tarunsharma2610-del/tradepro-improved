@@ -135,3 +135,9 @@
 ### 17 October 2026 — live risk audit
 - Audited current strategy/portfolio risk controls and confirmed they are not sufficient for live/manual orders. Documented missing broker funds, all-order exposure/loss limits, order-rate controls, stale quote/session checks and account-level live circuit breaker.
 - Identified current official Upstox Funds & Margin V3 as the next read-only adapter foundation; no risk gate or live order path changed in this audit.
+
+
+### 17 October 2026 — Upstox Funds & Margin V3 adapter
+- Added `get_funds_and_margin` to the broker interface and Upstox adapter using the official V3 URL and required `Api-Version: 3.0` header.
+- Added mocked tests for endpoint, auth/API-version headers, response shape and 423 maintenance error handling. No live requests; not used in order approval.
+- CI on `6f92a7f9ead0f9fe2da6222e122945a3f419bd1c`: backend **225 passed, 1 warning**, migration check passed, frontend checks passed.

@@ -181,3 +181,11 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - The existing risk engine gates automated strategy entries using realized losses; manual orders bypass it and unrealized loss is not included. The execution service's notional/cash/holding checks are PAPER controls only. Equity-only instrument validation remains fail-closed.
 - Missing live prerequisites include broker funds/margin retrieval, live/manual all-order exposure and loss controls, order-rate limits, stale-quote/market-session validation, and a live-account circuit breaker. The automated-entry kill switch is not a live account kill switch.
 - Current official Upstox docs show Funds & Margin V3 was released 10 April 2026. It uses `GET /v3/user/get-funds-and-margin`, requires `Api-Version: 3.0`, and returns `available_to_trade.total`. Next task: add this as a read-only adapter method with mocked tests; do not use it to authorize orders yet.
+
+
+## Funds & Margin V3 adapter completed — 17 October 2026
+
+- Added read-only `get_funds_and_margin` to `BrokerAdapter` and Upstox using official `GET /v3/user/get-funds-and-margin` and the required `Api-Version: 3.0` header. Official docs show a unified `available_to_trade` object with total, cash and pledge breakdown; the service is unavailable daily from 00:00 to 05:30 IST and may return 423.
+- Mocked tests validate endpoint, API-version/auth headers, response shape and 423 error propagation. The data is not used to approve orders.
+- Latest verified code commit `6f92a7f9ead0f9fe2da6222e122945a3f419bd1c`: backend **225 passed, 1 warning**, clean migration; frontend TypeScript/build passed.
+- Next: add a pure typed funds-response parser that keeps cash separate from pledged margin and validates all numeric fields. See `PROGRESS.md`.

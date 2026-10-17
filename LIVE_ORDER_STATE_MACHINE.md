@@ -120,3 +120,8 @@ Added pure typed parsing helpers in `backend/app/brokers/upstox/response_parsing
 ## Pre-trade risk audit update — 17 October 2026
 
 The existing risk engine gates automated strategy entries using realized losses; manual orders bypass it and unrealized drawdown is not included. The paper order cap/cash/holding checks are not a live risk system. Live exposure/loss/rate limits, stale-quote/session checks and an account-level circuit breaker remain missing. Upstox Funds & Margin V3 (released 10 April 2026) is now the verified source for available-to-trade funds, via `GET /v3/user/get-funds-and-margin` with `Api-Version: 3.0`; the adapter lacks this method, so the next step is read-only support only.
+
+
+## Funds & Margin V3 adapter status — 17 October 2026
+
+The adapter now has read-only `get_funds_and_margin` using the official V3 endpoint and `Api-Version: 3.0`. Tests cover the documented response envelope and the daily 00:00–05:30 IST maintenance response (423). This raw response is not yet used by any risk decision. The next step is a pure parser that keeps cash available and pledged margin distinct.

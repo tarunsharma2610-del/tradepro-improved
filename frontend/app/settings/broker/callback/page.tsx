@@ -14,16 +14,17 @@ function CallbackHandler() {
 
   useEffect(() => {
     const code = params.get("code");
+    const state = params.get("state");
     const broker = "upstox"; // Phase 1 supports one broker; the code param alone doesn't say which.
 
-    if (!code) {
+    if (!code || !state) {
       setStatus("error");
-      setMessage("No authorization code was returned by Upstox.");
+      setMessage("Upstox did not return the required authorization code and state. Restart the connection flow.");
       return;
     }
 
     api
-      .post<{ is_connected: boolean; last_error: string | null }>(`/settings/broker/${broker}/callback`, { code })
+      .post<{ is_connected: boolean; last_error: string | null }>(`/settings/broker/${broker}/callback`, { code, state })
       .then((result) => {
         if (result.is_connected) {
           setStatus("success");

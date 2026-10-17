@@ -5,11 +5,15 @@ then walk them through the OAuth handshake and verify the connection with
 a real call before ever marking it connected.
 """
 
+import secrets
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+import jwt
 from sqlalchemy.orm import Session
 
 from app.brokers.registry import get_broker_adapter
+from app.core.config import settings
 from app.core.encryption import decrypt_value, encrypt_value, mask_secret
 from app.models.broker_connection import BrokerConnection
 from app.repositories.broker_connection_repository import BrokerConnectionRepository
@@ -39,10 +43,25 @@ class BrokerCredentialsService:
         api_key = decrypt_value(conn.api_key_encrypted)
         if api_key is None:
             raise ValueError("Stored API key could not be decrypted — was MASTER_ENCRYPTION_KEY rotated?")
-        return adapter.get_authorize_url(api_key, conn.redirect_uri, state=str(conn.id))
+        now = datetime.now(timezone.utc)
+        state = jwt.encode(
+            {
+                "sub": str(user_id),
+                "broker": broker,
+                "connection_id": str(conn.id),
+                "purpose": "broker_oauth",
+                "nonce": secrets.token_urlsafe(24),
+                "iat": now,
+                "exp": now + timedelta(minutes=10),
+            },
+            settings.SECRET_KEY,
+            algorithm=settings.JWT_ALGORITHM,
+        )
+        return adapter.get_authorize_url(api_key, conn.redirect_uri, state=state)
 
-    async def complete_oauth(self, user_id: UUID, broker: str, code: str) -> BrokerConnection:
+    async def complete_oauth(self, user_id: UUID, broker: str, code: str, state: str) -> BrokerConnection:
         conn = self._require_connection(user_id, broker)
+        self._validate_oauth_state(state, user_id=user_id, broker=broker, connection_id=conn.id)
         adapter = get_broker_adapter(broker)
 
         api_key = decrypt_value(conn.api_key_encrypted)
@@ -117,6 +136,23 @@ class BrokerCredentialsService:
         return decrypt_value(conn.access_token_encrypted)
 
     # --- internal ---
+    @staticmethod
+    def _validate_oauth_state(state: str, *, user_id: UUID, broker: str, connection_id: UUID) -> None:
+        """Validate the signed, short-lived state before exchanging the OAuth code."""
+        try:
+            claims = jwt.decode(state, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        except jwt.PyJWTError as exc:
+            raise ValueError("Invalid or expired broker OAuth state. Restart the connection flow.") from exc
+
+        if (
+            claims.get("purpose") != "broker_oauth"
+            or claims.get("sub") != str(user_id)
+            or claims.get("broker") != broker
+            or claims.get("connection_id") != str(connection_id)
+            or not claims.get("nonce")
+        ):
+            raise ValueError("Broker OAuth state does not match this user and connection. Restart the connection flow.")
+
     def _require_connection(self, user_id: UUID, broker: str) -> BrokerConnection:
         conn = self.repo.get_for_user(user_id, broker)
         if conn is None:

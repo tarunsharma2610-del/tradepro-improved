@@ -68,6 +68,7 @@ def get_broker_authorize_url(broker: str, db: Session = Depends(get_db), user: U
 
 class OAuthCallbackBody(BaseModel):
     code: str
+    state: str
 
 
 @router.post("/broker/{broker}/callback", response_model=BrokerConnectionOut)
@@ -80,7 +81,7 @@ async def broker_oauth_callback(
 ):
     service = BrokerCredentialsService(db)
     try:
-        conn = await service.complete_oauth(user.id, broker, payload.code)
+        conn = await service.complete_oauth(user.id, broker, payload.code, payload.state)
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     write_audit_log(

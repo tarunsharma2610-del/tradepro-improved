@@ -98,3 +98,29 @@ def test_list_connections_only_returns_the_requesting_users_own(db_session, make
     a_connections = service.list_connections(user_a.id)
     assert len(a_connections) == 1
     assert decrypt_value(a_connections[0].api_key_encrypted) == "a-key"
+
+
+def test_oauth_state_is_signed_and_bound_to_user_and_connection(db_session, make_user):
+    from urllib.parse import parse_qs, urlparse
+
+    import jwt
+    import pytest
+
+    from app.core.config import settings
+
+    user = make_user()
+    service = BrokerCredentialsService(db_session)
+    service.save_credentials(
+        user.id,
+        BrokerConnectionCreate(broker="upstox", api_key="api-key", api_secret="api-secret", redirect_uri="https://example.com/cb"),
+    )
+
+    url = service.get_authorize_url(user.id, "upstox")
+    state = parse_qs(urlparse(url).query)["state"][0]
+    claims = jwt.decode(state, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    assert claims["sub"] == str(user.id)
+    assert claims["broker"] == "upstox"
+    assert claims["purpose"] == "broker_oauth"
+
+    with pytest.raises(ValueError, match="does not match"):
+        service._validate_oauth_state(state, user_id=user.id, broker="upstox", connection_id=__import__("uuid").uuid4())

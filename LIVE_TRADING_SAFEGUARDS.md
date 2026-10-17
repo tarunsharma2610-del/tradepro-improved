@@ -245,3 +245,7 @@ The current automated CI run [39048147046](https://github.com/tarunsharma2610-de
 
 ## 17 October 2026 — Phase 2 repository-only implementation note
 The improved repository now has pure broker-order status normalization, strict candidate matching, and a versioned repository method for persisting a matched observation plus audit event atomically. These are not broker integration: no order-book/history/trades API is called by this code, no fill is imported, and no live order is placed or cancelled. A successful CI run is not a staging or production verification. Keep live submission disabled and require the remaining roadmap gates and explicit authorization before adding submission behavior.
+
+
+## 17 October 2026 — individual fill identity persistence
+The repository now validates normalized Upstox per-order trade records and stores individual fill identities idempotently using `(broker_connection_id, broker_trade_id)`. Identical replay is a no-op; conflicting reuse of a trade ID fails closed. A linked fill and audit event are atomic. This is still not full reconciliation: no broker reads/worker, fill-vs-intent economic validation, partial-fill accounting, position/cash/P&L update, or live order submission is present. Keep live trading disabled.

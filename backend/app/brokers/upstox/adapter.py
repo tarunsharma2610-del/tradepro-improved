@@ -19,6 +19,7 @@ from app.brokers.base import BrokerAdapter, BrokerCallResult, BrokerTokenResult
 AUTH_BASE = "https://api.upstox.com/v2"
 API_V2 = "https://api.upstox.com/v2"
 API_V3 = "https://api.upstox.com/v3"
+API_HFT_V2 = "https://api-hft.upstox.com/v2"
 
 
 class UpstoxAdapter(BrokerAdapter):
@@ -107,10 +108,11 @@ class UpstoxAdapter(BrokerAdapter):
 
     # --- Orders (LIVE mode only) ---
     async def place_order(self, access_token: str, order: dict[str, Any]) -> BrokerCallResult:
-        # VERIFIED path shape (sandbox example): upstox.com/developer/api-documentation/sandbox
-        # Live trading is disabled at the application level (TRADING_MODE=PAPER) regardless of
-        # whether this method works — see app/core/config.py.
-        return await self._post(f"{API_V2}/order/place", access_token, json_body=order)
+        # Current official Place Order API host. The older api.upstox.com/v2/order/place
+        # endpoint is marked deprecated in the current Upstox documentation.
+        # This adapter method is not wired into paper ExecutionService; live execution
+        # still requires a separately reviewed service and must remain disabled for now.
+        return await self._post(f"{API_HFT_V2}/order/place", access_token, json_body=order)
 
     async def get_order_status(self, access_token: str, order_id: str) -> BrokerCallResult:
         # VERIFIED: upstox.com/developer/api-documentation/get-order-details

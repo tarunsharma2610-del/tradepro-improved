@@ -21,9 +21,15 @@ Improve the existing Tradepro codebase in this separate repository to deliver a 
 Maintain an evidence-based audit report, change log, list of unchanged functionality, test results, deployment/migration instructions, limitations/manual setup, and a clear statement of what Paper/Live functions are actually implemented and verified.
 
 ## Known high-priority gaps from current audit
-- Live order placement/reconciliation remains incomplete; keep disabled.
+- Live order placement/reconciliation remains incomplete; keep disabled. The design-only plan is `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`; read it before any live-order code. Do not assume Upstox tags provide broker-enforced idempotency.
 - Portfolio-wide risk controls are configurable per portfolio and enforced on paper/strategy order paths; continue checking threshold/boundary and concurrent-order behavior.
 - Instrument-master sync has a completeness-gated reconciliation policy and passed a real upstream download into disposable SQLite; never point the verification script at the production DB.
 - Upstox V3 streaming client/routes exist with mocked tests; a real OAuth session and deployment topology still need verification. The manager is process-local; use one API worker until shared stream state is implemented.
 - OAuth migration is CI-tested on clean SQLite but still requires backup-safe staging verification.
 - Do not implement any of these blindly: inspect the current code and official API docs first.
+
+
+## Live-order implementation gate (added 2026-10-17)
+Before implementing any live-order code, read `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`, `LIVE_TRADING_SAFEGUARDS.md`, `ARCHITECTURE.md`, current broker API documentation and current tests. The new document is design only, not implementation. Do not start schema/code work until the design review is acknowledged in `PROGRESS.md`.
+
+Mandatory invariants: durable intent and unique key + canonical payload hash; persist intent/outbox/audit before network I/O; never blindly retry an ambiguous POST; reconcile order history/book/trades before recovery; deduplicate broker fills by stable identity; recheck risk and account kill switch at dispatch; preserve paper/live isolation; never use a real order for testing. Update audit, README, architecture and progress after each tested/committed step. Keep live submission disabled until the user explicitly authorizes a controlled release after all gates pass.

@@ -376,3 +376,17 @@ The latest application-code checkpoint remains b3332b839b6f2c39bf2ae678e1aa62ac1
 - Documentation commits: `ROADMAP.md` fc34c20dfafb5adb0ced51a945233e8f644c9100; `ARCHITECTURE.md` 9afe7f552252a8e041d6bf52c805bb71fdbad5e2; `AUDIT_REPORT.md` 939e81b8a1acbef090ac0e81afe5c78f572a28a6; `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` 16718a9c977da1685957da213b055dcbf7a8d7fa; `README.md` fae2b9dbd5a6f7ed2c5a6a6de257d7045943ff75; `LIVE_TRADING_SAFEGUARDS.md` 188083da2ab4ddc7f7619834a7985d5ee9546dcb; `PROJECT_INSTRUCTIONS.md` 4c32f49f35434aeab2b2499ba47e7b0de35254ea. Exact documentation CI runs are being verified and will be recorded below.
 - Remaining Phase 2 work: validate each normalized fill against the matched immutable intent snapshot, aggregate partial fills and reconcile out-of-order observations; then build a read-only broker reconciliation worker only after API/error/session contracts are tested. No broker API calls, order submission/cancellation, production migration or real order occurred. App is not deployed; staging DB verification remains outstanding.
 - Next single action: implement fill-vs-intent economic validation before `record_broker_fill()` can accept a linked fill, with mismatch/quarantine tests. Keep live submission disabled.
+
+
+### Phase 2 fill-persistence documentation CI verification — 2026-10-17
+All documentation commits for the fill-identity checkpoint have successful GitHub Actions runs:
+- `ROADMAP.md` fc34c20dfafb5adb0ced51a945233e8f644c9100: [run 39052328938](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052328938) — success.
+- `ARCHITECTURE.md` 9afe7f552252a8e041d6bf52c805bb71fdbad5e2: [run 39052351579](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052351579) — success.
+- `AUDIT_REPORT.md` 939e81b8a1acbef090ac0e81afe5c78f572a28a6: [run 39052366324](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052366324) — success.
+- `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` 16718a9c977da1685957da213b055dcbf7a8d7fa: [run 39052382345](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052382345) — success.
+- `README.md` fae2b9dbd5a6f7ed2c5a6a6de257d7045943ff75: [run 39052403682](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052403682) — success.
+- `LIVE_TRADING_SAFEGUARDS.md` 188083da2ab4ddc7f7619834a7985d5ee9546dcb: [run 39052416578](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052416578) — success.
+- `PROJECT_INSTRUCTIONS.md` 4c32f49f35434aeab2b2499ba47e7b0de35254ea: [run 39052428182](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052428182) — success.
+- `PROGRESS.md` checkpoint 29eac681a6d93a83f05262c60f7eb4163b505c8c: [run 39052450839](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052450839) — success.
+
+The exact final code/test checkpoint remains [run 39052203329](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052203329): **274 passed, 1 warning**, with SQLite/PostgreSQL 16 migration checks. The intermediate failure at run 39052095678 is documented above and was fixed before the passing checkpoint.

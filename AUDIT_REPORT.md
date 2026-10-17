@@ -28,9 +28,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 3. Added persisted, one-time OAuth nonce consumption with an atomic conditional update and Alembic migration.
 4. Added order validation at both the API schema and execution-service boundary.
 5. Hardened last-traded-price parsing so invalid prices cannot enter paper-accounting calculations.
-6. Replaced the duplicate root broker-settings page with an account dashboard.
-7. Updated the frontend check command for Next.js 16.
-8. Added GitHub Actions workflows for backend tests and frontend typecheck/build.
+6. Added a worker-driven paper LIMIT matcher with crossing rules, limit-or-better pricing, cash/holding checks, and shared accounting.
+7. Replaced the duplicate root broker-settings page with an account dashboard.
+8. Updated the frontend check command for Next.js 16.
+9. Added GitHub Actions workflows for backend tests and frontend typecheck/build.
 
 ## Verification
 

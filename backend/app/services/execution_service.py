@@ -78,7 +78,7 @@ class ExecutionService:
         elif req.limit_price is not None:
             raise OrderValidationError("MARKET orders must not include a limit price.")
 
-        portfolio = self.portfolios.get_for_user(user_id, req.portfolio_id)
+        portfolio = self.portfolios.get_for_user_for_update(user_id, req.portfolio_id)
         if portfolio is None:
             raise OrderValidationError("Portfolio not found.")
 
@@ -148,7 +148,7 @@ class ExecutionService:
 
     def cancel_order(self, user_id: UUID, portfolio_id: UUID, order_id: UUID) -> Order:
         """Cancel a user's pending paper order; filled/rejected orders are immutable."""
-        portfolio = self.portfolios.get_for_user(user_id, portfolio_id)
+        portfolio = self.portfolios.get_for_user_for_update(user_id, portfolio_id)
         if portfolio is None:
             raise OrderValidationError("Portfolio not found.")
 
@@ -206,7 +206,12 @@ class ExecutionService:
             if order is None:
                 continue
 
-            portfolio = self.db.get(Portfolio, order.portfolio_id)
+            portfolio = (
+                self.db.query(Portfolio)
+                .filter(Portfolio.id == order.portfolio_id)
+                .with_for_update()
+                .first()
+            )
             if portfolio is None:
                 self.db.rollback()
                 continue

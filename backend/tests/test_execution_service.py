@@ -446,3 +446,29 @@ async def test_filled_order_cannot_be_cancelled(db_session, portfolio, instrumen
     assert order.status == "FILLED"
     with pytest.raises(OrderValidationError, match="Only pending orders"):
         service.cancel_order(user.id, p.id, order.id)
+
+
+@pytest.mark.asyncio
+async def test_live_mode_fails_closed_before_creating_order(db_session, portfolio, instrument, monkeypatch):
+    """LIVE mode must not create a paper order or reach broker execution."""
+    from app.core.config import settings
+    from app.models.order import Order
+
+    user, p = portfolio
+    monkeypatch.setattr(settings, "TRADING_MODE", "LIVE")
+    before = db_session.query(Order).count()
+
+    with pytest.raises(OrderValidationError, match="Live trading is not implemented"):
+        await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="MARKET",
+                segment=Segment.EQUITY_DELIVERY,
+                quantity=1,
+            ),
+        )
+
+    assert db_session.query(Order).count() == before

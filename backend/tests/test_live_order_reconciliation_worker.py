@@ -4,7 +4,7 @@ import pytest
 
 from app.brokers.upstox.reconciliation_client import ReadOnlyBrokerResult
 from app.models.broker_connection import BrokerConnection
-from app.models.live_order_records import BrokerFillIdentity, LiveOrderIntent
+from app.models.live_order_records import BrokerFillIdentity, LiveOrderIntent, LiveReconciliationLease
 from app.models.portfolio import Portfolio
 from app.repositories.live_order_repository import LiveOrderRepository
 from app.repositories.live_reconciliation_lease_repository import LiveReconciliationLeaseRepository
@@ -116,8 +116,7 @@ async def test_worker_links_trade_and_resolves_full_fill_without_order_write_met
     assert fill.intent_id == intent.id
     assert [call[0] for call in client.calls] == ["orders", "trades"]
     assert not hasattr(client, "place_order")
-    lease = LiveReconciliationLeaseRepository(db_session)
-    row = db_session.query(__import__("app.models.live_order_records", fromlist=["LiveReconciliationLease"]).LiveReconciliationLease).filter_by(
+    row = db_session.query(LiveReconciliationLease).filter_by(
         broker_connection_id=connection.id
     ).one()
     assert row.lease_token is None
@@ -205,7 +204,7 @@ async def test_worker_missing_token_and_busy_lease_do_not_call_broker(db_session
         db_session, client=client, token_provider=lambda _user_id: None, sleeper=_no_sleep
     )
     result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
-    assert result.error_code == "CONNECTION_NOT_READY"  # not connected; no token lookup or API call
+    assert result.error_code == "TOKEN_UNAVAILABLE"
     assert client.calls == []
 
     connection.is_connected = True

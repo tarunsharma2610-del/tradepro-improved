@@ -7,7 +7,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 
 - User-approved live-order idempotency/reconciliation design is implemented partially for Phase 1: [LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md).
 - Architecture, safeguards, README, audit, project instructions and progress tracker link to the design.
-- Phase 1 records/repository/tests are on `main`; latest verified code/test checkpoint `dd36b48a92057ad50618f6f9941f908832c9cea3` passed: [workflow 39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046), **215 tests passed, 1 warning**; the same run passed clean SQLite and PostgreSQL 16 Alembic upgrade → downgrade to `202610170001` → re-upgrade.
+- Phase 1 records/repository/tests are on `main`; latest verified Phase 1 code checkpoint `dd36b48a92057ad50618f6f9941f908832c9cea3` passed [workflow 39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046), **215 tests passed, 1 warning**. The Phase 2 normalization foundation is now on `main` at test commit `b37452210bf07ad03acee1495e0627fae1378582`; [workflow 39049395091](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049395091) passed **247 tests, 1 warning**, including SQLite and PostgreSQL 16 reversible migration checks.
 - The code checkpoint adds Phase 1 durable storage/repository safeguards and tests only. It does not implement live submission or reconciliation, does not run a production migration and does not prove live trading readiness.
 
 ## Status summary
@@ -19,7 +19,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 | Upstox V3 WebSocket authorization/reconnect protections | Partial implementation and unit/regression coverage | Real authorized session test remains open; shared stream state across workers remains open |
 | Portfolio-wide risk controls | Existing configurable controls, still require deployment-aware review | Confirm atomic reservations, exposure semantics and user-adjustable thresholds; don't represent cost-basis/realized-loss checks as mark-to-market broker margin |
 | Durable live-order idempotency | Phase 1 partially implemented; CI green for latest code checkpoint | Add concurrency/race tests and cross-database migration review; no broker submission |
-| Broker order/trade reconciliation | Design only | Phase 2 reconciliation-only service; no order placement |
+| Broker order/trade reconciliation | Phase 2 foundation implemented and CI-tested; full reconciliation not implemented | Pure Upstox status/field normalizer only; unknown/inconsistent records require review. Next: safe intent matching, then fill identity ingestion. No broker reads, persistence transitions, or order placement yet |
 | Live submission orchestration | Not implemented / disabled | Sandbox-only workflow after prior phases pass |
 | Production deployment verification | Incomplete | Backup-restored staging migration against actual DB engine, rollback/restore drill and operational runbook |
 
@@ -42,8 +42,10 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - [ ] Verify upgrade/downgrade and constraints against a backup-restored staging copy of the actual deployment DB engine. No production migration has run.
 - Scope boundary: no worker, API route or code path submits/cancels/reconciles broker orders in this phase.
 
-### Gate 2 — Reconciliation-only workflow
-- Normalize broker order book/history/details/trades into local states.
+### Gate 2 — Reconciliation-only workflow — foundation in progress
+- [x] Add pure normalization for documented Upstox order book/details/history statuses and required fields; preserve raw status and route unknown/inconsistent records to review. Tested in [run 39049395091](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049395091).
+- [ ] Match broker observations to a durable intent only after account scope, correlation and economic fields are verified; ambiguous/multiple matches must be quarantined.
+- [ ] Normalize broker order book/history/details/trades into persisted local states.
 - Deduplicate fills by documented stable broker trade identity.
 - Handle partial fills, duplicate/out-of-order updates, missing/multiple tag matches, unknown statuses, API outages, session boundaries and sliced orders.
 - No order-placement call in this phase.

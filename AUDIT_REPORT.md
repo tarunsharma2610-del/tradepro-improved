@@ -80,3 +80,16 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Latest backend CI passed: **177 tests passed, 1 warning**; the full Alembic chain including `202610170001` upgraded a clean SQLite database successfully. [View run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39028572660).
 - Earlier order-value-cap CI runs failed because a pre-existing insufficient-cash test received the new cap's rejection message first. Adjusted validation order so insufficient cash remains the reported reason when applicable; the latest run passed after that correction.
 - No real broker orders were submitted. Live execution remains disabled and not ready.
+
+
+## Second-pass audit and corrective changes — 17 October 2026
+
+- The current branch tree contains 219 files. The review compared the implementation with the requirements matrix and examined the main execution, accounting, strategy, risk, auth, API, frontend, migration and deployment paths. This is static review plus CI; it is not a production end-to-end test.
+- **Atomic paper fills:** refactored the fill transaction so the order, aggregate position, cash balance and execution row commit together. A regression test forces execution persistence to fail and confirms the order/position/cash changes roll back.
+- **Strategy attribution:** added a separate `StrategyPosition` allocation per strategy and `Execution.strategy_realized_pnl`. Strategy entry/exit decisions use the strategy's own allocation, manual sells cannot consume shares allocated to strategies, strategy P&L and daily-loss checks use strategy-specific realized P&L, and duplicate strategy entries are rejected under the portfolio lock.
+- Added a forward Alembic migration that backfills strategy-specific P&L and open strategy allocations from existing strategy-tagged executions. The clean SQLite upgrade passes; the backfill still needs validation against a populated staging database before production rollout.
+- **Derivative segment guard:** the existing importer only loads NSE equities and does not yet normalize tick-size units or import complete derivative contract data. Backend order, strategy and backtest APIs now reject futures/options instead of treating an equity as a derivative. The UI no longer offers unsupported derivative segments.
+- The current paper LIMIT matcher is implemented; stale dashboard wording was corrected. README and requirements/handover docs are being aligned with the verified state.
+- Latest verified backend CI: **188 tests passed, 1 warning**, with the full SQLite migration chain successful: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030790984.
+- The latest frontend check had TypeScript pass but its Next.js build failed resolving an internal Google-font module; an earlier build on the same frontend code passed. Treat frontend build verification as **inconsistent**, not clean, until a rerun succeeds on the latest commit.
+- No real broker orders were placed. Live trading remains **NOT READY**.

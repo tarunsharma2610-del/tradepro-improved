@@ -67,3 +67,14 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Authenticated endpoint: `GET /api/v1/portfolios/{portfolio_id}/orders/{order_id}/broker-status` (prefix may be configured by the app router).
 - It verifies portfolio ownership and delegates to the read-only reconciliation service. It cannot place orders and will reject PAPER orders or LIVE orders without a stored broker ID/session.
 - This endpoint is not evidence that live order placement is implemented. Do not enable live mode based on this status endpoint alone.
+
+
+## Current continuation state — 17 October 2026
+
+- Latest branch code is on `safety/fail-closed-trading-mode`; original `Tradepro` remains untouched.
+- Paper fill accounting now commits order status, aggregate position, cash and execution together. Regression test deliberately fails execution persistence and verifies rollback.
+- Added `StrategyPosition` allocations and strategy-specific realized P&L. Strategy evaluation no longer treats any portfolio-level position as its own, and manual sells cannot consume shares reserved to a strategy. The migration backfills legacy strategy executions and open allocations; validate that backfill against a populated staging database before deploying.
+- Futures/options are now rejected in order, strategy-create and backtest paths until full derivative instrument metadata, tick-size units, lot sizing and contract risk controls are verified. The frontend reflects this restriction; do not re-enable F&O dropdowns before the backend supports them.
+- Latest verified backend CI: **188 tests passed, 1 warning**, plus clean SQLite migration upgrade: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030790984.
+- Frontend TypeScript passed, but the latest Next.js build failed in the Google-font resolver; an earlier build of unchanged frontend code passed. Re-run before merge and treat the build as unresolved until latest CI passes.
+- Next: validate migration backfill on populated staging data; complete stable UI/strategy idempotency; address strategy evaluation concurrency and remaining doc drift; keep live trading disabled.

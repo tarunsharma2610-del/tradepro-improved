@@ -52,3 +52,16 @@
 ### Additional improvement — authenticated broker-status API
 17. Exposed a read-only authenticated endpoint `GET /portfolios/{portfolio_id}/orders/{order_id}/broker-status`. It checks portfolio ownership and returns the reconciliation service result. It does not place orders or modify local execution/accounting status.
 18. The endpoint is useful only for a LIVE order that already has a stored broker order ID and a valid Upstox session; the app still has no live submission lifecycle.
+
+
+### Second-pass audit fixes — 17 October 2026
+19. Made paper fills atomic across order status, aggregate position, cash balance and execution row; added a rollback regression test.
+20. Added per-strategy position allocation and strategy-specific realized P&L, preventing a strategy from treating a manual/other-strategy position as its own and preventing manual sells from consuming strategy-allocated shares.
+21. Added a migration that backfills historical strategy-specific P&L and open allocations from strategy-tagged executions. The clean SQLite upgrade passes; populated staging-data validation remains required.
+22. Added fail-closed instrument/segment validation to order, strategy and backtest paths. Futures/options are rejected until verified derivative instrument data, tick-size normalization, lot sizing and contract risk controls are implemented; frontend segment choices reflect this.
+23. Corrected outdated documentation about the paper LIMIT matcher, kill switch, idempotency and instrument-master status.
+
+### Verification after second-pass fixes
+- Latest verified backend CI: **188 passed, 1 warning**, with clean SQLite Alembic upgrade: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030790984.
+- Frontend TypeScript passed; the latest Next.js build was inconsistent due to an internal Google-font module resolution failure, despite an earlier successful build on unchanged frontend code. Re-run latest build before merge.
+- No real broker orders were placed; live trading remains disabled.

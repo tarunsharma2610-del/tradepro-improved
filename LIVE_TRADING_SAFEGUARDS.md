@@ -3,9 +3,10 @@
 This document is the "reviewed design" the original spec calls for before
 live trading is ever built -- it is analysis and recommendations, not
 code, and nothing in this delivery places or can place a real order.
-`TRADING_MODE` stays a bootstrap environment variable, defaulting to
-`PAPER`, checked nowhere in the order-placement path except to log a
-warning -- see `app/core/config.py` and `app/main.py`.
+`TRADING_MODE` defaults to `PAPER`. The safety branch now fails closed in
+`ExecutionService.place_order` unless the normalized value is `PAPER`.
+This prevents the paper-only service from accepting orders in LIVE/unknown
+mode; it does not implement live execution. See `app/services/execution_service.py`.
 
 **This is engineering analysis based on publicly available regulatory
 information, not legal advice.** I'm not a lawyer or a compliance
@@ -111,15 +112,16 @@ not speculative:
 - **Automatic session logout at the end of each trading day** -- no
   continuous, indefinite API sessions.
 
-Three of these four aren't built into this platform today. None of them
-are optional extras -- they read as baseline requirements for any real
-order-placing API use, personal or platform-provided, independent of the
-registration question above.
+Three of these four are not fully implemented today: static IP whitelisting,
+mandatory 2FA on every API session, and automatic end-of-day session logout.
+OAuth exists, but these gaps still need direct broker/compliance verification
+before any real order-placing API use.
 
 ## Engineering safeguards (needed regardless of which category)
 
-None of this exists yet either. In rough order of "must exist before the
-first real order, no exceptions":
+Some foundations now exist, but the complete live-trading safeguards below
+are still incomplete. In rough order of "must exist before the first real
+order, no exceptions":
 
 - **A hard, code-level gate independent of any user-facing toggle.**
   `TRADING_MODE` already exists for this -- the requirement is that
@@ -132,28 +134,25 @@ first real order, no exceptions":
   instrument shown plainly. Paper trading can afford to be frictionless;
   this should not be.
 - **Server-side position and loss limits that don't trust the client.**
-  Max order size, max position size, max daily loss -- enforced in the
-  same place `ExecutionService` already enforces cash sufficiency, not
-  as a frontend warning that a direct API call could skip.
+  The current branch has a per-paper-order notional cap and a portfolio daily-loss
+  guard for automated entries, plus strategy-level loss checks. These do not
+  provide live max-position, total-exposure or all-order daily-loss controls.
 - **A kill switch reachable outside the normal trading flow.** A
   "disable all live trading for this account, right now" action that
   works even if the strategy/order UI itself is broken or the frontend
   hasn't loaded -- this matters exactly when things are already going
   wrong.
 - **Real reconciliation against the broker's own records, not the
-  platform's internal ledger.** Paper trading can trust
-  `position_math.apply_fill`'s output as ground truth because it *is*
-  the ground truth -- there's no external system to disagree with. Live
-  trading cannot: `Position` and `Order` rows would need to be checked
-  against `BrokerAdapter.get_positions()` / `get_order_status()`
-  regularly, and any mismatch should halt further live activity on that
-  account until resolved, not be silently trusted.
-- **Idempotent order submission.** A network retry, a double-click, or a
-  timeout-then-resend must never risk placing the same order twice with
-  real money. This needs a client-generated idempotency key the broker
-  (or this platform, pre-broker) can deduplicate on -- paper trading has
-  never needed this because a duplicate simulated fill only ever cost a
-  test run some accuracy.
+  platform's internal ledger.** A read-only status-check service and endpoint
+  now exist for a known LIVE order with a stored broker ID, but no live
+  submission service persists such IDs yet. Partial fills, cancellations,
+  timeouts/restarts, positions and holdings still require full reconciliation
+  and a halt-on-mismatch policy.
+- **Idempotent order submission.** A per-portfolio client idempotency key is
+  stored by the paper order API, and strategy fills reject a second entry while
+  that strategy owns a position. The frontend/strategy callers do not yet
+  consistently reuse stable retry keys, and broker-side idempotency plus
+  timeout/restart reconciliation remain mandatory before live use.
 - **A circuit breaker on broker API errors.** Repeated failures calling
   Upstox should pause live order placement for that account rather than
   retry into an unknown state -- this is a different failure mode than a
@@ -172,11 +171,11 @@ first real order, no exceptions":
 
 ## What this means for this codebase specifically
 
-`BrokerAdapter.place_order()` has existed since Phase 1 and has never
-been called -- `ExecutionService` only ever simulates a fill using
-`calculate_costs()` and `apply_fill()` against a real fetched price,
-never submits an order anywhere. That gap is deliberate, not an
-oversight to close casually. A live path would most naturally be a new
+`BrokerAdapter.place_order()` exists, but it is not wired into a complete
+live order lifecycle. `ExecutionService` still simulates paper fills using
+`calculate_costs()` and `apply_fill()` against a fetched price. The read-only
+broker-status endpoint is a foundation, not live order placement. This gap is
+deliberate, not an oversight to close casually. A live path would most naturally be a new
 service sitting alongside `ExecutionService` (not a modified version of
 it) that reuses the same `Order`/`Position`/`Execution` models and the
 same cost engine, but replaces "simulate a fill" with "submit to

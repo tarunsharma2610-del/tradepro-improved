@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import health
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.services.market_data_stream_manager import market_data_stream_manager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("trading_platform")
@@ -27,7 +28,10 @@ async def lifespan(app: FastAPI):
     logger.info(
         "Trading Platform API starting in %s mode (trading mode: %s)", settings.ENVIRONMENT, settings.TRADING_MODE
     )
-    yield
+    try:
+        yield
+    finally:
+        await market_data_stream_manager.shutdown()
 
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0-phase1", lifespan=lifespan)

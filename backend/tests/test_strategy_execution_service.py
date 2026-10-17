@@ -404,3 +404,29 @@ async def test_repeated_entry_signal_on_same_candle_reuses_one_idempotency_key(d
     assert len(orders) == 1
     assert orders[0].status == "REJECTED"
     assert orders[0].idempotency_key == f"strategy:{strategy.id}:BUY:2026-08-01T10:00:00"
+
+
+@pytest.mark.asyncio
+async def test_strategy_skips_order_when_candle_timestamp_is_missing(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    prices = [100.0 + i * 0.5 for i in range(20)]
+    malformed_timestamp_candles = BrokerCallResult(
+        ok=True,
+        data={
+            "data": {
+                "candles": [
+                    ["not-a-valid-timestamp", price, price, price, price, 10000, 0]
+                    for price in reversed(prices)
+                ]
+            }
+        },
+    )
+
+    with _mock_broker(malformed_timestamp_candles, "110.00"):
+        result = await StrategyExecutionService(db_session).evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+    assert "timestamp" in result.reason.lower()
+    assert db_session.query(Order).filter(Order.strategy_id == strategy.id).count() == 0

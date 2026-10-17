@@ -176,3 +176,87 @@ async def test_get_order_history_rejects_empty_or_oversized_tag_before_network(m
         await adapter.get_order_history("test-token", tag="x" * 41)
 
     fake_get.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_funds_and_margin_uses_official_v3_endpoint_and_shape_without_network(monkeypatch):
+    adapter = UpstoxAdapter()
+    captured = {}
+    payload = {
+        "status": "success",
+        "data": {
+            "available_to_trade": {
+                "total": 5379.03,
+                "cash_available_to_trade": {"total": 5117.34},
+                "pledge_available_to_trade": {"total": 261.69},
+            },
+            "unavailable_to_trade": {"cash_unavailable_to_trade": {"unsettled_profit": {"todays_profit": 0.0}}},
+        },
+    }
+
+    async def fake_get_v3(url, access_token, params=None):
+        captured.update(url=url, access_token=access_token, params=params)
+        return BrokerCallResult(ok=True, data=payload)
+
+    monkeypatch.setattr(adapter, "_get_v3", fake_get_v3)
+
+    result = await adapter.get_funds_and_margin("test-token")
+
+    assert result.ok
+    assert captured["url"] == "https://api.upstox.com/v3/user/get-funds-and-margin"
+    assert captured["access_token"] == "test-token"
+    assert captured["params"] is None
+    assert result.data["data"]["available_to_trade"]["total"] == 5379.03
+
+
+@pytest.mark.asyncio
+async def test_get_v3_sends_required_api_version_header_and_preserves_maintenance_error(monkeypatch):
+    adapter = UpstoxAdapter()
+    captured = {}
+    payload = {"status": "success", "data": {"available_to_trade": {"total": 1000.0}}}
+
+    class FakeResponse:
+        def __init__(self, status_code, text, body):
+            self.status_code = status_code
+            self.text = text
+            self._body = body
+
+        def json(self):
+            return self._body
+
+    class FakeAsyncClient:
+        def __init__(self, timeout):
+            captured["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, headers, params=None):
+            captured.update(url=url, headers=headers, params=params)
+            return FakeResponse(200, "ok", payload)
+
+    monkeypatch.setattr("app.brokers.upstox.adapter.httpx.AsyncClient", FakeAsyncClient)
+    result = await adapter._get_v3(
+        "https://api.upstox.com/v3/user/get-funds-and-margin", "test-token"
+    )
+
+    assert result.ok
+    assert captured["headers"]["Api-Version"] == "3.0"
+    assert captured["headers"]["Authorization"] == "Bearer test-token"
+    assert captured["headers"]["Accept"] == "application/json"
+
+    class MaintenanceAsyncClient(FakeAsyncClient):
+        async def get(self, url, headers, params=None):
+            captured.update(url=url, headers=headers, params=params)
+            return FakeResponse(423, "Funds service maintenance window", {"status": "error"})
+
+    monkeypatch.setattr("app.brokers.upstox.adapter.httpx.AsyncClient", MaintenanceAsyncClient)
+    error = await adapter._get_v3(
+        "https://api.upstox.com/v3/user/get-funds-and-margin", "test-token"
+    )
+    assert error.ok is False
+    assert "423" in error.error
+    assert "maintenance window" in error.error

@@ -19,6 +19,7 @@ from app.brokers.base import BrokerAdapter, BrokerCallResult, BrokerTokenResult
 AUTH_BASE = "https://api.upstox.com/v2"
 API_V2 = "https://api.upstox.com/v2"
 API_V3 = "https://api.upstox.com/v3"
+API_V3 = "https://api.upstox.com/v3"
 API_HFT_V2 = "https://api-hft.upstox.com/v2"
 API_HFT_V3 = "https://api-hft.upstox.com/v3"
 
@@ -160,6 +161,11 @@ class UpstoxAdapter(BrokerAdapter):
         return await self._get(f"{API_V2}/order/retrieve-all", access_token)
 
     # --- Positions & holdings ---
+    async def get_funds_and_margin(self, access_token: str) -> BrokerCallResult:
+        # Official Funds & Margin V3; unified available/unavailable-to-trade
+        # breakdown. This is read-only and is not yet used to approve orders.
+        return await self._get_v3(f"{API_V3}/user/get-funds-and-margin", access_token)
+
     async def get_positions(self, access_token: str) -> BrokerCallResult:
         # VERIFIED: upstox.com/developer/api-documentation/get-positions
         return await self._get(f"{API_V2}/portfolio/short-term-positions", access_token)
@@ -169,6 +175,21 @@ class UpstoxAdapter(BrokerAdapter):
         return await self._get(f"{API_V2}/portfolio/long-term-holdings", access_token)
 
     # --- internal helpers ---
+    async def _get_v3(
+        self, url: str, access_token: str, params: dict[str, Any] | None = None
+    ) -> BrokerCallResult:
+        headers = {
+            "Accept": "application/json",
+            "Api-Version": "3.0",
+            "Authorization": f"Bearer {access_token}",
+        }
+        async with httpx.AsyncClient(timeout=15) as client:
+            try:
+                resp = await client.get(url, headers=headers, params=params)
+            except httpx.HTTPError as exc:
+                return BrokerCallResult(ok=False, error=f"Network error contacting Upstox: {exc}")
+        return self._to_result(resp)
+
     async def _get(self, url: str, access_token: str, params: dict[str, Any] | None = None) -> BrokerCallResult:
         headers = {"Accept": "application/json", "Authorization": f"Bearer {access_token}"}
         async with httpx.AsyncClient(timeout=15) as client:

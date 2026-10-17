@@ -113,6 +113,11 @@ class BrokerAdapter(ABC):
 
     # --- Positions & holdings ---
     @abstractmethod
+    async def get_funds_and_margin(self, access_token: str) -> BrokerCallResult:
+        """Return the broker-reported funds and margin snapshot."""
+        ...
+
+    @abstractmethod
     async def get_positions(self, access_token: str) -> BrokerCallResult:
         ...
 

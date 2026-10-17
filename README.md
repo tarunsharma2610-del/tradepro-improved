@@ -49,7 +49,7 @@ The approved live-trading design is now in **Phase 1 implementation** (durable r
 
 The design requires durable idempotency keys, payload-hash conflict detection, a committed intent/outbox before broker I/O, explicit UNKNOWN state after ambiguous submissions, broker order/trade reconciliation, fill deduplication, risk rechecks and an account-level emergency stop. Upstox order tags are for correlation/history lookup; the project does not assume they guarantee broker-side idempotency.
 
-**Live broker submission and reconciliation are still not implemented.** Phase 1 adds only durable records/repository safeguards; the shared execution service still creates PAPER orders, live submission remains disabled, no production migration ran and no real orders were submitted. Do not set `TRADING_MODE=LIVE` or connect the paper path to the live broker method. Latest Phase 1 code CI: [run 39043386194](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043386194), 211 tests passed, 1 warning; clean SQLite `alembic upgrade head` passed.
+**Live broker submission and reconciliation are still not implemented.** Phase 1 adds only durable records/repository safeguards; the shared execution service still creates PAPER orders, live submission remains disabled, no production migration ran and no real orders were submitted. Do not set `TRADING_MODE=LIVE` or connect the paper path to the live broker method. Latest Phase 1 code CI: [run 39043589541](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043589541), 212 tests passed, 1 warning; clean SQLite `alembic upgrade head` passed.
 
 
 ## Project roadmap

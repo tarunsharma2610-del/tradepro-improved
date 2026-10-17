@@ -321,7 +321,6 @@ class ExecutionService:
                 raise OrderValidationError("Portfolio not found.")
 
             strategy_position = None
-            strategy_position_is_new = False
             if req.execution_reason == "STRATEGY":
                 strategy = (
                     self.db.query(Strategy)
@@ -351,7 +350,6 @@ class ExecutionService:
                         avg_price=0,
                         realized_pnl=0,
                     )
-                    strategy_position_is_new = True
 
                 if req.side == Side.BUY and strategy_position.quantity != 0:
                     return self._reject(order, "Strategy already owns an open position; duplicate entry rejected.")

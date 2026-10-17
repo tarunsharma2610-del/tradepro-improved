@@ -5,7 +5,8 @@ the entire control set is inactive until explicitly enabled. Exposure is a
 conservative mark-to-cost estimate (absolute quantity × average entry price),
 not broker margin or liquidation value.
 """
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 from decimal import Decimal
 
 from sqlalchemy import func
@@ -46,14 +47,15 @@ def check_portfolio_order(
     if portfolio.max_order_value is not None and order_value > Decimal(str(portfolio.max_order_value)):
         return f"Portfolio risk limit: estimated order value ₹{order_value:.2f} exceeds per-order cap ₹{portfolio.max_order_value}."
 
-    now = datetime.now(timezone.utc)
-    today = now.date()
+    today_ist = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    session_start = datetime.combine(today_ist, time.min, tzinfo=ZoneInfo("Asia/Kolkata")).astimezone(timezone.utc)
+    session_end = session_start + timedelta(days=1)
 
     if portfolio.max_daily_loss is not None:
         realized_pnl = (
             db.query(func.coalesce(func.sum(Execution.realized_pnl), 0))
             .filter(Execution.portfolio_id == portfolio.id)
-            .filter(func.date(Execution.executed_at) == today)
+            .filter(Execution.executed_at >= session_start, Execution.executed_at < session_end)
             .scalar()
         )
         realized_pnl = Decimal(str(realized_pnl))
@@ -65,7 +67,7 @@ def check_portfolio_order(
         orders_today = (
             db.query(func.count(Order.id))
             .filter(Order.portfolio_id == portfolio.id)
-            .filter(func.date(Order.placed_at) == today)
+            .filter(Order.placed_at >= session_start, Order.placed_at < session_end)
             .filter(Order.status != "CANCELLED")
             .scalar()
         )

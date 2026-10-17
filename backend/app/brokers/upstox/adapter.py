@@ -134,6 +134,27 @@ class UpstoxAdapter(BrokerAdapter):
         # VERIFIED: upstox.com/developer/api-documentation/get-trades-by-order
         return await self._get(f"{API_V2}/order/trades", access_token, params={"order_id": order_id})
 
+    async def get_order_history(
+        self, access_token: str, order_id: str | None = None, tag: str | None = None
+    ) -> BrokerCallResult:
+        # VERIFIED: upstox.com/developer/api-documentation/get-order-history
+        params: dict[str, str] = {}
+        if order_id is not None:
+            order_id = order_id.strip()
+            if not order_id:
+                raise ValueError("order_id must not be blank.")
+            params["order_id"] = order_id
+        if tag is not None:
+            tag = tag.strip()
+            if not tag:
+                raise ValueError("tag must not be blank.")
+            if len(tag) > 40:
+                raise ValueError("tag must be 40 characters or fewer.")
+            params["tag"] = tag
+        if not params:
+            raise ValueError("Provide order_id or tag to look up order history.")
+        return await self._get(f"{API_V2}/order/history", access_token, params=params)
+
     async def get_order_book(self, access_token: str) -> BrokerCallResult:
         # VERIFIED: upstox.com/developer/api-documentation/get-order-book
         return await self._get(f"{API_V2}/order/retrieve-all", access_token)

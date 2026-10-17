@@ -115,3 +115,62 @@ async def test_get_order_trades_uses_official_read_only_endpoint_without_network
     assert captured["access_token"] == "test-token"
     assert captured["params"] == {"order_id": "sandbox-test-id"}
     assert result.data["data"][0]["trade_id"] == "sandbox-trade-id"
+
+
+@pytest.mark.asyncio
+async def test_get_order_history_can_lookup_by_stable_tag_without_network(monkeypatch):
+    adapter = UpstoxAdapter()
+    captured = {}
+    response = {
+        "status": "success",
+        "data": [
+            {"order_id": "sandbox-test-id", "status": "complete", "tag": "tradepro-recovery-123"}
+        ],
+    }
+
+    async def fake_get(url, access_token, params=None):
+        captured.update(url=url, access_token=access_token, params=params)
+        return BrokerCallResult(ok=True, data=response)
+
+    monkeypatch.setattr(adapter, "_get", fake_get)
+
+    result = await adapter.get_order_history("test-token", tag=" tradepro-recovery-123 ")
+
+    assert result.ok
+    assert captured["url"] == "https://api.upstox.com/v2/order/history"
+    assert captured["access_token"] == "test-token"
+    assert captured["params"] == {"tag": "tradepro-recovery-123"}
+    assert result.data["data"][0]["order_id"] == "sandbox-test-id"
+
+
+@pytest.mark.asyncio
+async def test_get_order_history_can_lookup_by_order_id_without_network(monkeypatch):
+    adapter = UpstoxAdapter()
+    captured = {}
+
+    async def fake_get(url, access_token, params=None):
+        captured.update(url=url, access_token=access_token, params=params)
+        return BrokerCallResult(ok=True, data={"status": "success", "data": []})
+
+    monkeypatch.setattr(adapter, "_get", fake_get)
+
+    result = await adapter.get_order_history("test-token", order_id="broker-order-123")
+
+    assert result.ok
+    assert captured["params"] == {"order_id": "broker-order-123"}
+
+
+@pytest.mark.asyncio
+async def test_get_order_history_rejects_empty_or_oversized_tag_before_network(monkeypatch):
+    adapter = UpstoxAdapter()
+    fake_get = AsyncMock()
+    monkeypatch.setattr(adapter, "_get", fake_get)
+
+    with pytest.raises(ValueError, match="Provide order_id or tag"):
+        await adapter.get_order_history("test-token")
+    with pytest.raises(ValueError, match="tag must not be blank"):
+        await adapter.get_order_history("test-token", tag="   ")
+    with pytest.raises(ValueError, match="40 characters or fewer"):
+        await adapter.get_order_history("test-token", tag="x" * 41)
+
+    fake_get.assert_not_awaited()

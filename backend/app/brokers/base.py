@@ -101,6 +101,13 @@ class BrokerAdapter(ABC):
         ...
 
     @abstractmethod
+    async def get_order_history(
+        self, access_token: str, order_id: str | None = None, tag: str | None = None
+    ) -> BrokerCallResult:
+        """Read order status history by broker order ID and/or stable tag."""
+        ...
+
+    @abstractmethod
     async def get_order_book(self, access_token: str) -> BrokerCallResult:
         ...
 

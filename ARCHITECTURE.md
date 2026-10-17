@@ -285,4 +285,4 @@ Phase 1 now includes durable idempotency schema and repository safeguards, inclu
 
 
 ## Roadmap and delivery gates
-The ordered delivery sequence and evidence requirements are maintained in [ROADMAP.md](ROADMAP.md). This architecture document describes component boundaries; the roadmap is the source of truth for phase ordering and release gates. Live-order idempotency/reconciliation remains design-only until its review gate is accepted.
+The ordered delivery sequence and evidence requirements are maintained in [ROADMAP.md](ROADMAP.md). This architecture document describes component boundaries; the roadmap is the source of truth for phase ordering and release gates. The user-approved design is in Phase 1 storage/repository implementation; broker reconciliation and live submission remain unimplemented.

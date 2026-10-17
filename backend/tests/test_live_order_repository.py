@@ -509,3 +509,59 @@ def test_fill_ingestion_rejects_credential_fields_in_safe_details(db_session, ma
             safe_details={"authorization_header": "do-not-store"},
         )
     assert db_session.query(BrokerFillIdentity).count() == 0
+
+
+
+def test_fill_economic_mismatch_is_rejected_for_linked_intent(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    repository = LiveOrderRepository(db_session)
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
+
+    with pytest.raises(LiveOrderVersionConflict, match="instrument differs"):
+        _record_fill(repository, user, connection, intent, instrument_key="NSE_EQ|OTHER")
+    assert db_session.query(BrokerFillIdentity).count() == 0
+
+
+def test_fill_requires_intent_to_be_linked_to_broker_order_id(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+
+    with pytest.raises(LiveOrderVersionConflict, match="already linked"):
+        _record_fill(LiveOrderRepository(db_session), user, connection, intent)
+    assert db_session.query(BrokerFillIdentity).count() == 0
+
+
+def test_aggregate_partial_fills_cannot_exceed_intent_quantity(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    snapshot = {
+        "instrument_key": "NSE_EQ|TEST",
+        "side": "BUY",
+        "order_type": "LIMIT",
+        "quantity": 3,
+        "limit_price": "100.00",
+        "product": "D",
+    }
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection, snapshot=snapshot)
+    )
+    repository = LiveOrderRepository(db_session)
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
+    _record_fill(repository, user, connection, intent, broker_trade_id="trade-partial-1", quantity=2)
+
+    with pytest.raises(LiveOrderVersionConflict, match="aggregate fill quantity"):
+        _record_fill(repository, user, connection, intent, broker_trade_id="trade-partial-2", quantity=2)
+    assert db_session.query(BrokerFillIdentity).filter_by(intent_id=intent.id).count() == 1

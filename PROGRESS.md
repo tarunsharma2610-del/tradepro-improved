@@ -499,3 +499,7 @@ The verified code checkpoint for unmatched fill relinking remains [run 390533529
 
 ### Next single action
 Review official Upstox current-day trade/order-book response and history/window semantics; then add persistent, credential-safe reconciliation run summaries/manual-review visibility and crash-boundary tests. Keep live submission disabled and do not add any broker write method to the worker.
+
+
+### Durable run-summary documentation verification — 2026-10-17
+The eight-file documentation bundle commit [`091eab31cbc93b29b88118b61693c5fc4f763da2`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/091eab31cbc93b29b88118b61693c5fc4f763da2) updated `ROADMAP.md`, `ARCHITECTURE.md`, `AUDIT_REPORT.md`, `README.md`, `PROJECT_INSTRUCTIONS.md`, `LIVE_TRADING_SAFEGUARDS.md`, `READ_ONLY_RECONCILIATION_WORKER_DESIGN.md`, and `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`. Its exact workflow [39059521781](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39059521781) passed **340 tests, 1 warning**, plus SQLite/PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks. Earlier worker documentation commits also passed their own CI runs: roadmap 39058899956, worker design 39058934654, architecture 39058945827, audit 39058984056, README 39058992933, safeguards 39059003264 and instructions 39059012444. The current next implementation action is durable manual-review issue records with deduplication and safe detail fields; no UI/API exposure until separately reviewed.

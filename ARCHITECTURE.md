@@ -282,3 +282,7 @@ Reviewed design and implementation gates live in [`LIVE_ORDER_IDEMPOTENCY_RECONC
 - Add schema only through reviewed additive migrations, test clean SQLite and staging copies of the deployed DB engine, and never migrate production during implementation.
 
 No live submission service, idempotency schema or reconciliation worker is claimed implemented by this document. Keep live submission disabled until all design gates, sandbox tests, staging verification, operational controls and explicit user authorization are complete. Official Upstox order-history/order-book/trade endpoints and links are documented in `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`.
+
+
+## Roadmap and delivery gates
+The ordered delivery sequence and evidence requirements are maintained in [ROADMAP.md](ROADMAP.md). This architecture document describes component boundaries; the roadmap is the source of truth for phase ordering and release gates. Live-order idempotency/reconciliation remains design-only until its review gate is accepted.

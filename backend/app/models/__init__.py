@@ -14,6 +14,7 @@ from app.models.backtest_trade import BacktestTrade  # noqa: F401
 from app.models.news_feed_source import NewsFeedSource  # noqa: F401
 from app.models.news_item import NewsItem  # noqa: F401
 from app.models.telegram_link import TelegramBotState, TelegramLink  # noqa: F401
+from app.models.live_order_records import LiveOrderIntent, LiveOrderEvent, LiveOrderOutbox, BrokerFillIdentity  # noqa: F401
 
 __all__ = [
     "BaseModel",

@@ -599,3 +599,35 @@ async def test_fill_accounting_rolls_back_atomically_if_execution_persistence_fa
     assert db_session.query(Position).filter(Position.portfolio_id == p.id).count() == 0
     db_session.refresh(p)
     assert p.cash_balance == Decimal("100000")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unsupported_segment", [Segment.FUTURES, Segment.OPTIONS])
+async def test_derivative_order_is_rejected_until_contract_risk_support_exists(
+    db_session, portfolio, instrument, monkeypatch, unsupported_segment
+):
+    """The current instrument master is equity-only; never price an equity as F&O."""
+    from types import SimpleNamespace
+
+    from app.models.order import Order
+
+    user, p = portfolio
+    adapter = SimpleNamespace(get_quote=AsyncMock())
+    monkeypatch.setattr("app.services.execution_service.get_broker_adapter", lambda _name: adapter)
+    before = db_session.query(Order).filter(Order.portfolio_id == p.id).count()
+
+    with pytest.raises(OrderValidationError, match="Futures and options are not enabled"):
+        await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="MARKET",
+                segment=unsupported_segment,
+                quantity=1,
+            ),
+        )
+
+    adapter.get_quote.assert_not_awaited()
+    assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == before

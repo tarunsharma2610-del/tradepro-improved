@@ -40,7 +40,6 @@ _SUPPORTED_SEGMENTS = {
     "BSE_EQ", "BSE_INDEX", "BSE_FO", "BCD_FO",
     "MCX_FO", "NSE_COM",
 }
-_EQUITY_TYPES = {"EQ", "BE"}
 _OPTION_TYPES = {"CE", "PE"}
 _SEGMENT_EXCHANGE = {
     "NSE_EQ": "NSE", "NSE_INDEX": "NSE", "NSE_FO": "NSE", "NSE_COM": "NSE",

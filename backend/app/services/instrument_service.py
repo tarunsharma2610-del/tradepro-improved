@@ -42,6 +42,12 @@ _SUPPORTED_SEGMENTS = {
 }
 _EQUITY_TYPES = {"EQ", "BE"}
 _OPTION_TYPES = {"CE", "PE"}
+_SEGMENT_EXCHANGE = {
+    "NSE_EQ": "NSE", "NSE_INDEX": "NSE", "NSE_FO": "NSE", "NSE_COM": "NSE",
+    "NCD_FO": "NSE",
+    "BSE_EQ": "BSE", "BSE_INDEX": "BSE", "BSE_FO": "BSE", "BCD_FO": "BSE",
+    "MCX_FO": "MCX",
+}
 
 
 def _expiry_date(value) -> date | None:
@@ -58,7 +64,10 @@ def _expiry_date(value) -> date | None:
             except ValueError:
                 return None
     if isinstance(value, (int, float)) and value > 0:
-        return datetime.fromtimestamp(value / 1000, tz=timezone.utc).date()
+        try:
+            return datetime.fromtimestamp(value / 1000, tz=timezone.utc).date()
+        except (OverflowError, OSError, ValueError):
+            return None
     return None
 
 
@@ -67,7 +76,7 @@ def _normalize_record(rec: dict) -> dict | None:
     if not isinstance(rec, dict):
         return None
     segment = rec.get("segment")
-    if segment not in _SUPPORTED_SEGMENTS:
+    if not isinstance(segment, str) or segment not in _SUPPORTED_SEGMENTS:
         return None
 
     key = rec.get("instrument_key")
@@ -76,7 +85,7 @@ def _normalize_record(rec: dict) -> dict | None:
     raw_type = rec.get("instrument_type")
     if not all(isinstance(v, str) and v.strip() for v in (key, symbol, exchange, raw_type)):
         return None
-    if exchange not in {"NSE", "BSE", "MCX"}:
+    if exchange != _SEGMENT_EXCHANGE[segment]:
         return None
     if not key.startswith(f"{segment}|"):
         return None
@@ -113,6 +122,15 @@ def _normalize_record(rec: dict) -> dict | None:
         return None
     if strike_price is not None and (not strike_price.is_finite() or strike_price < 0):
         return None
+    if canonical_type in {"FUTURES", "OPTIONS"} and expiry is None:
+        return None
+    if canonical_type == "OPTIONS" and (
+        strike_price is None or strike_price <= 0 or option_type not in _OPTION_TYPES
+    ):
+        return None
+    name = rec.get("name")
+    if not isinstance(name, str) or not name.strip():
+        name = symbol
 
     return {
         "instrument_key": key,
@@ -120,7 +138,7 @@ def _normalize_record(rec: dict) -> dict | None:
         "segment": segment,
         "instrument_type": canonical_type,
         "trading_symbol": symbol,
-        "name": rec.get("name") or symbol,
+        "name": name,
         "lot_size": lot_size,
         "tick_size": tick_size,
         "expiry": expiry,

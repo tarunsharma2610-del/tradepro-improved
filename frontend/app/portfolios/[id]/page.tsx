@@ -19,6 +19,7 @@ type Order = {
   order_type: string;
   segment: string;
   quantity: number;
+  limit_price: string | null;
   status: string;
   rejection_reason: string | null;
   placed_at: string;
@@ -42,6 +43,7 @@ export default function PortfolioDetailPage() {
   const [quantity, setQuantity] = useState("1");
   const [limitPrice, setLimitPrice] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<Order | null>(null);
 
   const [question, setQuestion] = useState("");
@@ -104,6 +106,19 @@ export default function PortfolioDetailPage() {
       setError(err instanceof ApiError ? err.message : "Could not place the order.");
     } finally {
       setPlacing(false);
+    }
+  }
+
+  async function onCancelOrder(orderId: string) {
+    setError(null);
+    setCancellingOrder(orderId);
+    try {
+      await api.del<Order>(`/portfolios/${id}/orders/${orderId}`);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not cancel this order.");
+    } finally {
+      setCancellingOrder(null);
     }
   }
 
@@ -214,9 +229,9 @@ export default function PortfolioDetailPage() {
 
           {orderType === "LIMIT" && (
             <>
-              <Input label="Limit price (₹)" type="number" min={0} step="0.05" required value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} />
+              <Input label="Limit price (₹)" type="number" min={0.01} step="any" required value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} />
               <p className="-mt-2 text-xs text-caution">
-                Limit orders are accepted and stored as pending — this phase doesn't auto-fill them when price crosses yet.
+                Pending limit orders are checked by the worker during market hours (about every 5 minutes). They fill only when the quote crosses your limit; if a quote is unavailable, they remain pending.
               </p>
             </>
           )}
@@ -289,8 +304,10 @@ export default function PortfolioDetailPage() {
               <tr>
                 <th className="px-4 py-2 font-normal">Symbol</th>
                 <th className="px-4 py-2 font-normal">Side</th>
+                <th className="px-4 py-2 font-normal">Type / limit</th>
                 <th className="px-4 py-2 font-normal">Qty</th>
                 <th className="px-4 py-2 font-normal">Status</th>
+                <th className="px-4 py-2 font-normal">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -298,9 +315,17 @@ export default function PortfolioDetailPage() {
                 <tr key={o.id} className="border-b border-ink/5 last:border-0 dark:border-paper/5">
                   <td className="px-4 py-2 font-sans">{o.instrument.trading_symbol}</td>
                   <td className={`px-4 py-2 ${o.side === "SELL" ? "text-loss" : "text-gain"}`}>{o.side}</td>
+                  <td className="px-4 py-2">{o.order_type}{o.order_type === "LIMIT" && o.limit_price ? ` · ₹${Number(o.limit_price).toFixed(2)}` : ""}</td>
                   <td className="px-4 py-2">{o.quantity}</td>
                   <td className="px-4 py-2 font-sans" title={o.rejection_reason || undefined}>
                     {o.status}
+                  </td>
+                  <td className="px-4 py-2">
+                    {o.status === "PENDING" && (
+                      <Button variant="ghost" disabled={cancellingOrder === o.id} onClick={() => void onCancelOrder(o.id)}>
+                        {cancellingOrder === o.id ? "Cancelling…" : "Cancel"}
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

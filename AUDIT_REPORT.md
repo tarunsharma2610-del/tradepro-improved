@@ -68,3 +68,15 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Added `backend/tests/test_upstox_adapter.py`, a mocked test that verifies the endpoint URL and payload without making a network request or placing a real order.
 - Added `REQUIREMENTS_AUDIT.md` mapping requirements to existing code, gaps, and a prioritized change plan.
 - GitHub Actions run for commit `28ac7425f1f227e42c6107821cdc5ec011054526` completed successfully after the adapter URL correction and new mocked adapter test. Later documentation-only commits triggered additional runs; the code-bearing commit's backend test and migration workflow passed. The workflow does not verify live broker behavior.
+
+
+## Continuation update — 17 October 2026 (idempotency and order-size controls)
+
+- Added optional `idempotency_key` to the order API schema and service request. A unique constraint on `(portfolio_id, idempotency_key)` is backed by migration `202610170001_order_idempotency.py`. Same-key/same-payload retries return the prior order; key reuse with a different payload is rejected. Database uniqueness arbitrates concurrent inserts, but broker-side idempotency and timeout/restart reconciliation are still not implemented.
+- Added regression tests for repeated keys and mismatched payloads.
+- Added `MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL` (default 25%) as a configurable single-order cap in the existing paper execution service. LIMIT orders are checked against their limit price; MARKET orders use the fetched quote. Cash/holding rejection reasons are preserved by running those validations before the cap for market orders.
+- The notional cap is price × quantity in the current accounting model. Futures/options multipliers and verified lot sizes are not yet supported, so this must not be treated as a live risk limit.
+- Added regression tests for LIMIT and MARKET orders exceeding the cap.
+- Latest backend CI passed: **177 tests passed, 1 warning**; the full Alembic chain including `202610170001` upgraded a clean SQLite database successfully. [View run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39028572660).
+- Earlier order-value-cap CI runs failed because a pre-existing insufficient-cash test received the new cap's rejection message first. Adjusted validation order so insufficient cash remains the reported reason when applicable; the latest run passed after that correction.
+- No real broker orders were submitted. Live execution remains disabled and not ready.

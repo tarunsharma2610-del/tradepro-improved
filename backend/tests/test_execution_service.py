@@ -472,3 +472,42 @@ async def test_live_mode_fails_closed_before_creating_order(db_session, portfoli
         )
 
     assert db_session.query(Order).count() == before
+
+
+@pytest.mark.asyncio
+async def test_repeated_idempotency_key_returns_existing_order_without_duplicate(db_session, portfolio, instrument):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    request = ServicePlaceOrderRequest(
+        portfolio_id=p.id,
+        instrument_id=instrument.id,
+        side=Side.BUY,
+        order_type="LIMIT",
+        segment=Segment.EQUITY_DELIVERY,
+        quantity=2,
+        limit_price=Decimal("2400"),
+        idempotency_key="client-retry-001",
+    )
+    first = await service.place_order(user.id, request)
+    second = await service.place_order(user.id, request)
+
+    from app.models.order import Order
+    assert second.id == first.id
+    assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == 1
+
+
+@pytest.mark.asyncio
+async def test_idempotency_key_cannot_be_reused_for_different_payload(db_session, portfolio, instrument):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    await service.place_order(user.id, ServicePlaceOrderRequest(
+        portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+        order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=2,
+        limit_price=Decimal("2400"), idempotency_key="client-retry-002",
+    ))
+    with pytest.raises(OrderValidationError, match="different order request"):
+        await service.place_order(user.id, ServicePlaceOrderRequest(
+            portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+            order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=3,
+            limit_price=Decimal("2400"), idempotency_key="client-retry-002",
+        ))

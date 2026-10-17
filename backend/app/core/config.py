@@ -13,6 +13,7 @@ MASTER_ENCRYPTION_KEY below. See ARCHITECTURE.md, "Credential tiers".
 """
 
 import secrets
+from decimal import Decimal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -49,6 +50,11 @@ class Settings(BaseSettings):
     # in the backend environment and restart the API/worker to block new entries.
     # Strategy exits remain enabled so existing positions can still be closed.
     AUTOMATED_ENTRIES_ENABLED: bool = True
+
+    # Blocks new automated strategy entries when UTC-day realized portfolio losses
+    # reach this percentage of starting virtual capital. Set to 0 to disable.
+    # This is not a complete risk system and does not enable live trading.
+    PORTFOLIO_DAILY_LOSS_LIMIT_PCT: Decimal = Decimal("2.0")
 
     @property
     def is_live_trading_enabled(self) -> bool:

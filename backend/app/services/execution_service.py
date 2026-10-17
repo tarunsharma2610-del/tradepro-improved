@@ -124,6 +124,11 @@ class ExecutionService:
         )
 
         if req.order_type == "LIMIT":
+            # The limit is the worst price accepted by the paper matcher, so it
+            # is a conservative estimate of this order's notional value.
+            limit_reason = self._order_value_limit_reason(portfolio, req.quantity, req.limit_price)
+            if limit_reason:
+                return self._reject(order, limit_reason)
             # The worker fills this later if the market quote crosses the limit.
             saved, _created = self._persist_order(order)
             return saved
@@ -139,6 +144,10 @@ class ExecutionService:
         ltp = _extract_ltp(quote_result.data, instrument.instrument_key)
         if ltp is None:
             return self._reject(order, "Broker response didn't contain a readable last traded price.")
+
+        value_limit_reason = self._order_value_limit_reason(portfolio, req.quantity, ltp)
+        if value_limit_reason:
+            return self._reject(order, value_limit_reason)
 
         costs = calculate_costs(req.segment, req.side, req.quantity, ltp)
 
@@ -341,6 +350,20 @@ class ExecutionService:
 
         return order
 
+
+    @staticmethod
+    def _order_value_limit_reason(portfolio: Portfolio, quantity: int, price: Decimal | None) -> str | None:
+        limit_pct = Decimal(str(settings.MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL))
+        if limit_pct <= 0 or price is None:
+            return None
+        estimated_value = Decimal(quantity) * Decimal(str(price))
+        maximum_value = Decimal(str(portfolio.virtual_capital)) * limit_pct / Decimal("100")
+        if estimated_value > maximum_value:
+            return (
+                f"Maximum order value exceeded: estimated ₹{estimated_value} is above "
+                f"₹{maximum_value} ({limit_pct}% of starting virtual capital)."
+            )
+        return None
 
     def _persist_order(self, order: Order) -> tuple[Order, bool]:
         """Persist once; the database uniqueness constraint arbitrates concurrent retries."""

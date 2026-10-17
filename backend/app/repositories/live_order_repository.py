@@ -3,6 +3,8 @@
 This module persists intent/audit/outbox records only. It deliberately has no broker adapter
 dependency and cannot submit, cancel, or reconcile broker orders.
 """
+import hashlib
+import json
 import re
 import uuid
 from typing import Any
@@ -16,6 +18,26 @@ from app.models.portfolio import Portfolio
 
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+def canonical_request_hash(
+    *, user_id: uuid.UUID, portfolio_id: uuid.UUID, broker_connection_id: uuid.UUID,
+    order_snapshot: dict[str, Any],
+) -> str:
+    """Hash canonical JSON plus ownership/account scope; reject non-JSON or non-finite values."""
+    canonical = json.dumps(
+        {
+            "user_id": str(user_id),
+            "portfolio_id": str(portfolio_id),
+            "broker_connection_id": str(broker_connection_id),
+            "order": order_snapshot,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class IdempotencyConflict(ValueError):
@@ -48,7 +70,6 @@ class LiveOrderRepository:
         portfolio_id: uuid.UUID,
         broker_connection_id: uuid.UUID,
         client_idempotency_key: str,
-        request_hash: str,
         order_snapshot: dict[str, Any],
         correlation_id: str | None = None,
     ) -> tuple[LiveOrderIntent, bool]:
@@ -60,8 +81,6 @@ class LiveOrderRepository:
         key = client_idempotency_key.strip()
         if not key or len(key) > 128:
             raise ValueError("client_idempotency_key must contain 1-128 non-whitespace characters")
-        if not _SHA256.fullmatch(request_hash):
-            raise ValueError("request_hash must be a lowercase SHA-256 hex digest")
         if not isinstance(order_snapshot, dict) or not order_snapshot:
             raise ValueError("order_snapshot must be a non-empty normalized order object")
 
@@ -74,6 +93,12 @@ class LiveOrderRepository:
         if portfolio is None or connection is None:
             raise ValueError("portfolio and broker connection must belong to the authenticated user")
 
+        request_hash = canonical_request_hash(
+            user_id=user_id,
+            portfolio_id=portfolio_id,
+            broker_connection_id=broker_connection_id,
+            order_snapshot=order_snapshot,
+        )
         existing = self.get_by_idempotency_key(user_id, broker_connection_id, key)
         if existing is not None:
             if existing.request_hash != request_hash:

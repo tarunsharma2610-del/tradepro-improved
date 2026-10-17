@@ -18,7 +18,7 @@
 ## Priority order
 1. Add and test a fail-closed guard so `ExecutionService` refuses to accept orders when `TRADING_MODE` is not `PAPER`, until a separately reviewed live execution service exists.
 2. Add a regression test proving `TRADING_MODE=LIVE` fails before broker calls or database order creation.
-3. Client request idempotency is now added on this branch using a DB unique constraint; next add broker correlation and restart-safe reconciliation before any live execution.
+3. Client request idempotency is added. A read-only `BrokerReconciliationService` now records status for an explicitly LIVE order only when it has a persisted broker order ID; it validates ownership/session/response ID and never changes local accounting. Next add broker IDs from a separately reviewed live submission service, then restart-safe fill/cancel reconciliation.
 4. Add portfolio-level daily-loss, exposure, order-value, and order-frequency limits enforced server-side.
 5. Implement Upstox instrument master sync and streaming only after verifying the current official API documentation.
 6. Add broker order lifecycle handling (partial fills, timeout/unknown state, retries, cancellation, reconciliation) before any live order placement.
@@ -54,3 +54,10 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Updated `UpstoxAdapter.place_order` to use the current official `api-hft.upstox.com/v2/order/place` host; other adapter methods were not changed.
 - Added `backend/tests/test_upstox_adapter.py` using a mocked `_post` method. It verifies URL and payload only; no network request or real order is sent.
 - Awaiting CI on the latest branch commit before considering this adapter correction verified.
+
+
+## Read-only broker reconciliation foundation — safety branch
+- Migration `202610170002_broker_status_metadata.py` adds nullable `broker_order_id`, `broker_status`, `broker_status_checked_at`, and `broker_status_error` fields.
+- `BrokerReconciliationService.check_order_status(user_id, local_order_id)` checks ownership, requires `trading_mode=LIVE`, a persisted broker ID, and a usable Upstox token. It calls the existing adapter's order-status endpoint and verifies a returned order ID if present.
+- It records the broker's raw status only. It intentionally does **not** infer local fills/cancellations or mutate positions/cash. No API/worker calls it yet and no live orders can currently be submitted by this application.
+- Mocked tests cover a valid status response, PAPER order refusal, and mismatched broker order IDs. CI must pass before merge.

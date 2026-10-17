@@ -37,8 +37,8 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 ## Verification
 
-- **Backend:** Latest code CI passed — **194 tests passed, 1 warning**, including portfolio daily-loss and India-midnight boundary coverage; clean SQLite Alembic migration verification passed. [View latest backend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037826596).
-- **Frontend:** TypeScript check and Next.js production build passed. [View frontend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025402726).
+- **Backend:** Latest code CI passed — **196 tests passed, 1 warning**, including portfolio position-cap, daily-loss/India-midnight boundary and exact-instrument quote-key coverage; clean SQLite Alembic migration verification passed. [View latest backend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39039234333).
+- **Frontend:** TypeScript check and Next.js production build passed after portfolio risk and stream-control UI changes. [View frontend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093).
 - The tests use SQLite and mocked broker calls; they do not prove a live Upstox session or live market-order execution works.
 - The OAuth migration passed a clean SQLite upgrade in CI but has not been applied to your production database.
 - No live orders have been submitted.
@@ -58,10 +58,10 @@ This is a repository-source review, not a live-broker certification. The current
 
 | Requirement | Source evidence reviewed | Status | Next safe action |
 |---|---|---|---|
-| Paper orders must not submit real orders | `backend/app/services/execution_service.py` constructs orders with `trading_mode="PAPER"`; `backend/app/brokers/base.py` defines broker placement separately | Existing separation; add an explicit regression test that PAPER execution never calls adapter `place_order` | Inspect existing test coverage and add a mock assertion if absent |
+| Paper orders must not submit real orders | `backend/app/services/execution_service.py` constructs orders with `trading_mode="PAPER"`; `backend/app/brokers/base.py` defines broker placement separately; `test_paper_market_order_never_calls_broker_live_order_endpoint` | Regression test present and passing in backend CI | Preserve this boundary; never wire paper execution to adapter `place_order` |
 | Live order lifecycle and reconciliation | `ExecutionService.place_order` simulates accounting; adapter has `place_order`, `get_order_status`, `get_order_book`, `get_positions`, but no live orchestration service was found in reviewed files | Not implemented / not enabled | Design a separate live execution service only after idempotency, risk and broker rules are specified; no real orders in tests |
 | Duplicate submission protection | `Order` model has no visible broker idempotency key in reviewed fields; safeguards document calls this out | Gap | Define unique client intent key + persisted submission state and retry semantics before live execution |
-| Strategy-specific daily loss | `backend/app/services/risk_engine.py` checks strategy's realized loss today | Partial, strategy-level only | Preserve and test; clarify UTC calendar-day vs Indian exchange session day |
+| Strategy-specific daily loss | `backend/app/services/risk_engine.py` checks strategy realized loss; portfolio risk service checks portfolio realized loss | Strategy guard preserved; portfolio daily limit uses Asia/Kolkata calendar day with midnight-boundary regression test | Consider unrealized P&L/margin-aware limits separately; do not imply realized-only controls are full account risk |
 | Portfolio-wide loss / exposure / order-frequency caps | `backend/app/services/portfolio_risk_service.py`, Portfolio risk fields, owner-scoped settings API and portfolio UI | Implemented for paper/strategy order paths; configurable and disabled by default | Backend CI run [39037826596](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037826596) passed 194 tests and clean SQLite Alembic migration verification. Limits cover realized daily loss, estimated exposure including pending limits, per-order value, open/pending positions and orders/day. This is not a broker margin or mark-to-market risk model. |
 | Emergency stop for automated entries | `backend/app/core/config.py` exposes `AUTOMATED_ENTRIES_ENABLED`; `strategy_execution_service.py` blocks entries while preserving exits | Implemented for automated strategy entries, not manual paper orders or live orders | Add runbook/monitoring; do not describe as a global account-wide live kill switch |
 | Upstox instrument master | InstrumentService, InstrumentRepository batch upsert/reconciliation and live verification script | Real official master download and disposable SQLite sync passed | Live verification run [39037390129](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129) imported 123,930 active instruments across supported segments. Missing-key and expired derivative deactivation is snapshot-gated and atomic. This did not write to production. See [official Upstox Instruments docs](https://upstox.com/developer/api-documentation/instruments/).
@@ -72,9 +72,9 @@ This is a repository-source review, not a live-broker certification. The current
 
 ### Review sequence / acceptance gates
 
-1. Add or verify the paper/live adapter isolation regression test. It must fail if a PAPER order path calls `BrokerAdapter.place_order`.
-2. Add portfolio-level risk controls in a separate, testable risk module only after defining how realized and unrealized P&L, open orders, positions, and time-zone/session boundaries are calculated.
-3. Add instrument sync and streaming separately, against current official Upstox docs and mocked fixtures.
+1. Paper/live adapter-isolation regression coverage is implemented and passing. Keep the service boundary intact.
+2. Portfolio-wide configurable controls are implemented for daily realized loss, estimated exposure, per-order value, open/pending positions and daily order count. Keep strengthening threshold, boundary and concurrency coverage; these controls do not yet account for unrealized P&L or broker margin.
+3. Instrument sync and streaming are implemented with mocked tests; the real BOD master sync was validated only in disposable SQLite, while an authenticated live WebSocket session and production topology remain unverified.
 4. Treat idempotent live order submission, broker reconciliation, account-level emergency stop, static-IP/2FA/session requirements, authorization and applicable compliance review as mandatory blockers before any real-order feature.
 5. Run full backend/frontend CI after code changes; do not call CI triggered by docs a code regression test.
 

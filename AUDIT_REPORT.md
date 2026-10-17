@@ -122,3 +122,9 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - OAuth state binding/single-use, encrypted credentials, token expiry checks, an explicit PAPER-only order-service gate, equity-only instrument validation and read-only broker status checks already exist and are retained.
 - Live readiness gaps: no full live submission service; no all-order live pre-trade exposure controls/circuit breaker; no partial-fill local state; no trade-book/position/holding reconciliation; no restart/timeout-safe submission recovery; V3 place responses can contain multiple order IDs; V3 modify/cancel adapters are not wired.
 - Selected the smallest safe next change: require a non-empty matching `order_id` in the broker status response before storing the returned status. The official Upstox Get Order Details schema includes both `data.order_id` and `data.status`. This change is read-only and will use mocked tests only.
+
+
+## Broker status identity validation — 17 October 2026
+
+- Required a non-empty exact broker `order_id` match before saving a read-only broker status. Missing and mismatched IDs fail closed; local order status/fill state remains unchanged.
+- Latest CI: 195 backend tests passed, 1 warning, clean SQLite migration, frontend checks passed. Next foundation is a read-only per-order trade lookup for future partial-fill reconciliation; it will not be wired into accounting in that step.

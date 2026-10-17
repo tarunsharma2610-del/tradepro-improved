@@ -30,7 +30,8 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 - Latest idempotency code commit: `044243476acce70dccc02fcc0e9d61b98bcd62ff`. Its first backend run failed because the test assumed a ₹30,000 quote exceeded the default cap, but the strategy test fixture has ₹500,000 virtual capital (25% cap = ₹125,000). This was a test-setup defect, not a strategy-idempotency failure. The test was made deterministic by explicitly setting a 1% cap.
 - Latest verified code commit before Upstox endpoint update: `e9f8b7bb56f3300d1016195a773a26845d94d717` — [backend run 39032153163](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032153163) 193 passed, 1 warning, clean SQLite migration; [frontend run 39032153157](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032153157) passed.
 - Latest verified code commit before V3 modify/cancel methods: `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b` — [backend run 39032413141](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413141) 193 passed, 1 warning and clean migration; [frontend run 39032413150](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413150) passed.
-- Latest verified code commit: `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c` — [backend run 39032570839](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570839) **195 passed, 1 warning**, clean SQLite migration; [frontend run 39032570823](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570823) TypeScript and Next.js build passed.
+- Latest verified code commit before status-response hardening: `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c` — [backend run 39032570839](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570839) 195 passed, 1 warning and clean migration; [frontend run 39032570823](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570823) passed.
+- Latest verified code commit: `9f1e1300acc15f85d8abf1e29e73de34f6ca14f3` — [backend run 39032760874](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032760874) **195 passed, 1 warning**, clean SQLite migration; [frontend run 39032760872](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032760872) TypeScript and Next.js build passed.
 - These checks validate the listed commit only, not future changes. Re-check CI after each code commit.
 
 ## Completed and committed work (safety branch)
@@ -49,6 +50,7 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 12. Updated README, audit, handover, changelog and live-safeguards documentation across the branch.
 13. Audited current official Upstox order documentation and changed the isolated adapter's place-order endpoint from deprecated V2 to V3. The mocked test checks the V3 URL and V3 response shape (`data.order_ids`); no real broker request was sent.
 14. Added V3 `modify_order` and `cancel_order` methods to the `BrokerAdapter` interface and Upstox implementation, plus mocked endpoint tests. They are not wired to execution or UI and do not mutate local order/accounting state.
+15. Hardened read-only broker status checks to require a non-empty returned `order_id` that exactly matches the requested broker order before saving status. Added a missing-ID regression test; no local fill/accounting state is inferred.
 
 ## Known limitations / not complete
 
@@ -102,6 +104,10 @@ The `BrokerAdapter` interface and Upstox implementation now expose V3 modify and
 - `Order` has basic local states plus separate broker metadata, but no PARTIALLY_FILLED state. The reconciliation service is read-only and does not update local fills/cash/positions. There is no broker trade-book reconciliation or restart-safe live order submission lifecycle.
 - Upstox V3 place response returns `data.order_ids` (plural list). Modify/cancel V3 adapter methods now exist but are not wired. A future live service must define multi-ID/slicing behavior, idempotency, partial fills, timeout ambiguity, confirmed cancel/modify, and broker/local position reconciliation before any real order can be enabled.
 
-## Current active task: require exact order identity in broker status responses
+## Completed task: require exact order identity in broker status responses
 
-The official Upstox Get Order Details response documents both `data.order_id` and `data.status`. Current `BrokerReconciliationService` rejects a mismatched returned ID but accepts a status payload that omits the ID. Implement the smallest read-only hardening: require a non-empty matching `order_id` before storing the broker status, add a mocked regression test for missing ID, and ensure local order status/positions/cash remain unchanged. Keep LIVE execution disabled and make no real broker calls.
+The read-only reconciliation service now rejects a missing/blank `order_id` and a mismatched ID before recording broker status. The mocked regression test confirms local order status and fill timestamp remain unchanged. CI passed: backend 195 passed, 1 warning and migration check; frontend checks passed.
+
+## Current active task: add read-only per-order trade lookup for future partial-fill reconciliation
+
+Audit the existing adapter contract and current official Upstox Get Order Trades docs. Add a read-only `get_order_trades(access_token, order_id)` method to the interface and Upstox adapter using the documented endpoint, with mocked tests verifying URL, query and response shape. Do not call it from order execution yet, do not mutate local fills/cash/positions, and keep the PAPER-only gate.

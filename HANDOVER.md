@@ -129,3 +129,11 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Instrument validation is intentionally equity-only. Existing risk limits are not a complete live/manual order risk system; portfolio exposure controls and a broker-error circuit breaker are missing.
 - The local order model has no `PARTIALLY_FILLED` state. Reconciliation only records a read-only broker status and deliberately does not mutate fills, cash or positions. No trade-book reconciliation or restart-safe live submission lifecycle exists.
 - Upstox V3 place-order response uses `data.order_ids` (plural list); adapter modify/cancel methods exist but are not wired. See `PROGRESS.md` for the current focused task: require a matching broker order ID in status responses before saving status.
+
+
+## Broker status identity hardening completed — 17 October 2026
+
+- The official Upstox Get Order Details schema documents both `data.order_id` and `data.status`. The read-only reconciliation service now requires a non-empty returned ID and rejects mismatches before recording the status.
+- Added a regression test for a status response that omits the ID. It confirms local order status remains PENDING and no fill timestamp is written.
+- Latest verified code commit: `9f1e1300acc15f85d8abf1e29e73de34f6ca14f3`: backend **195 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
+- Next: add a read-only per-order trade lookup method for future partial-fill reconciliation. Do not wire it to local accounting yet. See `PROGRESS.md`.

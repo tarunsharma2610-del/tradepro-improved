@@ -96,3 +96,9 @@
 ### 17 October 2026 — live readiness audit
 - Documented current risk, OAuth/token, instrument validation and reconciliation state in the progress/handover/audit records. The paper-only order guard remains mandatory.
 - Selected a small read-only hardening task: reject broker status payloads without a matching order ID, using the documented Upstox Get Order Details response shape. No live order submission will be wired in this step.
+
+
+### 17 October 2026 — broker status identity validation
+- `BrokerReconciliationService` now requires the broker status payload to include a non-empty `order_id` matching the requested broker order before it stores the status.
+- Added mocked coverage for missing broker order ID. The service remains read-only and does not infer fills/cancellations.
+- CI on `9f1e1300acc15f85d8abf1e29e73de34f6ca14f3`: backend **195 passed, 1 warning**, migration check passed, frontend checks passed.

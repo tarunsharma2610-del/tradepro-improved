@@ -19,7 +19,7 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 | Upstox instrument sync / streaming | Missing | Adapter still has unimplemented instrument-sync and market-data-streaming work. Implement against current official API documentation and test with paper data. |
 | Frontend dashboard | Improved | Root page is now a dashboard with portfolio/cash summaries and links to portfolios, backtests, news, broker settings, and notifications. It no longer duplicates the broker settings page. |
 | Frontend typecheck/build | Verified in CI | TypeScript check and Next.js production build passed. The `lint` script runs TypeScript checking because the project uses Next.js 16, where the old `next lint` command is not available. |
-| Database migrations | Present; production migration path still needs validation | Existing Alembic chain plus the new OAuth state migration must be tested against a staging database before deployment. |
+| Database migrations | CI migration check passed on SQLite; staging still required | The full Alembic chain, including the OAuth nonce migration, successfully upgraded a clean SQLite database in CI. Verify against a backup and staging copy of the actual deployment database before production rollout. |
 
 ## Changes committed
 
@@ -36,10 +36,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 ## Verification
 
-- **Backend:** GitHub Actions run passed — **167 tests passed, 1 deprecation warning**, including the paper LIMIT matcher tests. [View backend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025763129).
+- **Backend:** GitHub Actions run passed — **167 tests passed, 1 deprecation warning**, including the paper LIMIT matcher tests. [View backend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025837191).
 - **Frontend:** TypeScript check and Next.js production build passed. [View frontend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025402726).
 - The tests use SQLite and mocked broker calls; they do not prove a live Upstox session or live market-order execution works.
-- The OAuth migration has been added to the repository but has not been applied to your production database.
+- The OAuth migration passed a clean SQLite upgrade in CI but has not been applied to your production database.
 - No live orders have been submitted.
 
 ## Remaining high-priority work

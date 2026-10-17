@@ -32,7 +32,6 @@ from app.models.position import Position
 from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.order_repository import OrderRepository
 from app.repositories.portfolio_repository import PortfolioRepository
-from app.repositories.position_repository import PositionRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.position_math import apply_fill
 from app.services.transaction_costs import Segment, Side, calculate_costs
@@ -63,7 +62,6 @@ class ExecutionService:
         self.db = db
         self.portfolios = PortfolioRepository(db)
         self.orders = OrderRepository(db)
-        self.positions = PositionRepository(db)
         self.instruments = InstrumentRepository(db)
         self.broker_credentials = BrokerCredentialsService(db)
 
@@ -151,14 +149,6 @@ class ExecutionService:
             required_cash = costs.gross_value + costs.total_charges
             if Decimal(str(portfolio.cash_balance)) < required_cash:
                 return self._reject(order, f"Insufficient virtual capital: need {required_cash}, have {portfolio.cash_balance}.")
-
-        if req.side == Side.SELL and req.segment == Segment.EQUITY_DELIVERY:
-            position = self.positions.get_or_create(portfolio.id, instrument.id)
-            if position.quantity < req.quantity:
-                return self._reject(
-                    order,
-                    f"Insufficient holdings for a delivery sell: hold {position.quantity}, tried to sell {req.quantity}.",
-                )
 
         value_limit_reason = self._order_value_limit_reason(portfolio, req.quantity, ltp)
         if value_limit_reason:
@@ -304,52 +294,125 @@ class ExecutionService:
         return saved
 
     def _fill(self, order: Order, portfolio: Portfolio, instrument: Instrument, req: PlaceOrderRequest, ltp: Decimal, costs) -> Order:
+        """Apply one paper fill in a single database transaction.
+
+        Lock the portfolio before rechecking funds/holdings so concurrent
+        orders cannot spend the same cash or sell the same delivery shares.
+        The order status, position, cash balance and execution row commit
+        together; a failure rolls the whole fill back.
+        """
         now = datetime.now(timezone.utc)
-        order.status = "FILLED"
-        order.filled_at = now
-        order, created = self._persist_order(order)
-        if not created:
+        try:
+            locked_portfolio = (
+                self.db.query(Portfolio)
+                .filter(Portfolio.id == portfolio.id)
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            if locked_portfolio is None:
+                raise OrderValidationError("Portfolio not found.")
+
+            if req.side == Side.BUY:
+                required_cash = costs.gross_value + costs.total_charges
+                if Decimal(str(locked_portfolio.cash_balance)) < required_cash:
+                    return self._reject(
+                        order,
+                        f"Insufficient virtual capital: need {required_cash}, have {locked_portfolio.cash_balance}.",
+                    )
+
+            position = (
+                self.db.query(Position)
+                .filter(
+                    Position.portfolio_id == locked_portfolio.id,
+                    Position.instrument_id == instrument.id,
+                )
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            if req.side == Side.SELL and req.segment == Segment.EQUITY_DELIVERY:
+                held_quantity = position.quantity if position is not None else 0
+                if held_quantity < req.quantity:
+                    return self._reject(
+                        order,
+                        f"Insufficient holdings for a delivery sell: hold {held_quantity}, tried to sell {req.quantity}.",
+                    )
+
+            if position is None:
+                position = Position(
+                    portfolio_id=locked_portfolio.id,
+                    instrument_id=instrument.id,
+                    quantity=0,
+                    avg_price=0,
+                    realized_pnl=0,
+                )
+                self.db.add(position)
+
+            order.status = "FILLED"
+            order.filled_at = now
+            self.db.add(order)
+            try:
+                # Flush only the order row first. Do not commit until every
+                # related accounting row is ready.
+                self.db.flush()
+            except IntegrityError:
+                self.db.rollback()
+                if not order.idempotency_key:
+                    raise
+                existing = (
+                    self.db.query(Order)
+                    .filter(
+                        Order.portfolio_id == order.portfolio_id,
+                        Order.idempotency_key == order.idempotency_key,
+                    )
+                    .first()
+                )
+                if existing is None:
+                    raise
+                self._ensure_same_order_payload(existing, order)
+                return existing
+
+            update = apply_fill(
+                position_quantity=position.quantity,
+                position_avg_price=Decimal(str(position.avg_price)),
+                side=req.side,
+                fill_quantity=req.quantity,
+                fill_price=ltp,
+            )
+            position.quantity = update.new_quantity
+            position.avg_price = update.new_avg_price
+            position.realized_pnl = Decimal(str(position.realized_pnl)) + update.realized_pnl
+
+            locked_portfolio.cash_balance = (
+                Decimal(str(locked_portfolio.cash_balance)) + costs.net_cash_impact
+            )
+
+            execution = Execution(
+                order_id=order.id,
+                portfolio_id=locked_portfolio.id,
+                instrument_id=instrument.id,
+                side=req.side.value,
+                quantity=req.quantity,
+                price=ltp,
+                gross_value=costs.gross_value,
+                brokerage=costs.brokerage,
+                stt=costs.stt,
+                exchange_charges=costs.exchange_charges,
+                sebi_charges=costs.sebi_charges,
+                stamp_duty=costs.stamp_duty,
+                gst=costs.gst,
+                total_charges=costs.total_charges,
+                realized_pnl=update.realized_pnl,
+                executed_at=now,
+            )
+            self.db.add_all([position, locked_portfolio, execution])
+            self.db.commit()
+            self.db.refresh(order)
             return order
-
-        position = self.positions.get_or_create(portfolio.id, instrument.id)
-        update = apply_fill(
-            position_quantity=position.quantity,
-            position_avg_price=Decimal(str(position.avg_price)),
-            side=req.side,
-            fill_quantity=req.quantity,
-            fill_price=ltp,
-        )
-        position.quantity = update.new_quantity
-        position.avg_price = update.new_avg_price
-        position.realized_pnl = Decimal(str(position.realized_pnl)) + update.realized_pnl
-        self.positions.save(position)
-
-        portfolio.cash_balance = Decimal(str(portfolio.cash_balance)) + costs.net_cash_impact
-        self.portfolios.save(portfolio)
-
-        execution = Execution(
-            order_id=order.id,
-            portfolio_id=portfolio.id,
-            instrument_id=instrument.id,
-            side=req.side.value,
-            quantity=req.quantity,
-            price=ltp,
-            gross_value=costs.gross_value,
-            brokerage=costs.brokerage,
-            stt=costs.stt,
-            exchange_charges=costs.exchange_charges,
-            sebi_charges=costs.sebi_charges,
-            stamp_duty=costs.stamp_duty,
-            gst=costs.gst,
-            total_charges=costs.total_charges,
-            realized_pnl=update.realized_pnl,
-            executed_at=now,
-        )
-        self.db.add(execution)
-        self.db.commit()
-
-        return order
-
+        except Exception:
+            self.db.rollback()
+            raise
 
     @staticmethod
     def _order_value_limit_reason(portfolio: Portfolio, quantity: int, price: Decimal | None) -> str | None:

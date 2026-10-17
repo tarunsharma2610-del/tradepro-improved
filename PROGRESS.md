@@ -283,3 +283,20 @@ Check workflow 39047545900. If the PostgreSQL service starts, resolve any concur
 - Automated Phase 1 concurrency and reversible migration checks are complete for SQLite and PostgreSQL 16.
 - Gate 1 remains open until schema/constraints are verified on a backup-restored staging copy of the actual deployment database engine, and broader crash/rollback/contention checks are reviewed.
 - Next: verify CI for each documentation commit; then confirm the deployment database engine and safe staging access before claiming staging verification. Do not start broker submission. Gate 2 is reconciliation-only and must remain unable to submit orders.
+
+
+## Documentation CI verification — all current Phase 1 updates green — 2026-10-17
+
+Each updated Markdown file's exact commit has its own successful GitHub Actions run:
+- ROADMAP.md commit `9d661313adcb9bb75e558a257ab4569979e14652`: [run 39048272612](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048272612) — success.
+- AUDIT_REPORT.md commit `63baafc4822e032e65ea871fea0b0c52fb3a8998`: [run 39048279286](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048279286) — success.
+- LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md commit `849e4a4fcf18bf255b402cc00b156158188049db`: [run 39048287427](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048287427) — success.
+- ARCHITECTURE.md commit `0285b2bd8890bf26feba690b3159702077d5c18c`: [run 39048295538](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048295538) — success.
+- README.md commit `889312894a57cb1b9eb2705e5e8317be1059cad4`: [run 39048303900](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048303900) — success.
+- PROJECT_INSTRUCTIONS.md commit `a347a1e68b5db844df7f83d8677f79c03ff37844`: [run 39048311971](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048311971) — success.
+- PROGRESS.md commit `a6deeafe078915955725953b2bc9f21d0f48e0bf`: [run 39048329434](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048329434) — success.
+- LIVE_TRADING_SAFEGUARDS.md commit `437fb1446ecddfed72c6e9773d0d1f95258f7ba2`: [run 39048342181](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048342181) — success.
+
+The latest verified application/test checkpoint remains `dd36b48a92057ad50618f6f9941f908832c9cea3` with [run 39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046): 215 passed, 1 warning, plus SQLite/PostgreSQL 16 reversible migration checks. This is separate from the documentation commits' own green CI runs.
+
+Actual deployment database engine and access to a backup-restored staging copy are not established by repository CI. Gate 1 remains open until that environment is verified. No live broker submission, production migration or reconciliation worker was introduced.

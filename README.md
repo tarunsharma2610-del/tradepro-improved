@@ -100,3 +100,7 @@ Added a durable one-per-broker-connection lease with atomic claim, expiry/reclai
 
 ### Durable reconciliation run summaries
 Every explicitly invoked read-only worker pass now creates a `live_reconciliation_runs` record after acquiring its lease. It stores timestamps, terminal status, a safe error category and count-only summary; raw broker responses, credentials and exception text are excluded. Migration `202610170004` and tests passed in [run 39059271937](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39059271937): 340 passed, 1 warning, with SQLite/PostgreSQL 16 reversible migration checks. Stale `RUNNING` recovery and operator-facing manual-review records are not implemented yet.
+
+
+### Durable manual-review queue foundation
+The worker now persists deduplicated `live_reconciliation_issues` records for malformed broker rows, unmatched/ambiguous orders, trade conflicts, fill-link conflicts and status-transition conflicts. Issue details are allowlisted, credential-key-checked and limited to safe reason codes/normalized identifiers; repeat occurrences increment a counter and reopen the issue. Migration `202610170005` and tests passed in [run 39059749652](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39059749652): 342 passed, 1 warning. The queue currently exists only in the database—no UI/API resolution workflow yet. This newer checkpoint supersedes older dated README statements saying the worker did not exist.

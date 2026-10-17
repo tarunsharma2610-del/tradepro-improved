@@ -308,8 +308,9 @@ def _apply_reconciliation_transition(
         raise LiveOrderVersionConflict("intent is already linked to a different broker order ID")
     if intent.state == state and (broker_order_id is None or intent.broker_order_id == broker_order_id):
         return intent, False
-    if state not in _ALLOWED_RECONCILIATION_TRANSITIONS.get(intent.state, set()):
-        raise InvalidLiveOrderTransition(f"transition {intent.state} -> {state} is not allowed")
+    previous_state = intent.state
+    if state != previous_state and state not in _ALLOWED_RECONCILIATION_TRANSITIONS.get(previous_state, set()):
+        raise InvalidLiveOrderTransition(f"transition {previous_state} -> {state} is not allowed")
 
     values: dict[str, Any] = {
         "state": state,

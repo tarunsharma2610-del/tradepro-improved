@@ -5,7 +5,6 @@ dependency and cannot submit, cancel, or reconcile broker orders.
 """
 import hashlib
 import json
-import re
 import uuid
 from typing import Any
 
@@ -15,9 +14,6 @@ from sqlalchemy.orm import Session
 from app.models.broker_connection import BrokerConnection
 from app.models.live_order_records import LiveOrderEvent, LiveOrderIntent, LiveOrderOutbox
 from app.models.portfolio import Portfolio
-
-
-_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def canonical_request_hash(

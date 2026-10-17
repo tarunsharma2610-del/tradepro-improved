@@ -310,3 +310,7 @@ The ordered delivery sequence and evidence requirements are maintained in [ROADM
 
 ## Durable manual-review issue records — 2026-10-17
 `LiveReconciliationIssue` stores owner/connection scope, optional run/intent links, a whitelisted issue type, a SHA-256 fingerprint, broker order/trade IDs when safely normalized, `OPEN`/`RESOLVED` state, safe details, first/last-seen timestamps and occurrence count. The repository validates ownership, bounds the JSON details, rejects credential-like keys, deduplicates repeated occurrences per broker connection and reopens an issue if it recurs after resolution. The worker records issues instead of persisting raw broker rows or exception strings. Migration `202610170005` is CI-tested on SQLite/PostgreSQL 16. This is database persistence only: no operator UI/API or resolution endpoint exists yet.
+
+
+## Owner-scoped reconciliation read API — 2026-10-17
+`GET /api/v1/reconciliation/runs` and `GET /api/v1/reconciliation/issues` are authenticated read-only endpoints. They use `get_current_user`, filter every query by the authenticated `user_id`, support optional connection/status/type filters, and cap responses at 100 rows. Pydantic schemas expose only safe run counters and issue metadata/details, not raw broker records or credentials. Cross-user and unauthenticated route tests passed in [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705), 345 passed, 1 warning. There is no API to trigger reconciliation or resolve issues; those are separate reviewed changes.

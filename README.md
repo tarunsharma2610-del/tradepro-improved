@@ -104,3 +104,7 @@ Every explicitly invoked read-only worker pass now creates a `live_reconciliatio
 
 ### Durable manual-review queue foundation
 The worker now persists deduplicated `live_reconciliation_issues` records for malformed broker rows, unmatched/ambiguous orders, trade conflicts, fill-link conflicts and status-transition conflicts. Issue details are allowlisted, credential-key-checked and limited to safe reason codes/normalized identifiers; repeat occurrences increment a counter and reopen the issue. Migration `202610170005` and tests passed in [run 39059749652](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39059749652): 342 passed, 1 warning. The queue currently exists only in the database—no UI/API resolution workflow yet. This newer checkpoint supersedes older dated README statements saying the worker did not exist.
+
+
+### Read-only reconciliation review endpoints
+Authenticated users can list their own safe run summaries at `GET /api/v1/reconciliation/runs` and manual-review issues at `GET /api/v1/reconciliation/issues`. Both routes are owner-scoped, support bounded filters and return sanitized schema fields only. Cross-user/auth tests passed in [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705): 345 passed, 1 warning, plus SQLite/PostgreSQL 16 migration checks. These endpoints do not trigger a worker or mutate issues/orders; frontend display and a separately reviewed resolution workflow are not implemented.

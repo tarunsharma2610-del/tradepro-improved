@@ -28,6 +28,10 @@ class BrokerConnection(BaseModel):
     api_secret_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     redirect_uri: Mapped[str] = mapped_column(String(500), nullable=False)
 
+    # One-time OAuth state nonce digest; the raw nonce exists only inside the signed state token.
+    oauth_state_nonce_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    oauth_state_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     access_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     access_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

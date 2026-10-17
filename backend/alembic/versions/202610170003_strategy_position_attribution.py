@@ -139,14 +139,20 @@ def upgrade() -> None:
         ).first()
         if strategy is None:
             continue
+        # Strategies in this app are long-only. Older code could mistakenly
+        # tag a sale of a manual position to a strategy, producing a negative
+        # strategy-level quantity. Do not revive that accidental allocation;
+        # keep the aggregate portfolio position intact for manual review.
+        allocation_quantity = state["quantity"] if state["quantity"] > 0 else 0
+        allocation_avg_price = state["avg_price"] if allocation_quantity > 0 else Decimal("0")
         bind.execute(
             strategy_positions.insert().values(
                 id=uuid.uuid4(),
                 strategy_id=strategy_id,
                 portfolio_id=strategy.portfolio_id,
                 instrument_id=strategy.instrument_id,
-                quantity=state["quantity"],
-                avg_price=state["avg_price"],
+                quantity=allocation_quantity,
+                avg_price=allocation_avg_price,
                 realized_pnl=state["realized_pnl"],
                 created_at=now,
                 updated_at=now,

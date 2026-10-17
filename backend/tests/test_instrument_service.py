@@ -54,6 +54,7 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
         _record("NSE_EQ", "NSE", "EQ", "NSE_EQ|INE002A01018", "RELIANCE"),
         _record("BSE_EQ", "BSE", "EQ", "BSE_EQ|INE002A01018", "RELIANCE"),
         _record("NSE_INDEX", "NSE", "INDEX", "NSE_INDEX|Nifty 50", "NIFTY"),
+        _record("BSE_INDEX", "BSE", "INDEX", "BSE_INDEX|SENSEX", "SENSEX"),
         _record(
             "NSE_FO", "NSE", "FUT", "NSE_FO|FUT123", "NIFTY FUT",
             expiry=1798675200000, underlying_symbol="NIFTY",
@@ -63,7 +64,15 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
             expiry=1798675200000, strike_price=25000,
             underlying_symbol="NIFTY",
         ),
-        _record("MCX_FO", "MCX", "FUT", "MCX_FO|GOLD123", "GOLD FUT"),
+        _record(
+            "BSE_FO", "BSE", "PE", "BSE_FO|SENSEXOPT", "SENSEX 80000 PE",
+            expiry=1798675200000, strike_price=80000,
+            underlying_symbol="SENSEX",
+        ),
+        _record("NCD_FO", "NSE", "FUT", "NCD_FO|NCD123", "BOND FUT", expiry=1798675200000),
+        _record("BCD_FO", "BSE", "FUT", "BCD_FO|BCD123", "BOND BSE FUT", expiry=1798675200000),
+        _record("NSE_COM", "NSE", "FUT", "NSE_COM|COM123", "COM FUT", expiry=1798675200000),
+        _record("MCX_FO", "MCX", "FUT", "MCX_FO|GOLD123", "GOLD FUT", expiry=1798675200000),
         # Unsupported instrument types and malformed segment/key combinations are skipped.
         _record("NSE_EQ", "NSE", "UNKNOWN", "NSE_EQ|UNKNOWN", "UNKNOWN"),
         _record("NSE_FO", "NSE", "FUT", "BSE_FO|WRONG", "WRONG"),
@@ -82,17 +91,18 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
     ok, message = await InstrumentService(db_session).sync_from_upstox()
 
     assert ok is True
-    assert message == "Synced 6 instruments across supported NSE, BSE and MCX segments."
+    assert message == "Synced 11 instruments across supported NSE, BSE and MCX segments."
     assert fake_client.requested_url == (
         "https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz"
     )
     assert fake_client.requested_kwargs == {"follow_redirects": True}
 
     repo = InstrumentRepository(db_session)
-    assert repo.count() == 6
+    assert repo.count() == 11
     assert repo.get_by_key("NSE_EQ|INE002A01018").instrument_type == "EQUITY"
     assert repo.get_by_key("BSE_EQ|INE002A01018").exchange == "BSE"
     assert repo.get_by_key("NSE_INDEX|Nifty 50").instrument_type == "INDEX"
+    assert repo.get_by_key("BSE_INDEX|SENSEX").instrument_type == "INDEX"
 
     future = repo.get_by_key("NSE_FO|FUT123")
     assert future.instrument_type == "FUTURES"
@@ -107,6 +117,15 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
     assert option_response.expiry == date(2026, 12, 31)
     assert option_response.strike_price == 25000
     assert option_response.option_type == "CE"
+
+    bse_option = repo.get_by_key("BSE_FO|SENSEXOPT")
+    assert bse_option.exchange == "BSE"
+    assert bse_option.instrument_type == "OPTIONS"
+    assert bse_option.option_type == "PE"
+
+    assert repo.get_by_key("NCD_FO|NCD123").exchange == "NSE"
+    assert repo.get_by_key("BCD_FO|BCD123").exchange == "BSE"
+    assert repo.get_by_key("NSE_COM|COM123").segment == "NSE_COM"
 
     commodity_future = repo.get_by_key("MCX_FO|GOLD123")
     assert commodity_future.exchange == "MCX"

@@ -19,9 +19,10 @@ from sqlalchemy.orm import Session
 
 from app.brokers.registry import get_broker_adapter
 from app.core.config import settings
+from app.models.execution import Execution
 from app.models.strategy import Strategy
+from app.models.strategy_position import StrategyPosition
 from app.repositories.portfolio_repository import PortfolioRepository
-from app.repositories.position_repository import PositionRepository
 from app.services import risk_engine
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.candle_parsing import parse_candles
@@ -51,7 +52,6 @@ class StrategyExecutionService:
     def __init__(self, db: Session):
         self.db = db
         self.portfolios = PortfolioRepository(db)
-        self.positions = PositionRepository(db)
         self.broker_credentials = BrokerCredentialsService(db)
         self.execution = ExecutionService(db)
         self.notifications = NotificationService(db)
@@ -79,8 +79,13 @@ class StrategyExecutionService:
         if candles is None:
             return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Could not fetch candle data.")
 
-        position = self.positions.get_or_create(portfolio.id, strategy.instrument_id)
-        in_position = position.quantity != 0
+        position = (
+            self.db.query(StrategyPosition)
+            .filter(StrategyPosition.strategy_id == strategy.id)
+            .first()
+        )
+        position_quantity = position.quantity if position is not None else 0
+        in_position = position_quantity != 0
 
         weights = IndicatorWeights(
             rsi=Decimal(str(strategy.rsi_weight)),
@@ -106,14 +111,14 @@ class StrategyExecutionService:
         # for a stop check).
         current_price = candles[-1].close
         if in_position and signal == Signal.HOLD:
-            stop_result = self._check_trailing_stop(strategy, position.quantity, current_price)
+            stop_result = self._check_trailing_stop(strategy, position_quantity, current_price)
             if stop_result is not None:
                 signal = Signal.EXIT
 
         if signal == Signal.ENTER_LONG:
             return await self._enter(strategy, portfolio, current_price, score.composite_score)
         if signal == Signal.EXIT:
-            return await self._exit(strategy, portfolio, position.quantity, score.composite_score)
+            return await self._exit(strategy, portfolio, position_quantity, score.composite_score)
 
         self.db.add(strategy)
         self.db.commit()
@@ -150,7 +155,8 @@ class StrategyExecutionService:
         )
 
         if order.status == "FILLED":
-            strategy.current_watermark = order.limit_price or current_price  # entry price starts the trailing-stop watermark
+            fill = self.db.query(Execution).filter(Execution.order_id == order.id).order_by(Execution.executed_at.desc()).first()
+            strategy.current_watermark = Decimal(str(fill.price)) if fill is not None else current_price
         self.db.add(strategy)
         self.db.commit()
 

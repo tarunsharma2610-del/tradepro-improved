@@ -18,6 +18,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -77,6 +78,8 @@ class ExecutionService:
 
         # Validate at the service boundary as well as the HTTP schema: strategy
         # automation and future internal callers do not pass through Pydantic.
+        if req.execution_reason == "STRATEGY" and req.strategy_id is None:
+            raise OrderValidationError("Strategy orders require a strategy_id.")
         if req.quantity <= 0:
             raise OrderValidationError("Quantity must be greater than zero.")
         if req.order_type not in {"MARKET", "LIMIT"}:
@@ -300,13 +303,7 @@ class ExecutionService:
         return saved
 
     def _fill(self, order: Order, portfolio: Portfolio, instrument: Instrument, req: PlaceOrderRequest, ltp: Decimal, costs) -> Order:
-        """Apply one paper fill in a single database transaction.
-
-        Lock the portfolio before rechecking funds/holdings so concurrent
-        orders cannot spend the same cash or sell the same delivery shares.
-        The order status, position, cash balance and execution row commit
-        together; a failure rolls the whole fill back.
-        """
+        """Apply one paper fill atomically, protecting cash and allocated shares."""
         now = datetime.now(timezone.utc)
         try:
             locked_portfolio = (
@@ -318,6 +315,49 @@ class ExecutionService:
             )
             if locked_portfolio is None:
                 raise OrderValidationError("Portfolio not found.")
+
+            strategy_position = None
+            strategy_position_is_new = False
+            if req.execution_reason == "STRATEGY":
+                strategy = (
+                    self.db.query(Strategy)
+                    .filter(
+                        Strategy.id == req.strategy_id,
+                        Strategy.portfolio_id == locked_portfolio.id,
+                        Strategy.instrument_id == instrument.id,
+                    )
+                    .with_for_update()
+                    .first()
+                )
+                if strategy is None:
+                    raise OrderValidationError("Strategy not found for this portfolio and instrument.")
+                strategy_position = (
+                    self.db.query(StrategyPosition)
+                    .filter(StrategyPosition.strategy_id == req.strategy_id)
+                    .with_for_update()
+                    .populate_existing()
+                    .first()
+                )
+                if strategy_position is None:
+                    strategy_position = StrategyPosition(
+                        strategy_id=req.strategy_id,
+                        portfolio_id=locked_portfolio.id,
+                        instrument_id=instrument.id,
+                        quantity=0,
+                        avg_price=0,
+                        realized_pnl=0,
+                    )
+                    strategy_position_is_new = True
+
+                if req.side == Side.BUY and strategy_position.quantity != 0:
+                    return self._reject(order, "Strategy already owns an open position; duplicate entry rejected.")
+                if req.side == Side.SELL and (
+                    strategy_position.quantity <= 0 or req.quantity > strategy_position.quantity
+                ):
+                    return self._reject(
+                        order,
+                        f"Strategy does not own enough shares to exit: owns {strategy_position.quantity}, tried to sell {req.quantity}.",
+                    )
 
             if req.side == Side.BUY:
                 required_cash = costs.gross_value + costs.total_charges
@@ -337,12 +377,28 @@ class ExecutionService:
                 .populate_existing()
                 .first()
             )
-            if req.side == Side.SELL and req.segment == Segment.EQUITY_DELIVERY:
-                held_quantity = position.quantity if position is not None else 0
-                if held_quantity < req.quantity:
+            held_quantity = position.quantity if position is not None else 0
+
+            if req.side == Side.SELL and req.execution_reason != "STRATEGY":
+                allocated = (
+                    self.db.query(func.coalesce(func.sum(StrategyPosition.quantity), 0))
+                    .filter(
+                        StrategyPosition.portfolio_id == locked_portfolio.id,
+                        StrategyPosition.instrument_id == instrument.id,
+                        StrategyPosition.quantity > 0,
+                    )
+                    .scalar()
+                )
+                available = max(held_quantity - int(allocated or 0), 0)
+                if req.segment == Segment.EQUITY_DELIVERY and available < req.quantity:
                     return self._reject(
                         order,
-                        f"Insufficient holdings for a delivery sell: hold {held_quantity}, tried to sell {req.quantity}.",
+                        f"Insufficient unallocated delivery holdings: available {available}, tried to sell {req.quantity}.",
+                    )
+                if held_quantity > 0 and available < req.quantity:
+                    return self._reject(
+                        order,
+                        f"Shares reserved by strategy positions: available to sell {available}, tried to sell {req.quantity}.",
                     )
 
             if position is None:
@@ -359,8 +415,7 @@ class ExecutionService:
             order.filled_at = now
             self.db.add(order)
             try:
-                # Flush only the order row first. Do not commit until every
-                # related accounting row is ready.
+                # Flush only the order row first; related accounting remains uncommitted.
                 self.db.flush()
             except IntegrityError:
                 self.db.rollback()
@@ -390,6 +445,21 @@ class ExecutionService:
             position.avg_price = update.new_avg_price
             position.realized_pnl = Decimal(str(position.realized_pnl)) + update.realized_pnl
 
+            strategy_realized_pnl = None
+            if strategy_position is not None:
+                strategy_update = apply_fill(
+                    position_quantity=strategy_position.quantity,
+                    position_avg_price=Decimal(str(strategy_position.avg_price)),
+                    side=req.side,
+                    fill_quantity=req.quantity,
+                    fill_price=ltp,
+                )
+                strategy_position.quantity = strategy_update.new_quantity
+                strategy_position.avg_price = strategy_update.new_avg_price
+                strategy_position.realized_pnl = Decimal(str(strategy_position.realized_pnl)) + strategy_update.realized_pnl
+                strategy_realized_pnl = strategy_update.realized_pnl
+                self.db.add(strategy_position)
+
             locked_portfolio.cash_balance = (
                 Decimal(str(locked_portfolio.cash_balance)) + costs.net_cash_impact
             )
@@ -410,6 +480,7 @@ class ExecutionService:
                 gst=costs.gst,
                 total_charges=costs.total_charges,
                 realized_pnl=update.realized_pnl,
+                strategy_realized_pnl=strategy_realized_pnl,
                 executed_at=now,
             )
             self.db.add_all([position, locked_portfolio, execution])

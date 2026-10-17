@@ -97,16 +97,20 @@ def strategy_analytics(db: Session, portfolio_id: UUID) -> list[StrategyAnalytic
             .filter(Order.strategy_id == strategy.id)
             .all()
         )
-        closing = [e for e in executions if e.realized_pnl != 0]
+        strategy_pnls = [
+            Decimal(str(e.strategy_realized_pnl if e.strategy_realized_pnl is not None else e.realized_pnl))
+            for e in executions
+        ]
+        closing_pnls = [pnl for pnl in strategy_pnls if pnl != 0]
         results.append(
             StrategyAnalytics(
                 strategy_id=strategy.id,
                 strategy_name=strategy.name,
                 is_active=strategy.is_active,
-                total_trades=len(closing),
-                win_count=sum(1 for e in closing if e.realized_pnl > 0),
-                loss_count=sum(1 for e in closing if e.realized_pnl < 0),
-                total_realized_pnl=sum((Decimal(str(e.realized_pnl)) for e in closing), Decimal("0")),
+                total_trades=len(closing_pnls),
+                win_count=sum(1 for pnl in closing_pnls if pnl > 0),
+                loss_count=sum(1 for pnl in closing_pnls if pnl < 0),
+                total_realized_pnl=sum(closing_pnls, Decimal("0")),
             )
         )
     return results

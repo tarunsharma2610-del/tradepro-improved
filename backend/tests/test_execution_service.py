@@ -631,3 +631,56 @@ async def test_derivative_order_is_rejected_until_contract_risk_support_exists(
 
     adapter.get_quote.assert_not_awaited()
     assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == before
+
+
+@pytest.mark.asyncio
+async def test_manual_delivery_sell_cannot_sell_shares_allocated_to_strategy(db_session, portfolio, instrument):
+    from app.models.strategy_position import StrategyPosition
+    from app.services.execution_service import ExecutionService, PlaceOrderRequest
+    from app.services.transaction_costs import Segment as OrderSegment, Side as OrderSide
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = Strategy(
+        portfolio_id=p.id, instrument_id=instrument.id, name="Allocation test",
+        segment="EQUITY_INTRADAY", quantity=1, is_active=True,
+        rsi_weight=Decimal("0"), sma_crossover_weight=Decimal("0"), macd_weight=Decimal("0"),
+        volume_spike_weight=Decimal("0"), momentum_weight=Decimal("1"),
+        entry_score_threshold=Decimal("0.3"), exit_score_threshold=Decimal("-0.3"),
+        trailing_stop_pct=Decimal("2"), max_daily_loss=Decimal("1000"),
+    )
+    db_session.add(strategy)
+    db_session.commit()
+
+    with _mock_quote("100.00"):
+        await ExecutionService(db_session).place_order(
+            user.id, PlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=OrderSide.BUY,
+                order_type="MARKET", segment=OrderSegment.EQUITY_DELIVERY, quantity=5,
+            )
+        )
+
+    # Use a direct strategy order to create one strategy-owned share allocation.
+    with _mock_quote("120.00"):
+        strategy_buy = await ExecutionService(db_session).place_order(
+            user.id, PlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=OrderSide.BUY,
+                order_type="MARKET", segment=OrderSegment.EQUITY_INTRADAY, quantity=1,
+                execution_reason="STRATEGY", strategy_id=strategy.id,
+            )
+        )
+    assert strategy_buy.status == "FILLED"
+    allocation = db_session.query(StrategyPosition).filter_by(strategy_id=strategy.id).one()
+    assert allocation.quantity == 1
+
+    with _mock_quote("130.00"):
+        sell = await ExecutionService(db_session).place_order(
+            user.id, PlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=OrderSide.SELL,
+                order_type="MARKET", segment=OrderSegment.EQUITY_DELIVERY, quantity=6,
+            )
+        )
+    assert sell.status == "REJECTED"
+    assert "unallocated delivery holdings" in sell.rejection_reason.lower()
+    db_session.refresh(allocation)
+    assert allocation.quantity == 1

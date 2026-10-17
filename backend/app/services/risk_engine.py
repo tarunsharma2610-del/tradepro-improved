@@ -77,7 +77,7 @@ def _realized_loss_today(db: Session, strategy_id, today: date) -> Decimal:
     this strategy's own executions today. Profitable days return 0, not a
     negative number — this is a loss magnitude, not raw P&L."""
     total_pnl = (
-        db.query(func.coalesce(func.sum(Execution.realized_pnl), 0))
+        db.query(func.coalesce(func.sum(func.coalesce(Execution.strategy_realized_pnl, Execution.realized_pnl)), 0))
         .join(Order, Order.id == Execution.order_id)
         .filter(Order.strategy_id == strategy_id)
         .filter(func.date(Execution.executed_at) == today)

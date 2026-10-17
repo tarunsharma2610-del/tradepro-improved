@@ -40,5 +40,8 @@ class Execution(BaseModel):
     # Realized P&L attributable to THIS fill specifically (0 for fills that
     # open/add to a position rather than close one) — see position_math.py.
     realized_pnl: Mapped[float] = mapped_column(Numeric(18, 2), default=0, nullable=False)
+    # Strategy-specific realized P&L uses the strategy allocation basis; NULL
+    # on legacy/manual fills, with legacy strategy rows falling back to realized_pnl.
+    strategy_realized_pnl: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
 
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

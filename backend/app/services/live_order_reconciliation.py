@@ -399,6 +399,11 @@ def resolve_order_state_with_fill_evidence(
     if persisted_fill_quantity > requested_quantity:
         return FillEvidenceResolution("RECONCILIATION_REQUIRED", "persisted fills exceed requested order quantity")
     if persisted_fill_quantity == 0:
+        if observed in {"FILLED", "PARTIALLY_FILLED", "PARTIALLY_FILLED_CANCELLED"}:
+            return FillEvidenceResolution(
+                "RECONCILIATION_REQUIRED",
+                "broker status claims execution but no persisted trade evidence is available",
+            )
         return FillEvidenceResolution(observed, "no persisted fill evidence")
     if persisted_fill_quantity == requested_quantity:
         return FillEvidenceResolution("FILLED", "persisted trade quantities confirm the full requested quantity")

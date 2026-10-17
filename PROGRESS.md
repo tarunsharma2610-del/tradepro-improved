@@ -312,3 +312,14 @@ Actual deployment database engine and access to a backup-restored staging copy a
 - Earlier implementation-only commit `c5f0f937367b9d74610d8ddef2885da6b309fa48` also passed existing CI: [run 39049387990](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049387990).
 - This is a tested Phase 2 foundation, not a complete reconciliation worker. It does not fetch broker data, persist status transitions, link broker orders to intents, import fills, or place/cancel orders. Live trading remains disabled.
 - Next step: add strict local-intent-to-broker-record matching and duplicate/ambiguous-match handling with tests; do not link an order based on tag alone or unknown/mismatched economics.
+
+
+### Phase 2 documentation CI verification — 2026-10-17
+
+All four documentation commits for the normalization foundation have their own successful CI runs:
+- `PROGRESS.md` commit `75d72b7fbd3de3e6f352a3f68579ab82b152f250`: [run 39049553343](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049553343) — success.
+- `ROADMAP.md` commit `edf44ae22ca540b2406ee332b508ef595b3bdd1e`: [run 39049563456](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049563456) — success.
+- `AUDIT_REPORT.md` commit `4e922603a3157afd866de07d4ce4ce99d891e997`: [run 39049572086](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049572086) — success.
+- `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` commit `7647296f2c4244027e1382633d5982ab009a9cc5`: [run 39049581913](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049581913) — success.
+
+The latest application-code test checkpoint remains `b37452210bf07ad03acee1495e0627fae1378582`, verified by [run 39049395091](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049395091): 247 passed, 1 warning, plus SQLite/PostgreSQL 16 migration checks. The current work is only a normalization foundation; matching, durable status updates, fill ingestion and any broker I/O remain future work.

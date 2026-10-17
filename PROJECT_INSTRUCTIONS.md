@@ -22,7 +22,8 @@ Maintain an evidence-based audit report, change log, list of unchanged functiona
 
 ## Known high-priority gaps from current audit
 - Live order placement/reconciliation remains incomplete; keep disabled.
-- Portfolio-wide risk/exposure/order-frequency caps need review and tests.
-- Upstox instrument-master synchronization and market-data streaming are incomplete.
+- Portfolio-wide risk controls are configurable per portfolio and enforced on paper/strategy order paths; continue checking threshold/boundary and concurrent-order behavior.
+- Instrument-master sync has a completeness-gated reconciliation policy and passed a real upstream download into disposable SQLite; never point the verification script at the production DB.
+- Upstox V3 streaming client/routes exist with mocked tests; a real OAuth session and deployment topology still need verification. The manager is process-local; use one API worker until shared stream state is implemented.
 - OAuth migration is CI-tested on clean SQLite but still requires backup-safe staging verification.
 - Do not implement any of these blindly: inspect the current code and official API docs first.

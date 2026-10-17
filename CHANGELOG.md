@@ -19,7 +19,7 @@
 
 ### Verification
 - The fail-closed guard and its test passed the backend GitHub Actions workflow before the adapter URL correction.
-- The adapter correction and its new test were added after that run; their CI result must be checked against the latest commit before merge.
+- GitHub Actions passed for the code-bearing commit containing the adapter correction and mocked regression test: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39027387591.
 - The test suite uses mocks/SQLite and does not verify real broker execution.
 - No real broker orders were submitted.
 

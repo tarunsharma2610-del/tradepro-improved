@@ -251,6 +251,8 @@ class LiveOrderReconciliationWorker:
             )
             if match.status != "MATCHED" or match.intent_id is None:
                 result.orders_unmatched += 1
+                if match.status != "NO_MATCH":
+                    result.conflicts += 1
                 continue
 
             try:
@@ -323,7 +325,7 @@ class LiveOrderReconciliationWorker:
                 LiveOrderIntent.user_id == user_id,
             ).one()
             try:
-                self.order_repository.apply_reconciliation_transition(
+                resolved_intent, _ = self.order_repository.apply_reconciliation_transition(
                     user_id=user_id,
                     intent_id=intent_id,
                     expected_version=refreshed.version,
@@ -336,6 +338,8 @@ class LiveOrderReconciliationWorker:
                     },
                     correlation_id=f"reconcile:{connection_id}",
                 )
+                if order.state in execution_states and resolved_intent.state == "UNKNOWN":
+                    result.conflicts += 1
                 result.orders_matched += 1
             except (ValueError, RuntimeError):
                 result.conflicts += 1

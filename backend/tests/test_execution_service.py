@@ -290,3 +290,92 @@ async def test_malformed_orders_are_rejected_before_broker_or_database_side_effe
                 limit_price=limit_price,
             ),
         )
+
+
+@pytest.mark.asyncio
+async def test_crossed_paper_limit_buy_fills_and_updates_position(db_session, portfolio, instrument):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    order = await service.place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id,
+            instrument_id=instrument.id,
+            side=Side.BUY,
+            order_type="LIMIT",
+            segment=Segment.EQUITY_DELIVERY,
+            quantity=5,
+            limit_price=Decimal("2400"),
+        ),
+    )
+    _connect_fake_broker(db_session, user.id)
+
+    with _mock_quote("2300"):
+        filled = await service.match_pending_limit_orders()
+
+    assert filled == 1
+    db_session.refresh(order)
+    db_session.refresh(p)
+    assert order.status == "FILLED"
+    assert p.cash_balance < Decimal("100000") - Decimal("11500")
+
+    from app.repositories.position_repository import PositionRepository
+    from app.models.execution import Execution
+
+    position = PositionRepository(db_session).get_or_create(p.id, instrument.id)
+    execution = db_session.query(Execution).filter(Execution.order_id == order.id).one()
+    assert position.quantity == 5
+    assert execution.price == Decimal("2300")
+
+
+@pytest.mark.asyncio
+async def test_paper_limit_order_stays_pending_until_price_crosses(db_session, portfolio, instrument):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    order = await service.place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id,
+            instrument_id=instrument.id,
+            side=Side.BUY,
+            order_type="LIMIT",
+            segment=Segment.EQUITY_DELIVERY,
+            quantity=1,
+            limit_price=Decimal("2400"),
+        ),
+    )
+    _connect_fake_broker(db_session, user.id)
+
+    with _mock_quote("2500"):
+        filled = await service.match_pending_limit_orders()
+
+    db_session.refresh(order)
+    assert filled == 0
+    assert order.status == "PENDING"
+
+
+@pytest.mark.asyncio
+async def test_crossed_delivery_limit_sell_without_holdings_is_rejected(db_session, portfolio, instrument):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    order = await service.place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id,
+            instrument_id=instrument.id,
+            side=Side.SELL,
+            order_type="LIMIT",
+            segment=Segment.EQUITY_DELIVERY,
+            quantity=1,
+            limit_price=Decimal("2400"),
+        ),
+    )
+    _connect_fake_broker(db_session, user.id)
+
+    with _mock_quote("2500"):
+        filled = await service.match_pending_limit_orders()
+
+    db_session.refresh(order)
+    assert filled == 0
+    assert order.status == "REJECTED"
+    assert "holdings" in order.rejection_reason.lower()

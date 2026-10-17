@@ -82,3 +82,10 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - [x] Added `backend/app/brokers/upstox/reconciliation_client.py`, a narrow fixed-path GET-only client for order book, order details, order history by order ID/tag, and per-order trades. It exposes no place/modify/cancel methods and classifies 401/403/429/5xx/network/timeout/non-JSON errors without returning response bodies.
 - [x] Added contract tests for documented endpoints, query parameters, missing token, sanitized failures and absence of write methods. [Run 39056868434](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056868434) passed **309 tests, 1 warning**; SQLite/PostgreSQL 16 migration checks passed.
 - [ ] Implement the worker orchestration, token/connection validation, bounded retries, job lease, order matching, fill import and safe summaries. No broker reads are called by the new client until the worker is implemented and invoked.
+
+
+### Worker lease foundation — implementation checkpoint
+- [x] Added `LiveReconciliationLease` schema and reversible Alembic revision `202610170003` for one lease per broker connection.
+- [x] Added `LiveReconciliationLeaseRepository` with bounded lease durations, atomic claims, expiry/reclaim, lease renewal, ownership checks and token-guarded completion. A stale worker cannot complete a newer worker's lease.
+- [x] Added lease tests for contention, expiry/reclaim, stale-owner completion, renewal, cross-user ownership and invalid lease duration. [Run 39057273255](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39057273255) passed 318 tests, 1 warning; SQLite/PostgreSQL 16 migration upgrade/downgrade/re-upgrade passed.
+- [ ] Connect the lease to the read-only worker orchestration and verify concurrent worker behavior under PostgreSQL.

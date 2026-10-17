@@ -1,5 +1,7 @@
 import gzip
 import json
+from datetime import date
+from decimal import Decimal
 
 import pytest
 
@@ -31,29 +33,40 @@ class FakeAsyncClient:
         return self.response
 
 
+def _record(segment, exchange, instrument_type, key, symbol, **extra):
+    return {
+        "segment": segment,
+        "exchange": exchange,
+        "instrument_type": instrument_type,
+        "instrument_key": key,
+        "trading_symbol": symbol,
+        "name": extra.pop("name", symbol),
+        "lot_size": extra.pop("lot_size", 1),
+        "tick_size": extra.pop("tick_size", 0.05),
+        **extra,
+    }
+
+
 @pytest.mark.asyncio
-async def test_sync_from_upstox_imports_nse_equities_and_skips_other_segments(db_session, monkeypatch):
+async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_session, monkeypatch):
     records = [
-        {
-            "segment": "NSE_EQ",
-            "exchange": "NSE",
-            "instrument_type": "EQ",
-            "instrument_key": "NSE_EQ|INE002A01018",
-            "trading_symbol": "RELIANCE",
-            "name": "RELIANCE INDUSTRIES LTD",
-            "lot_size": 1,
-            "tick_size": 5.0,
-        },
-        {
-            "segment": "NSE_FO",
-            "exchange": "NSE",
-            "instrument_type": "FUT",
-            "instrument_key": "NSE_FO|12345",
-            "trading_symbol": "RELIANCE FUT",
-            "name": "RELIANCE FUTURE",
-            "lot_size": 250,
-            "tick_size": 0.05,
-        },
+        _record("NSE_EQ", "NSE", "EQ", "NSE_EQ|INE002A01018", "RELIANCE"),
+        _record("BSE_EQ", "BSE", "EQ", "BSE_EQ|INE002A01018", "RELIANCE"),
+        _record("NSE_INDEX", "NSE", "INDEX", "NSE_INDEX|Nifty 50", "NIFTY"),
+        _record(
+            "NSE_FO", "NSE", "FUT", "NSE_FO|FUT123", "NIFTY FUT",
+            expiry=1798675200000, underlying_symbol="NIFTY",
+        ),
+        _record(
+            "NSE_FO", "NSE", "CE", "NSE_FO|OPT123", "NIFTY 25000 CE",
+            expiry=1798675200000, strike_price=25000,
+            underlying_symbol="NIFTY",
+        ),
+        _record("MCX_FO", "MCX", "FUT", "MCX_FO|GOLD123", "GOLD FUT"),
+        # Unsupported instrument types and malformed segment/key combinations are skipped.
+        _record("NSE_EQ", "NSE", "UNKNOWN", "NSE_EQ|UNKNOWN", "UNKNOWN"),
+        _record("NSE_FO", "NSE", "FUT", "BSE_FO|WRONG", "WRONG"),
+        _record("UNSUPPORTED", "NSE", "EQ", "UNSUPPORTED|ABC", "ABC"),
     ]
     response = FakeResponse(200, gzip.compress(json.dumps(records).encode("utf-8")))
     fake_client = FakeAsyncClient(response)
@@ -65,24 +78,50 @@ async def test_sync_from_upstox_imports_nse_equities_and_skips_other_segments(db
     ok, message = await InstrumentService(db_session).sync_from_upstox()
 
     assert ok is True
-    assert message == "Synced 1 NSE equity instruments."
+    assert message == "Synced 6 instruments across supported NSE, BSE and MCX segments."
     assert fake_client.requested_url == (
         "https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz"
     )
     assert fake_client.requested_kwargs == {"follow_redirects": True}
 
     repo = InstrumentRepository(db_session)
-    imported = repo.get_by_key("NSE_EQ|INE002A01018")
-    assert imported is not None
-    assert imported.trading_symbol == "RELIANCE"
-    assert imported.exchange == "NSE"
-    assert imported.instrument_type == "EQUITY"
-    assert str(imported.tick_size) == "5.0000"
-    assert repo.get_by_key("NSE_FO|12345") is None
+    assert repo.count() == 6
+    assert repo.get_by_key("NSE_EQ|INE002A01018").instrument_type == "EQUITY"
+    assert repo.get_by_key("BSE_EQ|INE002A01018").exchange == "BSE"
+    assert repo.get_by_key("NSE_INDEX|Nifty 50").instrument_type == "INDEX"
+
+    future = repo.get_by_key("NSE_FO|FUT123")
+    assert future.instrument_type == "FUTURES"
+    assert future.expiry == date(2026, 12, 31)
+    assert future.option_type is None
+
+    option = repo.get_by_key("NSE_FO|OPT123")
+    assert option.instrument_type == "OPTIONS"
+    assert option.option_type == "CE"
+    assert option.strike_price == Decimal("25000")
+
+    commodity_future = repo.get_by_key("MCX_FO|GOLD123")
+    assert commodity_future.exchange == "MCX"
+    assert commodity_future.instrument_type == "FUTURES"
 
 
 @pytest.mark.asyncio
 async def test_sync_from_upstox_preserves_catalog_when_download_fails(db_session, monkeypatch):
+    repo = InstrumentRepository(db_session)
+    repo.upsert(
+        instrument_key="NSE_EQ|EXISTING",
+        exchange="NSE",
+        segment="NSE_EQ",
+        instrument_type="EQUITY",
+        trading_symbol="EXISTING",
+        name="Existing instrument",
+        lot_size=1,
+        tick_size=Decimal("0.05"),
+        expiry=None,
+        strike_price=None,
+        option_type=None,
+        is_active=True,
+    )
     fake_client = FakeAsyncClient(FakeResponse(503))
     monkeypatch.setattr(
         "app.services.instrument_service.httpx.AsyncClient",
@@ -93,4 +132,30 @@ async def test_sync_from_upstox_preserves_catalog_when_download_fails(db_session
 
     assert ok is False
     assert "503" in message
+    assert repo.count() == 1
+    assert repo.get_by_key("NSE_EQ|EXISTING") is not None
+
+
+@pytest.mark.asyncio
+async def test_sync_from_upstox_rejects_malformed_or_unsupported_master_without_writes(
+    db_session, monkeypatch
+):
+    malformed_client = FakeAsyncClient(FakeResponse(200, b"not gzip"))
+    monkeypatch.setattr(
+        "app.services.instrument_service.httpx.AsyncClient",
+        lambda **kwargs: malformed_client,
+    )
+    ok, _ = await InstrumentService(db_session).sync_from_upstox()
+    assert ok is False
+    assert InstrumentRepository(db_session).count() == 0
+
+    unsupported = [_record("UNKNOWN", "NSE", "EQ", "UNKNOWN|1", "UNKNOWN")]
+    response = FakeResponse(200, gzip.compress(json.dumps(unsupported).encode("utf-8")))
+    monkeypatch.setattr(
+        "app.services.instrument_service.httpx.AsyncClient",
+        lambda **kwargs: FakeAsyncClient(response),
+    )
+    ok, message = await InstrumentService(db_session).sync_from_upstox()
+    assert ok is False
+    assert "no supported" in message
     assert InstrumentRepository(db_session).count() == 0

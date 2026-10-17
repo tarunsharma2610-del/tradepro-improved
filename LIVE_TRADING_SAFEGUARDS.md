@@ -269,3 +269,7 @@ A separate `UpstoxReadOnlyReconciliationClient` now exposes only fixed-path GET 
 
 ## 17 October 2026 — worker lease foundation
 A durable one-per-connection reconciliation lease now supports atomic claims, expiry/reclaim, renewal and stale-owner-safe completion. The model and reversible migration passed [run 39057273255](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39057273255), 318 tests, 1 warning. The lease is not connected to a worker yet. Do not infer that broker polling or live trading is enabled.
+
+
+## Phase 2 worker boundary — 2026-10-17
+A read-only reconciliation worker now exists but is not scheduled or exposed through an API route. It injects only `UpstoxReadOnlyReconciliationClient` (fixed GET methods), validates user/connection ownership and token usability, uses a durable lease and bounded retries, and persists normalized trade identities and status/audit evidence. Tests are mocked; no real broker read has occurred. The current worker only reads the order book and daily trades and does not provide historical pagination, persistent operator summaries/manual-review queue, or accounting aggregation. It must not be used as evidence that live submission is safe. Keep all order-write paths disabled until later release gates and explicit authorization.

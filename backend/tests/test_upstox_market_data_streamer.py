@@ -170,3 +170,44 @@ async def test_authorization_rejects_non_tls_or_non_upstox_hosts(monkeypatch, au
 
     with pytest.raises(ValueError, match="invalid WebSocket authorization URL"):
         await streamer._authorized_url("test-access-token")
+
+
+@pytest.mark.asyncio
+async def test_authorization_accepts_official_upstox_v3_url_and_headers(monkeypatch):
+    streamer = _streamer()
+    authorized_url = (
+        "wss://xyz.upstox.com/market-data-feeder/v3/"
+        "upstox-developer-api/feeds?requestId=test-request&code=single-use-test"
+    )
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"status": "success", "data": {"authorized_redirect_uri": authorized_url}}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, headers):
+            captured["url"] = url
+            captured["headers"] = headers
+            return FakeResponse()
+
+    monkeypatch.setattr("app.services.upstox_market_data_streamer.httpx.AsyncClient", FakeClient)
+
+    result = await streamer._authorized_url("test-access-token")
+
+    assert result == authorized_url
+    assert captured["url"] == "https://api.upstox.com/v3/feed/market-data-feed/authorize"
+    assert captured["headers"]["Authorization"] == "Bearer test-access-token"
+    assert captured["headers"]["Accept"] == "application/json"

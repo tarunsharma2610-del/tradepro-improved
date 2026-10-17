@@ -72,3 +72,10 @@ class ExecutionOut(BaseModel):
     total_charges: Decimal
     realized_pnl: Decimal
     executed_at: datetime
+
+
+class BrokerStatusOut(BaseModel):
+    order_id: UUID
+    ok: bool
+    broker_status: str | None = None
+    error: str | None = None

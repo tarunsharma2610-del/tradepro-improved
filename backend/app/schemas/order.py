@@ -14,6 +14,8 @@ class PlaceOrderRequest(BaseModel):
     segment: str = Field(pattern="^(EQUITY_DELIVERY|EQUITY_INTRADAY|FUTURES|OPTIONS)$")
     quantity: int = Field(gt=0)
     limit_price: Decimal | None = None
+    # Reuse this key only when retrying the exact same request.
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=100, pattern=r"^[A-Za-z0-9._:-]+$")
 
     @field_validator("limit_price")
     @classmethod

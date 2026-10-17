@@ -20,7 +20,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.execution import Execution
+from app.core.config import settings
 from app.models.order import Order
+from app.models.portfolio import Portfolio
 from app.models.strategy import Strategy
 
 
@@ -38,7 +40,22 @@ def check_can_enter(db: Session, strategy: Strategy) -> RiskCheckResult:
 
     todays_loss = _realized_loss_today(db, strategy.id, today)
     if todays_loss >= Decimal(str(strategy.max_daily_loss)):
-        return RiskCheckResult(allowed=False, reason=f"Daily loss limit reached (₹{todays_loss} of ₹{strategy.max_daily_loss}).")
+        return RiskCheckResult(allowed=False, reason=f"Strategy daily loss limit reached (₹{todays_loss} of ₹{strategy.max_daily_loss}).")
+
+    portfolio = db.get(Portfolio, strategy.portfolio_id)
+    limit_pct = Decimal(str(settings.PORTFOLIO_DAILY_LOSS_LIMIT_PCT))
+    if portfolio is not None and limit_pct > 0:
+        portfolio_loss = _realized_loss_today_for_portfolio(db, strategy.portfolio_id, today)
+        portfolio_limit = Decimal(str(portfolio.virtual_capital)) * limit_pct / Decimal("100")
+        if portfolio_loss >= portfolio_limit:
+            return RiskCheckResult(
+                allowed=False,
+                reason=(
+                    f"Portfolio daily loss limit reached (₹{portfolio_loss} of "
+                    f"₹{portfolio_limit}, {limit_pct}% of starting capital). "
+                    "Automated entries are blocked for all strategies in this portfolio."
+                ),
+            )
 
     return RiskCheckResult(allowed=True)
 
@@ -63,6 +80,24 @@ def _realized_loss_today(db: Session, strategy_id, today: date) -> Decimal:
         db.query(func.coalesce(func.sum(Execution.realized_pnl), 0))
         .join(Order, Order.id == Execution.order_id)
         .filter(Order.strategy_id == strategy_id)
+        .filter(func.date(Execution.executed_at) == today)
+        .scalar()
+    )
+    total_pnl = Decimal(str(total_pnl))
+    return -total_pnl if total_pnl < 0 else Decimal("0")
+
+
+
+def _realized_loss_today_for_portfolio(db: Session, portfolio_id, today: date) -> Decimal:
+    """Return portfolio-wide realized loss magnitude for UTC today.
+
+    Includes fills from manual and strategy orders, so one strategy cannot
+    continue opening positions after other activity exhausts the daily loss
+    budget. This only gates automated entries, not manual/live submission.
+    """
+    total_pnl = (
+        db.query(func.coalesce(func.sum(Execution.realized_pnl), 0))
+        .filter(Execution.portfolio_id == portfolio_id)
         .filter(func.date(Execution.executed_at) == today)
         .scalar()
     )

@@ -247,3 +247,15 @@ Review the live-order idempotency/reconciliation gap and write a safe implementa
 
 ### Next single action
 - Verify the documentation commits' CI, then add a concurrency test appropriate to the actual deployment database engine. The engine and staging access must be confirmed before claiming true simultaneous contention or production-engine migration verification.
+
+
+## PostgreSQL contention integration — implementation committed, verification pending — 2026-10-17
+
+- Added backend/tests/test_live_order_postgres_concurrency.py. When TEST_POSTGRES_URL is set, it creates an isolated test schema, synchronizes two independent PostgreSQL sessions after both miss the idempotency lookup, then asserts both requests return one intent ID and only one intent/outbox/event exists.
+- Updated .github/workflows/backend-tests.yml to provision PostgreSQL 16, run the concurrency test, and test Alembic upgrade → downgrade to 202610170001 → re-upgrade on PostgreSQL as well as SQLite.
+- Commits: integration test 84b12804538a931980d29b6847e655e2bebc59b1; CI configuration e79d6f3bc758bd0e868d4be795eeef865e7c8ee9.
+- The test-only commit passed the SQLite-only workflow, but the PostgreSQL-enabled workflow [39047545900](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39047545900) is still in progress at container initialization. PostgreSQL concurrency and PostgreSQL migration results are **not yet verified**. Do not mark the gate complete until the exact workflow reports success.
+- No production database or broker was contacted; this PostgreSQL service is disposable CI infrastructure only.
+
+### Next action
+Check workflow 39047545900. If the PostgreSQL service starts, resolve any concurrency-test or migration failures, then update this tracker with the exact successful run. If service initialization times out, inspect and adjust the CI service configuration before proceeding.

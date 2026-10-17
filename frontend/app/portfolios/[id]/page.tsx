@@ -8,7 +8,15 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
 
-type Portfolio = { id: string; name: string; virtual_capital: string; cash_balance: string };
+type Portfolio = {
+  id: string; name: string; virtual_capital: string; cash_balance: string;
+  risk_controls_enabled: boolean; max_daily_loss: string | null; max_open_exposure: string | null;
+  max_order_value: string | null; max_open_positions: number | null; max_orders_per_day: number | null;
+};
+type RiskSettings = {
+  risk_controls_enabled: boolean; max_daily_loss: string; max_open_exposure: string;
+  max_order_value: string; max_open_positions: string; max_orders_per_day: string;
+};
 type InstrumentBrief = { id: string; trading_symbol: string; exchange: string };
 type Instrument = InstrumentBrief & { instrument_key: string; name: string; segment: string };
 type Position = { instrument: InstrumentBrief; quantity: number; avg_price: string; realized_pnl: string };
@@ -33,6 +41,12 @@ export default function PortfolioDetailPage() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [riskSettings, setRiskSettings] = useState<RiskSettings>({
+    risk_controls_enabled: false, max_daily_loss: "", max_open_exposure: "",
+    max_order_value: "", max_open_positions: "", max_orders_per_day: "",
+  });
+  const [savingRisk, setSavingRisk] = useState(false);
+  const [riskMessage, setRiskMessage] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Instrument[]>([]);
@@ -78,10 +92,42 @@ export default function PortfolioDetailPage() {
         api.get<Order[]>(`/portfolios/${id}/orders`),
       ]);
       setPortfolio(p);
+      setRiskSettings({
+        risk_controls_enabled: p.risk_controls_enabled ?? false,
+        max_daily_loss: p.max_daily_loss ?? "",
+        max_open_exposure: p.max_open_exposure ?? "",
+        max_order_value: p.max_order_value ?? "",
+        max_open_positions: p.max_open_positions == null ? "" : String(p.max_open_positions),
+        max_orders_per_day: p.max_orders_per_day == null ? "" : String(p.max_orders_per_day),
+      });
       setPositions(pos);
       setOrders(ord);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not load this portfolio.");
+    }
+  }
+
+  async function onSaveRiskSettings(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setRiskMessage(null);
+    setSavingRisk(true);
+    const numberOrNull = (value: string) => value.trim() === "" ? null : Number(value);
+    try {
+      const updated = await api.patch<Portfolio>(`/portfolios/${id}/risk-settings`, {
+        risk_controls_enabled: riskSettings.risk_controls_enabled,
+        max_daily_loss: numberOrNull(riskSettings.max_daily_loss),
+        max_open_exposure: numberOrNull(riskSettings.max_open_exposure),
+        max_order_value: numberOrNull(riskSettings.max_order_value),
+        max_open_positions: numberOrNull(riskSettings.max_open_positions),
+        max_orders_per_day: numberOrNull(riskSettings.max_orders_per_day),
+      });
+      setPortfolio(updated);
+      setRiskMessage("Portfolio risk settings saved.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save portfolio risk settings.");
+    } finally {
+      setSavingRisk(false);
     }
   }
 
@@ -161,6 +207,38 @@ export default function PortfolioDetailPage() {
           </Link>
         </div>
       </div>
+
+      <Card className="mt-6">
+        <form onSubmit={onSaveRiskSettings} className="space-y-4">
+          <div>
+            <h2 className="font-medium">Portfolio & risk settings</h2>
+            <p className="mt-1 text-xs text-ink/50 dark:text-paper/50">
+              Configure optional limits for this portfolio. Limits are disabled by default. Amounts are in INR;
+              exposure is an estimate based on open position cost, not broker margin.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={riskSettings.risk_controls_enabled}
+              onChange={(e) => setRiskSettings({ ...riskSettings, risk_controls_enabled: e.target.checked })}
+            />
+            Enable portfolio risk controls
+          </label>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input label="Maximum daily realized loss (₹)" type="number" min="0.01" step="0.01" value={riskSettings.max_daily_loss} onChange={(e) => setRiskSettings({ ...riskSettings, max_daily_loss: e.target.value })} />
+            <Input label="Maximum estimated open exposure (₹)" type="number" min="0.01" step="0.01" value={riskSettings.max_open_exposure} onChange={(e) => setRiskSettings({ ...riskSettings, max_open_exposure: e.target.value })} />
+            <Input label="Maximum order value (₹)" type="number" min="0.01" step="0.01" value={riskSettings.max_order_value} onChange={(e) => setRiskSettings({ ...riskSettings, max_order_value: e.target.value })} />
+            <Input label="Maximum simultaneous open positions" type="number" min="1" step="1" value={riskSettings.max_open_positions} onChange={(e) => setRiskSettings({ ...riskSettings, max_open_positions: e.target.value })} />
+            <Input label="Maximum orders per day" type="number" min="1" step="1" value={riskSettings.max_orders_per_day} onChange={(e) => setRiskSettings({ ...riskSettings, max_orders_per_day: e.target.value })} />
+          </div>
+          {riskSettings.risk_controls_enabled && (
+            <p className="text-xs text-caution">At least one limit is required. Risk-reducing orders that close an existing position remain allowed.</p>
+          )}
+          {riskMessage && <p className="text-sm text-gain">{riskMessage}</p>}
+          <Button type="submit" disabled={savingRisk}>{savingRisk ? "Saving…" : "Save portfolio settings"}</Button>
+        </form>
+      </Card>
 
       {/* Order entry */}
       <Card className="mt-6">

@@ -167,7 +167,7 @@ class BrokerCredentialsService:
         return claims
 
     def _consume_oauth_nonce(self, conn: BrokerConnection, nonce: str) -> None:
-        """Atomically clear the stored nonce before token exchange so state cannot be replayed."""
+        """Consume the nonce with a conditional database update to block concurrent replays."""
         expected_hash = conn.oauth_state_nonce_hash
         expires_at = conn.oauth_state_expires_at
         if not expected_hash or expires_at is None:
@@ -175,13 +175,31 @@ class BrokerCredentialsService:
 
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
         actual_hash = hashlib.sha256(nonce.encode("utf-8")).hexdigest()
-        if expires_at <= datetime.now(timezone.utc) or not hmac.compare_digest(expected_hash, actual_hash):
+        if expires_at <= now or not hmac.compare_digest(expected_hash, actual_hash):
             raise ValueError("Broker OAuth state is expired or has already been used. Restart the connection flow.")
 
+        # The hash comparison is part of the UPDATE predicate, not just an
+        # in-memory check, so only one concurrent callback can consume it.
+        from sqlalchemy import update
+
+        result = self.db.execute(
+            update(BrokerConnection)
+            .where(
+                BrokerConnection.id == conn.id,
+                BrokerConnection.oauth_state_nonce_hash == expected_hash,
+                BrokerConnection.oauth_state_expires_at > now,
+            )
+            .values(oauth_state_nonce_hash=None, oauth_state_expires_at=None)
+        )
+        if result.rowcount != 1:
+            self.db.rollback()
+            raise ValueError("Broker OAuth state is expired or has already been used. Restart the connection flow.")
+
+        self.db.commit()
         conn.oauth_state_nonce_hash = None
         conn.oauth_state_expires_at = None
-        self.repo.save(conn)
 
     def _require_connection(self, user_id: UUID, broker: str) -> BrokerConnection:
         conn = self.repo.get_for_user(user_id, broker)

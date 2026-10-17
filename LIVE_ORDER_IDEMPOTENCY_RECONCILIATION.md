@@ -169,3 +169,13 @@ Latest code/test checkpoint `5508b272efe55997252e8d8a51fdd29761a1070b` passed Gi
 - Official references: [order book](https://upstox.com/developer/api-documentation/get-order-book/), [order details](https://upstox.com/developer/api-documentation/get-order-details/), [order history](https://upstox.com/developer/api-documentation/get-order-history/) and [order-status appendix](https://upstox.com/developer/api-documentation/appendix/order-status/).
 - Exact test commit `b37452210bf07ad03acee1495e0627fae1378582` passed [GitHub Actions run 39049395091](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049395091): 247 passed, 1 warning; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed.
 - This does not fetch broker records, establish ownership/account scope, match an order to an intent, persist status transitions, import trades/fills, or prove a missing broker match is safe to retry. Next is strict intent matching and ambiguity quarantine. No broker order was placed or cancelled.
+
+
+## 12. Implementation checkpoint — strict intent matching
+
+- Added ReconciliationIntentCandidate, IntentMatchResult and match_broker_order_to_intent() to backend/app/services/live_order_reconciliation.py. This is a pure helper with no network or database access.
+- Candidate intents are filtered to the caller-supplied broker connection. A known broker order ID is preferred; otherwise an exact non-empty broker tag must uniquely nominate one intent. A tag is only correlation, not proof of identity.
+- Both paths require exact economic checks for instrument, side, order type, quantity and product; LIMIT/SL require matching limit price, and SL/SL-M require matching trigger price. Missing local fields are mismatches. Duplicate tag candidates are ambiguous; mismatches and unknown/contradictory observations are not auto-linked.
+- Regression tests cover matching, economic mismatch, duplicate tag ambiguity, missing fields, connection isolation and unknown status handling.
+- Exact test commit e9b594ffc2e81c37e1b41c8c44947212d206f3e9 passed [GitHub Actions run 39050424898](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050424898): 255 passed, 1 warning, and SQLite/PostgreSQL 16 migration checks passed.
+- Still not implemented: broker reads, persisted state transitions, audit/version guarded updates, trade/fill ingestion, automatic retry/recovery, cancellation, or order submission. Next: build a repository-only safe status-transition operation with concurrency/version tests before any broker I/O.

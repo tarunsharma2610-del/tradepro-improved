@@ -213,3 +213,15 @@ Tests include instrument mismatch, missing broker-order linkage, aggregate parti
 A fill may be persisted with `intent_id = NULL` while local matching is unresolved. `link_existing_fill_to_intent()` can link it later only after the user/connection scope, exact broker order ID, instrument, side, product, order type, requested quantity, limit-price protection and aggregate quantity checks pass. The conditional link and `BROKER_FILL_LINKED` audit event are atomic. Re-linking to the same intent is a no-op; mismatches and conflicting existing links fail closed. This is repository-only behavior; no API polling or background worker exists yet.
 
 Exact test checkpoint [run 39053352921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053352921) passed 281 tests, 1 warning, with SQLite/PostgreSQL 16 migration checks. Next is handling out-of-order broker status/fill observations before introducing broker reads.
+
+
+## 17. Out-of-order status observations versus persisted trades
+
+`resolve_order_state_with_fill_evidence()` is applied by the repository before a status transition. It uses deduplicated persisted trade quantity, not response arrival order, to avoid stale order-book states erasing executions:
+- Persisted quantity equals the requested quantity → `FILLED`.
+- Partial persisted quantity with a stale active status → `PARTIALLY_FILLED`.
+- Partial persisted quantity plus broker cancellation → `PARTIALLY_FILLED_CANCELLED`.
+- Partial quantity conflicting with broker `FILLED`/`REJECTED`, an over-quantity total, or invalid quantity data → `RECONCILIATION_REQUIRED`.
+- Audit details retain observed status, resolved status, persisted quantity and reason.
+
+Tests cover the pure resolver and repository application for stale OPEN, partial-fill/cancel and full-fill/stale-cancel cases. Exact checkpoint [run 39056392873](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056392873) passed 294 tests, 1 warning, plus SQLite/PostgreSQL 16 migration checks. This is still not an API polling worker. Next worker design: [READ_ONLY_RECONCILIATION_WORKER_DESIGN.md](READ_ONLY_RECONCILIATION_WORKER_DESIGN.md).

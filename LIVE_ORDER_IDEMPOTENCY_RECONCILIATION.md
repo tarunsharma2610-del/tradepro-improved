@@ -255,3 +255,7 @@ The worker now creates `LiveReconciliationRun` after acquiring the lease and fin
 
 ## Manual-review issue persistence checkpoint — 2026-10-17
 Added `LiveReconciliationIssue` and migration `202610170005`. The worker now records deduplicated, owner-scoped, credential-safe issues for invalid broker records, unmatched/ambiguous orders and fill/status conflicts. Details are constrained to a small JSON object and safe reason codes; repeated issues increment occurrence count and reopen resolved records. Exact code checkpoint [`71b5668`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/71b5668533f0461c12374319e496665cbda7e61c) passed [run 39059749652](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39059749652): 342 passed, 1 warning, SQLite/PostgreSQL 16 reversible migrations. No issue UI/API, live broker order action or accounting integration is implemented.
+
+
+## Owner-scoped read API checkpoint — 2026-10-17
+The platform now has authenticated read-only endpoints for reconciliation runs and issues. They scope all queries to the authenticated user and expose only typed safe summaries/details, with a hard maximum of 100 rows. Cross-user isolation tests passed in [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705): 345 passed, 1 warning. They do not start a worker or mutate issues/orders; UI and issue resolution remain out of scope.

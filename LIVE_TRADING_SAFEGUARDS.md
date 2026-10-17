@@ -281,3 +281,7 @@ The worker now records count-only run summaries and sanitized error categories i
 
 ## Manual-review queue foundation — 2026-10-17
 `live_reconciliation_issues` stores deduplicated issue categories and minimal safe details; it does not store raw broker payloads or exception strings. The worker records malformed rows, unmatched/ambiguous orders and reconciliation conflicts. The schema is CI-tested only, not staging/production migrated. There is no UI/API issue browser or resolution action yet, so operators cannot rely on this as a complete incident-management interface. Keep live order writes disabled.
+
+
+## Owner-scoped reconciliation listing API — 2026-10-17
+Two authenticated read-only endpoints expose safe run summaries and review issues for the current user only. The query repository scopes by `user_id`; limits are bounded; response schemas do not return raw broker bodies or tokens. They cannot start a reconciliation job or resolve/mutate an issue. Cross-user isolation tests passed in [run 39060230705](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060230705), 345 passed, 1 warning. No live order action is enabled.

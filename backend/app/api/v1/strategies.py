@@ -8,7 +8,9 @@ from app.core.deps import get_current_user, get_db
 from app.models.order import Order
 from app.models.strategy import Strategy
 from app.models.user import User
+from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.strategy_repository import StrategyRepository
+from app.services.instrument_validation import validate_instrument_segment
 from app.schemas.order import OrderOut
 from app.schemas.strategy import StrategyCreate, StrategyEvaluationOut, StrategyOut, StrategyUpdate
 from app.services.strategy_execution_service import StrategyExecutionService
@@ -47,6 +49,13 @@ def create_strategy(
     portfolio_id: UUID, payload: StrategyCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
     _get_owned_portfolio(db, user, portfolio_id)
+    instrument = InstrumentRepository(db).get_by_id(payload.instrument_id)
+    if instrument is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Instrument not found.")
+    try:
+        validate_instrument_segment(instrument, payload.segment)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     strategy = Strategy(portfolio_id=portfolio_id, is_active=False, **payload.model_dump())
     return StrategyRepository(db).create(strategy)
 

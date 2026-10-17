@@ -67,3 +67,9 @@
 - No real broker orders were placed; live trading remains disabled.
 
 24. Wired the manual portfolio order form to the existing backend idempotency key: the key is reused after network/server errors and cleared after success or when the payload changes.
+
+
+### 17 October 2026 — migration verification and persistent instructions
+- Added `PROJECT_INSTRUCTIONS.md`, a verbatim copy of the complete `Pasted text(6).txt` requirements, and `PROGRESS.md`, a persistent continuation checklist/state log.
+- Added a populated legacy-database regression test for strategy-position migration backfill. It verifies realized P&L, weighted average/open allocation, long-only over-sell attribution, unchanged aggregate position/cash, and repeat upgrade.
+- Verification on commit `1fe681246cb88a9505302a1763128c51ab72802d`: backend **190 passed, 1 warning** plus clean SQLite migration upgrade; frontend TypeScript and Next.js build passed.

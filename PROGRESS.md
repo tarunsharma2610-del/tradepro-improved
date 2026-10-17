@@ -25,9 +25,9 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 - Last code commit reviewed before this progress-file commit: `ac93eb82688d573f9839da48ef1182d9929e56c4` — “Remove duplicate strategy model imports”.
 - At that point, branch head was `ac93eb82688d573f9839da48ef1182d9929e56c4`; main remained `2cf83089070e064c61f3b75fcb6b663021cbf625`.
 - PR #1 was open, draft, and not merged.
-- Latest backend CI for that code commit: [run 39031184000](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184000) — **189 tests passed, 1 warning**, clean SQLite Alembic upgrade passed.
-- Latest frontend CI for that code commit: [run 39031184092](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184092) — TypeScript and Next.js build both passed.
-- These checks validate the commit above, not any future changes. Re-check CI after each new code commit.
+- Baseline CI before the migration regression test: backend [run 39031184000](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184000) — 189 passed, 1 warning, clean SQLite Alembic upgrade; frontend [run 39031184092](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184092) — TypeScript and Next.js build passed.
+- Migration regression-test commit: `1fe681246cb88a9505302a1763128c51ab72802d` — [backend run 39031526388](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526388) **190 passed, 1 warning**, and clean SQLite Alembic upgrade passed; [frontend run 39031526360](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526360) TypeScript and Next.js build passed.
+- These checks validate the listed commit only, not future changes. Re-check CI after each code commit.
 
 ## Completed and committed work (safety branch)
 
@@ -38,7 +38,9 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 5. Added strategy-owned position allocations and strategy-specific realized P&L. Strategy execution no longer treats a manual/other-strategy position as its own; manual delivery sells are prevented from consuming strategy-allocated shares.
 6. Added fail-closed futures/options validation to backend order, strategy and backtest paths and removed unsupported derivative choices from relevant UI forms.
 7. Added a migration to backfill strategy-specific P&L and open strategy allocations from existing strategy-tagged executions.
-8. Updated README, audit, handover, changelog and live-safeguards documentation across the branch.
+8. Added `PROJECT_INSTRUCTIONS.md` with the complete verbatim instruction text from `Pasted text(6).txt`, and this persistent `PROGRESS.md` with current branch/CI state and next step.
+9. Added `backend/tests/test_strategy_position_migration.py`, which upgrades a populated database from revision 002 to head and verifies closed/open positions, weighted average, realized P&L, over-sell attribution, preservation of aggregate positions/cash, and repeat upgrade. It passed in CI.
+10. Updated README, audit, handover, changelog and live-safeguards documentation across the branch.
 
 ## Known limitations / not complete
 
@@ -70,6 +72,11 @@ Before writing that test, inspect `backend/alembic/env.py`, the three latest mig
 - [x] Re-inspect current branch head, main SHA, PR state, latest backend/frontend CI.
 - [x] Re-read README, HANDOVER, requirements audit, audit report, changelog and live safeguards.
 - [x] Identify the next concrete gap from the audit: populated legacy migration backfill is untested.
-- [ ] Commit the verbatim project instruction file and this progress log to the improved branch.
-- [ ] Add and run the populated legacy migration regression test.
-- [ ] Update progress with test result, code commit SHA and next task.
+- [x] Commit the verbatim project instruction file and this progress log to the improved branch (instruction/progress commit: `197d645a06f173ee717cc23bee7b88d7f5ed9034`).
+- [x] Add and run the populated legacy migration regression test (test commit: `1fe681246cb88a9505302a1763128c51ab72802d`; backend CI 190 passed, 1 warning; frontend CI passed).
+- [x] Update progress with test result, code commit SHA and next task.
+
+
+## Next-task audit plan — stable order idempotency
+
+**Task:** inspect the existing order-creation callers and worker/scheduler paths to determine whether they generate/reuse a stable idempotency key for retries and repeated strategy evaluations. Do not add a second idempotency service: first inspect the existing `ExecutionService`, order API schemas/routes, frontend order submit handler, strategy scheduler/worker, and current idempotency tests. Identify whether the key is generated client-side, persisted, reused for the same logical action, and scoped correctly. Then implement only the proven gap and add a regression test for repeated evaluation/retry. Keep paper/live isolation and existing API contracts intact. No live orders.

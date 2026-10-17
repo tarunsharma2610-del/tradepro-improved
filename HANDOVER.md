@@ -87,3 +87,11 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - CI at that commit: backend **189 passed, 1 warning** plus clean SQLite migration; frontend TypeScript and Next.js build passed. Links are recorded in `PROGRESS.md`.
 - Next task: create a populated pre-migration regression test for `202610170003_strategy_position_attribution.py`. Inspect migration/test/CI setup first; do not alter migration logic unless the test proves a defect.
 - Live trading remains not ready; PR #1 is draft/open/unmerged. Original `Tradepro` remains untouched.
+
+
+## Migration backfill test completed — 17 October 2026
+
+- Added `backend/tests/test_strategy_position_migration.py` to upgrade a populated legacy database from Alembic revision `202610170002` to head.
+- It verifies per-execution strategy P&L attribution, closed and open strategy allocations, weighted average entry price, legacy over-sell handling, preservation of aggregate portfolio positions/cash, and a second no-op upgrade.
+- CI passed on commit `1fe681246cb88a9505302a1763128c51ab72802d`: **190 tests passed, 1 warning**, and SQLite migration upgrade succeeded. Frontend TypeScript/build also passed for that commit.
+- See `PROGRESS.md` for current task sequence. Next task is to audit existing order idempotency call sites and repeated strategy evaluation before changing any code.

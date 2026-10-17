@@ -266,3 +266,19 @@ operator falls into "providing an algo to other traders," which needs
 broker-mediated exchange registration regardless of how low any one
 user's order frequency is. Nothing in the codebase currently acts on
 `LIVE` even when set.
+
+
+## Live order idempotency and reconciliation (design only; not implemented)
+
+The live order path is a separate future workflow, not a mode switch on the current paper execution path. `ExecutionService.place_order()` creates PAPER orders; preserve that boundary and its regression test.
+
+Reviewed design and implementation gates live in [`LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md). Core invariants:
+
+- Persist a client intent, canonical request hash, risk decision, audit event and transactional dispatch/outbox record before any broker POST. Scope the unique idempotency key to the authenticated user and broker connection. Same key + same payload returns the existing intent; same key + different payload is a conflict.
+- A local database cannot make an external broker POST exactly-once. If the network times out or the process crashes after a request may have reached Upstox, mark the outcome unknown and reconcile before any further submission. Never blindly retry an ambiguous POST.
+- Upstox order tags support correlation/history lookup; do not assume they are broker-enforced idempotency tokens. Match by documented account/order attributes and tag, and freeze on multiple or mismatched matches.
+- Persist broker order IDs and normalized status transitions. Treat broker acceptance as distinct from execution. Deduplicate individual fills by stable broker trade identity and reconcile partial fills/cancel races against broker trade records.
+- Recheck risk and account-level kill switch at dispatch time. Unknown/pending intents reserve exposure until resolved. Paper execution must remain structurally unable to call the live placement method.
+- Add schema only through reviewed additive migrations, test clean SQLite and staging copies of the deployed DB engine, and never migrate production during implementation.
+
+No live submission service, idempotency schema or reconciliation worker is claimed implemented by this document. Keep live submission disabled until all design gates, sandbox tests, staging verification, operational controls and explicit user authorization are complete. Official Upstox order-history/order-book/trade endpoints and links are documented in `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`.

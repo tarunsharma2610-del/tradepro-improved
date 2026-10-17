@@ -686,3 +686,42 @@ async def test_manual_delivery_sell_cannot_sell_shares_allocated_to_strategy(db_
     assert "unallocated delivery holdings" in sell.rejection_reason.lower()
     db_session.refresh(allocation)
     assert allocation.quantity == 1
+
+
+@pytest.mark.asyncio
+async def test_idempotency_key_cannot_be_reused_between_manual_and_strategy_order(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = Strategy(
+        portfolio_id=p.id, instrument_id=instrument.id, name="Idempotency scope test",
+        segment="EQUITY_INTRADAY", quantity=1, is_active=True,
+        rsi_weight=Decimal("0"), sma_crossover_weight=Decimal("0"), macd_weight=Decimal("0"),
+        volume_spike_weight=Decimal("0"), momentum_weight=Decimal("1"),
+        entry_score_threshold=Decimal("0.3"), exit_score_threshold=Decimal("-0.3"),
+        trailing_stop_pct=Decimal("2"), max_daily_loss=Decimal("1000"),
+    )
+    db_session.add(strategy)
+    db_session.commit()
+
+    request_key = "same-key-manual-strategy"
+    with _mock_quote("100.00"):
+        manual_order = await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_INTRADAY, quantity=1,
+                idempotency_key=request_key,
+            ),
+        )
+    assert manual_order.status == "FILLED"
+
+    with pytest.raises(OrderValidationError, match="different order request"):
+        await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_INTRADAY, quantity=1,
+                execution_reason="STRATEGY", strategy_id=strategy.id,
+                idempotency_key=request_key,
+            ),
+        )

@@ -115,16 +115,25 @@ class StrategyExecutionService:
             if stop_result is not None:
                 signal = Signal.EXIT
 
+        if signal in {Signal.ENTER_LONG, Signal.EXIT} and candles[-1].timestamp is None:
+            self.db.add(strategy)
+            self.db.commit()
+            return EvaluationResult(
+                str(strategy.id),
+                Signal.HOLD.value,
+                "Latest candle has no valid timestamp; skipped order to prevent duplicate strategy execution.",
+            )
+
         if signal == Signal.ENTER_LONG:
-            return await self._enter(strategy, portfolio, current_price, score.composite_score)
+            return await self._enter(strategy, portfolio, current_price, score.composite_score, candles[-1].timestamp)
         if signal == Signal.EXIT:
-            return await self._exit(strategy, portfolio, position_quantity, score.composite_score)
+            return await self._exit(strategy, portfolio, position_quantity, score.composite_score, candles[-1].timestamp)
 
         self.db.add(strategy)
         self.db.commit()
         return EvaluationResult(str(strategy.id), Signal.HOLD.value, f"Score {score.composite_score} did not cross a threshold.")
 
-    async def _enter(self, strategy: Strategy, portfolio, current_price: Decimal, composite_score: Decimal | None) -> EvaluationResult:
+    async def _enter(self, strategy: Strategy, portfolio, current_price: Decimal, composite_score: Decimal | None, candle_timestamp: datetime) -> EvaluationResult:
         # Kill switch blocks new automated entries only; exits remain available to reduce risk.
         if not settings.AUTOMATED_ENTRIES_ENABLED:
             self.db.add(strategy)
@@ -151,6 +160,7 @@ class StrategyExecutionService:
                 quantity=strategy.quantity,
                 execution_reason="STRATEGY",
                 strategy_id=strategy.id,
+                idempotency_key=f"strategy:{strategy.id}:BUY:{candle_timestamp.isoformat()}",
             ),
         )
 
@@ -170,18 +180,20 @@ class StrategyExecutionService:
         reason = f"Entered: score {composite_score}." if order.status == "FILLED" else f"Entry order {order.status}: {order.rejection_reason}"
         return EvaluationResult(str(strategy.id), Signal.ENTER_LONG.value, reason, order_id=str(order.id))
 
-    async def _exit(self, strategy: Strategy, portfolio, position_quantity: int, composite_score: Decimal | None) -> EvaluationResult:
+    async def _exit(self, strategy: Strategy, portfolio, position_quantity: int, composite_score: Decimal | None, candle_timestamp: datetime) -> EvaluationResult:
+        exit_side = Side.SELL if position_quantity > 0 else Side.BUY
         order = await self.execution.place_order(
             portfolio.user_id,
             ServicePlaceOrderRequest(
                 portfolio_id=portfolio.id,
                 instrument_id=strategy.instrument_id,
-                side=Side.SELL if position_quantity > 0 else Side.BUY,
+                side=exit_side,
                 order_type="MARKET",
                 segment=Segment(strategy.segment),
                 quantity=abs(position_quantity),
                 execution_reason="STRATEGY",
                 strategy_id=strategy.id,
+                idempotency_key=f"strategy:{strategy.id}:{exit_side.value}:{candle_timestamp.isoformat()}",
             ),
         )
 

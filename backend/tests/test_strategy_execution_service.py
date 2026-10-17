@@ -376,3 +376,26 @@ async def test_strategy_cannot_open_a_second_position_when_one_is_already_alloca
         )
     assert second.status == "REJECTED"
     assert "already owns an open position" in second.rejection_reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_repeated_entry_signal_on_same_candle_reuses_one_idempotency_key(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+
+    # This quote exceeds the existing paper order-notional cap, so the first
+    # attempt is rejected and does not create a StrategyPosition. Re-evaluation
+    # on the same candle must return that same rejected order, not submit again.
+    with _mock_broker(_candles_response(rising_prices), "30000.00"):
+        first = await StrategyExecutionService(db_session).evaluate(strategy)
+        second = await StrategyExecutionService(db_session).evaluate(strategy)
+
+    assert first.signal == Signal.ENTER_LONG.value
+    assert second.signal == Signal.ENTER_LONG.value
+    assert first.order_id == second.order_id
+    orders = db_session.query(Order).filter(Order.strategy_id == strategy.id).all()
+    assert len(orders) == 1
+    assert orders[0].status == "REJECTED"
+    assert orders[0].idempotency_key == f"strategy:{strategy.id}:BUY:2026-08-01T10:00:00"

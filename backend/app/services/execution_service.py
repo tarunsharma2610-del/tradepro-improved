@@ -535,6 +535,8 @@ class ExecutionService:
             or existing.segment != req.segment.value
             or existing.quantity != req.quantity
             or (None if existing.limit_price is None else Decimal(str(existing.limit_price))) != req.limit_price
+            or existing.execution_reason != req.execution_reason
+            or existing.strategy_id != req.strategy_id
         ):
             raise OrderValidationError(
                 "Idempotency key was already used for a different order request. Use a new key."
@@ -551,6 +553,8 @@ class ExecutionService:
             or existing.segment != candidate.segment
             or existing.quantity != candidate.quantity
             or existing_price != candidate_price
+            or existing.execution_reason != candidate.execution_reason
+            or existing.strategy_id != candidate.strategy_id
         ):
             raise OrderValidationError(
                 "Idempotency key was already used for a different order request. Use a new key."

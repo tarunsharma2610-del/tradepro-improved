@@ -7,7 +7,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 
 - Design-only live-order idempotency/reconciliation plan exists: [LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md).
 - Architecture, safeguards, README, audit, project instructions and progress tracker link to the design.
-- The documentation commit series is on the default `main` branch. Latest CI for the progress checkpoint `3263eda9d1329d17069dd4140162602631639a0b` passed: [workflow 39040715054](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39040715054).
+- Phase 1 records/repository/tests are on `main`; latest verified code checkpoint `397e760b8fabcd77ce1904b9c1350ca5ab0b3e00` passed: [workflow 39043177545](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043177545), 210 tests passed, 1 warning. Documentation updates after this checkpoint still require their own CI verification.
 - This checkpoint changes documentation only. It does not implement live submission or reconciliation, does not run a migration and does not prove live trading readiness.
 
 ## Status summary
@@ -18,23 +18,26 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 | Instrument-master snapshot validation | Implemented and regression-tested; operational sync was disposable/in-memory | Repeat verified staging sync before deployment; never mutate production from an incomplete snapshot |
 | Upstox V3 WebSocket authorization/reconnect protections | Partial implementation and unit/regression coverage | Real authorized session test remains open; shared stream state across workers remains open |
 | Portfolio-wide risk controls | Existing configurable controls, still require deployment-aware review | Confirm atomic reservations, exposure semantics and user-adjustable thresholds; don't represent cost-basis/realized-loss checks as mark-to-market broker margin |
-| Durable live-order idempotency | Design only | Phase 1 schema/repository review and concurrency tests |
+| Durable live-order idempotency | Phase 1 partially implemented; CI green for latest code checkpoint | Add concurrency/race tests and cross-database migration review; no broker submission |
 | Broker order/trade reconciliation | Design only | Phase 2 reconciliation-only service; no order placement |
 | Live submission orchestration | Not implemented / disabled | Sandbox-only workflow after prior phases pass |
 | Production deployment verification | Incomplete | Backup-restored staging migration against actual DB engine, rollback/restore drill and operational runbook |
 
 ## Ordered roadmap
 
-### Gate 0 — Design review (current)
+### Gate 0 — Design review (complete — user approved 2026-10-17)
 - Read [PROJECT_INSTRUCTIONS.md](PROJECT_INSTRUCTIONS.md), [ARCHITECTURE.md](ARCHITECTURE.md), [LIVE_TRADING_SAFEGUARDS.md](LIVE_TRADING_SAFEGUARDS.md), [AUDIT_REPORT.md](AUDIT_REPORT.md), and [LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md).
 - Confirm order-field canonicalization, supported Upstox products/order varieties, broker tag limits, order-history/trade API semantics and status mapping against current official docs.
-- No live-order code until this gate is explicitly accepted in `PROGRESS.md`.
+- User explicitly approved `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`; approval is recorded in `PROGRESS.md`. This authorizes Phase 1 durable storage only, not live-order submission.
 
-### Gate 1 — Durable records only (no broker POST)
-- Additive schema for live intents, append-only events, durable dispatch/outbox and stable broker-fill identities.
-- Unique idempotency key scoped to user/broker connection and canonical payload hash.
-- Same key/same payload returns existing intent; same key/different payload conflicts.
-- Test concurrent duplicate requests, rollback, ownership isolation, unique constraints and migrations on clean SQLite plus a backup-restored staging copy of the real deployment DB engine.
+### Gate 1 — Durable records only (no broker POST) — in progress
+- [x] Additive SQLAlchemy records and Alembic migration for live intents, audit events, dispatch/outbox and broker-fill identities.
+- [x] Unique idempotency key scoped to user/broker connection, canonical JSON payload hash, same-key/same-payload reuse and same-key/different-payload conflict.
+- [x] Transactionally persist intent + initial event + outbox; enforce portfolio and broker-connection ownership in the repository.
+- [x] Focused repository tests and clean SQLite Alembic migration run passed in GitHub Actions: [run 39043177545](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043177545), 210 tests passed, 1 warning.
+- [ ] Add explicit concurrent unique-key race and rollback atomicity tests.
+- [ ] Verify upgrade/downgrade and constraints against a backup-restored staging copy of the actual deployment DB engine. No production migration has run.
+- Scope boundary: no worker, API route or code path submits/cancels/reconciles broker orders in this phase.
 
 ### Gate 2 — Reconciliation-only workflow
 - Normalize broker order book/history/details/trades into local states.

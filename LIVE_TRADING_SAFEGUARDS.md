@@ -236,3 +236,8 @@ Official Upstox API documentation reviewed for this design:
 - [Order Trades](https://upstox.com/developer/api-documentation/get-trades-by-order/)
 
 Do not claim exactly-once broker submission based on local database idempotency alone. The design targets durable intent deduplication and safe reconciliation, with no blind retries for ambiguous external outcomes.
+
+
+## Phase 1 verification checkpoint — 2026-10-17
+
+The current automated CI run [39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046) passed 215 tests and verified Alembic upgrade → downgrade → re-upgrade on clean SQLite and PostgreSQL 16. The simultaneous idempotency test uses two independent PostgreSQL sessions. This is CI evidence only; it does not replace a backup-restored staging migration check against the actual deployment database. No production migration or real broker order was performed. Live submission remains disabled.

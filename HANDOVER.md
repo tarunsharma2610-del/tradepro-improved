@@ -18,7 +18,7 @@
 ## Priority order
 1. Add and test a fail-closed guard so `ExecutionService` refuses to accept orders when `TRADING_MODE` is not `PAPER`, until a separately reviewed live execution service exists.
 2. Add a regression test proving `TRADING_MODE=LIVE` fails before broker calls or database order creation.
-3. Design durable idempotency with a database-enforced uniqueness constraint and restart-safe reconciliation; do not rely only on an in-memory lock.
+3. Client request idempotency is now added on this branch using a DB unique constraint; next add broker correlation and restart-safe reconciliation before any live execution.
 4. Add portfolio-level daily-loss, exposure, order-value, and order-frequency limits enforced server-side.
 5. Implement Upstox instrument master sync and streaming only after verifying the current official API documentation.
 6. Add broker order lifecycle handling (partial fills, timeout/unknown state, retries, cancellation, reconciliation) before any live order placement.
@@ -29,6 +29,11 @@
 - `PORTFOLIO_DAILY_LOSS_LIMIT_PCT` defaults to 2.0. Once today's realized losses across all fills in a portfolio reach that percentage of starting virtual capital, the existing strategy risk engine blocks new automated entries for that portfolio.
 - Set it in the backend environment; use 0 only if intentionally disabling this additional guard. It is not a live-trading risk control and does not intercept manual order requests.
 - Targeted tests cover losses just below, exactly at, and above the threshold. CI must confirm them before merge.
+
+## Additional request idempotency — safety branch
+- API order requests may include `idempotency_key` (8–100 safe characters). Clients should reuse the same key only when retrying the same request after a timeout.
+- A unique database constraint scopes keys to each portfolio. Matching retries return the existing order; changed payloads with the same key are rejected.
+- This protects app-level request retries. It does not resolve unknown broker outcomes, reconcile after a process crash, or provide broker-side idempotency. CI/migration checks must pass before merge.
 
 ## Release gate
 Live trading remains **NOT READY** until broker execution, durable duplicate prevention, broker-state reconciliation, risk limits, credential handling, session expiry, operational controls, and relevant end-to-end tests have all been verified. No real orders are authorized by this handover.

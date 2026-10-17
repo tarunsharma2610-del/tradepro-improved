@@ -1,7 +1,7 @@
 import pytest
 
 from app.brokers.base import BrokerCallResult
-from app.brokers.upstox.adapter import API_HFT_V2, UpstoxAdapter
+from app.brokers.upstox.adapter import API_HFT_V3, UpstoxAdapter
 
 
 @pytest.mark.asyncio
@@ -14,7 +14,7 @@ async def test_place_order_uses_current_upstox_hft_host_without_network(monkeypa
         captured["url"] = url
         captured["access_token"] = access_token
         captured["json_body"] = json_body
-        return BrokerCallResult(ok=True, data={"data": {"order_id": "sandbox-test-id"}})
+        return BrokerCallResult(ok=True, data={"status": "success", "data": {"order_ids": ["sandbox-test-id"]}})
 
     monkeypatch.setattr(adapter, "_post", fake_post)
     payload = {
@@ -32,7 +32,8 @@ async def test_place_order_uses_current_upstox_hft_host_without_network(monkeypa
     result = await adapter.place_order("test-token", payload)
 
     assert result.ok
-    assert captured["url"] == f"{API_HFT_V2}/order/place"
+    assert captured["url"] == f"{API_HFT_V3}/order/place"
     assert captured["access_token"] == "test-token"
     assert captured["json_body"] == payload
-    assert captured["url"] == "https://api-hft.upstox.com/v2/order/place"
+    assert result.data["data"]["order_ids"] == ["sandbox-test-id"]
+    assert captured["url"] == "https://api-hft.upstox.com/v3/order/place"

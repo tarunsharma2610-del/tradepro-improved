@@ -20,6 +20,7 @@ AUTH_BASE = "https://api.upstox.com/v2"
 API_V2 = "https://api.upstox.com/v2"
 API_V3 = "https://api.upstox.com/v3"
 API_HFT_V2 = "https://api-hft.upstox.com/v2"
+API_HFT_V3 = "https://api-hft.upstox.com/v3"
 
 
 class UpstoxAdapter(BrokerAdapter):
@@ -108,11 +109,12 @@ class UpstoxAdapter(BrokerAdapter):
 
     # --- Orders (LIVE mode only) ---
     async def place_order(self, access_token: str, order: dict[str, Any]) -> BrokerCallResult:
-        # Current official Place Order API host. The older api.upstox.com/v2/order/place
+        # Current official Place Order V3 endpoint. The legacy V2 place-order
         # endpoint is marked deprecated in the current Upstox documentation.
+        # V3 returns data.order_ids (a list, including when slicing is enabled).
         # This adapter method is not wired into paper ExecutionService; live execution
         # still requires a separately reviewed service and must remain disabled for now.
-        return await self._post(f"{API_HFT_V2}/order/place", access_token, json_body=order)
+        return await self._post(f"{API_HFT_V3}/order/place", access_token, json_body=order)
 
     async def get_order_status(self, access_token: str, order_id: str) -> BrokerCallResult:
         # VERIFIED: upstox.com/developer/api-documentation/get-order-details

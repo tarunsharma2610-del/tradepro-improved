@@ -174,3 +174,10 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Tests cover malformed/missing fields, mismatched IDs, duplicate place IDs/trade IDs, invalid quantities/prices, and empty history/trade lists. Official docs confirm Order History is a status timeline, so repeated order IDs for different status events are valid; the parser was corrected accordingly.
 - Latest verified code commit: `0d1ececff933e3271576096756192036963805ba`: backend **223 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
 - Next: audit the risk controls needed for a separate live service; do not wire live submission. See `PROGRESS.md`.
+
+
+## Live pre-trade risk audit — 17 October 2026
+
+- The existing risk engine gates automated strategy entries using realized losses; manual orders bypass it and unrealized loss is not included. The execution service's notional/cash/holding checks are PAPER controls only. Equity-only instrument validation remains fail-closed.
+- Missing live prerequisites include broker funds/margin retrieval, live/manual all-order exposure and loss controls, order-rate limits, stale-quote/market-session validation, and a live-account circuit breaker. The automated-entry kill switch is not a live account kill switch.
+- Current official Upstox docs show Funds & Margin V3 was released 10 April 2026. It uses `GET /v3/user/get-funds-and-margin`, requires `Api-Version: 3.0`, and returns `available_to_trade.total`. Next task: add this as a read-only adapter method with mocked tests; do not use it to authorize orders yet.

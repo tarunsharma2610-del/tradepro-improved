@@ -115,3 +115,8 @@ The first schema-only implementation step is now committed in migration `2026101
 ## Response validation helper status update — 17 October 2026
 
 Added pure typed parsing helpers in `backend/app/brokers/upstox/response_parsing.py` for Place Order V3 IDs, Order Details, Order History and Order Trades. They are tested but not wired into any live submission or accounting path. The history parser intentionally allows repeated order IDs because the official endpoint can return multiple status events for one order.
+
+
+## Pre-trade risk audit update — 17 October 2026
+
+The existing risk engine gates automated strategy entries using realized losses; manual orders bypass it and unrealized drawdown is not included. The paper order cap/cash/holding checks are not a live risk system. Live exposure/loss/rate limits, stale-quote/session checks and an account-level circuit breaker remain missing. Upstox Funds & Margin V3 (released 10 April 2026) is now the verified source for available-to-trade funds, via `GET /v3/user/get-funds-and-margin` with `Api-Version: 3.0`; the adapter lacks this method, so the next step is read-only support only.

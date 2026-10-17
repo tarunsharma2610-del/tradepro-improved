@@ -130,3 +130,8 @@
 - Added typed pure parsers for Place Order V3, Order Details, Order History and Order Trades payloads. Tests cover malformed fields, mismatched identities, duplicate child/trade IDs, invalid quantities/prices, and empty history/trade results.
 - Cross-checking official docs showed Order History may contain multiple timeline events with the same order ID; parser and test now accept that valid response shape.
 - CI on `0d1ececff933e3271576096756192036963805ba`: backend **223 passed, 1 warning**, migration check passed, frontend checks passed.
+
+
+### 17 October 2026 — live risk audit
+- Audited current strategy/portfolio risk controls and confirmed they are not sufficient for live/manual orders. Documented missing broker funds, all-order exposure/loss limits, order-rate controls, stale quote/session checks and account-level live circuit breaker.
+- Identified current official Upstox Funds & Margin V3 as the next read-only adapter foundation; no risk gate or live order path changed in this audit.

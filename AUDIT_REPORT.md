@@ -161,3 +161,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Added pure typed parsers for V3 Place Order, Order Details, Order History and Order Trades responses with targeted malformed-data/identity/quantity/price tests.
 - Corrected the parser to allow repeated order IDs in Order History because that endpoint is a status timeline, not a unique-order list.
 - Latest CI: 223 backend tests passed, 1 warning, clean migration, frontend checks passed. Next is an audit of live pre-trade risk controls before any live submission service.
+
+
+## Live risk audit — 17 October 2026
+
+- The existing risk engine gates automated strategy entries on realized P&L; manual orders bypass it. Paper order value/cash/holding checks are not live controls, and unrealized drawdown is not included.
+- Broker interface has no funds/margin method. Current Upstox Funds & Margin V3 (released 10 April 2026) provides `available_to_trade.total` at `GET /v3/user/get-funds-and-margin` with `Api-Version: 3.0`. Next task is read-only adapter support, not live submission.
+- Live all-order exposure/loss/rate limits, stale quote/session checks and a live-account circuit breaker remain gaps. The automated strategy-entry stop must not be presented as a live account kill switch.

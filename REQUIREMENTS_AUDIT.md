@@ -136,3 +136,11 @@ Live trading is **NOT READY**. No live order placement should be enabled until c
 - Tests cover malformed payloads, mismatched IDs, duplicate place IDs/trade IDs, invalid quantity/price and valid empty history/trades. Official docs show Order History may contain repeated order IDs as a timeline; this is accepted.
 - Latest CI: [223 passed, 1 warning, clean SQLite migration](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033704367); [frontend passed](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033704247).
 - Next audit: define all-order live risk preflight and account circuit-breaker requirements before any live service is implemented.
+
+
+## Live pre-trade risk gap audit — 17 October 2026
+
+- Current `RiskEngine` is for strategy entries and uses realized P&L; manual orders bypass it and unrealized drawdown is not included. The paper order cap, virtual-cash checks and holdings protection in `ExecutionService` are not a live risk system.
+- No broker funds/margin method exists in `BrokerAdapter`. Current official Upstox [Funds & Margin V3](https://upstox.com/developer/api-documentation/get-funds-and-margin-v3/) was released on 10 April 2026 and returns `available_to_trade.total` plus detailed cash/pledge balances. It requires `Api-Version: 3.0` and uses `GET https://api.upstox.com/v3/user/get-funds-and-margin` without a segment parameter. See the [release announcement](https://upstox.com/developer/api-documentation/announcements/get-funds-and-margin-v3/).
+- Other live risk gaps: max notional/exposure/position limits for all order sources, realized+unrealized daily loss, order rate/frequency, stale quote and market-session guards, and a live account kill switch/circuit breaker.
+- Next safe implementation: read-only funds/margin adapter support with mocked tests. Do not use it to approve an order until risk controls and the separate live service are complete.

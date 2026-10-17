@@ -34,3 +34,8 @@
 - Verified full instrument-master sync and WebSocket feed.
 - Market-hours/holiday handling, operational monitoring and production TLS/staging verification.
 - Live trading remains not ready and must stay disabled.
+
+### Additional improvement — durable request idempotency
+9. Added optional client `idempotency_key` to order requests and persisted it with a database-enforced unique constraint per portfolio.
+10. Repeated requests with the same key and identical order payload return the existing order; reusing a key for a different payload is rejected. Concurrent duplicate inserts are arbitrated by the database constraint.
+11. Added regression tests for sequential retries and key/payload mismatch. This reduces duplicate submissions but is not a substitute for broker-side idempotency and post-timeout broker reconciliation.

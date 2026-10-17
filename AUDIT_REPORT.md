@@ -134,3 +134,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 - Added a read-only adapter method for Upstox `GET /v2/order/trades?order_id=...` to provide the data source needed for future partial-fill reconciliation. Mocked test verifies request and response shape. No real broker call or local accounting change.
 - CI: 197 backend tests passed, 1 warning, clean SQLite migration, frontend checks passed. Next: add Order History lookup by stable tag/order ID for unknown-submission recovery.
+
+
+## Read-only order-history lookup — 17 October 2026
+
+- Added an adapter method for the official Upstox Order History API, supporting lookup by broker order ID and/or tag, with validation that blocks empty identifiers and tags over 40 characters before network access. Mocked tests cover all paths.
+- First CI attempt failed due to missing `AsyncMock` import; corrected in a follow-up commit. Latest CI passed: 200 backend tests, 1 warning, clean SQLite migration, frontend checks passed.
+- Next: document a broker-order state machine before implementing live execution, especially multi-order V3 responses, tag-based timeout recovery, partial fills, cancel/modify confirmation and restart safety.

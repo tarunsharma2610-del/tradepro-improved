@@ -107,3 +107,9 @@
 ### 17 October 2026 — read-only per-order trade lookup
 - Added `get_order_trades` to the broker interface and Upstox adapter using the documented `GET /v2/order/trades?order_id=...` endpoint. Added mocked endpoint/response test; no live request or local accounting mutation.
 - CI on `ebda043d4537353529007b8f3aa1aacceb13d4c4`: backend **197 passed, 1 warning**, migration check passed, frontend checks passed.
+
+
+### 17 October 2026 — read-only order history lookup
+- Added `get_order_history` to the broker interface and Upstox adapter, supporting order ID and/or stable tag with local validation and the documented 40-character tag limit.
+- Added mocked tests for tag lookup, order-ID lookup and invalid queries. The first CI run identified a missing `AsyncMock` import; fixed it, then verified the full suite.
+- CI on `8b66df970d2dda91c060583ed6065c0101cd7837`: backend **200 passed, 1 warning**, migration check passed, frontend checks passed.

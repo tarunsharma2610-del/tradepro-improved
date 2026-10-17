@@ -144,3 +144,10 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Added read-only `get_order_trades(access_token, order_id)` to the broker interface and Upstox adapter, using the official `GET /v2/order/trades?order_id=...` endpoint. Mocked test validates URL, query and trade response shape; it does not contact Upstox.
 - Latest verified code commit: `ebda043d4537353529007b8f3aa1aacceb13d4c4`: backend **197 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
 - Next: add read-only Order History lookup by stable tag or order ID to support safe recovery when a submission response is lost. No live submission will be enabled. See `PROGRESS.md`.
+
+
+## Order-history lookup completed — 17 October 2026
+
+- Added read-only `get_order_history(access_token, order_id=None, tag=None)` using the official `GET /v2/order/history` endpoint. At least one non-empty identifier is required; tags over 40 characters are rejected before a network call. Mocked tests cover tag-only, order-ID-only and invalid queries.
+- The first CI run exposed a missing `AsyncMock` import in the new invalid-query test. The CI log was inspected, the import was fixed in the follow-up commit, and latest CI passed: **200 tests passed, 1 warning**, clean SQLite migration, frontend TypeScript/build passed.
+- Latest verified code commit: `8b66df970d2dda91c060583ed6065c0101cd7837`. Next: create a live order state-machine design before implementing any live submission. See `PROGRESS.md`.

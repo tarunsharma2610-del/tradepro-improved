@@ -32,7 +32,9 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 - Latest verified code commit before V3 modify/cancel methods: `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b` — [backend run 39032413141](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413141) 193 passed, 1 warning and clean migration; [frontend run 39032413150](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413150) passed.
 - Latest verified code commit before status-response hardening: `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c` — [backend run 39032570839](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570839) 195 passed, 1 warning and clean migration; [frontend run 39032570823](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570823) passed.
 - Latest verified code commit before per-order trade lookup: `9f1e1300acc15f85d8abf1e29e73de34f6ca14f3` — backend [run 39032760874](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032760874), 195 passed, 1 warning and clean migration; frontend [run 39032760872](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032760872) passed.
-- Latest verified code commit: `ebda043d4537353529007b8f3aa1aacceb13d4c4` — [backend run 39032909906](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032909906) **197 passed, 1 warning**, clean SQLite migration; [frontend run 39032909935](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032909935) TypeScript and Next.js build passed.
+- Latest verified code commit before order-history lookup: `ebda043d4537353529007b8f3aa1aacceb13d4c4` — backend [run 39032909906](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032909906), 197 passed, 1 warning and clean migration; frontend [run 39032909935](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032909935) passed.
+- Latest verified code commit: `8b66df970d2dda91c060583ed6065c0101cd7837` — [backend run 39033094768](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033094768) **200 passed, 1 warning**, clean SQLite migration; [frontend run 39033094833](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033094833) TypeScript and Next.js build passed.
+- The initial order-history commit run failed because the new test omitted its `AsyncMock` import. The failure was identified from CI logs, the import was added in the follow-up commit, and the latest full CI then passed.
 - These checks validate the listed commit only, not future changes. Re-check CI after each code commit.
 
 ## Completed and committed work (safety branch)
@@ -53,6 +55,7 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 14. Added V3 `modify_order` and `cancel_order` methods to the `BrokerAdapter` interface and Upstox implementation, plus mocked endpoint tests. They are not wired to execution or UI and do not mutate local order/accounting state.
 15. Hardened read-only broker status checks to require a non-empty returned `order_id` that exactly matches the requested broker order before saving status. Added a missing-ID regression test; no local fill/accounting state is inferred.
 16. Added read-only `get_order_trades(access_token, order_id)` to the broker interface and Upstox adapter using the documented `/v2/order/trades` endpoint, with mocked query/response tests. It is not wired into accounting.
+17. Added read-only `get_order_history(access_token, order_id=None, tag=None)` using the documented `/v2/order/history` endpoint. It requires a non-empty order ID and/or tag, enforces the documented 40-character tag limit, and has mocked tests for tag lookup, ID lookup and invalid queries. It is not wired to submission/recovery yet.
 
 ## Known limitations / not complete
 
@@ -114,6 +117,10 @@ The read-only reconciliation service now rejects a missing/blank `order_id` and 
 
 Added `get_order_trades(access_token, order_id)` to the adapter interface and Upstox implementation using the documented `GET /v2/order/trades?order_id=...` endpoint. A mocked test checks the route, query and trade-list response. It is not wired into accounting. Latest CI: 197 passed, 1 warning, migration and frontend checks passed.
 
-## Current active task: add read-only order-history lookup by stable tag
+## Completed task: add read-only order-history lookup by stable tag
 
-The official Upstox Order History API supports lookup by `order_id` or `tag`, useful for recovering an order when a submission times out before its response is stored. Audit current adapter and tag constraints, then add a read-only `get_order_history` method that requires at least one of order ID or tag and passes only supplied parameters. Add mocked tests for tag lookup, order-ID lookup and rejecting an empty query. Do not place/modify/cancel orders or update local accounting in this step.
+Added `get_order_history(access_token, order_id=None, tag=None)` using the official `GET /v2/order/history` endpoint. It rejects empty identifiers, blank values and tags longer than 40 characters before any request. Mocked tests cover tag lookup, order-ID lookup, and invalid queries. Initial CI exposed a missing test import; the log was inspected, the import fixed in a follow-up commit, and the latest full suite passed: 200 passed, 1 warning, migration and frontend checks passed.
+
+## Current active task: design the live order state machine before implementation
+
+Create/update a concise design artifact that maps the existing local order fields and Upstox responses into a safe live lifecycle. Explicitly cover V3 `data.order_ids` (including slicing/multiple IDs), stable tags and lookup after timeouts, broker-confirmed statuses, partial fills using `get_order_trades`, modify/cancel requests followed by confirmation, retry behavior, database transactions, and recovery after process restart. Identify the necessary schema changes (e.g. per-broker-order rows/partial fills) and risks before coding. Do not implement live submission or change the PAPER-only gate in this task.

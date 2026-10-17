@@ -18,6 +18,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.brokers.registry import get_broker_adapter
+from app.core.config import settings
 from app.models.strategy import Strategy
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.repositories.position_repository import PositionRepository
@@ -113,6 +114,15 @@ class StrategyExecutionService:
         return EvaluationResult(str(strategy.id), Signal.HOLD.value, f"Score {score.composite_score} did not cross a threshold.")
 
     async def _enter(self, strategy: Strategy, portfolio, current_price: Decimal, composite_score: Decimal | None) -> EvaluationResult:
+        # Kill switch blocks new automated entries only; exits remain available to reduce risk.
+        if not settings.AUTOMATED_ENTRIES_ENABLED:
+            self.db.add(strategy)
+            self.db.commit()
+            return EvaluationResult(
+                str(strategy.id), Signal.HOLD.value,
+                "Automated entries are disabled by the emergency kill switch."
+            )
+
         risk_result = risk_engine.check_can_enter(self.db, strategy)
         if not risk_result.allowed:
             self.db.add(strategy)

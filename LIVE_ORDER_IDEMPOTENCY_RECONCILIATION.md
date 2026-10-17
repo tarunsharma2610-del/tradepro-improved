@@ -206,3 +206,10 @@ Latest code/test checkpoint `5508b272efe55997252e8d8a51fdd29761a1070b` passed Gi
 `record_broker_fill()` now fails closed unless a linked intent already references the same broker order ID. The observed fill must match the immutable intent's instrument, side, order type and product. Requested quantity must be a positive integer; one fill and the aggregate persisted fills cannot exceed the requested order quantity. For LIMIT/SL orders, BUY fills cannot exceed the limit price and SELL fills cannot be below it. These checks run before the fill is persisted.
 
 Tests include instrument mismatch, missing broker-order linkage, aggregate partial-fill overrun and buy/sell limit-price violations. Exact checkpoint [run 39052939770](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052939770) passed 279 tests, 1 warning, with SQLite/PostgreSQL 16 migration checks. This is local validation only; no broker read or execution-accounting update is made. Next: quarantine/relink unmatched fills and reconcile out-of-order broker statuses against actual trade records.
+
+
+## 16. Handling fills that arrive before an intent is matched
+
+A fill may be persisted with `intent_id = NULL` while local matching is unresolved. `link_existing_fill_to_intent()` can link it later only after the user/connection scope, exact broker order ID, instrument, side, product, order type, requested quantity, limit-price protection and aggregate quantity checks pass. The conditional link and `BROKER_FILL_LINKED` audit event are atomic. Re-linking to the same intent is a no-op; mismatches and conflicting existing links fail closed. This is repository-only behavior; no API polling or background worker exists yet.
+
+Exact test checkpoint [run 39053352921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053352921) passed 281 tests, 1 warning, with SQLite/PostgreSQL 16 migration checks. Next is handling out-of-order broker status/fill observations before introducing broker reads.

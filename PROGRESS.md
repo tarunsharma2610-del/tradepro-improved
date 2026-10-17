@@ -59,14 +59,14 @@ After each coherent step, update this tracker with:
 
 ### 2. Upstox WebSocket market data
 - Added official Upstox V3 protobuf schema and generated decoder under backend/app/brokers/upstox/proto/, plus the streamer and per-user manager services.
-- Added authenticated endpoints: POST /api/v1/market-data/stream, GET /api/v1/market-data/stream, and DELETE /api/v1/market-data/stream. Start requires a connected Upstox OAuth session and active catalog keys.
+- Added authenticated endpoints: POST /api/v1/market-data/stream, GET /api/v1/market-data/stream, and DELETE /api/v1/market-data/stream. Start requires a connected Upstox OAuth session and active catalog keys. Portfolio UI now has Start/Stop controls and polls for fresh selected-instrument LTP.
 - The client obtains a fresh one-time authorized WebSocket URL per reconnect, validates the Upstox host, keeps TLS verification enabled, sends the V3 binary subscription message, decodes protobuf frames, uses library ping/pong, reconnects with exponential backoff, and rejects stale exchange/receive timestamps.
 - ExecutionService prefers a fresh subscribed WebSocket quote and falls back to authenticated REST LTP if the stream has no fresh quote. A stale stream tick is never used for a fill.
 - Added mocked tests for protobuf decoding, stale data, stream configuration, fresh-stream preference and REST fallback. A real authenticated WebSocket connection has not been tested because no user's live OAuth token/session is available. Streams are in-process and ephemeral; multi-worker deployment needs shared stream state/cache.
 
 ### 3. Real instrument-master operational verification
 - Added backend/scripts/verify_upstox_instrument_master.py and .github/workflows/upstox-live-verification.yml. The workflow downloads the real official Upstox BOD gzip JSON and syncs it into a disposable in-memory SQLite database; it never connects to the configured application database.
-- Live verification succeeded in workflow run 39037390129: 123,930 active instruments imported and segment coverage validated. Counts: BCD_FO 10,422; BSE_EQ 13,096; BSE_FO 5,180; BSE_INDEX 79; MCX_FO 15,601; NCD_FO 8,644; NSE_COM 22,585; NSE_EQ 9,832; NSE_FO 38,352; NSE_INDEX is also present in the full job output. This is a real upstream download plus temporary-database sync, not a production sync.
+- Live verification succeeded in workflow run 39037390129: 123,930 active instruments imported and segment coverage validated. Counts: BCD_FO 10,422; BSE_EQ 13,096; BSE_FO 5,180; BSE_INDEX 79; MCX_FO 15,601; NCD_FO 8,644; NSE_COM 22,585; NSE_EQ 9,832; NSE_FO 38,352; NSE_INDEX 139. This is a real upstream download plus temporary-database sync, not a production sync.
 - Verification link: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129
 
 ### 4. Manual portfolio management and risk controls
@@ -89,4 +89,4 @@ After each coherent step, update this tracker with:
 - OAuth schema migration needs backup-safe staging verification before deployment.
 
 ## Next action
-Wait for the latest backend and frontend CI runs for current HEAD 6aeb313ae5fa557d812dcb318de828dd241ef9db and later commits. Fix any failures, update the audit/README/instructions, and record final test results. Keep live trading disabled.
+Latest frontend typecheck/build passed for stream-control UI commit 6ec32fefda4ba357bde0fc5997cd32d6b58b4979: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093. Earlier backend CI passed 191 tests and SQLite migrations at 6aeb313ae5fa557d812dcb318de828dd241ef9db, but the added daily-loss test exposed a missing test import; that import is fixed in commit 14c5726b68ff87087e34b0ed3266707d16ac6f1b and its CI is pending. Next: confirm latest backend CI passes and record final count; keep live trading disabled.

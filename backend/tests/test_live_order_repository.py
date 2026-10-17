@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.broker_connection import BrokerConnection
 from app.models.live_order_records import BrokerFillIdentity, LiveOrderEvent, LiveOrderIntent, LiveOrderOutbox
 from app.models.portfolio import Portfolio
-from app.repositories.live_order_repository import IdempotencyConflict, LiveOrderRepository
+from app.repositories.live_order_repository import (\n    IdempotencyConflict, LiveOrderRepository, LiveOrderVersionConflict, InvalidLiveOrderTransition,\n)
 
 
 def _account(db_session, user):
@@ -257,3 +257,134 @@ def test_audit_details_reject_nested_secrets_and_non_object_values(db_session, m
         )
 
     assert db_session.query(LiveOrderEvent).filter_by(intent_id=intent.id).count() == 1
+
+
+
+def test_reconciliation_transition_updates_intent_and_audit_atomically(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    repository = LiveOrderRepository(db_session)
+
+    updated, changed = repository.apply_reconciliation_transition(
+        user_id=user.id,
+        intent_id=intent.id,
+        expected_version=1,
+        new_state="OPEN",
+        broker_order_id="broker-order-987",
+        safe_details={"raw_status": "open", "filled_quantity": 0},
+        correlation_id="reconcile-test",
+    )
+
+    assert changed is True
+    assert updated.state == "OPEN"
+    assert updated.broker_order_id == "broker-order-987"
+    assert updated.version == 2
+    assert updated.last_reconciled_at is not None
+    events = db_session.query(LiveOrderEvent).filter_by(intent_id=intent.id).order_by(LiveOrderEvent.created_at).all()
+    assert [event.event_type for event in events] == ["INTENT_CREATED", "BROKER_STATUS_RECONCILED"]
+    assert events[-1].safe_details["previous_state"] == "CREATED"
+    assert events[-1].safe_details["new_state"] == "OPEN"
+    assert events[-1].safe_details["new_version"] == 2
+
+
+def test_repeated_same_observation_is_noop_without_duplicate_audit(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    repository = LiveOrderRepository(db_session)
+    repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-repeat",
+    )
+
+    current, changed = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=2,
+        new_state="OPEN", broker_order_id="broker-order-repeat",
+    )
+    assert changed is False
+    assert current.version == 2
+    assert db_session.query(LiveOrderEvent).filter_by(
+        intent_id=intent.id, event_type="BROKER_STATUS_RECONCILED"
+    ).count() == 1
+
+
+def test_reconciliation_transition_rejects_stale_version(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    repository = LiveOrderRepository(db_session)
+    repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1, new_state="OPEN"
+    )
+
+    with pytest.raises(LiveOrderVersionConflict, match="version changed"):
+        repository.apply_reconciliation_transition(
+            user_id=user.id, intent_id=intent.id, expected_version=1, new_state="FILLED"
+        )
+    db_session.refresh(intent)
+    assert intent.state == "OPEN"
+    assert intent.version == 2
+
+
+def test_reconciliation_transition_rejects_terminal_state_regression(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    repository = LiveOrderRepository(db_session)
+    filled, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1, new_state="FILLED",
+        broker_order_id="broker-order-filled",
+    )
+
+    with pytest.raises(InvalidLiveOrderTransition, match="not allowed"):
+        repository.apply_reconciliation_transition(
+            user_id=user.id, intent_id=intent.id, expected_version=filled.version, new_state="OPEN"
+        )
+
+
+def test_cancelled_order_can_be_reconciled_to_filled_after_cancel_race(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    repository = LiveOrderRepository(db_session)
+    cancelled, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1, new_state="CANCELLED",
+        broker_order_id="broker-order-cancel-race",
+    )
+    filled, changed = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=cancelled.version, new_state="FILLED",
+        broker_order_id="broker-order-cancel-race", safe_details={"trade_evidence": "test"},
+    )
+    assert changed is True
+    assert filled.state == "FILLED"
+    assert filled.version == 3
+
+
+def test_reconciliation_transition_rejects_secret_fields(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    with pytest.raises(ValueError, match="credential-like field"):
+        LiveOrderRepository(db_session).apply_reconciliation_transition(
+            user_id=user.id, intent_id=intent.id, expected_version=1,
+            new_state="OPEN", safe_details={"authorization_header": "secret"},
+        )
+    db_session.refresh(intent)
+    assert intent.state == "CREATED"
+    assert intent.version == 1
+    assert db_session.query(LiveOrderEvent).filter_by(
+        intent_id=intent.id, event_type="BROKER_STATUS_RECONCILED"
+    ).count() == 0

@@ -1,16 +1,17 @@
 """
 Instrument catalog service.
 
-`seed_defaults()` inserts a small set of real NSE equities for bootstrap and
-tests. `sync_from_upstox()` downloads Upstox's documented BOD JSON instrument
-file (gzip-compressed), currently imports only NSE_EQ records, and upserts
-them into the local catalog. This is not yet a full NSE/BSE/MCX/F&O sync;
-the supported file URL and JSON field names are documented at
-https://upstox.com/developer/api-documentation/instruments/.
+Downloads Upstox's official gzip-compressed BOD JSON instrument master and
+imports supported NSE, BSE and MCX segments. Unknown segments/types are skipped.
+A successful download is upserted in one database transaction; failed or
+malformed downloads never mutate the catalog. Existing instruments are not
+deactivated by this sync because a partial but syntactically valid file must
+not accidentally disable tradable instruments.
 """
 
 import gzip
 import json
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import httpx
@@ -18,7 +19,6 @@ from sqlalchemy.orm import Session
 
 from app.repositories.instrument_repository import InstrumentRepository
 
-# Real, stable ISINs for well-known NSE large-caps — not test/fake data.
 _SEED_EQUITIES = [
     ("RELIANCE", "Reliance Industries Ltd", "INE002A01018"),
     ("TCS", "Tata Consultancy Services Ltd", "INE467B01029"),
@@ -34,6 +34,101 @@ _SEED_EQUITIES = [
 
 _INSTRUMENT_MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz"
 
+# Segments listed in Upstox's official BOD instrument documentation.
+_SUPPORTED_SEGMENTS = {
+    "NSE_EQ", "NSE_INDEX", "NSE_FO", "NCD_FO",
+    "BSE_EQ", "BSE_INDEX", "BSE_FO", "BCD_FO",
+    "MCX_FO", "NSE_COM",
+}
+_EQUITY_TYPES = {"EQ", "BE"}
+_OPTION_TYPES = {"CE", "PE"}
+
+
+def _expiry_date(value) -> datetime.date | None:
+    """Convert Upstox epoch-milliseconds or ISO date into an expiry date."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, str):
+        # Be defensive if a future BOD schema emits YYYY-MM-DD.
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+        except ValueError:
+            try:
+                value = int(value)
+            except ValueError:
+                return None
+    if isinstance(value, (int, float)) and value > 0:
+        return datetime.fromtimestamp(value / 1000, tz=timezone.utc).date()
+    return None
+
+
+def _normalize_record(rec: dict) -> dict | None:
+    """Map a documented BOD record into the application's canonical model."""
+    if not isinstance(rec, dict):
+        return None
+    segment = rec.get("segment")
+    if segment not in _SUPPORTED_SEGMENTS:
+        return None
+
+    key = rec.get("instrument_key")
+    symbol = rec.get("trading_symbol")
+    exchange = rec.get("exchange")
+    raw_type = rec.get("instrument_type")
+    if not all(isinstance(v, str) and v.strip() for v in (key, symbol, exchange, raw_type)):
+        return None
+    if exchange not in {"NSE", "BSE", "MCX"}:
+        return None
+    if not key.startswith(f"{segment}|"):
+        return None
+
+    expiry = _expiry_date(rec.get("expiry"))
+    strike = rec.get("strike_price")
+    option_type = raw_type if raw_type in _OPTION_TYPES else None
+
+    if segment.endswith("_EQ") and raw_type in _EQUITY_TYPES:
+        canonical_type = "EQUITY"
+        expiry = None
+        strike = None
+    elif segment.endswith("_INDEX") and raw_type == "INDEX":
+        canonical_type = "INDEX"
+        expiry = None
+        strike = None
+    elif raw_type == "FUT":
+        canonical_type = "FUTURES"
+        strike = None
+        option_type = None
+    elif raw_type in _OPTION_TYPES:
+        canonical_type = "OPTIONS"
+    else:
+        # Do not guess the meaning of new/unsupported instrument types.
+        return None
+
+    try:
+        lot_size = int(rec.get("lot_size") or 1)
+        tick_size = Decimal(str(rec.get("tick_size", 0.05)))
+        strike_price = Decimal(str(strike)) if strike not in (None, "") else None
+    except (ValueError, TypeError, ArithmeticError):
+        return None
+    if lot_size <= 0 or not tick_size.is_finite() or tick_size <= 0:
+        return None
+    if strike_price is not None and (not strike_price.is_finite() or strike_price < 0):
+        return None
+
+    return {
+        "instrument_key": key,
+        "exchange": exchange,
+        "segment": segment,
+        "instrument_type": canonical_type,
+        "trading_symbol": symbol,
+        "name": rec.get("name") or symbol,
+        "lot_size": lot_size,
+        "tick_size": tick_size,
+        "expiry": expiry,
+        "strike_price": strike_price,
+        "option_type": option_type,
+        "is_active": True,
+    }
+
 
 class InstrumentService:
     def __init__(self, db: Session):
@@ -41,71 +136,60 @@ class InstrumentService:
         self.repo = InstrumentRepository(db)
 
     def seed_defaults(self) -> int:
-        count = 0
-        for symbol, name, isin in _SEED_EQUITIES:
-            self.repo.upsert(
-                instrument_key=f"NSE_EQ|{isin}",
-                exchange="NSE",
-                segment="NSE_EQ",
-                instrument_type="EQUITY",
-                trading_symbol=symbol,
-                name=name,
-                lot_size=1,
-                tick_size=Decimal("0.05"),
-                expiry=None,
-                strike_price=None,
-                option_type=None,
-                is_active=True,
-            )
-            count += 1
-        return count
+        records = [
+            {
+                "instrument_key": f"NSE_EQ|{isin}",
+                "exchange": "NSE",
+                "segment": "NSE_EQ",
+                "instrument_type": "EQUITY",
+                "trading_symbol": symbol,
+                "name": name,
+                "lot_size": 1,
+                "tick_size": Decimal("0.05"),
+                "expiry": None,
+                "strike_price": None,
+                "option_type": None,
+                "is_active": True,
+            }
+            for symbol, name, isin in _SEED_EQUITIES
+        ]
+        return self.repo.upsert_many(records)
 
     async def sync_from_upstox(self) -> tuple[bool, str]:
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.get(_INSTRUMENT_MASTER_URL, follow_redirects=True)
         except httpx.HTTPError as exc:
             return False, f"Network error fetching instrument master: {exc}"
 
         if resp.status_code != 200:
-            return False, (
-                f"Instrument master fetch failed ({resp.status_code}). This endpoint's exact URL/format "
-                "wasn't independently confirmed — check the current one at "
-                "upstox.com/developer/api-documentation/instruments/ and update _INSTRUMENT_MASTER_URL."
-            )
+            return False, f"Instrument master fetch failed ({resp.status_code})."
 
         try:
             raw = gzip.decompress(resp.content)
             records = json.loads(raw)
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, EOFError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             return False, f"Could not parse the instrument master response: {exc}"
 
-        if not isinstance(records, list):
-            return False, "Unexpected instrument master format (expected a JSON array)."
+        if not isinstance(records, list) or not records:
+            return False, "Unexpected or empty instrument master (expected a non-empty JSON array)."
 
-        count = 0
-        for rec in records:
-            segment = rec.get("segment", "")
-            if segment != "NSE_EQ":
-                continue  # Phase 2 scope: NSE equity only — see README known limitations
-            key = rec.get("instrument_key")
-            symbol = rec.get("trading_symbol")
-            if not key or not symbol:
+        normalized = []
+        seen_keys = set()
+        for record in records:
+            item = _normalize_record(record)
+            if item is None or item["instrument_key"] in seen_keys:
                 continue
-            self.repo.upsert(
-                instrument_key=key,
-                exchange="NSE",
-                segment=segment,
-                instrument_type="EQUITY",
-                trading_symbol=symbol,
-                name=rec.get("name", symbol),
-                lot_size=rec.get("lot_size", 1),
-                tick_size=Decimal(str(rec.get("tick_size", 0.05))),
-                expiry=None,
-                strike_price=None,
-                option_type=None,
-                is_active=True,
-            )
-            count += 1
+            seen_keys.add(item["instrument_key"])
+            normalized.append(item)
 
-        return True, f"Synced {count} NSE equity instruments."
+        if not normalized:
+            return False, "Instrument master contained no supported, valid records; catalog was not changed."
+
+        try:
+            count = self.repo.upsert_many(normalized)
+        except Exception:
+            self.db.rollback()
+            raise
+
+        return True, f"Synced {count} instruments across supported NSE, BSE and MCX segments."

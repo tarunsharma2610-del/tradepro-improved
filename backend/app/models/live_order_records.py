@@ -104,3 +104,27 @@ class BrokerFillIdentity(BaseModel):
     price: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     safe_details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+
+class LiveReconciliationLease(BaseModel):
+    """Single renewable lease per broker connection for read-only reconciliation jobs."""
+
+    __tablename__ = "live_reconciliation_leases"
+    __table_args__ = (
+        UniqueConstraint("broker_connection_id", name="uq_reconciliation_lease_connection"),
+        CheckConstraint("generation >= 0", name="ck_reconciliation_lease_generation_nonnegative"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    broker_connection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("broker_connections.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    lease_token: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    claimed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)

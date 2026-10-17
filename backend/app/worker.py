@@ -27,6 +27,7 @@ from zoneinfo import ZoneInfo
 from app.core.database import SessionLocal
 from app.models.strategy import Strategy
 from app.repositories.strategy_repository import StrategyRepository
+from app.services.execution_service import ExecutionService
 from app.services.news_service import NewsService
 from app.services.strategy_execution_service import StrategyExecutionService
 from app.services.telegram_service import TelegramService
@@ -55,11 +56,20 @@ def _is_market_hours(now: datetime | None = None) -> bool:
 
 
 async def run_once() -> int:
-    """One full pass over every active strategy. Returns how many were
-    evaluated. A single strategy raising doesn't stop the others -- each
-    gets its own DB session so one bad transaction can't poison the rest."""
+    """Match pending paper limits, then evaluate every active strategy.
+
+    Returns the number of strategies evaluated. Matcher failure is isolated
+    from strategy evaluation; a single strategy failure never blocks others.
+    """
     db = SessionLocal()
     try:
+        try:
+            matched = await ExecutionService(db).match_pending_limit_orders()
+            if matched:
+                logger.info("Matched %s paper LIMIT order(s).", matched)
+        except Exception:
+            logger.exception("Paper limit-order matching failed this pass -- continuing with strategies")
+            db.rollback()
         strategy_ids = [s.id for s in StrategyRepository(db).list_all_active()]
     finally:
         db.close()

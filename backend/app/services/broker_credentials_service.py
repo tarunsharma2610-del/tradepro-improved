@@ -5,6 +5,8 @@ then walk them through the OAuth handshake and verify the connection with
 a real call before ever marking it connected.
 """
 
+import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -29,13 +31,17 @@ class BrokerCredentialsService:
         return self.repo.list_for_user(user_id)
 
     def save_credentials(self, user_id: UUID, payload: BrokerConnectionCreate) -> BrokerConnection:
-        return self.repo.upsert(
+        conn = self.repo.upsert(
             user_id=user_id,
             broker=payload.broker,
             api_key_encrypted=encrypt_value(payload.api_key),
             api_secret_encrypted=encrypt_value(payload.api_secret),
             redirect_uri=payload.redirect_uri,
         )
+        # Any pending OAuth state was issued for the previous credential set.
+        conn.oauth_state_nonce_hash = None
+        conn.oauth_state_expires_at = None
+        return self.repo.save(conn)
 
     def get_authorize_url(self, user_id: UUID, broker: str) -> str:
         conn = self._require_connection(user_id, broker)
@@ -44,24 +50,30 @@ class BrokerCredentialsService:
         if api_key is None:
             raise ValueError("Stored API key could not be decrypted — was MASTER_ENCRYPTION_KEY rotated?")
         now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(minutes=10)
+        nonce = secrets.token_urlsafe(24)
         state = jwt.encode(
             {
                 "sub": str(user_id),
                 "broker": broker,
                 "connection_id": str(conn.id),
                 "purpose": "broker_oauth",
-                "nonce": secrets.token_urlsafe(24),
+                "nonce": nonce,
                 "iat": now,
-                "exp": now + timedelta(minutes=10),
+                "exp": expires_at,
             },
             settings.SECRET_KEY,
             algorithm=settings.JWT_ALGORITHM,
         )
+        conn.oauth_state_nonce_hash = hashlib.sha256(nonce.encode("utf-8")).hexdigest()
+        conn.oauth_state_expires_at = expires_at
+        self.repo.save(conn)
         return adapter.get_authorize_url(api_key, conn.redirect_uri, state=state)
 
     async def complete_oauth(self, user_id: UUID, broker: str, code: str, state: str) -> BrokerConnection:
         conn = self._require_connection(user_id, broker)
-        self._validate_oauth_state(state, user_id=user_id, broker=broker, connection_id=conn.id)
+        claims = self._validate_oauth_state(state, user_id=user_id, broker=broker, connection_id=conn.id)
+        self._consume_oauth_nonce(conn, claims["nonce"])
         adapter = get_broker_adapter(broker)
 
         api_key = decrypt_value(conn.api_key_encrypted)
@@ -137,8 +149,8 @@ class BrokerCredentialsService:
 
     # --- internal ---
     @staticmethod
-    def _validate_oauth_state(state: str, *, user_id: UUID, broker: str, connection_id: UUID) -> None:
-        """Validate the signed, short-lived state before exchanging the OAuth code."""
+    def _validate_oauth_state(state: str, *, user_id: UUID, broker: str, connection_id: UUID) -> dict:
+        """Validate signature, expiry, and user/connection binding before exchanging the OAuth code."""
         try:
             claims = jwt.decode(state, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         except jwt.PyJWTError as exc:
@@ -152,6 +164,24 @@ class BrokerCredentialsService:
             or not claims.get("nonce")
         ):
             raise ValueError("Broker OAuth state does not match this user and connection. Restart the connection flow.")
+        return claims
+
+    def _consume_oauth_nonce(self, conn: BrokerConnection, nonce: str) -> None:
+        """Atomically clear the stored nonce before token exchange so state cannot be replayed."""
+        expected_hash = conn.oauth_state_nonce_hash
+        expires_at = conn.oauth_state_expires_at
+        if not expected_hash or expires_at is None:
+            raise ValueError("Broker OAuth state was already used or was not issued. Restart the connection flow.")
+
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        actual_hash = hashlib.sha256(nonce.encode("utf-8")).hexdigest()
+        if expires_at <= datetime.now(timezone.utc) or not hmac.compare_digest(expected_hash, actual_hash):
+            raise ValueError("Broker OAuth state is expired or has already been used. Restart the connection flow.")
+
+        conn.oauth_state_nonce_hash = None
+        conn.oauth_state_expires_at = None
+        self.repo.save(conn)
 
     def _require_connection(self, user_id: UUID, broker: str) -> BrokerConnection:
         conn = self.repo.get_for_user(user_id, broker)

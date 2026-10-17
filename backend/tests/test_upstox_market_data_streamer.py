@@ -1,3 +1,4 @@
+import asyncio
 import time
 from datetime import datetime, timezone
 
@@ -85,3 +86,49 @@ def test_stream_rejects_invalid_keys_and_unsafe_staleness_configuration():
         UpstoxMarketDataStreamer(_no_token, ["NOT_A_KEY"])
     with pytest.raises(ValueError, match="Silence timeout"):
         UpstoxMarketDataStreamer(_no_token, ["NSE_EQ|ABC"], stale_after_seconds=20, silence_timeout_seconds=10)
+
+
+@pytest.mark.asyncio
+async def test_stream_reconnects_after_silence_timeout(monkeypatch):
+    streamer = _streamer()
+    connects = 0
+
+    async def token_provider():
+        return "test-access-token"
+
+    async def authorized_url(_token):
+        return "wss://feed.upstox.com/test"
+
+    streamer.token_provider = token_provider
+    streamer._authorized_url = authorized_url
+
+    class FakeSocket:
+        async def __aenter__(self):
+            if connects >= 2:
+                streamer._stop.set()
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def send(self, _payload):
+            return None
+
+        async def recv(self):
+            raise asyncio.TimeoutError()
+
+    def fake_connect(*_args, **_kwargs):
+        nonlocal connects
+        connects += 1
+        return FakeSocket()
+
+    async def no_wait(_seconds):
+        return None
+
+    monkeypatch.setattr("app.services.upstox_market_data_streamer.websockets.connect", fake_connect)
+    monkeypatch.setattr(streamer, "_sleep_or_stop", no_wait)
+
+    await streamer._run()
+
+    assert connects == 2
+    assert streamer.connected is False

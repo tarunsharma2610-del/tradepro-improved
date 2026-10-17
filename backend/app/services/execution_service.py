@@ -20,6 +20,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+
 from app.brokers.registry import get_broker_adapter
 from app.models.execution import Execution
 from app.models.instrument import Instrument
@@ -64,6 +66,14 @@ class ExecutionService:
         self.broker_credentials = BrokerCredentialsService(db)
 
     async def place_order(self, user_id: UUID, req: PlaceOrderRequest) -> Order:
+        # Fail closed: this service implements PAPER accounting only. Until a separately
+        # reviewed live execution lifecycle exists, refuse LIVE or unknown modes here.
+        if settings.TRADING_MODE.strip().upper() != "PAPER":
+            raise OrderValidationError(
+                "Live trading is not implemented in this build. Set TRADING_MODE=PAPER; "
+                "no broker order was submitted."
+            )
+
         # Validate at the service boundary as well as the HTTP schema: strategy
         # automation and future internal callers do not pass through Pydantic.
         if req.quantity <= 0:

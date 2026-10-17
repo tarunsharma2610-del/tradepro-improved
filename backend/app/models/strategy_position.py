@@ -13,7 +13,7 @@ class StrategyPosition(BaseModel):
     __tablename__ = "strategy_positions"
 
     strategy_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("strategies.id", ondelete="CASCADE"), unique=True, index=True, nullable=False
+        Uuid, ForeignKey("strategies.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     portfolio_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("portfolios.id", ondelete="CASCADE"), index=True, nullable=False

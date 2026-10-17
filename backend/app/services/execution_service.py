@@ -32,6 +32,8 @@ from app.models.portfolio import Portfolio
 from app.models.position import Position
 from app.models.strategy import Strategy
 from app.models.strategy_position import StrategyPosition
+from app.models.strategy import Strategy
+from app.models.strategy_position import StrategyPosition
 from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.order_repository import OrderRepository
 from app.repositories.portfolio_repository import PortfolioRepository

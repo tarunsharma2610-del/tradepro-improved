@@ -5,6 +5,7 @@ import pytest
 
 from app.brokers.base import BrokerCallResult
 from app.core.encryption import encrypt_value
+from app.models.strategy import Strategy
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.services.execution_service import ExecutionService, OrderValidationError
 from app.services.execution_service import PlaceOrderRequest as ServicePlaceOrderRequest

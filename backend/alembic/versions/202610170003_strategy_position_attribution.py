@@ -33,7 +33,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("strategy_id", name="uq_strategy_position_strategy_id"),
     )
-    op.create_index("ix_strategy_positions_strategy_id", "strategy_positions", ["strategy_id"], unique=True)
     op.create_index("ix_strategy_positions_portfolio_id", "strategy_positions", ["portfolio_id"], unique=False)
     op.create_index("ix_strategy_positions_instrument_id", "strategy_positions", ["instrument_id"], unique=False)
 
@@ -41,6 +40,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_strategy_positions_instrument_id", table_name="strategy_positions")
     op.drop_index("ix_strategy_positions_portfolio_id", table_name="strategy_positions")
-    op.drop_index("ix_strategy_positions_strategy_id", table_name="strategy_positions")
     op.drop_table("strategy_positions")
     op.drop_column("executions", "strategy_realized_pnl")

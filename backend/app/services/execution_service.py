@@ -101,7 +101,7 @@ class ExecutionService:
         )
 
         if req.order_type == "LIMIT":
-            # No background matcher yet in Phase 2 — accepted, not filled.
+            # The worker fills this later if the market quote crosses the limit.
             return self.orders.create(order)
 
         access_token = self.broker_credentials.get_access_token(user_id, "upstox")

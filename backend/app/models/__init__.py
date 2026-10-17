@@ -6,6 +6,7 @@ from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.instrument import Instrument  # noqa: F401
 from app.models.portfolio import Portfolio  # noqa: F401
 from app.models.order import Order  # noqa: F401
+from app.models.broker_order import BrokerOrder  # noqa: F401
 from app.models.position import Position  # noqa: F401
 from app.models.execution import Execution  # noqa: F401
 from app.models.strategy import Strategy  # noqa: F401
@@ -25,6 +26,7 @@ __all__ = [
     "Instrument",
     "Portfolio",
     "Order",
+    "BrokerOrder",
     "Position",
     "Execution",
     "Strategy",

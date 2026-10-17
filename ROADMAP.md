@@ -19,7 +19,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 | Upstox V3 WebSocket authorization/reconnect protections | Partial implementation and unit/regression coverage | Real authorized session test remains open; shared stream state across workers remains open |
 | Portfolio-wide risk controls | Existing configurable controls, still require deployment-aware review | Confirm atomic reservations, exposure semantics and user-adjustable thresholds; don't represent cost-basis/realized-loss checks as mark-to-market broker margin |
 | Durable live-order idempotency | Phase 1 partially implemented; CI green for latest code checkpoint | Add concurrency/race tests and cross-database migration review; no broker submission |
-| Broker order/trade reconciliation | Phase 2 read-only worker implemented and mocked-CI-tested; operational invocation and real-account verification remain gated | Worker uses only the fixed-path GET-only Upstox client, user-scoped connection/token validation, lease, bounded retry and idempotent fill/status repositories. No write endpoint, scheduler, live submission or accounting updates. |
+| Broker order/trade reconciliation | Phase 2 read-only worker + durable run summaries implemented and CI-tested; operational invocation and real-account verification remain gated | Worker uses only the fixed-path GET-only Upstox client, user-scoped connection/token validation, lease, bounded retry, idempotent fill/status repositories and count-only durable run summaries. No write endpoint, scheduler, live submission or accounting updates. |
 | Live submission orchestration | Not implemented / disabled | Sandbox-only workflow after prior phases pass |
 | Production deployment verification | Incomplete | Backup-restored staging migration against actual DB engine, rollback/restore drill and operational runbook |
 
@@ -97,3 +97,9 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - Regression coverage now includes successful matching/fill linking, repeat-run deduplication, cross-user rejection, busy lease, missing token, no mutation when either read fails, bounded transient retry and Retry-After, 403 no-retry, malformed envelope/data rejection, and UNKNOWN execution status recovery when later trade evidence arrives.
 - Latest code test run [39058734080](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39058734080) passed **338 tests, 1 warning**; SQLite/PostgreSQL 16 reversible migration checks passed. No live Upstox request, order action, production migration or accounting update occurred.
 - Remaining Phase 2 work is operational hardening and current official API pagination/session-boundary verification; live order submission is a separate later phase and remains disabled.
+
+
+### Durable reconciliation run summary checkpoint — 2026-10-17
+- Added `LiveReconciliationRun`, migration `202610170004`, and `LiveReconciliationRunRepository`; worker now persists a count-only summary and sanitized status/error category for each leased run.
+- Test commit [`0e69fb2`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/0e69fb2efea692f2f675604ef3312cb1954ecc39) passed [run 39059271937](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39059271937): **340 passed, 1 warning**, with SQLite/PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks.
+- The run summary contains only known non-negative counters; no broker payload, token, header or exception text is stored. A run left in `RUNNING` after process crash is visible as incomplete, but automatic stale-run recovery and operator review UI remain future work.

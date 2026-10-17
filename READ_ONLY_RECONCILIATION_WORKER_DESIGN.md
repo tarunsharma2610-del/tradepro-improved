@@ -76,3 +76,7 @@ The worker implementation is in `backend/app/services/live_order_reconciliation_
 - Worker commit: [`4ee8427`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/4ee8427f890f7c31021e30f7b36177e2f3f227c3).
 - Latest test commit: [`bffeefc`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/bffeefc7921fd96c8fbeab1b201eb3088e87f497); [run 39058734080](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39058734080) passed 338 tests, 1 warning, plus SQLite/PostgreSQL 16 reversible migration checks.
 - The worker currently reads the order book and daily trades, not historical windows; it is not scheduled or wired to an endpoint. It writes fill identities and reconciliation state only, never local portfolio positions, cash, P&L or Order/Execution accounting.
+
+
+## Durable run summaries implemented — 2026-10-17
+`LiveReconciliationRun` + `LiveReconciliationRunRepository` persist a `RUNNING` row after lease acquisition and terminal status, start/completion times, safe error code and seven approved integer counters after the pass. The worker exposes `run_id` in its in-memory result. Raw broker records, tokens, headers and exception strings are never placed in the summary. Migration `202610170004` passed SQLite/PostgreSQL 16 upgrade/downgrade/re-upgrade in [run 39059271937](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39059271937), which passed 340 tests, 1 warning. Remaining: durable manual-review issues, stale RUNNING recovery and crash/restart boundary tests.

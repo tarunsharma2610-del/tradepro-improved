@@ -273,3 +273,7 @@ A durable one-per-connection reconciliation lease now supports atomic claims, ex
 
 ## Phase 2 worker boundary — 2026-10-17
 A read-only reconciliation worker now exists but is not scheduled or exposed through an API route. It injects only `UpstoxReadOnlyReconciliationClient` (fixed GET methods), validates user/connection ownership and token usability, uses a durable lease and bounded retries, and persists normalized trade identities and status/audit evidence. Tests are mocked; no real broker read has occurred. The current worker only reads the order book and daily trades and does not provide historical pagination, persistent operator summaries/manual-review queue, or accounting aggregation. It must not be used as evidence that live submission is safe. Keep all order-write paths disabled until later release gates and explicit authorization.
+
+
+## Durable worker summary boundary — 2026-10-17
+The worker now records count-only run summaries and sanitized error categories in `live_reconciliation_runs`; a summary contains no raw broker payload, credential, authorization header or exception text. The schema/migration is CI-tested, not staging/production migrated. The worker remains unscheduled and not exposed by an API route. A stale `RUNNING` record may remain after a crash; recovery/manual-review visibility is not yet implemented. This telemetry does not authorize live order submission.

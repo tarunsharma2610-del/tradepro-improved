@@ -229,3 +229,21 @@ Review the live-order idempotency/reconciliation gap and write a safe implementa
 - No live-order API, dispatcher worker or reconciliation service is part of this phase. Keep live trading disabled.
 
 **Next action:** check CI for the documentation commits and this progress update; then continue with the concurrent unique-key test and staging-engine migration review.
+
+
+## Continued Phase 1 — credential-field persistence guard — 2026-10-17
+
+### Change
+- Added _validate_safe_json() in backend/app/repositories/live_order_repository.py. It recursively rejects credential-like key names in order snapshots and audit event details (including nested access/refresh tokens, secrets, passwords, API keys, authorization headers and cookies) and rejects non-finite/non-JSON-compatible data before database persistence.
+- Added tests in backend/tests/test_live_order_repository.py for nested access-token rejection in order snapshots, nested Authorization-header rejection in audit details, and rejection of non-object audit details.
+- This is defense-in-depth key-name validation, not a guarantee that arbitrary secret values are detected. Callers must continue to redact secrets. No API route, broker call, order submission or reconciliation workflow was added.
+
+### Verification
+- Combined code/test checkpoint: 5508b272efe55997252e8d8a51fdd29761a1070b.
+- Exact GitHub Actions run [39047300286](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39047300286) succeeded: **214 passed, 1 warning**. Clean SQLite migration upgrade → downgrade to 202610170001 → re-upgrade also succeeded in the same workflow.
+- Commits: repository guard 46f85a345dfff6a673ee19d3760191a07eff2f5b; tests 5508b272efe55997252e8d8a51fdd29761a1070b.
+- Evidence/docs updated: roadmap f245e5d0402f06c72889bdd308e284cf2d21e523; audit 2c781f27734b8642f1861f505242f108b3c2a6c7; README 518f2ac606c7b2513aa62a5d18daa175a40e701f; design e9218829e814db1ab9c09358705fc1f48ea549b8; architecture e5889f7ab3765eac1cbf937f85aa0f28d24919a2; safeguards 0f36d6a095bd4b5c02253b9e68dab46b948feeb2. Each documentation commit's own CI still needs exact-commit verification.
+- No production migration or real broker action occurred.
+
+### Next single action
+- Verify the documentation commits' CI, then add a concurrency test appropriate to the actual deployment database engine. The engine and staging access must be confirmed before claiming true simultaneous contention or production-engine migration verification.

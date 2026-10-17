@@ -80,4 +80,14 @@ This is a repository-source review, not a live-broker certification. The current
 
 ### Scope boundary
 
-This workstream added portfolio risk settings/enforcement, snapshot-gated expiry/delisting reconciliation, a V3 WebSocket client/API and real upstream master verification against disposable SQLite. Backend CI passed 197 tests and clean SQLite migration verification; frontend typecheck/build passed for the stream-control UI. No live orders were submitted. No production database sync or production/staging migration was run. Live authenticated WebSocket behavior still requires account-level verification. Live trading remains unimplemented and must remain disabled.
+This workstream added portfolio risk settings/enforcement, snapshot-gated expiry/delisting reconciliation, a V3 WebSocket client/API and real upstream master verification against disposable SQLite. Latest verified backend CI passed 203 tests and clean SQLite migration verification; frontend typecheck/build passed for the stream-control UI. No live orders were submitted. No production database sync or production/staging migration was run. Live authenticated WebSocket behavior still requires account-level verification. Live trading remains unimplemented and must remain disabled.
+
+
+### Latest verification checkpoint — 2026-10-17
+
+- Latest backend workflow after documentation changes: [39039714203](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39039714203) — **203 passed, 1 warning**. Clean SQLite Alembic upgrade completed through `202610170001`; this is not proof of safe migration on the deployed database engine/data.
+- Regression tests on `main` cover the portfolio daily-order cap, rejection of incomplete instrument snapshots without catalog mutation, WebSocket silence reconnect, unsafe authorization URL rejection, and valid official-format V3 authorization URL/headers.
+- Real upstream instrument master was downloaded and synced to disposable in-memory SQLite with **123,930 active instruments**: [workflow 39037390129](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129). Production database was not touched.
+- Frontend TypeScript and production build passed for stream-control UI: [workflow 39037642093](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037642093).
+- Remaining release blockers: authenticated real-session WebSocket test; multi-worker/shared stream state; backup-safe staging migration against the actual deployment DB; and idempotent live order submission plus broker reconciliation and emergency stop. No live orders were submitted. Keep live trading disabled.
+- Next safe step: document idempotency and reconciliation design against the existing adapter/order model/audit trail before implementing live order submission.

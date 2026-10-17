@@ -249,3 +249,7 @@ The improved repository now has pure broker-order status normalization, strict c
 
 ## 17 October 2026 — individual fill identity persistence
 The repository now validates normalized Upstox per-order trade records and stores individual fill identities idempotently using `(broker_connection_id, broker_trade_id)`. Identical replay is a no-op; conflicting reuse of a trade ID fails closed. A linked fill and audit event are atomic. This is still not full reconciliation: no broker reads/worker, fill-vs-intent economic validation, partial-fill accounting, position/cash/P&L update, or live order submission is present. Keep live trading disabled.
+
+
+## 17 October 2026 — fill-to-intent economic checks
+Linked fill identity persistence now requires the same broker order ID already linked to the intent, exact instrument/side/product/order-type agreement, valid requested quantity, and per-fill plus aggregate quantity ceilings. BUY LIMIT/SL fills above limit and SELL LIMIT/SL fills below limit are rejected before persistence. CI [run 39052939770](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052939770) passed 279 tests, 1 warning, and SQLite/PostgreSQL 16 migration checks. These are repository safeguards only; no broker polling, live accounting, or live submission is present.

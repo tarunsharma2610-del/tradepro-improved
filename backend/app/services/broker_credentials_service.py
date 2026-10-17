@@ -194,7 +194,7 @@ class BrokerCredentialsService:
                 synchronize_session=False,
             )
         )
-        if result.rowcount != 1:
+        if result != 1:
             self.db.rollback()
             raise ValueError("Broker OAuth state is expired or has already been used. Restart the connection flow.")
 

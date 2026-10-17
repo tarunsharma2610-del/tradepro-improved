@@ -47,7 +47,6 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - [x] Add pure strict intent matcher: scope candidates to the authenticated broker connection, prefer an existing broker order ID, otherwise require one exact broker tag and exact instrument/side/type/quantity/product plus applicable price fields. Multiple candidates, cross-connection candidates, economic mismatches and unknown/contradictory broker states are not auto-linked. Tests passed in [run 39050424898](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050424898).
 - [x] Add repository-only status transition persistence with an allowlist of state transitions, optimistic version/state compare-and-set, broker-order-ID uniqueness handling, atomic audit event, credential-field validation and idempotent same-state no-op. [Run 39050941218](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050941218) passed 261 tests, 1 warning, plus SQLite/PostgreSQL 16 reversible migrations.
 - [ ] Add idempotent broker fill normalization/ingestion using stable trade IDs; don't mark fills from order status alone.
-- [ ] Add idempotent broker fill normalization/ingestion using stable trade IDs; don't mark fills from order status alone.
 - Deduplicate fills by documented stable broker trade identity.
 - Handle partial fills, duplicate/out-of-order updates, missing/multiple tag matches, unknown statuses, API outages, session boundaries and sliced orders.
 - No order-placement call in this phase.

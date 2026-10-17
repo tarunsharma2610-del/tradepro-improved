@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -22,3 +22,11 @@ class Portfolio(BaseModel):
     cash_balance: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Optional user-configurable portfolio risk controls.
+    risk_controls_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    max_daily_loss: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    max_open_exposure: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    max_order_value: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    max_open_positions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_orders_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)

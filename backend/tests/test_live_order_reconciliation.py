@@ -260,8 +260,8 @@ def test_upstox_trade_normalization_rejects_invalid_economic_fields(changes):
     ("observed", "requested", "persisted", "expected"),
     [
         ("OPEN", 10, 3, "PARTIALLY_FILLED"),
-        ("FILLED", 10, 0, "RECONCILIATION_REQUIRED"),
-        ("PARTIALLY_FILLED", 10, 0, "RECONCILIATION_REQUIRED"),
+        ("FILLED", 10, 0, "UNKNOWN"),
+        ("PARTIALLY_FILLED", 10, 0, "UNKNOWN"),
         ("PENDING", 10, 3, "PARTIALLY_FILLED"),
         ("CANCEL_PENDING", 10, 3, "PARTIALLY_FILLED"),
         ("CANCELLED", 10, 3, "PARTIALLY_FILLED_CANCELLED"),

@@ -54,8 +54,9 @@ def update_portfolio_risk_settings(
     user: User = Depends(get_current_user),
 ):
     portfolio = _get_owned_portfolio(db, user, portfolio_id)
-    for field, value in payload.model_dump().items():
-        setattr(portfolio, field, value)
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        if value is not None:
+            setattr(portfolio, field, value)
     db.add(portfolio)
     db.commit()
     db.refresh(portfolio)

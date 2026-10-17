@@ -45,7 +45,8 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 ### Gate 2 — Reconciliation-only workflow — foundation in progress
 - [x] Add pure normalization for documented Upstox order book/details/history statuses and required fields; preserve raw status and route unknown/inconsistent records to review. Tested in [run 39049395091](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049395091).
 - [x] Add pure strict intent matcher: scope candidates to the authenticated broker connection, prefer an existing broker order ID, otherwise require one exact broker tag and exact instrument/side/type/quantity/product plus applicable price fields. Multiple candidates, cross-connection candidates, economic mismatches and unknown/contradictory broker states are not auto-linked. Tests passed in [run 39050424898](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050424898).
-- [ ] Add durable status transition persistence with version/transition guards and audit events; no broker API I/O.
+- [x] Add repository-only status transition persistence with an allowlist of state transitions, optimistic version/state compare-and-set, broker-order-ID uniqueness handling, atomic audit event, credential-field validation and idempotent same-state no-op. [Run 39050941218](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050941218) passed 261 tests, 1 warning, plus SQLite/PostgreSQL 16 reversible migrations.
+- [ ] Add idempotent broker fill normalization/ingestion using stable trade IDs; don't mark fills from order status alone.
 - [ ] Add idempotent broker fill normalization/ingestion using stable trade IDs; don't mark fills from order status alone.
 - Deduplicate fills by documented stable broker trade identity.
 - Handle partial fills, duplicate/out-of-order updates, missing/multiple tag matches, unknown statuses, API outages, session boundaries and sliced orders.

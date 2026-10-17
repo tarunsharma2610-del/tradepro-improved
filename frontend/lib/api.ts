@@ -1,0 +1,32 @@
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`/api/v1${path}`, {
+    ...init,
+    credentials: "include", // send/receive the httpOnly auth cookies
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+  });
+
+  if (res.status === 204) return undefined as T;
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(res.status, body.detail || `Request failed (${res.status})`);
+  }
+  return body as T;
+}
+
+export const api = {
+  get: <T>(path: string) => request<T>(path, { method: "GET" }),
+  post: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined }),
+  put: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: "PUT", body: data ? JSON.stringify(data) : undefined }),
+  del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+};

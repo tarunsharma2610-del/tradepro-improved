@@ -1,0 +1,338 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { api, ApiError } from "@/lib/api";
+
+type Portfolio = { id: string; name: string; virtual_capital: string; cash_balance: string };
+type InstrumentBrief = { id: string; trading_symbol: string; exchange: string };
+type Instrument = InstrumentBrief & { instrument_key: string; name: string; segment: string };
+type Position = { instrument: InstrumentBrief; quantity: number; avg_price: string; realized_pnl: string };
+type Order = {
+  id: string;
+  instrument: InstrumentBrief;
+  side: string;
+  order_type: string;
+  segment: string;
+  quantity: number;
+  status: string;
+  rejection_reason: string | null;
+  placed_at: string;
+};
+
+const SEGMENTS = ["EQUITY_DELIVERY", "EQUITY_INTRADAY", "FUTURES", "OPTIONS"];
+
+export default function PortfolioDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Instrument[]>([]);
+  const [selected, setSelected] = useState<Instrument | null>(null);
+  const [side, setSide] = useState("BUY");
+  const [segment, setSegment] = useState("EQUITY_DELIVERY");
+  const [orderType, setOrderType] = useState<"MARKET" | "LIMIT">("MARKET");
+  const [quantity, setQuantity] = useState("1");
+  const [limitPrice, setLimitPrice] = useState("");
+  const [placing, setPlacing] = useState(false);
+  const [lastResult, setLastResult] = useState<Order | null>(null);
+
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [assistantError, setAssistantError] = useState<string | null>(null);
+
+  useEffect(() => {
+    refresh();
+  }, [id]);
+
+  useEffect(() => {
+    if (query.length < 2) {
+      setResults([]);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      try {
+        setResults(await api.get<Instrument[]>(`/instruments/search?q=${encodeURIComponent(query)}`));
+      } catch {
+        setResults([]);
+      }
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  async function refresh() {
+    try {
+      const [p, pos, ord] = await Promise.all([
+        api.get<Portfolio>(`/portfolios/${id}`),
+        api.get<Position[]>(`/portfolios/${id}/positions`),
+        api.get<Order[]>(`/portfolios/${id}/orders`),
+      ]);
+      setPortfolio(p);
+      setPositions(pos);
+      setOrders(ord);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not load this portfolio.");
+    }
+  }
+
+  async function onPlaceOrder(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected) return;
+    setError(null);
+    setLastResult(null);
+    setPlacing(true);
+    try {
+      const order = await api.post<Order>(`/portfolios/${id}/orders`, {
+        instrument_id: selected.id,
+        side,
+        order_type: orderType,
+        segment,
+        quantity: Number(quantity),
+        limit_price: orderType === "LIMIT" ? limitPrice : undefined,
+      });
+      setLastResult(order);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not place the order.");
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  async function onAsk(e: React.FormEvent) {
+    e.preventDefault();
+    setAssistantError(null);
+    setAnswer(null);
+    setAsking(true);
+    try {
+      const result = await api.post<{ answer: string }>(`/portfolios/${id}/assistant/ask`, { question });
+      setAnswer(result.answer);
+    } catch (err) {
+      setAssistantError(err instanceof ApiError ? err.message : "Could not reach the assistant.");
+    } finally {
+      setAsking(false);
+    }
+  }
+
+  if (!portfolio) return <div className="p-8 text-sm text-ink/60 dark:text-paper/60">{error || "Loading…"}</div>;
+
+  return (
+    <div className="mx-auto max-w-3xl p-8">
+      <Link href="/portfolios" className="text-sm text-accent hover:underline">
+        ← All portfolios
+      </Link>
+      <div className="mt-2 flex items-baseline justify-between">
+        <h1 className="text-2xl font-semibold">{portfolio.name}</h1>
+        <p className="tabular text-xl">₹{Number(portfolio.cash_balance).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+      </div>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-ink/50 dark:text-paper/50">
+          Cash balance · started with ₹{Number(portfolio.virtual_capital).toLocaleString("en-IN")}
+        </p>
+        <div className="flex gap-4">
+          <Link href={`/portfolios/${id}/analytics`} className="text-sm text-accent hover:underline">
+            Analytics
+          </Link>
+          <Link href={`/portfolios/${id}/strategies`} className="text-sm text-accent hover:underline">
+            Strategies (auto-trading) →
+          </Link>
+        </div>
+      </div>
+
+      {/* Order entry */}
+      <Card className="mt-6">
+        <form onSubmit={onPlaceOrder} className="space-y-4">
+          <h2 className="font-medium">Place a paper order</h2>
+
+          <div className="relative">
+            <Input
+              label="Instrument"
+              placeholder="Search e.g. RELIANCE"
+              value={selected ? `${selected.trading_symbol} — ${selected.name}` : query}
+              onChange={(e) => {
+                setSelected(null);
+                setQuery(e.target.value);
+              }}
+            />
+            {results.length > 0 && !selected && (
+              <ul className="absolute z-10 mt-1 w-full rounded-md border border-ink/10 bg-white shadow-lg dark:border-paper/10 dark:bg-ink-soft">
+                {results.map((r) => (
+                  <li
+                    key={r.id}
+                    className="cursor-pointer px-3 py-2 text-sm hover:bg-accent/10"
+                    onClick={() => {
+                      setSelected(r);
+                      setResults([]);
+                    }}
+                  >
+                    <span className="font-medium">{r.trading_symbol}</span>{" "}
+                    <span className="text-ink/50 dark:text-paper/50">{r.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-ink/80 dark:text-paper/80">Side</label>
+              <select value={side} onChange={(e) => setSide(e.target.value)} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
+                <option value="BUY">Buy</option>
+                <option value="SELL">Sell</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-ink/80 dark:text-paper/80">Segment</label>
+              <select value={segment} onChange={(e) => setSegment(e.target.value)} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
+                {SEGMENTS.map((s) => (
+                  <option key={s} value={s}>
+                    {s.replace("_", " ")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-ink/80 dark:text-paper/80">Order type</label>
+              <select value={orderType} onChange={(e) => setOrderType(e.target.value as "MARKET" | "LIMIT")} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
+                <option value="MARKET">Market</option>
+                <option value="LIMIT">Limit</option>
+              </select>
+            </div>
+            <Input label="Quantity" type="number" min={1} required value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          </div>
+
+          {orderType === "LIMIT" && (
+            <>
+              <Input label="Limit price (₹)" type="number" min={0} step="0.05" required value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} />
+              <p className="-mt-2 text-xs text-caution">
+                Limit orders are accepted and stored as pending — this phase doesn't auto-fill them when price crosses yet.
+              </p>
+            </>
+          )}
+
+          {orderType === "MARKET" && (
+            <p className="text-xs text-ink/50 dark:text-paper/50">
+              Fills instantly at the live price from your connected broker. No broker connected yet? The order will be
+              rejected with a clear reason instead of guessing a price —{" "}
+              <Link href="/settings/broker" className="text-accent hover:underline">
+                connect one
+              </Link>
+              .
+            </p>
+          )}
+
+          {error && <p className="text-sm text-loss">{error}</p>}
+          {lastResult && (
+            <p className={lastResult.status === "FILLED" ? "text-sm text-gain" : "text-sm text-caution"}>
+              {lastResult.status === "FILLED"
+                ? `Filled: ${lastResult.side} ${lastResult.quantity} ${lastResult.instrument.trading_symbol}.`
+                : `${lastResult.status}: ${lastResult.rejection_reason || "See order history."}`}
+            </p>
+          )}
+
+          <Button type="submit" disabled={!selected || placing} className="w-full">
+            {placing ? "Placing…" : "Place order"}
+          </Button>
+        </form>
+      </Card>
+
+      {/* Positions */}
+      <h2 className="mt-8 font-medium">Positions</h2>
+      {positions.length === 0 ? (
+        <p className="mt-2 text-sm text-ink/50 dark:text-paper/50">No open positions yet.</p>
+      ) : (
+        <Card className="mt-2 overflow-x-auto p-0">
+          <table className="tabular w-full text-sm">
+            <thead className="border-b border-ink/10 text-left text-ink/50 dark:border-paper/10 dark:text-paper/50">
+              <tr>
+                <th className="px-4 py-2 font-normal">Symbol</th>
+                <th className="px-4 py-2 font-normal">Qty</th>
+                <th className="px-4 py-2 font-normal">Avg price</th>
+                <th className="px-4 py-2 font-normal">Realized P&amp;L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {positions.map((p) => (
+                <tr key={p.instrument.id} className="border-b border-ink/5 last:border-0 dark:border-paper/5">
+                  <td className="px-4 py-2 font-sans">{p.instrument.trading_symbol}</td>
+                  <td className={`px-4 py-2 ${p.quantity < 0 ? "text-loss" : ""}`}>{p.quantity}</td>
+                  <td className="px-4 py-2">₹{Number(p.avg_price).toFixed(2)}</td>
+                  <td className={`px-4 py-2 ${Number(p.realized_pnl) < 0 ? "text-loss" : Number(p.realized_pnl) > 0 ? "text-gain" : ""}`}>
+                    ₹{Number(p.realized_pnl).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Order history */}
+      <h2 className="mt-8 font-medium">Recent orders</h2>
+      {orders.length === 0 ? (
+        <p className="mt-2 text-sm text-ink/50 dark:text-paper/50">No orders yet.</p>
+      ) : (
+        <Card className="mt-2 overflow-x-auto p-0">
+          <table className="tabular w-full text-sm">
+            <thead className="border-b border-ink/10 text-left text-ink/50 dark:border-paper/10 dark:text-paper/50">
+              <tr>
+                <th className="px-4 py-2 font-normal">Symbol</th>
+                <th className="px-4 py-2 font-normal">Side</th>
+                <th className="px-4 py-2 font-normal">Qty</th>
+                <th className="px-4 py-2 font-normal">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={o.id} className="border-b border-ink/5 last:border-0 dark:border-paper/5">
+                  <td className="px-4 py-2 font-sans">{o.instrument.trading_symbol}</td>
+                  <td className={`px-4 py-2 ${o.side === "SELL" ? "text-loss" : "text-gain"}`}>{o.side}</td>
+                  <td className="px-4 py-2">{o.quantity}</td>
+                  <td className="px-4 py-2 font-sans" title={o.rejection_reason || undefined}>
+                    {o.status}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* AI assistant */}
+      <h2 className="mt-8 font-medium">Ask about this portfolio</h2>
+      <Card className="mt-2">
+        <form onSubmit={onAsk} className="space-y-3">
+          <Input
+            label="Question"
+            placeholder="e.g. What's my biggest position? Any recent news on it?"
+            required
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+          />
+          <p className="-mt-1 text-xs text-ink/50 dark:text-paper/50">
+            Answers are grounded only in this portfolio's real positions, orders, and tagged news — never live prices
+            or invented figures.
+          </p>
+          {assistantError && <p className="text-sm text-loss">{assistantError}</p>}
+          <Button type="submit" disabled={asking || !question}>
+            {asking ? "Asking…" : "Ask"}
+          </Button>
+        </form>
+        {answer && (
+          <div className="mt-4 whitespace-pre-wrap border-t border-ink/10 pt-4 text-sm dark:border-paper/10">{answer}</div>
+        )}
+      </Card>
+    </div>
+  );
+}

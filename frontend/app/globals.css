@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-paper text-ink dark:bg-ink dark:text-paper;
+  }
+  body {
+    @apply antialiased;
+  }
+  /* Numbers get the mono face wherever they appear — prices, P&L,
+     timestamps — so digits stay a fixed width and decimals line up. */
+  .tabular {
+    @apply font-mono tabular-nums;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+}

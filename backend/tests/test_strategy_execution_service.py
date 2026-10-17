@@ -1,0 +1,183 @@
+from contextlib import ExitStack
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from app.brokers.base import BrokerCallResult
+from app.core.encryption import encrypt_value
+from app.models.strategy import Strategy
+from app.repositories.portfolio_repository import PortfolioRepository
+from app.services.instrument_service import InstrumentService
+from app.services.strategy_engine import Signal
+from app.services.strategy_execution_service import StrategyExecutionService
+
+
+@pytest.fixture()
+def instrument(db_session):
+    InstrumentService(db_session).seed_defaults()
+    from app.repositories.instrument_repository import InstrumentRepository
+
+    return InstrumentRepository(db_session).search("RELIANCE")[0]
+
+
+@pytest.fixture()
+def portfolio(db_session, make_user):
+    user = make_user()
+    p = PortfolioRepository(db_session).create(user_id=user.id, name="Auto", virtual_capital=Decimal("500000"))
+    return user, p
+
+
+def _connect_fake_broker(db_session, user_id):
+    from app.models.broker_connection import BrokerConnection
+
+    conn = BrokerConnection(
+        user_id=user_id, broker="upstox",
+        api_key_encrypted=encrypt_value("k"), api_secret_encrypted=encrypt_value("s"),
+        redirect_uri="https://example.com/cb", access_token_encrypted=encrypt_value("tok"),
+        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1), is_connected=True,
+    )
+    db_session.add(conn)
+    db_session.commit()
+
+
+def _make_strategy(db_session, portfolio_id, instrument_id, **overrides) -> Strategy:
+    defaults = dict(
+        portfolio_id=portfolio_id, instrument_id=instrument_id, name="Test strategy",
+        segment="EQUITY_INTRADAY", quantity=1, is_active=True,
+        rsi_weight=Decimal("0"), sma_crossover_weight=Decimal("0"), macd_weight=Decimal("0"),
+        volume_spike_weight=Decimal("0"), momentum_weight=Decimal("1"),  # momentum-only: simplest to steer in tests
+        entry_score_threshold=Decimal("0.3"), exit_score_threshold=Decimal("-0.3"),
+        trailing_stop_pct=Decimal("2"), max_daily_loss=Decimal("5000"),
+    )
+    defaults.update(overrides)
+    strategy = Strategy(**defaults)
+    db_session.add(strategy)
+    db_session.commit()
+    db_session.refresh(strategy)
+    return strategy
+
+
+def _candles_response(prices: list[float]):
+    """`prices` given oldest-to-newest, the way a human writes a trend.
+    Upstox's real (documented) convention is newest-first, and
+    _parse_candles un-reverses that — so this builds the mocked raw array
+    in newest-first order too, exactly mirroring what a real response
+    would look like, rather than pre-flipping it for convenience."""
+    newest_first = list(reversed(prices))
+    candles = [[f"2026-08-{i + 1:02d}T10:00:00", p, p, p, p, 10000, 0] for i, p in enumerate(newest_first)]
+    return BrokerCallResult(ok=True, data={"data": {"candles": candles}})
+
+
+def _mock_broker(candles_result: BrokerCallResult, quote_price: str):
+    fake_adapter = type(
+        "FakeAdapter", (),
+        {
+            "get_historical_data": AsyncMock(return_value=candles_result),
+            "get_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ|INE002A01018": {"last_price": quote_price}}})),
+        },
+    )()
+    stack = ExitStack()
+    stack.enter_context(patch("app.services.strategy_execution_service.get_broker_adapter", return_value=fake_adapter))
+    stack.enter_context(patch("app.services.execution_service.get_broker_adapter", return_value=fake_adapter))
+    return stack
+
+
+@pytest.mark.asyncio
+async def test_no_connected_broker_holds_without_crashing(db_session, portfolio, instrument):
+    _, p = portfolio
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    service = StrategyExecutionService(db_session)
+
+    result = await service.evaluate(strategy)
+    assert result.signal == Signal.HOLD.value
+    assert "broker" in result.reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_insufficient_candle_history_holds(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    service = StrategyExecutionService(db_session)
+
+    with _mock_broker(_candles_response([100.0, 101.0, 102.0]), "102.00"):
+        result = await service.evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+
+
+@pytest.mark.asyncio
+async def test_strong_uptrend_triggers_entry_through_the_real_execution_engine(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    service = StrategyExecutionService(db_session)
+
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]  # clear momentum, well past the entry threshold
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        result = await service.evaluate(strategy)
+
+    assert result.signal == Signal.ENTER_LONG.value
+    assert result.order_id is not None
+
+    from app.repositories.position_repository import PositionRepository
+
+    position = PositionRepository(db_session).get_or_create(p.id, instrument.id)
+    assert position.quantity == strategy.quantity  # the fixed size configured on the strategy
+
+    db_session.refresh(strategy)
+    assert strategy.current_watermark is not None
+    assert strategy.last_evaluated_at is not None
+
+
+@pytest.mark.asyncio
+async def test_score_reversal_exits_an_open_position(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    service = StrategyExecutionService(db_session)
+
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await service.evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+
+    db_session.refresh(strategy)
+    falling_prices = [110.0 - i * 0.5 for i in range(20)]  # sharp reversal — momentum score should flip negative
+    with _mock_broker(_candles_response(falling_prices), str(falling_prices[-1])):
+        exit_result = await service.evaluate(strategy)
+
+    assert exit_result.signal == Signal.EXIT.value
+
+    from app.repositories.position_repository import PositionRepository
+
+    position = PositionRepository(db_session).get_or_create(p.id, instrument.id)
+    assert position.quantity == 0
+
+    db_session.refresh(strategy)
+    assert strategy.current_watermark is None
+
+
+@pytest.mark.asyncio
+async def test_paused_strategy_does_not_enter(db_session, portfolio, instrument):
+    from datetime import timezone as tz
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    today = datetime.now(tz.utc).date()
+    strategy = _make_strategy(db_session, p.id, instrument.id, paused_until=today)
+    service = StrategyExecutionService(db_session)
+
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        result = await service.evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+    assert "paused" in result.reason.lower() or "risk engine" in result.reason.lower()
+
+    from app.repositories.position_repository import PositionRepository
+
+    position = PositionRepository(db_session).get_or_create(p.id, instrument.id)
+    assert position.quantity == 0  # never entered

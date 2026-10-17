@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -390,3 +391,111 @@ def test_reconciliation_transition_rejects_secret_fields(db_session, make_user):
     assert db_session.query(LiveOrderEvent).filter_by(
         intent_id=intent.id, event_type="BROKER_STATUS_RECONCILED"
     ).count() == 0
+
+
+
+def _record_fill(repository, user, connection, intent, **overrides):
+    args = {
+        "user_id": user.id,
+        "broker_connection_id": connection.id,
+        "broker_trade_id": "trade-stable-1",
+        "broker_order_id": "broker-order-1",
+        "instrument_key": "NSE_EQ|TEST",
+        "side": "BUY",
+        "quantity": 2,
+        "price": "101.25",
+        "executed_at": datetime(2026, 10, 17, 10, 15, tzinfo=timezone.utc),
+        "intent_id": intent.id if intent else None,
+        "safe_details": {"exchange": "NSE"},
+        "correlation_id": "fill-test",
+    }
+    args.update(overrides)
+    return repository.record_broker_fill(**args)
+
+
+def test_record_broker_fill_is_idempotent_and_audited(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    repository = LiveOrderRepository(db_session)
+
+    fill, created = _record_fill(repository, user, connection, intent)
+    assert created is True
+    assert fill.broker_trade_id == "trade-stable-1"
+    assert fill.quantity == 2
+    assert str(fill.price) == "101.2500"
+    assert db_session.query(BrokerFillIdentity).filter_by(
+        broker_connection_id=connection.id, broker_trade_id="trade-stable-1"
+    ).count() == 1
+    assert db_session.query(LiveOrderEvent).filter_by(
+        intent_id=intent.id, event_type="BROKER_FILL_RECORDED"
+    ).count() == 1
+
+    duplicate, duplicate_created = _record_fill(repository, user, connection, intent)
+    assert duplicate_created is False
+    assert duplicate.id == fill.id
+    assert db_session.query(BrokerFillIdentity).filter_by(
+        broker_connection_id=connection.id, broker_trade_id="trade-stable-1"
+    ).count() == 1
+    assert db_session.query(LiveOrderEvent).filter_by(
+        intent_id=intent.id, event_type="BROKER_FILL_RECORDED"
+    ).count() == 1
+
+
+def test_reused_trade_id_with_different_payload_is_conflict(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    repository = LiveOrderRepository(db_session)
+    _record_fill(repository, user, connection, intent)
+
+    with pytest.raises(LiveOrderVersionConflict, match="different fill details"):
+        _record_fill(repository, user, connection, intent, quantity=3)
+
+    assert db_session.query(BrokerFillIdentity).filter_by(
+        broker_connection_id=connection.id, broker_trade_id="trade-stable-1"
+    ).count() == 1
+
+
+def test_fill_ingestion_rejects_intent_from_another_broker_connection(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    other_connection = BrokerConnection(
+        user_id=user.id,
+        broker="upstox",
+        api_key_encrypted="other-encrypted-key",
+        api_secret_encrypted="other-encrypted-secret",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=False,
+    )
+    db_session.add(other_connection)
+    db_session.commit()
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+
+    with pytest.raises(ValueError, match="matched intent not found"):
+        _record_fill(
+            LiveOrderRepository(db_session), user, other_connection, intent,
+            broker_trade_id="trade-other-account",
+        )
+    assert db_session.query(BrokerFillIdentity).count() == 0
+
+
+def test_fill_ingestion_rejects_credential_fields_in_safe_details(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+
+    with pytest.raises(ValueError, match="credential-like field"):
+        _record_fill(
+            LiveOrderRepository(db_session), user, connection, intent,
+            safe_details={"authorization_header": "do-not-store"},
+        )
+    assert db_session.query(BrokerFillIdentity).count() == 0

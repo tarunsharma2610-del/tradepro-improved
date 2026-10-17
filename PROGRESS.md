@@ -469,3 +469,33 @@ The verified code checkpoint for unmatched fill relinking remains [run 390533529
 - Added [READ_ONLY_RECONCILIATION_WORKER_DESIGN.md](READ_ONLY_RECONCILIATION_WORKER_DESIGN.md) and updated roadmap, architecture, audit, README, reconciliation design, safeguards and project instructions. The exact docs CI runs for the previous out-of-order checkpoint passed: roadmap [39056606410](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056606410), architecture [39056618397](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056618397), audit [39056630473](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056630473), README [39056642292](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056642292), reconciliation design [39056653110](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056653110), safeguards [39056663764](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056663764), instructions [39056675913](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056675913), progress [39056709672](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056709672), worker design [39056552758](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056552758). All reported success.
 - Latest remaining docs commits for the client boundary are: roadmap `59d7351fe91d34a17c860ad64ac6fea75a85b2df`; architecture `925e7f00ae56ce18037a2acc09858fac500cdabe`; audit `b0ff85bc6133ab61724e4ca99669ae1a41781f6c`; README `a1681218e43b55e36885a95af9b0db26430233ca`; reconciliation design `e91241dbf910279fa70c555fb74a4884917a36de`; safeguards `6f65fcdf68e81db1e433eaa8f3658014605d802b`; instructions `61dbece6164e0a8e5799a840e00fb524bf6781aa`; worker design `14625c1c2d7532263c4955e39e14eff2d2498671`. Their exact CI runs are being checked.
 - Next implementation action: implement the worker orchestrator with user/connection ownership checks, token expiry checks, bounded retries and lease/concurrency controls. It must use this narrow GET-only client, never the general write-capable adapter. No broker polling, real order, production migration or accounting update has happened.
+
+
+## Phase 2 — leased read-only reconciliation worker and failure-path tests — 2026-10-17
+
+### Read instructions and current repo first
+- Read `PROJECT_INSTRUCTIONS.md`, `PROGRESS.md`, `README.md`, `ROADMAP.md`, `ARCHITECTURE.md`, `AUDIT_REPORT.md`, `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`, `LIVE_TRADING_SAFEGUARDS.md` and `READ_ONLY_RECONCILIATION_WORKER_DESIGN.md`; inspected the current `main` tree, worker/client/repository/model/test code and latest GitHub Actions before editing.
+
+### Implementation already on main and verified
+- Worker commit [`4ee8427f890f7c31021e30f7b36177e2f3f227c3`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/4ee8427f890f7c31021e30f7b36177e2f3f227c3): `backend/app/services/live_order_reconciliation_worker.py`. It uses only the fixed GET-only client, validates user-owned Upstox connection and usable token, claims/renews/completes the durable lease, performs bounded retry for read-only transient errors, reads order book + daily trades, normalizes trades/orders, strictly matches intents, persists unmatched fills then links only after repository economic checks, and reconciles state against persisted trade evidence. No schedule/API route is wired.
+- PostgreSQL concurrency test commit [`bf0c2b707aaa023a961f899502ed9f2ae4d265a4`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/bf0c2b707aaa023a961f899502ed9f2ae4d265a4) verifies two simultaneous lease claims allow only one lease owner.
+- This continuation added `test_worker_does_not_retry_forbidden_response`, `test_worker_bounds_server_error_retries_before_any_mutation`, and parametrized malformed envelope/data cases in `backend/tests/test_live_order_reconciliation_worker.py` (commit [`bffeefc7921fd96c8fbeab1b201eb3088e87f497`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/bffeefc7921fd96c8fbeab1b201eb3088e87f497)). The tests prove 403 is not retried, 503 retries are bounded, malformed order-book envelopes fail before fill/status writes, and the intent remains unchanged.
+- Exact latest code/test run [39058734080](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39058734080) passed **338 tests, 1 warning**; SQLite and PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks passed.
+
+### Documentation commits from this continuation
+- `ROADMAP.md`: `ce41b45047ecfb0a2de1a1101c6be380013b67bc`
+- `READ_ONLY_RECONCILIATION_WORKER_DESIGN.md`: `4af221c79f2d55818a820617521048855f613af2`
+- `ARCHITECTURE.md`: `46f27dfb503c9eed64f7039ea0dafbe656d06c60`
+- `AUDIT_REPORT.md`: `b62252599168d2f6eb91eed900851285d7fa13a1`
+- `README.md`: `b729eb4e11605867dd23ce144ceab009159990b0`
+- `LIVE_TRADING_SAFEGUARDS.md`: `69a3388db68b6fe7098bbf7ed56277d0eca06f59`
+- `PROJECT_INSTRUCTIONS.md`: `2da55ce235d03c14eeca0aeec90d4d415db18ae1`
+- `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`: documented in a separate commit during this continuation; verify the exact SHA and its CI result before calling all docs verified.
+
+### Explicit limitations / what did not happen
+- The worker is an on-demand Python service, not scheduled and not exposed by an API route. Tests use mocks. No real Upstox request, live order submission/modification/cancellation, production migration, or local Order/Execution/Position/cash/P&L update occurred.
+- Current run reads order book and daily trades; historical-day/session pagination semantics are not implemented/verified. There is no durable operator-facing run-summary/manual-review queue yet. CI passing does not equal staging/production verification.
+- Earlier worker implementation CI attempts had failures during iterative development; fixes were made in later commits. The latest exact run cited above is green; earlier failures remain visible in Actions.
+
+### Next single action
+Review official Upstox current-day trade/order-book response and history/window semantics; then add persistent, credential-safe reconciliation run summaries/manual-review visibility and crash-boundary tests. Keep live submission disabled and do not add any broker write method to the worker.

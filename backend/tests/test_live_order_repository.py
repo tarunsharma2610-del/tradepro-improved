@@ -565,3 +565,30 @@ def test_aggregate_partial_fills_cannot_exceed_intent_quantity(db_session, make_
     with pytest.raises(LiveOrderVersionConflict, match="aggregate fill quantity"):
         _record_fill(repository, user, connection, intent, broker_trade_id="trade-partial-2", quantity=2)
     assert db_session.query(BrokerFillIdentity).filter_by(intent_id=intent.id).count() == 1
+
+
+
+@pytest.mark.parametrize(("side", "fill_price"), [("BUY", "100.01"), ("SELL", "99.99")])
+def test_limit_fill_cannot_execute_worse_than_limit(db_session, make_user, side, fill_price):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    snapshot = {
+        "instrument_key": "NSE_EQ|TEST",
+        "side": side,
+        "order_type": "LIMIT",
+        "quantity": 1,
+        "limit_price": "100.00",
+        "product": "D",
+    }
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection, snapshot=snapshot)
+    )
+    repository = LiveOrderRepository(db_session)
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
+
+    with pytest.raises(LiveOrderVersionConflict, match="worse than the linked limit"):
+        _record_fill(repository, user, connection, intent, side=side, price=fill_price)
+    assert db_session.query(BrokerFillIdentity).count() == 0

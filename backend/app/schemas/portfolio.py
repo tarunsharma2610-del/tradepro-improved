@@ -11,6 +11,7 @@ class PortfolioCreate(BaseModel):
 
 
 class PortfolioRiskSettings(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
     risk_controls_enabled: bool = False
     max_daily_loss: Decimal | None = Field(default=None, gt=0, le=Decimal("1000000000"))
     max_open_exposure: Decimal | None = Field(default=None, gt=0, le=Decimal("1000000000"))

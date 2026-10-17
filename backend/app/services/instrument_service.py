@@ -94,7 +94,9 @@ def _normalize_record(rec: dict) -> dict | None:
     strike = rec.get("strike_price")
     option_type = raw_type if raw_type in _OPTION_TYPES else None
 
-    if segment.endswith("_EQ") and raw_type in _EQUITY_TYPES:
+    if segment.endswith("_EQ") and raw_type not in {"FUT", "CE", "PE", "INDEX"}:
+        # The exchange equity segment is authoritative; exchanges may use
+        # additional board/category codes beyond EQ and BE.
         canonical_type = "EQUITY"
         expiry = None
         strike = None

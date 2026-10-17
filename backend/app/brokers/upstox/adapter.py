@@ -254,6 +254,16 @@ class UpstoxAdapter(BrokerAdapter):
         return self._to_result(resp)
 
 
+    @staticmethod
+    def _to_result(resp: httpx.Response) -> BrokerCallResult:
+        if resp.status_code >= 400:
+            return BrokerCallResult(ok=False, error=f"Upstox API error ({resp.status_code}): {resp.text}")
+        try:
+            return BrokerCallResult(ok=True, data=resp.json())
+        except ValueError:
+            return BrokerCallResult(ok=False, error="Upstox returned a non-JSON response")
+
+
 def _validate_margin_instruments(instruments: Any) -> list[dict[str, Any]]:
     if not isinstance(instruments, list) or not instruments:
         raise ValueError("instruments must be a non-empty list.")
@@ -311,12 +321,3 @@ def _validate_margin_instruments(instruments: Any) -> list[dict[str, Any]]:
 
     return normalized
 
-
-    @staticmethod
-    def _to_result(resp: httpx.Response) -> BrokerCallResult:
-        if resp.status_code >= 400:
-            return BrokerCallResult(ok=False, error=f"Upstox API error ({resp.status_code}): {resp.text}")
-        try:
-            return BrokerCallResult(ok=True, data=resp.json())
-        except ValueError:
-            return BrokerCallResult(ok=False, error="Upstox returned a non-JSON response")

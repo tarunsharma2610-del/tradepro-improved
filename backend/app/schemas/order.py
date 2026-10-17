@@ -17,7 +17,9 @@ class PlaceOrderRequest(BaseModel):
 
     @field_validator("limit_price")
     @classmethod
-    def limit_price_required_for_limit_orders(cls, v, info):
+    def limit_price_must_be_positive_and_present_for_limit_orders(cls, v, info):
+        if v is not None and v <= 0:
+            raise ValueError("limit_price must be greater than zero")
         if info.data.get("order_type") == "LIMIT" and v is None:
             raise ValueError("limit_price is required for LIMIT orders")
         return v

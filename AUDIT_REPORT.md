@@ -180,3 +180,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 - Added typed parsing for available-to-trade total, cash available, pledged margin, realized/unrealized losses and signed unsettled profit. The parser is strict about required nested structure and rejects malformed/non-finite amounts. No order approval path uses it.
 - CI: 235 backend tests passed, 1 warning, clean migration and frontend checks passed. Next read-only foundation is instrument-specific margin calculation.
+
+
+## Instrument margin calculation adapter — 17 October 2026
+
+- Added read-only Upstox margin-estimate support via `POST /v2/charges/margin`, with input validation and mocked endpoint/payload/error tests.
+- Latest verified CI: 238 backend tests passed, 1 warning; clean SQLite migration and frontend TypeScript/build passed. [Backend](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714) · [Frontend](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707).
+- This does not implement live risk preflight, does not use margin results to approve orders, and does not enable live trading. Next is a bounded audit of the official response schema and current parsers.

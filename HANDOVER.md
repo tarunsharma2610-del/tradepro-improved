@@ -197,3 +197,12 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Tests cover valid payload, missing fields, malformed/NaN/Infinity/negative values and error/423 response envelopes. No risk decision uses this parser yet.
 - Latest verified code commit `27e87cca48c03528f5fe5fee5816ff2aa4438caa`: backend **235 passed, 1 warning**, clean migration; frontend TypeScript/build passed.
 - Next: add read-only Upstox instrument margin calculation API support with mocked tests. See `PROGRESS.md`.
+
+
+## Instrument margin calculation adapter completed — 17 October 2026
+
+- Added read-only `get_margin_details` to `BrokerAdapter` and Upstox adapter using `POST /v2/charges/margin`. Inputs are locally validated and normalized; requests with empty/oversized batches, duplicate keys, invalid quantities, unsupported transaction/product values or invalid prices are rejected before network access.
+- Mocked tests verify endpoint/payload and broker-error propagation. The response is still returned as the broker's raw result and is not used to authorize orders.
+- Debugging note: CI first exposed missing decimal imports and a class helper accidentally nested beneath the module-level validator. A first patch repeated the helper placement error; after inspecting the exact source and failed test log, the helper was relocated once at class scope. Do not repeat blind text replacements; verify indentation and helper location.
+- Latest verified commit `e6abb6704b67c54f35bb5d7c2c41acd96846147d`: backend **238 passed, 1 warning**, clean SQLite migration ([run 39035755714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714)); frontend checks passed ([run 39035755707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707)).
+- Next: audit official margin response schema and existing parsers, then add a typed response parser only if needed. No live order approval is connected.

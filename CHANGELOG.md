@@ -147,3 +147,10 @@
 - Added `FundsAndMarginV3` and `parse_funds_and_margin_v3` to validate nested funds data while keeping available-to-trade, cash and pledged margin separate. Includes realized/unrealized losses and signed unsettled-profit fields.
 - Added tests for valid response, missing fields, invalid numeric values and error/423 envelopes. Not wired to order approval.
 - CI on `27e87cca48c03528f5fe5fee5816ff2aa4438caa`: backend **235 passed, 1 warning**, migration check passed, frontend checks passed.
+
+
+### 17 October 2026 — instrument margin calculation API
+- Added read-only `get_margin_details` to the broker interface and Upstox adapter using `POST /v2/charges/margin`.
+- Added input validation and normalization for batches up to 20 instruments, unique keys, quantity, transaction type, product, and optional price; invalid input is rejected before network calls.
+- CI regression was investigated from logs: fixed missing decimal imports and moved `_to_result` back to the adapter class after finding it nested under a module-level validator. Latest CI on `e6abb6704b67c54f35bb5d7c2c41acd96846147d`: **238 backend tests passed, 1 warning**, migration passed, frontend checks passed.
+- Response is still raw broker data; no order-approval/risk gate uses it. Next task is official response-schema audit and typed parsing if needed.

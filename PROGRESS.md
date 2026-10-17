@@ -22,8 +22,8 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 
 ## Current verified repository state
 
-- Last code commit reviewed before this progress-file commit: `ac93eb82688d573f9839da48ef1182d9929e56c4` — “Remove duplicate strategy model imports”.
-- At that point, branch head was `ac93eb82688d573f9839da48ef1182d9929e56c4`; main remained `2cf83089070e064c61f3b75fcb6b663021cbf625`.
+- Latest verified code commit: `e6abb6704b67c54f35bb5d7c2c41acd96846147d` — “Restore Upstox response helper to adapter class”. Backend [run 39035755714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714): **238 passed, 1 warning**, clean SQLite Alembic upgrade; frontend [run 39035755707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707): TypeScript and Next.js build passed.
+- Main remains `2cf83089070e064c61f3b75fcb6b663021cbf625`; all code changes remain on the safety branch.
 - PR #1 was open, draft, and not merged.
 - Baseline CI before the migration regression test: backend [run 39031184000](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184000) — 189 passed, 1 warning, clean SQLite Alembic upgrade; frontend [run 39031184092](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184092) — TypeScript and Next.js build passed.
 - Migration regression-test commit: `1fe681246cb88a9505302a1763128c51ab72802d` — [backend run 39031526388](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526388) 190 passed, 1 warning; clean SQLite Alembic upgrade; [frontend run 39031526360](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526360) passed.
@@ -157,6 +157,18 @@ Added `get_funds_and_margin` to the adapter interface and Upstox implementation 
 
 Added `FundsAndMarginV3` and `parse_funds_and_margin_v3`. It validates the nested response and numeric values, preserves cash and pledged margin separately, rejects malformed/error payloads, and preserves signed unsettled profit/loss values. Tests include missing nested fields, NaN/Infinity/negative available values, malformed unsettled profit and 423/error envelopes. Latest CI: 235 passed, 1 warning, migration and frontend checks passed. Parser is not used to approve orders.
 
-## Current active task: add read-only Upstox instrument margin calculation
+## Completed task: read-only Upstox instrument margin calculation
 
-The official `POST /v2/charges/margin` API calculates instrument-specific margin for a given instrument key, quantity, transaction type, product and optional price (maximum 20 instruments per request). Audit adapter patterns and add a typed interface method plus Upstox implementation with input validation and mocked tests for URL/payload, invalid empty/oversized lists and error propagation. Do not use it to approve orders until a separate live risk preflight and service are implemented.
+- Added `get_margin_details` to the broker interface and Upstox adapter using `POST https://api.upstox.com/v2/charges/margin`.
+- Added local input validation for non-empty batches of at most 20 instruments, unique non-empty keys, positive integer quantities, supported transaction types/products, and finite positive optional prices. Inputs are normalized before sending. Mocked tests verify endpoint/payload and reject invalid requests before network access; broker errors remain errors and never approve an order.
+- First CI attempt exposed missing `Decimal`/`InvalidOperation` imports and `_to_result` accidentally nested inside the module-level validator. The first correction fixed imports but repeated the helper-placement issue; logs were checked and the exact indentation/scope defect was then corrected. This debugging history is recorded so a future continuation does not repeat the mistake.
+- Latest verified code commit `e6abb6704b67c54f35bb5d7c2c41acd96846147d`: backend **238 passed, 1 warning**, clean SQLite Alembic upgrade ([run 39035755714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714)); frontend TypeScript/build passed ([run 39035755707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707)).
+- This is a read-only margin estimate only. It is not connected to order approval, does not validate live funds, and is not a complete risk preflight.
+
+## Next task (not started): audit and type-parse the margin-calculation response
+
+1. Read the official current Upstox Margin Details docs and inspect representative documented success/error response structures.
+2. Inspect existing broker result parsers and tests first; do not duplicate an existing parser.
+3. Add a small typed parser only if the current response is raw/unvalidated and a typed result materially improves correctness. Validate required fields, numeric finiteness/non-negativity where appropriate, and error envelopes.
+4. Add mocked tests for valid response, missing/malformed fields and broker errors. Do not connect it to order approval or enable live trading.
+5. Run targeted tests, full backend suite/migration check and frontend checks if shared interfaces change. Then update `PROGRESS.md`, `HANDOVER.md`, and `CHANGELOG.md` and commit the progress update.

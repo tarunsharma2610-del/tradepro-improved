@@ -46,6 +46,8 @@ class NormalizedBrokerOrder:
     quantity: int
     filled_quantity: int
     average_price: float
+    price: float
+    trigger_price: float
     product: str | None
     tag: str | None
     needs_review: bool
@@ -107,6 +109,8 @@ def normalize_upstox_order(record: Mapping[str, Any]) -> NormalizedBrokerOrder:
     quantity = _nonnegative_int(record.get("quantity"), "quantity")
     filled = _nonnegative_int(record.get("filled_quantity", 0), "filled_quantity")
     average_price = _nonnegative_number(record.get("average_price", 0), "average_price")
+    price = _nonnegative_number(record.get("price", 0), "price")
+    trigger_price = _nonnegative_number(record.get("trigger_price", 0), "trigger_price")
     if quantity <= 0:
         raise BrokerOrderDataError("quantity must be greater than zero")
     if filled > quantity:
@@ -144,7 +148,128 @@ def normalize_upstox_order(record: Mapping[str, Any]) -> NormalizedBrokerOrder:
         quantity=quantity,
         filled_quantity=filled,
         average_price=average_price,
+        price=price,
+        trigger_price=trigger_price,
         product=product,
         tag=tag,
         needs_review=needs_review,
     )
+
+
+@dataclass(frozen=True)
+class ReconciliationIntentCandidate:
+    """Minimal local intent fields required for safe matching.
+
+    Candidates must be loaded for the broker connection authenticated by the caller.
+    The connection ID is still checked here as a defense against cross-account linking.
+    """
+    intent_id: str
+    broker_connection_id: str
+    broker_order_id: str | None
+    broker_tag: str | None
+    order_snapshot: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
+class IntentMatchResult:
+    status: str
+    intent_id: str | None
+    reason: str
+
+
+def _snapshot_value(snapshot: Mapping[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in snapshot and snapshot[key] is not None:
+            return snapshot[key]
+    return None
+
+
+def _decimal_equal(left: Any, right: Any) -> bool:
+    from decimal import Decimal, InvalidOperation
+    try:
+        a, b = Decimal(str(left)), Decimal(str(right))
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+    return a.is_finite() and b.is_finite() and a == b
+
+
+def _economic_mismatch(order: NormalizedBrokerOrder, snapshot: Mapping[str, Any]) -> str | None:
+    """Return a mismatch reason; missing required snapshot fields are mismatches, not wildcards."""
+    expected_instrument = _snapshot_value(snapshot, "instrument_key", "instrument_token")
+    expected_side = _snapshot_value(snapshot, "side", "transaction_type")
+    expected_type = _snapshot_value(snapshot, "order_type")
+    expected_quantity = _snapshot_value(snapshot, "quantity")
+    expected_product = _snapshot_value(snapshot, "product")
+    if not all(value is not None for value in (
+        expected_instrument, expected_side, expected_type, expected_quantity, expected_product
+    )):
+        return "local intent is missing a required economic field"
+    if str(expected_instrument).strip() != order.instrument_key:
+        return "instrument key differs"
+    if str(expected_side).strip().upper() != order.side:
+        return "transaction side differs"
+    if str(expected_type).strip().upper() != order.order_type:
+        return "order type differs"
+    try:
+        expected_qty = int(expected_quantity)
+        if isinstance(expected_quantity, bool) or str(expected_quantity).strip() not in {
+            str(expected_qty), f"{expected_qty}.0"
+        }:
+            return "local quantity is invalid"
+    except (TypeError, ValueError):
+        return "local quantity is invalid"
+    if expected_qty != order.quantity:
+        return "requested quantity differs"
+    if str(expected_product).strip().upper() != (order.product or "").upper():
+        return "product differs"
+
+    if order.order_type in {"LIMIT", "SL"}:
+        expected_price = _snapshot_value(snapshot, "limit_price", "price")
+        if expected_price is None or not _decimal_equal(expected_price, order.price) or order.price <= 0:
+            return "limit price differs or is missing"
+    if order.order_type in {"SL", "SL-M"}:
+        expected_trigger = _snapshot_value(snapshot, "trigger_price")
+        if expected_trigger is None or not _decimal_equal(expected_trigger, order.trigger_price) or order.trigger_price <= 0:
+            return "trigger price differs or is missing"
+    return None
+
+
+def match_broker_order_to_intent(
+    order: NormalizedBrokerOrder,
+    candidates: list[ReconciliationIntentCandidate] | tuple[ReconciliationIntentCandidate, ...],
+    *,
+    broker_connection_id: str,
+) -> IntentMatchResult:
+    """Match only within one authenticated broker connection; never guess on ambiguity.
+
+    Existing broker-order ID is the strongest correlation. Otherwise, an exact non-empty
+    broker tag may nominate one candidate, but a tag alone is insufficient: all required
+    economic fields must also match. This pure helper persists nothing and performs no I/O.
+    """
+    scoped = [
+        candidate for candidate in candidates
+        if str(candidate.broker_connection_id) == str(broker_connection_id)
+    ]
+
+    by_order_id = [c for c in scoped if c.broker_order_id and c.broker_order_id == order.broker_order_id]
+    if len(by_order_id) > 1:
+        return IntentMatchResult("AMBIGUOUS", None, "multiple local intents already reference this broker order ID")
+    nominated: list[ReconciliationIntentCandidate]
+    if by_order_id:
+        nominated = by_order_id
+    else:
+        if not order.tag:
+            return IntentMatchResult("NO_MATCH", None, "no known broker order ID or non-empty correlation tag matched")
+        nominated = [c for c in scoped if c.broker_tag and c.broker_tag == order.tag]
+        if not nominated:
+            return IntentMatchResult("NO_MATCH", None, "no local intent has this exact broker tag in the selected connection")
+        if len(nominated) > 1:
+            return IntentMatchResult("AMBIGUOUS", None, "multiple local intents share this broker tag")
+
+    candidate = nominated[0]
+    mismatch = _economic_mismatch(order, candidate.order_snapshot)
+    if mismatch:
+        return IntentMatchResult("ECONOMIC_MISMATCH", candidate.intent_id, mismatch)
+    if order.needs_review or order.state == "RECONCILIATION_REQUIRED":
+        return IntentMatchResult("NEEDS_REVIEW", candidate.intent_id, "broker observation is flagged for manual review")
+    return IntentMatchResult("MATCHED", candidate.intent_id, "unique correlation and all required economic fields match")

@@ -50,3 +50,13 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 3. Implement instrument master sync and WebSocket market data using current official Upstox documentation.
 4. Verify the Alembic migration path in staging and check the current deployment configuration.
 5. Review remaining analytics and backtest behavior against the requested product requirements.
+
+
+## Continuation update — 17 October 2026
+
+- Created `HANDOVER.md` on branch `safety/fail-closed-trading-mode` to preserve the confirmed implementation state, release gates, and next steps.
+- Re-inspected `ExecutionService`, the order model, strategy execution, risk engine, worker, Upstox adapter, and the live-trading safeguards design.
+- Confirmed that `ExecutionService.place_order` currently creates `PAPER` orders and performs simulated accounting; the adapter's broker `place_order` method is not wired into a complete live-order lifecycle.
+- Confirmed that instrument master sync and WebSocket streaming return explicit not-implemented errors, and that current risk controls are strategy-level rather than portfolio-wide.
+- A proposed fail-closed guard in `execution_service.py` was not committed. It still needs to be applied and tested in a controlled code-editing environment. No source-code change or test run is claimed in this continuation.
+- This continuation has not placed any broker orders. Live trading remains not ready.

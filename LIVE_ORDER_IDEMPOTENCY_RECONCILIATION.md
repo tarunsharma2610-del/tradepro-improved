@@ -1,6 +1,6 @@
 # Durable Live-Order Idempotency and Broker Reconciliation
 
-Status: user-approved design; Phase 1 durable records/repository safeguards partially implemented. Broker submission and reconciliation remain NOT implemented; live order placement stays disabled.
+Status: user-approved design; Phase 1 durable records/repository safeguards are CI-tested. Phase 2 has a pure broker-order normalization foundation only; fetching/persisting reconciliation results, fill ingestion and broker submission remain NOT implemented. Live order placement stays disabled.
 Date: 2026-10-17
 Scope: tradepro-improved only. Do not modify the original Tradepro repository.
 
@@ -159,3 +159,13 @@ This document does not implement live placement, change the current execution pa
 The user explicitly approved this design. Phase 1 has added the intent, event, outbox and broker-fill identity SQLAlchemy models, additive migration `202610170002`, and repository safeguards. Canonical SHA-256 is derived by the repository from normalized JSON and authenticated user/portfolio/broker-connection scope. Same key + same payload reuses the intent; same key + different payload conflicts. Intent, initial audit event and outbox row are committed together. Ownership checks and unique constraints are covered by tests.
 
 Latest code/test checkpoint `5508b272efe55997252e8d8a51fdd29761a1070b` passed GitHub Actions [run 39047300286](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39047300286): 214 tests passed, 1 warning. CI verified clean SQLite migration upgrade → downgrade of revision `202610170002` → re-upgrade. Order snapshots and audit details now reject credential-like field names, but callers remain responsible for redacting secret values. The PostgreSQL CI test now forces two independent sessions to miss the same initial idempotency lookup simultaneously and verifies only one intent/outbox/event is persisted. GitHub Actions [run 39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046) passed 215 tests and clean SQLite/PostgreSQL 16 migration upgrade → downgrade → re-upgrade. Gate 1 still requires migration/constraint verification against a backup-restored staging copy of the actual deployment database engine. No live order, broker POST, production migration, or reconciliation was performed.
+
+
+## 11. Implementation checkpoint — Phase 2 normalization foundation
+
+- Added `backend/app/services/live_order_reconciliation.py` as a pure function layer. It makes no broker/network/database calls and has no order-placement/cancellation capability.
+- It accepts documented Upstox order book/details/history field names, maps known status strings conservatively, validates required identity/economic fields and quantity/price sanity, preserves raw status, and flags unknown or contradictory status/fill combinations for review.
+- Tests: `backend/tests/test_live_order_reconciliation.py`, covering documented statuses, partial fills, inconsistent full fills, unknown states, malformed values and the cancelled-order pending-quantity edge case.
+- Official references: [order book](https://upstox.com/developer/api-documentation/get-order-book/), [order details](https://upstox.com/developer/api-documentation/get-order-details/), [order history](https://upstox.com/developer/api-documentation/get-order-history/) and [order-status appendix](https://upstox.com/developer/api-documentation/appendix/order-status/).
+- Exact test commit `b37452210bf07ad03acee1495e0627fae1378582` passed [GitHub Actions run 39049395091](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39049395091): 247 passed, 1 warning; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed.
+- This does not fetch broker records, establish ownership/account scope, match an order to an intent, persist status transitions, import trades/fills, or prove a missing broker match is safe to retry. Next is strict intent matching and ambiguity quarantine. No broker order was placed or cancelled.

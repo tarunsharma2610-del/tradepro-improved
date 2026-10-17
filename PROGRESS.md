@@ -90,15 +90,18 @@ Completed verification: the populated legacy migration test passed as part of th
 **Task:** inspect the existing order-creation callers and worker/scheduler paths to determine whether they generate/reuse a stable idempotency key for retries and repeated strategy evaluations. Do not add a second idempotency service: first inspect the existing `ExecutionService`, order API schemas/routes, frontend order submit handler, strategy scheduler/worker, and current idempotency tests. Identify whether the key is generated client-side, persisted, reused for the same logical action, and scoped correctly. Then implement only the proven gap and add a regression test for repeated evaluation/retry. Keep paper/live isolation and existing API contracts intact. No live orders.
 
 
-## Current active task: audit live broker execution readiness
-
-**Next step:** review existing `BrokerAdapter` methods, Upstox adapter endpoints, `BrokerReconciliationService`, broker-status API, order metadata/model, OAuth/token handling, risk checks and tests. Do not wire real submission into the paper service. First map what exists vs what is missing and validate endpoint semantics against current official Upstox documentation. The first implementation task should be the smallest safe read-only or state-management improvement with mocked tests; keep the PAPER-only guard and never place real orders.
-
-
 ## Completed task: add Upstox V3 modify/cancel adapter methods
 
 The `BrokerAdapter` interface and Upstox implementation now expose V3 modify and cancel methods. Mocked tests verify method URLs, payload/query, and response shape. They are not wired to the UI or execution service and do not change local order status/accounting. Latest CI passed with 195 backend tests and frontend checks.
 
-## Current active task: audit prerequisites for a separate live execution service
+## Completed audit: live broker execution prerequisites
 
-Next, inspect the current risk engine, instrument validation, broker token/authorization handling, order state model, reconciliation service and all relevant tests. Produce a precise gap matrix for a separate live service: pre-trade risk checks, explicit enablement/confirmation, order tag/idempotency, broker response parsing (V3 may return multiple `order_ids`), partial fills, cancel/modify confirmation, timeout/restart recovery, trade-book reconciliation, and broker/local position mismatch handling. Do not implement or wire real submission until this audit demonstrates the required safe lifecycle; keep `ExecutionService.place_order` PAPER-only.
+- `ExecutionService.place_order` is explicitly PAPER-only and rejects LIVE/unknown mode before order creation. Keep this guard.
+- OAuth state is signed, user/broker/connection-bound, expiring and single-use; tokens are encrypted and expired tokens are not returned. Token refresh/reconnection automation is not implemented.
+- `validate_instrument_segment` intentionally permits only verified equity instruments and rejects derivatives. Current risk engine has strategy and automated-entry portfolio loss limits, and a paper order-notional cap; it does not supply live/manual all-order exposure limits or a broker-error circuit breaker.
+- `Order` has basic local states plus separate broker metadata, but no PARTIALLY_FILLED state. The reconciliation service is read-only and does not update local fills/cash/positions. There is no broker trade-book reconciliation or restart-safe live order submission lifecycle.
+- Upstox V3 place response returns `data.order_ids` (plural list). Modify/cancel V3 adapter methods now exist but are not wired. A future live service must define multi-ID/slicing behavior, idempotency, partial fills, timeout ambiguity, confirmed cancel/modify, and broker/local position reconciliation before any real order can be enabled.
+
+## Current active task: require exact order identity in broker status responses
+
+The official Upstox Get Order Details response documents both `data.order_id` and `data.status`. Current `BrokerReconciliationService` rejects a mismatched returned ID but accepts a status payload that omits the ID. Implement the smallest read-only hardening: require a non-empty matching `order_id` before storing the broker status, add a mocked regression test for missing ID, and ensure local order status/positions/cash remain unchanged. Keep LIVE execution disabled and make no real broker calls.

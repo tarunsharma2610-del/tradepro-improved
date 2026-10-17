@@ -120,3 +120,12 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - The methods are not connected to the UI or `ExecutionService`, and do not change local order status, positions or cash. A successful cancel/modify request is not treated as final broker state.
 - Latest verified code commit: `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c`: backend **195 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
 - Next: audit risk/instrument/auth/order-state/reconciliation prerequisites for a separate live execution service. Live trading remains disabled. See `PROGRESS.md`.
+
+
+## Live execution readiness audit — 17 October 2026
+
+- `ExecutionService.place_order` remains fail-closed for anything other than PAPER.
+- OAuth state binding/single-use and encrypted token storage exist; expired tokens are rejected, but token refresh/reconnection automation is missing.
+- Instrument validation is intentionally equity-only. Existing risk limits are not a complete live/manual order risk system; portfolio exposure controls and a broker-error circuit breaker are missing.
+- The local order model has no `PARTIALLY_FILLED` state. Reconciliation only records a read-only broker status and deliberately does not mutate fills, cash or positions. No trade-book reconciliation or restart-safe live submission lifecycle exists.
+- Upstox V3 place-order response uses `data.order_ids` (plural list); adapter modify/cancel methods exist but are not wired. See `PROGRESS.md` for the current focused task: require a matching broker order ID in status responses before saving status.

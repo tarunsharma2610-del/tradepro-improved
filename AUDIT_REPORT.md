@@ -115,3 +115,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Added adapter-level V3 modify/cancel calls based on official docs, with mocked tests. The calls remain isolated and are not wired to the UI or execution service; local accounting is untouched.
 - CI on `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c`: 195 backend tests passed, 1 warning, clean SQLite migration, frontend TypeScript/build passed.
 - Next audit: define the preconditions for a separate live execution service, including broker order-ID list responses, idempotency, partial fills, cancellation/modify confirmation, risk controls and restart-safe reconciliation. Live remains disabled.
+
+
+## Live execution readiness findings — 17 October 2026
+
+- OAuth state binding/single-use, encrypted credentials, token expiry checks, an explicit PAPER-only order-service gate, equity-only instrument validation and read-only broker status checks already exist and are retained.
+- Live readiness gaps: no full live submission service; no all-order live pre-trade exposure controls/circuit breaker; no partial-fill local state; no trade-book/position/holding reconciliation; no restart/timeout-safe submission recovery; V3 place responses can contain multiple order IDs; V3 modify/cancel adapters are not wired.
+- Selected the smallest safe next change: require a non-empty matching `order_id` in the broker status response before storing the returned status. The official Upstox Get Order Details schema includes both `data.order_id` and `data.status`. This change is read-only and will use mocked tests only.

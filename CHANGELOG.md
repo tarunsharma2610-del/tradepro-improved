@@ -91,3 +91,8 @@
 - Added abstract `modify_order` and `cancel_order` operations to the broker adapter contract and implemented the official Upstox V3 `PUT /order/modify` and `DELETE /order/cancel?order_id=...` calls.
 - Added mocked tests for endpoint, payload/query and response shape. Methods remain unconnected; no local accounting is updated based on request acceptance.
 - CI on `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c`: backend **195 passed, 1 warning**, migration upgrade passed, frontend checks passed.
+
+
+### 17 October 2026 — live readiness audit
+- Documented current risk, OAuth/token, instrument validation and reconciliation state in the progress/handover/audit records. The paper-only order guard remains mandatory.
+- Selected a small read-only hardening task: reject broker status payloads without a matching order ID, using the documented Upstox Get Order Details response shape. No live order submission will be wired in this step.

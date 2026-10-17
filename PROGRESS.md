@@ -29,7 +29,8 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 - Migration regression-test commit: `1fe681246cb88a9505302a1763128c51ab72802d` — [backend run 39031526388](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526388) 190 passed, 1 warning; clean SQLite Alembic upgrade; [frontend run 39031526360](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526360) passed.
 - Latest idempotency code commit: `044243476acce70dccc02fcc0e9d61b98bcd62ff`. Its first backend run failed because the test assumed a ₹30,000 quote exceeded the default cap, but the strategy test fixture has ₹500,000 virtual capital (25% cap = ₹125,000). This was a test-setup defect, not a strategy-idempotency failure. The test was made deterministic by explicitly setting a 1% cap.
 - Latest verified code commit before Upstox endpoint update: `e9f8b7bb56f3300d1016195a773a26845d94d717` — [backend run 39032153163](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032153163) 193 passed, 1 warning, clean SQLite migration; [frontend run 39032153157](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032153157) passed.
-- Latest verified code commit: `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b` — [backend run 39032413141](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413141) **193 passed, 1 warning**, clean SQLite Alembic upgrade; [frontend run 39032413150](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413150) TypeScript and Next.js build passed.
+- Latest verified code commit before V3 modify/cancel methods: `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b` — [backend run 39032413141](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413141) 193 passed, 1 warning and clean migration; [frontend run 39032413150](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413150) passed.
+- Latest verified code commit: `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c` — [backend run 39032570839](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570839) **195 passed, 1 warning**, clean SQLite migration; [frontend run 39032570823](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570823) TypeScript and Next.js build passed.
 - These checks validate the listed commit only, not future changes. Re-check CI after each code commit.
 
 ## Completed and committed work (safety branch)
@@ -47,6 +48,7 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 11. Added tests for repeated same-candle entry retries, missing candle timestamps and idempotency-key scope. Latest suite: 193 passed, 1 warning; migration and frontend checks passed.
 12. Updated README, audit, handover, changelog and live-safeguards documentation across the branch.
 13. Audited current official Upstox order documentation and changed the isolated adapter's place-order endpoint from deprecated V2 to V3. The mocked test checks the V3 URL and V3 response shape (`data.order_ids`); no real broker request was sent.
+14. Added V3 `modify_order` and `cancel_order` methods to the `BrokerAdapter` interface and Upstox implementation, plus mocked endpoint tests. They are not wired to execution or UI and do not mutate local order/accounting state.
 
 ## Known limitations / not complete
 
@@ -93,6 +95,10 @@ Completed verification: the populated legacy migration test passed as part of th
 **Next step:** review existing `BrokerAdapter` methods, Upstox adapter endpoints, `BrokerReconciliationService`, broker-status API, order metadata/model, OAuth/token handling, risk checks and tests. Do not wire real submission into the paper service. First map what exists vs what is missing and validate endpoint semantics against current official Upstox documentation. The first implementation task should be the smallest safe read-only or state-management improvement with mocked tests; keep the PAPER-only guard and never place real orders.
 
 
-## Current active task: add missing Upstox V3 modify/cancel adapter methods
+## Completed task: add Upstox V3 modify/cancel adapter methods
 
-Official Upstox documentation exposes V3 modify and cancel endpoints, while the current `BrokerAdapter` contract has only place/status/order-book/positions/holdings. Before changing the abstract interface, audit all adapter subclasses and test doubles to ensure the change will not break them. Then add only the V3 adapter methods and mocked endpoint tests. Do not wire them to the UI or execution service yet, do not mutate local accounting based on a successful API response, and keep the paper-only gate. A future live service must confirm broker state after submission/modification/cancellation.
+The `BrokerAdapter` interface and Upstox implementation now expose V3 modify and cancel methods. Mocked tests verify method URLs, payload/query, and response shape. They are not wired to the UI or execution service and do not change local order status/accounting. Latest CI passed with 195 backend tests and frontend checks.
+
+## Current active task: audit prerequisites for a separate live execution service
+
+Next, inspect the current risk engine, instrument validation, broker token/authorization handling, order state model, reconciliation service and all relevant tests. Produce a precise gap matrix for a separate live service: pre-trade risk checks, explicit enablement/confirmation, order tag/idempotency, broker response parsing (V3 may return multiple `order_ids`), partial fills, cancel/modify confirmation, timeout/restart recovery, trade-book reconciliation, and broker/local position mismatch handling. Do not implement or wire real submission until this audit demonstrates the required safe lifecycle; keep `ExecutionService.place_order` PAPER-only.

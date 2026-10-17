@@ -85,3 +85,9 @@
 ### 17 October 2026 — Upstox Place Order V3
 - Updated `UpstoxAdapter.place_order` to the official V3 endpoint after verifying the current docs mark V2 place-order as deprecated. Updated the mocked test to assert the V3 URL and `data.order_ids` response shape.
 - CI on `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b`: backend **193 passed, 1 warning**, migration upgrade passed, frontend checks passed. No live requests.
+
+
+### 17 October 2026 — Upstox V3 modify/cancel adapter methods
+- Added abstract `modify_order` and `cancel_order` operations to the broker adapter contract and implemented the official Upstox V3 `PUT /order/modify` and `DELETE /order/cancel?order_id=...` calls.
+- Added mocked tests for endpoint, payload/query and response shape. Methods remain unconnected; no local accounting is updated based on request acceptance.
+- CI on `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c`: backend **195 passed, 1 warning**, migration upgrade passed, frontend checks passed.

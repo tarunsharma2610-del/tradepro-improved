@@ -112,3 +112,11 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Updated only the existing adapter method and its mocked regression test; it remains unconnected to the paper execution path. No live orders or real network requests were made.
 - Verified commit: `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b`; backend **193 passed, 1 warning** and clean SQLite migration; frontend TypeScript/build passed. See `PROGRESS.md`.
 - Next: audit adapter subclasses and add the official V3 modify/cancel methods with mocked tests, without wiring them into live execution.
+
+
+## Upstox V3 adapter methods completed — 17 October 2026
+
+- The `BrokerAdapter` contract now includes `modify_order` and `cancel_order`; Upstox implements them using the official V3 endpoints. Requests are mocked in tests; no real network requests or orders were sent.
+- The methods are not connected to the UI or `ExecutionService`, and do not change local order status, positions or cash. A successful cancel/modify request is not treated as final broker state.
+- Latest verified code commit: `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c`: backend **195 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
+- Next: audit risk/instrument/auth/order-state/reconciliation prerequisites for a separate live execution service. Live trading remains disabled. See `PROGRESS.md`.

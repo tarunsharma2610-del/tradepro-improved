@@ -108,3 +108,10 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Verified current official Upstox docs: legacy V2 Place Order is marked deprecated; Place Order V3 uses `https://api-hft.upstox.com/v3/order/place` and returns a list at `data.order_ids`. The adapter now uses the V3 URL; its test is mocked and checks that response shape. No real broker request was made.
 - V3 modify and cancel endpoints are available, but the app's abstract adapter contract currently lacks those operations. Next step is to inspect adapter subclasses/test doubles, then add V3 adapter methods and mocked tests only. They must not be wired to live execution or change local order accounting yet.
 - CI on `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b`: backend 193 passed, 1 warning, clean migration; frontend TypeScript/build passed.
+
+
+## Upstox V3 modify/cancel adapter update — 17 October 2026
+
+- Added adapter-level V3 modify/cancel calls based on official docs, with mocked tests. The calls remain isolated and are not wired to the UI or execution service; local accounting is untouched.
+- CI on `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c`: 195 backend tests passed, 1 warning, clean SQLite migration, frontend TypeScript/build passed.
+- Next audit: define the preconditions for a separate live execution service, including broker order-ID list responses, idempotency, partial fills, cancellation/modify confirmation, risk controls and restart-safe reconciliation. Live remains disabled.

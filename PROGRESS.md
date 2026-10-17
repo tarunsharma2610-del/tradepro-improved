@@ -423,3 +423,16 @@ Exact fill economic validation code/test checkpoint remains [run 39052939770](ht
 - Documentation commits: `ROADMAP.md` 92724a8bc0685a5e1c2659adc884f52ec3547464; `ARCHITECTURE.md` 70f2d4cb8102092430131fa81bee877cbcd3e169; `AUDIT_REPORT.md` c3f16e80beed1ea7ce2d3e226f80e13676152b63; `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` 4130229c5b9f0d5d13ed00e0f18d71c0837d06eb; `README.md` e0b1bcda069fa2267f3d27817c8c1595f39c3ef0; `LIVE_TRADING_SAFEGUARDS.md` 98a49a064cbde8f916183923f9dbcc17774cb0dc; `PROJECT_INSTRUCTIONS.md` 5488ef3baba3187b6945b87265a63562b430325a. Exact documentation CI runs are being verified.
 - Remaining Phase 2 work: broker status/fill out-of-order reconciliation, actual broker read worker with session/expiry/error handling, and applying reconciled fills to shared accounting models. No broker API call, real order, production migration or live accounting occurred.
 - Next single action: add explicit tests and state rules for out-of-order broker status after fill evidence, then design a read-only reconciliation worker. Live submission remains disabled.
+
+
+### Phase 2 unmatched-fill documentation CI verification — 2026-10-17
+- `ROADMAP.md` 92724a8bc0685a5e1c2659adc884f52ec3547464: [run 39053474931](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053474931) — success.
+- `ARCHITECTURE.md` 70f2d4cb8102092430131fa81bee877cbcd3e169: [run 39053488827](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053488827) — success.
+- `AUDIT_REPORT.md` c3f16e80beed1ea7ce2d3e226f80e13676152b63: [run 39053502737](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053502737) — success.
+- `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` 4130229c5b9f0d5d13ed00e0f18d71c0837d06eb: [run 39053515056](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053515056) — success.
+- `README.md` e0b1bcda069fa2267f3d27817c8c1595f39c3ef0: [run 39053533797](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053533797) — success.
+- `LIVE_TRADING_SAFEGUARDS.md` 98a49a064cbde8f916183923f9dbcc17774cb0dc: [run 39053545257](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053545257) — success.
+- `PROJECT_INSTRUCTIONS.md` 5488ef3baba3187b6945b87265a63562b430325a: [run 39053579681](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053579681) — success.
+- `PROGRESS.md` checkpoint e97cb3112612946d8a08f5d9618645026df66343: [run 39053579681](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053579681) — success.
+
+The verified code checkpoint for unmatched fill relinking remains [run 39053352921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053352921): 281 passed, 1 warning, with SQLite/PostgreSQL 16 migration checks.

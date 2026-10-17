@@ -216,3 +216,44 @@ def test_unique_key_race_returns_committed_winner(db_session, make_user, monkeyp
     assert db_session.query(LiveOrderIntent).count() == 1
     assert db_session.query(LiveOrderOutbox).count() == 1
     assert db_session.query(LiveOrderEvent).count() == 1
+
+
+def test_order_snapshot_rejects_nested_credential_fields(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    args = _intent_args(user, portfolio, connection)
+    args["order_snapshot"] = {
+        "instrument_key": "NSE_EQ|TEST",
+        "metadata": [{"access_token": "must-not-persist"}],
+    }
+
+    with pytest.raises(ValueError, match="credential-like field"):
+        LiveOrderRepository(db_session).create_or_get_intent(**args)
+
+    assert db_session.query(LiveOrderIntent).count() == 0
+
+
+def test_audit_details_reject_nested_secrets_and_non_object_values(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    intent, _ = LiveOrderRepository(db_session).create_or_get_intent(
+        **_intent_args(user, portfolio, connection)
+    )
+    repository = LiveOrderRepository(db_session)
+
+    with pytest.raises(ValueError, match="credential-like field"):
+        repository.append_event(
+            user_id=user.id,
+            intent_id=intent.id,
+            event_type="TEST",
+            safe_details={"request": {"Authorization": "Bearer must-not-persist"}},
+        )
+    with pytest.raises(ValueError, match="safe_details must be a JSON object"):
+        repository.append_event(
+            user_id=user.id,
+            intent_id=intent.id,
+            event_type="TEST",
+            safe_details=["unexpected"],
+        )
+
+    assert db_session.query(LiveOrderEvent).filter_by(intent_id=intent.id).count() == 1

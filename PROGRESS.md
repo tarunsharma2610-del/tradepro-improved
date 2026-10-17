@@ -259,3 +259,10 @@ Review the live-order idempotency/reconciliation gap and write a safe implementa
 
 ### Next action
 Check workflow 39047545900. If the PostgreSQL service starts, resolve any concurrency-test or migration failures, then update this tracker with the exact successful run. If service initialization times out, inspect and adjust the CI service configuration before proceeding.
+
+
+## PostgreSQL integration failure analysis and correction — 2026-10-17
+
+- The first PostgreSQL-enabled CI run [39047545900](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39047545900) failed in the concurrency test setup: the test inserted the broker connection in the same flush as its user without an ORM relationship ordering guarantee, triggering a foreign-key violation.
+- Corrected the test setup to commit the parent user first, then insert the portfolio and broker connection. Fix commit: dd36b48a92057ad50618f6f9941f908832c9cea3.
+- Verification rerun: [39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046). Status must be checked before marking this resolved; PostgreSQL test and migration verification remain pending until that exact run succeeds.

@@ -43,6 +43,7 @@ export default function PortfolioDetailPage() {
   const [quantity, setQuantity] = useState("1");
   const [limitPrice, setLimitPrice] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<Order | null>(null);
 
@@ -91,6 +92,8 @@ export default function PortfolioDetailPage() {
     setError(null);
     setLastResult(null);
     setPlacing(true);
+    const requestKey = idempotencyKey ?? crypto.randomUUID();
+    setIdempotencyKey(requestKey);
     try {
       const order = await api.post<Order>(`/portfolios/${id}/orders`, {
         instrument_id: selected.id,
@@ -99,7 +102,9 @@ export default function PortfolioDetailPage() {
         segment,
         quantity: Number(quantity),
         limit_price: orderType === "LIMIT" ? limitPrice : undefined,
+        idempotency_key: requestKey,
       });
+      setIdempotencyKey(null);
       setLastResult(order);
       await refresh();
     } catch (err) {
@@ -185,6 +190,7 @@ export default function PortfolioDetailPage() {
                     className="cursor-pointer px-3 py-2 text-sm hover:bg-accent/10"
                     onClick={() => {
                       setSelected(r);
+                      setIdempotencyKey(null);
                       setResults([]);
                     }}
                   >
@@ -199,14 +205,14 @@ export default function PortfolioDetailPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-ink/80 dark:text-paper/80">Side</label>
-              <select value={side} onChange={(e) => setSide(e.target.value)} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
+              <select value={side} onChange={(e) => { setSide(e.target.value); setIdempotencyKey(null); }} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
                 <option value="BUY">Buy</option>
                 <option value="SELL">Sell</option>
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-ink/80 dark:text-paper/80">Segment</label>
-              <select value={segment} onChange={(e) => setSegment(e.target.value)} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
+              <select value={segment} onChange={(e) => { setSegment(e.target.value); setIdempotencyKey(null); }} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
                 {SEGMENTS.map((s) => (
                   <option key={s} value={s}>
                     {s.replace("_", " ")}
@@ -222,17 +228,17 @@ export default function PortfolioDetailPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-ink/80 dark:text-paper/80">Order type</label>
-              <select value={orderType} onChange={(e) => setOrderType(e.target.value as "MARKET" | "LIMIT")} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
+              <select value={orderType} onChange={(e) => { setOrderType(e.target.value as "MARKET" | "LIMIT"); setIdempotencyKey(null); }} className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm dark:border-paper/20 dark:bg-ink-soft">
                 <option value="MARKET">Market</option>
                 <option value="LIMIT">Limit</option>
               </select>
             </div>
-            <Input label="Quantity" type="number" min={1} required value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            <Input label="Quantity" type="number" min={1} required value={quantity} onChange={(e) => { setQuantity(e.target.value); setIdempotencyKey(null); }} />
           </div>
 
           {orderType === "LIMIT" && (
             <>
-              <Input label="Limit price (₹)" type="number" min={0.01} step="any" required value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} />
+              <Input label="Limit price (₹)" type="number" min={0.01} step="any" required value={limitPrice} onChange={(e) => { setLimitPrice(e.target.value); setIdempotencyKey(null); }} />
               <p className="-mt-2 text-xs text-caution">
                 Pending limit orders are checked by the worker during market hours (about every 5 minutes). They fill only when the quote crosses your limit; if a quote is unavailable, they remain pending.
               </p>

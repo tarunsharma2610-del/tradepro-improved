@@ -32,7 +32,7 @@ Status meanings: **Complete in current scope** means existing implementation and
 
 ## Baseline and verification evidence
 - Main branch's existing audit records a previous backend run of 167 passing tests and a successful frontend typecheck/build. These are historical results.
-- Latest verified backend CI: **188 tests passed, 1 warning**, and the full Alembic chain upgraded a clean SQLite database: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030790984. The migration's legacy-data backfill path is reviewed in code but not yet exercised against a copy of a populated production database.
+- Latest verified backend CI: **188 tests passed, 1 warning**, and the full Alembic chain upgraded a clean SQLite database: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030941704. Latest frontend TypeScript/build checks passed: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030941702. The migration's legacy-data backfill path is reviewed in code but not yet exercised against a copy of a populated production database.
 - This backend workflow result does not prove a real Upstox session, market feed, broker order, production database, TLS configuration, or live-trading behavior.
 - No real broker orders were placed.
 
@@ -40,7 +40,7 @@ Status meanings: **Complete in current scope** means existing implementation and
 1. Keep the fail-closed PAPER-only service guard until a separate, reviewed live service exists.
 2. Complete strategy-position attribution and atomic paper-fill accounting; regression tests now cover both.
 3. Finish supported instrument validation. Official Upstox docs confirm the public instrument JSON fields, but tick-size units, full derivative mapping, lot sizes and margin treatment still need verification before F&O can be enabled.
-4. Integrate stable idempotency keys in the UI and strategy scheduler; add evaluation-level de-duplication and tests.
+4. Add evaluation-level de-duplication for strategy scheduling; manual order UI idempotency keys are now wired and backend strategy-position guards prevent duplicate fills.
 5. Add portfolio-wide exposure controls and a broker-error circuit breaker; distinguish paper controls from live controls.
 6. Implement a separate live execution lifecycle only after Upstox/regulatory prerequisites, broker-side idempotency, partial-fill/cancel/timeout/restart reconciliation and an account-level kill switch are verified.
 7. Fix remaining documentation drift and repeat backend tests, migration/data-backfill checks, frontend typecheck/build and staging verification after each relevant change.

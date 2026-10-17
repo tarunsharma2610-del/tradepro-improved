@@ -91,5 +91,5 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - **Derivative segment guard:** the existing importer only loads NSE equities and does not yet normalize tick-size units or import complete derivative contract data. Backend order, strategy and backtest APIs now reject futures/options instead of treating an equity as a derivative. The UI no longer offers unsupported derivative segments.
 - The current paper LIMIT matcher is implemented; stale dashboard wording was corrected. README and requirements/handover docs are being aligned with the verified state.
 - Latest verified backend CI: **188 tests passed, 1 warning**, with the full SQLite migration chain successful: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030790984.
-- The latest frontend check had TypeScript pass but its Next.js build failed resolving an internal Google-font module; an earlier build on the same frontend code passed. Treat frontend build verification as **inconsistent**, not clean, until a rerun succeeds on the latest commit.
+- The latest frontend TypeScript and Next.js build checks passed after an earlier intermittent Google-font resolver failure: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030941702.
 - No real broker orders were placed. Live trading remains **NOT READY**.

@@ -63,5 +63,7 @@
 
 ### Verification after second-pass fixes
 - Latest verified backend CI: **188 passed, 1 warning**, with clean SQLite Alembic upgrade: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030790984.
-- Frontend TypeScript passed; the latest Next.js build was inconsistent due to an internal Google-font module resolution failure, despite an earlier successful build on unchanged frontend code. Re-run latest build before merge.
+- Latest frontend TypeScript and Next.js build checks passed after an earlier intermittent Google-font module resolution failure: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39030941702.
 - No real broker orders were placed; live trading remains disabled.
+
+24. Wired the manual portfolio order form to the existing backend idempotency key: the key is reused after network/server errors and cleared after success or when the payload changes.

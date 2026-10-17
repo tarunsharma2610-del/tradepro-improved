@@ -58,5 +58,5 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Re-inspected `ExecutionService`, the order model, strategy execution, risk engine, worker, Upstox adapter, and the live-trading safeguards design.
 - Confirmed that `ExecutionService.place_order` currently creates `PAPER` orders and performs simulated accounting; the adapter's broker `place_order` method is not wired into a complete live-order lifecycle.
 - Confirmed that instrument master sync and WebSocket streaming return explicit not-implemented errors, and that current risk controls are strategy-level rather than portfolio-wide.
-- A proposed fail-closed guard in `execution_service.py` was not committed. It still needs to be applied and tested in a controlled code-editing environment. No source-code change or test run is claimed in this continuation.
+- Implemented a fail-closed guard in `backend/app/services/execution_service.py`: order placement now refuses `TRADING_MODE` values other than `PAPER`. Added regression test `test_live_mode_fails_closed_before_creating_order` in `backend/tests/test_execution_service.py`. The test has not yet been run in this environment; CI verification is still required.
 - This continuation has not placed any broker orders. Live trading remains not ready.

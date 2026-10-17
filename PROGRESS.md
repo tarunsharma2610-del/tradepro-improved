@@ -197,3 +197,33 @@ Review the live-order idempotency/reconciliation gap and write a safe implementa
 - Current verified base commit before implementation: `03dce02de8777fe02aa7cc8da485f118b9403a50`; its backend CI passed: [run 39041376889](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39041376889).
 - Implementation status at start: no Phase 1 source changes or migration have been committed yet. Do not report completion until source, migration and tests are committed and the exact final commit's CI is checked.
 - Next action: add the additive SQLAlchemy records and Alembic migration, register models, then implement repository idempotency transaction behavior and focused tests.
+
+
+## Phase 1 implementation checkpoint — 2026-10-17 (latest status supersedes earlier gate notes)
+
+### Approval and scope
+- The user explicitly approved `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`; Gate 0 is complete. This is approval to implement durable records/repository safeguards, **not** approval to enable live order submission.
+- Work is on `main` in `tradepro-improved` only. The original `Tradepro` repository remains untouched.
+
+### Implemented and committed
+- `backend/app/models/live_order_records.py`: durable `LiveOrderIntent`, `LiveOrderEvent`, `LiveOrderOutbox`, and `BrokerFillIdentity` models. Database constraints cover scoped client idempotency, broker order identity, one outbox row per intent, unique broker trade identity, nonnegative attempts and positive fill values.
+- `backend/app/models/__init__.py`: registers the new models with SQLAlchemy metadata.
+- `backend/alembic/versions/202610170002_live_order_durability.py`: additive migration after `202610170001`, with reversible table/index creation.
+- `backend/app/repositories/live_order_repository.py`: validates authenticated-user ownership of both portfolio and broker connection; derives SHA-256 from deterministic canonical JSON plus user/portfolio/connection scope; same key + same payload reuses the existing intent; same key + different payload raises `IdempotencyConflict`; persists intent, initial audit event and outbox row in one transaction; handles a unique-key race by rollback and winner lookup.
+- `backend/tests/test_live_order_repository.py`: covers transactionally created records, duplicate reuse, payload conflict, ownership isolation, invalid key/non-finite payload rejection, duplicate broker-fill identity, audit ownership and rollback atomicity.
+- Updated `ROADMAP.md`, `AUDIT_REPORT.md`, `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`, `ARCHITECTURE.md`, `LIVE_TRADING_SAFEGUARDS.md`, `README.md` and `PROJECT_INSTRUCTIONS.md` to record approval, current implementation boundary and evidence.
+
+### Verification
+- Latest application-code/test commit: `54671fd57f21e93938c4c265d29266e50b5f350c`.
+- Exact-commit GitHub Actions: [run 39043386194](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043386194) — **211 tests passed, 1 warning**; clean SQLite `alembic upgrade head` passed.
+- The intermediate canonical-hash API/test mismatch caused two red runs (39043143640 and 39043156888); the fixture was corrected and the later exact code checkpoint passed. Failures are not concealed.
+- Documentation update commits: roadmap `4c180c79609ea70d69202a675fc488e9bcd8cb50`; audit `2f0d257d60f433f95b1fc3a748692ca9ced2eac9`; README `2a66095026bd3cf589e16a94af1133f068bdc04f`; design `beabddea4392e5579c10b41502b7075c7cedbe1c`; architecture `d8f8fb9be71edc7f29fed9d31579a63654a7aea4`; safeguards `c1bc5babe0e1ba700fbb048b213d37c7f2d01f39`; instructions `a23e84155f3cdd8faea135cddb4906cf03a4723f`. Their CI verification is being checked independently; the final progress commit must also be checked.
+- No broker order POST, cancellation, live reconciliation, production migration or real-money test was performed.
+
+### Remaining Phase 1 gates
+- Add an explicit concurrent duplicate-key race test using independent database sessions/transactions.
+- Verify migration downgrade/upgrade and constraints on a backup-restored staging copy of the actual deployment database engine.
+- Review append-only audit enforcement and safe-details redaction policy before any API exposes these records.
+- No live-order API, dispatcher worker or reconciliation service is part of this phase. Keep live trading disabled.
+
+**Next action:** check CI for the documentation commits and this progress update; then continue with the concurrent unique-key test and staging-engine migration review.

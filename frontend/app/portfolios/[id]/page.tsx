@@ -14,7 +14,7 @@ type Portfolio = {
   max_order_value: string | null; max_open_positions: number | null; max_orders_per_day: number | null;
 };
 type RiskSettings = {
-  risk_controls_enabled: boolean; max_daily_loss: string; max_open_exposure: string;
+  name: string; risk_controls_enabled: boolean; max_daily_loss: string; max_open_exposure: string;
   max_order_value: string; max_open_positions: string; max_orders_per_day: string;
 };
 type InstrumentBrief = { id: string; trading_symbol: string; exchange: string };
@@ -42,7 +42,7 @@ export default function PortfolioDetailPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [riskSettings, setRiskSettings] = useState<RiskSettings>({
-    risk_controls_enabled: false, max_daily_loss: "", max_open_exposure: "",
+    name: "", risk_controls_enabled: false, max_daily_loss: "", max_open_exposure: "",
     max_order_value: "", max_open_positions: "", max_orders_per_day: "",
   });
   const [savingRisk, setSavingRisk] = useState(false);
@@ -93,6 +93,7 @@ export default function PortfolioDetailPage() {
       ]);
       setPortfolio(p);
       setRiskSettings({
+        name: p.name,
         risk_controls_enabled: p.risk_controls_enabled ?? false,
         max_daily_loss: p.max_daily_loss ?? "",
         max_open_exposure: p.max_open_exposure ?? "",
@@ -115,6 +116,7 @@ export default function PortfolioDetailPage() {
     const numberOrNull = (value: string) => value.trim() === "" ? null : Number(value);
     try {
       const updated = await api.patch<Portfolio>(`/portfolios/${id}/risk-settings`, {
+        name: riskSettings.name,
         risk_controls_enabled: riskSettings.risk_controls_enabled,
         max_daily_loss: numberOrNull(riskSettings.max_daily_loss),
         max_open_exposure: numberOrNull(riskSettings.max_open_exposure),
@@ -217,6 +219,7 @@ export default function PortfolioDetailPage() {
               exposure is an estimate based on open position cost, not broker margin.
             </p>
           </div>
+          <Input label="Portfolio name" required value={riskSettings.name} onChange={(e) => setRiskSettings({ ...riskSettings, name: e.target.value })} />
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"

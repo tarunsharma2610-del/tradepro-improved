@@ -347,3 +347,17 @@ The latest application-code test checkpoint remains `b37452210bf07ad03acee1495e0
 - Updated ROADMAP.md (a25a9c4c4c50c6adc8eb7a2b997f241667e2cf79), ARCHITECTURE.md (bfbc8a33bd792c8561c8dfb81c17025c3ad926ce), AUDIT_REPORT.md (db2a2a6335754150fbbf4f7c0234a297b2f05395), README.md (56cb32553696898268d55f71bc0b43da5ddbf6c0), LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md (4021f51377f0a025a706969bec2cca62689d5855), LIVE_TRADING_SAFEGUARDS.md (99016f1ae2349b5fa800bda65930d1c14ef7a280), and PROJECT_INSTRUCTIONS.md (1fbd12d35202f51a332dcf8369244bbc0c8f2b51). Verify the CI run for each exact documentation commit before declaring docs fully verified.
 - No broker API reads, fill ingestion, live order submission/cancellation, production migration or real order occurred. The project is not deployed; staging DB verification remains outstanding.
 - Next single action: implement pure validation for Upstox per-order trade records, then a transactionally idempotent fill-ingestion repository operation using the existing unique broker-connection + broker-trade-ID constraint. Do not add broker API calls yet.
+
+
+### Phase 2 documentation CI verification — 2026-10-17
+The exact documentation commits for versioned reconciliation persistence have successful GitHub Actions runs:
+- ROADMAP.md a25a9c4c4c50c6adc8eb7a2b997f241667e2cf79: [run 39051061693](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39051061693) — success.
+- ARCHITECTURE.md bfbc8a33bd792c8561c8dfb81c17025c3ad926ce: [run 39051073011](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39051073011) — success.
+- AUDIT_REPORT.md db2a2a6335754150fbbf4f7c0234a297b2f05395: [run 39051083433](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39051083433) — success.
+- README.md 56cb32553696898268d55f71bc0b43da5ddbf6c0: [run 39051100719](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39051100719) — success.
+- LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md 4021f51377f0a025a706969bec2cca62689d5855: [run 39051113701](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39051113701) — success.
+- LIVE_TRADING_SAFEGUARDS.md 99016f1ae2349b5fa800bda65930d1c14ef7a280: [run 39051121157](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39051121157) — success.
+- PROJECT_INSTRUCTIONS.md 1fbd12d35202f51a332dcf8369244bbc0c8f2b51: [run 39051130597](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39051130597) — success.
+- Prior PROGRESS.md checkpoint 9b52357889ac335326173b1300009e8c7c94dd9f: [run 39051148864](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39051148864) — success.
+
+The latest application-code checkpoint remains b3332b839b6f2c39bf2ae678e1aa62ac1f2a3409, [run 39050941218](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050941218): 261 passed, 1 warning, and SQLite/PostgreSQL 16 migration checks passed. Documentation CI is separate from this application-code verification.

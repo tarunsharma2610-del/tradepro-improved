@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 
 from app.repositories.instrument_repository import InstrumentRepository
+from app.schemas.instrument import InstrumentOut
 from app.services.instrument_service import InstrumentService
 
 
@@ -99,6 +100,10 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
     assert option.instrument_type == "OPTIONS"
     assert option.option_type == "CE"
     assert option.strike_price == Decimal("25000")
+    option_response = InstrumentOut.model_validate(option)
+    assert option_response.expiry == date(2026, 12, 31)
+    assert option_response.strike_price == 25000
+    assert option_response.option_type == "CE"
 
     commodity_future = repo.get_by_key("MCX_FO|GOLD123")
     assert commodity_future.exchange == "MCX"

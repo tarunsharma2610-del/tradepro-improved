@@ -1,0 +1,32 @@
+name: Upstox live instrument-master verification
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "backend/scripts/verify_upstox_instrument_master.py"
+      - "backend/app/services/instrument_service.py"
+      - "backend/app/repositories/instrument_repository.py"
+      - "backend/app/models/instrument.py"
+      - "backend/app/brokers/upstox/proto/**"
+      - ".github/workflows/upstox-live-verification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-master:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Download real Upstox master and sync temporary SQLite
+        working-directory: backend
+        run: python scripts/verify_upstox_instrument_master.py

@@ -7,8 +7,10 @@ import hashlib
 import json
 import re
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -209,3 +211,139 @@ class LiveOrderRepository:
         self.db.commit()
         self.db.refresh(event)
         return event
+
+
+class LiveOrderVersionConflict(RuntimeError):
+    """The intent changed since the caller's expected version or a unique link conflicted."""
+
+
+class InvalidLiveOrderTransition(ValueError):
+    """A broker observation cannot safely move the intent between these states."""
+
+
+_ALLOWED_RECONCILIATION_TRANSITIONS = {
+    "CREATED": {"PENDING", "OPEN", "TRIGGER_PENDING", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "UNKNOWN": {"PENDING", "OPEN", "TRIGGER_PENDING", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "RECONCILIATION_REQUIRED"},
+    "PENDING": {"OPEN", "TRIGGER_PENDING", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "TRIGGER_PENDING": {"PENDING", "OPEN", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "OPEN": {"PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "PARTIALLY_FILLED": {"FILLED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    "CANCEL_PENDING": {"OPEN", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "UNKNOWN", "RECONCILIATION_REQUIRED"},
+    # A cancel can race with execution; broker trades may prove a cancelled order
+    # partially or fully filled. Rejected/filled contradictions require quarantine.
+    "CANCELLED": {"PARTIALLY_FILLED", "FILLED", "RECONCILIATION_REQUIRED"},
+    "FILLED": set(),
+    "REJECTED": {"RECONCILIATION_REQUIRED"},
+    "RECONCILIATION_REQUIRED": set(),
+}
+
+
+def _validate_transition_details(details: dict[str, Any] | None) -> None:
+    if details is not None:
+        if not isinstance(details, dict):
+            raise ValueError("safe_details must be a JSON object")
+        _validate_safe_json(details, field_name="safe_details")
+
+
+def _apply_reconciliation_transition(
+    self: LiveOrderRepository,
+    *,
+    user_id: uuid.UUID,
+    intent_id: uuid.UUID,
+    expected_version: int,
+    new_state: str,
+    broker_order_id: str | None = None,
+    safe_details: dict[str, Any] | None = None,
+    correlation_id: str | None = None,
+) -> tuple[LiveOrderIntent, bool]:
+    """Atomically persist a validated broker observation and audit event.
+
+    This repository-only operation does not fetch broker data or submit/cancel orders.
+    Callers must only invoke it after matching the observation to this intent.
+    Returns (intent, changed); repeated same-state observations at the current version
+    are no-ops and do not create duplicate audit events.
+    """
+    state = new_state.strip().upper()
+    if state not in _ALLOWED_RECONCILIATION_TRANSITIONS:
+        raise InvalidLiveOrderTransition(f"unsupported reconciliation state: {state}")
+    if expected_version < 1:
+        raise ValueError("expected_version must be positive")
+    if broker_order_id is not None:
+        broker_order_id = broker_order_id.strip()
+        if not broker_order_id or len(broker_order_id) > 128:
+            raise ValueError("broker_order_id must contain 1-128 characters")
+    _validate_transition_details(safe_details)
+
+    intent = self.db.query(LiveOrderIntent).filter(
+        LiveOrderIntent.id == intent_id,
+        LiveOrderIntent.user_id == user_id,
+    ).first()
+    if intent is None:
+        raise ValueError("live-order intent not found for authenticated user")
+    if intent.version != expected_version:
+        raise LiveOrderVersionConflict("live-order intent version changed; reload before applying observation")
+    if intent.broker_order_id and broker_order_id and intent.broker_order_id != broker_order_id:
+        raise LiveOrderVersionConflict("intent is already linked to a different broker order ID")
+    if intent.state == state and (broker_order_id is None or intent.broker_order_id == broker_order_id):
+        return intent, False
+    if state not in _ALLOWED_RECONCILIATION_TRANSITIONS.get(intent.state, set()):
+        raise InvalidLiveOrderTransition(f"transition {intent.state} -> {state} is not allowed")
+
+    values: dict[str, Any] = {
+        "state": state,
+        "version": LiveOrderIntent.version + 1,
+        "last_reconciled_at": datetime.now(timezone.utc),
+    }
+    if broker_order_id is not None:
+        values["broker_order_id"] = broker_order_id
+    try:
+        result = self.db.execute(
+            update(LiveOrderIntent)
+            .where(
+                LiveOrderIntent.id == intent_id,
+                LiveOrderIntent.user_id == user_id,
+                LiveOrderIntent.version == expected_version,
+                LiveOrderIntent.state == intent.state,
+            )
+            .values(**values)
+        )
+        if result.rowcount != 1:
+            self.db.rollback()
+            raise LiveOrderVersionConflict("live-order intent changed concurrently; reload before applying observation")
+
+        details: dict[str, Any] = {
+            "previous_state": intent.state,
+            "new_state": state,
+            "previous_version": expected_version,
+            "new_version": expected_version + 1,
+        }
+        if broker_order_id is not None:
+            details["broker_order_id"] = broker_order_id
+        if safe_details:
+            details["broker_observation"] = safe_details
+        _validate_safe_json(details, field_name="safe_details")
+        self.db.add(
+            LiveOrderEvent(
+                intent_id=intent_id,
+                event_type="BROKER_STATUS_RECONCILED",
+                correlation_id=correlation_id,
+                actor_user_id=None,
+                safe_details=details,
+            )
+        )
+        self.db.commit()
+    except IntegrityError as exc:
+        self.db.rollback()
+        raise LiveOrderVersionConflict("broker order ID is already linked or reconciliation update conflicted") from exc
+    except Exception:
+        self.db.rollback()
+        raise
+
+    updated = self.db.query(LiveOrderIntent).filter(
+        LiveOrderIntent.id == intent_id,
+        LiveOrderIntent.user_id == user_id,
+    ).one()
+    return updated, True
+
+
+LiveOrderRepository.apply_reconciliation_transition = _apply_reconciliation_transition

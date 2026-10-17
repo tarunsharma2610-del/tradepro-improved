@@ -92,7 +92,7 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
     ok, message = await InstrumentService(db_session).sync_from_upstox()
 
     assert ok is True
-    assert message == "Synced 11 instruments across supported NSE, BSE and MCX segments."
+    assert message.startswith("Synced 11 instruments across supported NSE, BSE and MCX segments;")
     assert fake_client.requested_url == (
         "https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz"
     )

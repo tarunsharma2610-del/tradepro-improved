@@ -13,10 +13,12 @@ import gzip
 import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy.orm import Session
 
+from app.models.instrument import Instrument
 from app.repositories.instrument_repository import InstrumentRepository
 
 _SEED_EQUITIES = [
@@ -33,6 +35,11 @@ _SEED_EQUITIES = [
 ]
 
 _INSTRUMENT_MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz"
+MIN_VALID_SNAPSHOT_RECORDS = 1000
+MIN_SNAPSHOT_RETENTION_RATIO = Decimal("0.90")
+_REQUIRED_SNAPSHOT_SEGMENTS = {
+    "NSE_EQ", "NSE_INDEX", "NSE_FO", "BSE_EQ", "BSE_INDEX", "BSE_FO", "MCX_FO",
+}
 
 # Segments listed in Upstox's official BOD instrument documentation.
 _SUPPORTED_SEGMENTS = {
@@ -195,7 +202,22 @@ class InstrumentService:
 
         normalized = []
         seen_keys = set()
+        snapshot_keys = set()
         for record in records:
+            if isinstance(record, dict):
+                segment = record.get("segment")
+                key = record.get("instrument_key")
+                exchange = record.get("exchange")
+                if (
+                    isinstance(segment, str)
+                    and segment in _SUPPORTED_SEGMENTS
+                    and exchange == _SEGMENT_EXCHANGE[segment]
+                    and isinstance(key, str)
+                    and key.startswith(f"{segment}|")
+                ):
+                    # Unknown types still count as present, avoiding false delisting.
+                    snapshot_keys.add(key)
+
             item = _normalize_record(record)
             if item is None or item["instrument_key"] in seen_keys:
                 continue
@@ -205,10 +227,38 @@ class InstrumentService:
         if not normalized:
             return False, "Instrument master contained no supported, valid records; catalog was not changed."
 
+        present_segments = {item["segment"] for item in normalized}
+        missing_segments = _REQUIRED_SNAPSHOT_SEGMENTS - present_segments
+        active_count = (
+            self.db.query(Instrument)
+            .filter(Instrument.is_active.is_(True), Instrument.segment.in_(_SUPPORTED_SEGMENTS))
+            .count()
+        )
+        minimum_expected = max(
+            MIN_VALID_SNAPSHOT_RECORDS,
+            int(Decimal(active_count) * MIN_SNAPSHOT_RETENTION_RATIO),
+        )
+        if missing_segments or len(normalized) < minimum_expected:
+            details = []
+            if missing_segments:
+                details.append("missing required segments: " + ", ".join(sorted(missing_segments)))
+            if len(normalized) < minimum_expected:
+                details.append(f"only {len(normalized)} valid records; expected at least {minimum_expected}")
+            return False, "Instrument snapshot failed completeness checks; catalog was not changed (" + "; ".join(details) + ")."
+
         try:
-            count = self.repo.upsert_many(normalized)
+            today_ist = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+            count = self.repo.upsert_many(
+                normalized,
+                snapshot_keys=snapshot_keys,
+                reconcile_segments=_SUPPORTED_SEGMENTS,
+                expired_before=today_ist,
+            )
         except Exception:
             self.db.rollback()
             raise
 
-        return True, f"Synced {count} instruments across supported NSE, BSE and MCX segments."
+        return True, (
+            f"Synced {count} instruments across supported NSE, BSE and MCX segments; "
+            "stale instruments absent from the validated snapshot and expired derivatives were deactivated."
+        )

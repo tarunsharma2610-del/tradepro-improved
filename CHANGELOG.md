@@ -102,3 +102,8 @@
 - `BrokerReconciliationService` now requires the broker status payload to include a non-empty `order_id` matching the requested broker order before it stores the status.
 - Added mocked coverage for missing broker order ID. The service remains read-only and does not infer fills/cancellations.
 - CI on `9f1e1300acc15f85d8abf1e29e73de34f6ca14f3`: backend **195 passed, 1 warning**, migration check passed, frontend checks passed.
+
+
+### 17 October 2026 — read-only per-order trade lookup
+- Added `get_order_trades` to the broker interface and Upstox adapter using the documented `GET /v2/order/trades?order_id=...` endpoint. Added mocked endpoint/response test; no live request or local accounting mutation.
+- CI on `ebda043d4537353529007b8f3aa1aacceb13d4c4`: backend **197 passed, 1 warning**, migration check passed, frontend checks passed.

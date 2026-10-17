@@ -137,3 +137,10 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Added a regression test for a status response that omits the ID. It confirms local order status remains PENDING and no fill timestamp is written.
 - Latest verified code commit: `9f1e1300acc15f85d8abf1e29e73de34f6ca14f3`: backend **195 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
 - Next: add a read-only per-order trade lookup method for future partial-fill reconciliation. Do not wire it to local accounting yet. See `PROGRESS.md`.
+
+
+## Per-order trade lookup completed — 17 October 2026
+
+- Added read-only `get_order_trades(access_token, order_id)` to the broker interface and Upstox adapter, using the official `GET /v2/order/trades?order_id=...` endpoint. Mocked test validates URL, query and trade response shape; it does not contact Upstox.
+- Latest verified code commit: `ebda043d4537353529007b8f3aa1aacceb13d4c4`: backend **197 passed, 1 warning**, clean SQLite migration; frontend TypeScript/build passed.
+- Next: add read-only Order History lookup by stable tag or order ID to support safe recovery when a submission response is lost. No live submission will be enabled. See `PROGRESS.md`.

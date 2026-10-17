@@ -128,3 +128,9 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 - Required a non-empty exact broker `order_id` match before saving a read-only broker status. Missing and mismatched IDs fail closed; local order status/fill state remains unchanged.
 - Latest CI: 195 backend tests passed, 1 warning, clean SQLite migration, frontend checks passed. Next foundation is a read-only per-order trade lookup for future partial-fill reconciliation; it will not be wired into accounting in that step.
+
+
+## Per-order trade lookup — 17 October 2026
+
+- Added a read-only adapter method for Upstox `GET /v2/order/trades?order_id=...` to provide the data source needed for future partial-fill reconciliation. Mocked test verifies request and response shape. No real broker call or local accounting change.
+- CI: 197 backend tests passed, 1 warning, clean SQLite migration, frontend checks passed. Next: add Order History lookup by stable tag/order ID for unknown-submission recovery.

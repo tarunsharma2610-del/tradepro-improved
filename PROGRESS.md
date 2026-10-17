@@ -390,3 +390,13 @@ All documentation commits for the fill-identity checkpoint have successful GitHu
 - `PROGRESS.md` checkpoint 29eac681a6d93a83f05262c60f7eb4163b505c8c: [run 39052450839](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052450839) — success.
 
 The exact final code/test checkpoint remains [run 39052203329](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052203329): **274 passed, 1 warning**, with SQLite/PostgreSQL 16 migration checks. The intermediate failure at run 39052095678 is documented above and was fixed before the passing checkpoint.
+
+
+## Phase 2 — fill-to-intent economic validation — 2026-10-17
+
+- Continued from the previous checkpoint and added pre-persistence checks in `LiveOrderRepository.record_broker_fill()`: the linked intent must already reference the same broker order ID; instrument, side, product and order type must match the immutable order snapshot; requested quantity must be a valid positive integer; each fill and aggregate persisted fills cannot exceed order quantity; BUY LIMIT/SL fills cannot exceed limit price and SELL LIMIT/SL fills cannot be below it.
+- Added tests for mismatched instrument, missing broker-order link, aggregate partial-fill overrun and BUY/SELL limit-price violations.
+- Final code/test commit `b69939ece8edc47e1ae05f27c0d9e2144e87db04` passed [GitHub Actions run 39052939770](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052939770): **279 passed, 1 warning**, and SQLite/PostgreSQL 16 reversible migration checks passed. Earlier CI runs in this step caught fixtures with invalid prices and missing new method arguments; fixtures were corrected before the green checkpoint.
+- Documentation commits: `ROADMAP.md` cc919b11844b584518f74f7fda0793443f68b9ab; `ARCHITECTURE.md` eee0b6a08f4052a40f7dc17e2f8c3440775f4179; `AUDIT_REPORT.md` 262b7c49cd3e80a9a353ff898d8474a722c81b66; `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` d893483cc29e8e943ab2ba8191ada0139daaf9ef; `README.md` e0e5c92d0ac19c117aca982537c0ba44c84c4335; `LIVE_TRADING_SAFEGUARDS.md` 6ee838b3ffd09cc241f989b980b412e52d2fed89; `PROJECT_INSTRUCTIONS.md` b5b3c3bdb0c8cdbfd5287e651d52df31a4e762de. Exact CI results for these documentation commits are being checked.
+- Important limitation: the code persists validated individual fill identities only. It does not fetch broker trades, quarantine/relink unmatched fills, reconcile out-of-order observations, or update the shared `Order`, `Execution`, `Position`, cash or P&L models. Live submission remains unavailable and disabled.
+- Next single action: design and test safe handling for unmatched fills and out-of-order status/fill observations before implementing any broker-read worker.

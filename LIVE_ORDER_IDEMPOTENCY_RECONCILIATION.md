@@ -179,3 +179,14 @@ Latest code/test checkpoint `5508b272efe55997252e8d8a51fdd29761a1070b` passed Gi
 - Regression tests cover matching, economic mismatch, duplicate tag ambiguity, missing fields, connection isolation and unknown status handling.
 - Exact test commit e9b594ffc2e81c37e1b41c8c44947212d206f3e9 passed [GitHub Actions run 39050424898](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050424898): 255 passed, 1 warning, and SQLite/PostgreSQL 16 migration checks passed.
 - Still not implemented: broker reads, persisted state transitions, audit/version guarded updates, trade/fill ingestion, automatic retry/recovery, cancellation, or order submission. Next: build a repository-only safe status-transition operation with concurrency/version tests before any broker I/O.
+
+
+## 13. Implementation checkpoint — versioned state transition persistence
+
+- Added LiveOrderRepository.apply_reconciliation_transition() as a repository-only operation. It has no broker/network dependency and must only be called after a broker observation has been matched to the intent.
+- The method enforces an explicit state-transition allowlist, user ownership, expected version and previous-state compare-and-set, broker-order-ID uniqueness, and atomic persistence of intent state/version/last-reconciled time plus BROKER_STATUS_RECONCILED event. Credential-like keys are rejected from safe details.
+- Repeated same-state observations at the current version are no-ops. FILLED cannot regress to OPEN; RECONCILIATION_REQUIRED is frozen; CANCELLED may progress to PARTIALLY_FILLED/FILLED when later broker trade evidence proves a cancel/fill race.
+- Tests cover atomic audit/state persistence, same-state idempotency, stale-version rejection, invalid terminal regression, cancel/fill race and credential-field rejection.
+- Exact code checkpoint b3332b839b6f2c39bf2ae678e1aa62ac1f2a3409 passed [GitHub Actions run 39050941218](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050941218): 261 passed, 1 warning, with SQLite/PostgreSQL 16 migration checks.
+- Two intermediate CI attempts failed due to a malformed test import and an undefined prior-state variable; both were corrected, and the final run passed. No broker API reads, fill ingestion, order submission/cancellation or production migration occurred.
+- Next: add a pure validated broker trade/fill normalizer, then a transactionally idempotent fill repository method using the existing unique broker-connection + broker-trade-ID constraint.

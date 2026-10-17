@@ -181,3 +181,17 @@ async def test_paused_strategy_does_not_enter(db_session, portfolio, instrument)
 
     position = PositionRepository(db_session).get_or_create(p.id, instrument.id)
     assert position.quantity == 0  # never entered
+
+
+@pytest.mark.asyncio
+async def test_inactive_strategy_cannot_be_evaluated_even_via_manual_service_call(db_session, portfolio, instrument):
+    _, p = portfolio
+    strategy = _make_strategy(db_session, p.id, instrument.id, is_active=False)
+    service = StrategyExecutionService(db_session)
+
+    with patch("app.services.strategy_execution_service.get_broker_adapter") as adapter:
+        result = await service.evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+    assert "inactive" in result.reason.lower()
+    adapter.assert_not_called()

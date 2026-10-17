@@ -55,6 +55,11 @@ class StrategyExecutionService:
         self.notifications = NotificationService(db)
 
     async def evaluate(self, strategy: Strategy) -> EvaluationResult:
+        # The API exposes an immediate-evaluation endpoint as well as the worker.
+        # Enforce activation here so manual calls cannot bypass the worker's active check.
+        if not strategy.is_active:
+            return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Strategy is inactive; activate it before evaluation.")
+
         portfolio = self.portfolios.get_by_id(strategy.portfolio_id)
         if portfolio is None:
             return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Portfolio no longer exists.")

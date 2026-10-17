@@ -379,7 +379,12 @@ async def test_strategy_cannot_open_a_second_position_when_one_is_already_alloca
 
 
 @pytest.mark.asyncio
-async def test_repeated_entry_signal_on_same_candle_reuses_one_idempotency_key(db_session, portfolio, instrument):
+async def test_repeated_entry_signal_on_same_candle_reuses_one_idempotency_key(db_session, portfolio, instrument, monkeypatch):
+    from app.core.config import settings
+
+    # This test fixture starts with ₹5 lakh virtual capital, so explicitly set
+    # a low cap rather than assuming ₹30,000 exceeds the default 25% limit.
+    monkeypatch.setattr(settings, "MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL", Decimal("1.0"))
     user, p = portfolio
     _connect_fake_broker(db_session, user.id)
     strategy = _make_strategy(db_session, p.id, instrument.id)

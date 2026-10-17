@@ -170,3 +170,12 @@ Review the live-order idempotency/reconciliation gap and write a safe implementa
 - This was documentation/design only; no application tests were rerun locally, no code/migration was added, and no broker order was submitted.
 - Verified cross-links and design-only safety status in `ARCHITECTURE.md`, `LIVE_TRADING_SAFEGUARDS.md`, `README.md`, `AUDIT_REPORT.md` and `PROJECT_INSTRUCTIONS.md` against current default-branch contents.
 - **Next action:** verify the remaining audit/instruction/progress CI runs, then pause at the design-review gate for user approval before Phase 1 schema/repository implementation.
+
+
+## Repository completeness and roadmap checkpoint — 2026-10-17
+- Rechecked the default `main` tree after the prior continuation. All seven live-order design/status documents exist: `PROJECT_INSTRUCTIONS.md`, `PROGRESS.md`, `README.md`, `AUDIT_REPORT.md`, `ARCHITECTURE.md`, `LIVE_TRADING_SAFEGUARDS.md`, `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`. No separate roadmap file existed, so added `ROADMAP.md` and linked it from README, architecture, audit and persistent instructions.
+- Confirmed prior progress commit `3263eda9d1329d17069dd4140162602631639a0b` CI succeeded: [run 39040715054](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39040715054).
+- New roadmap commit: `3024aed473f28409bd075ec7e764576890c4ecfa`.
+- Cross-links/status commits: README `748a20b227c8f55d4c75276b36fa00c5f5075569`; instructions `25b4e39e6636ef527785dccdd7e627fe0a991447`; architecture `a6fd111534681e18392df6e9be6d1c09b9deb6f2`; audit `914d9d12f5872d3061770461b110dff1cf98cd29`.
+- This is documentation/roadmap only. No live-order code, migration, or real broker order was executed. Each new commit's CI must be checked independently; do not use the previous green workflow as proof for later commits.
+- Next: verify the newest branch tip and CI for every commit in this documentation series, ensure the final progress update itself is committed and green, and inspect final file links. Then pause for design approval before any schema/code implementation.

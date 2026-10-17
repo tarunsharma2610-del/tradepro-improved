@@ -99,28 +99,27 @@ def upgrade() -> None:
         quantity = int(row["quantity"])
         price = Decimal(str(row["price"]))
         side = row["side"]
-        signed_fill = quantity if side == "BUY" else -quantity
         old_quantity = state["quantity"]
-        new_quantity = old_quantity + signed_fill
-        same_direction_or_flat = old_quantity == 0 or ((old_quantity > 0) == (signed_fill > 0))
 
-        if same_direction_or_flat:
-            total_cost = abs(old_quantity) * state["avg_price"] + quantity * price
-            new_avg_price = total_cost / abs(new_quantity) if new_quantity else Decimal("0")
+        # Strategies are long-only. Older code could tag a sale of a manual
+        # holding as a strategy exit; only close quantity actually allocated
+        # to that strategy and ignore any excess sell quantity for attribution.
+        if side == "BUY":
+            new_quantity = old_quantity + quantity
+            total_cost = old_quantity * state["avg_price"] + quantity * price
+            new_avg_price = total_cost / new_quantity if new_quantity else Decimal("0")
             realized_pnl = Decimal("0.00")
         else:
-            closing_quantity = min(quantity, abs(old_quantity))
-            if old_quantity > 0:
-                pnl = (price - state["avg_price"]) * closing_quantity
-            else:
-                pnl = (state["avg_price"] - price) * closing_quantity
-            realized_pnl = pnl.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            if new_quantity == 0:
-                new_avg_price = Decimal("0")
-            elif (old_quantity > 0) != (new_quantity > 0):
-                new_avg_price = price
-            else:
+            closing_quantity = min(quantity, max(old_quantity, 0))
+            if closing_quantity == 0:
+                new_quantity = old_quantity
                 new_avg_price = state["avg_price"]
+                realized_pnl = Decimal("0.00")
+            else:
+                pnl = (price - state["avg_price"]) * closing_quantity
+                realized_pnl = pnl.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                new_quantity = old_quantity - closing_quantity
+                new_avg_price = Decimal("0") if new_quantity == 0 else state["avg_price"]
 
         state["quantity"] = new_quantity
         state["avg_price"] = new_avg_price

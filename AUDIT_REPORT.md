@@ -1,42 +1,50 @@
-# Tradepro Improved — Initial Audit and Change Plan
+# Tradepro Improved — Audit and Change Log
 
-Audit target: imported code on main in this repository. The original Tradepro repository is read-only and is not modified.
+Audit target: `main` in this repository. The original `Tradepro` repository is read-only and has not been modified.
 
-## Classification (static inspection; runtime verification pending)
+## Current findings
 
-| Area / requirement | Classification | Evidence / notes | Action |
-|---|---|---|---|
-| Existing FastAPI APIs, SQLAlchemy models/repositories | Working but requires verification | Existing routes/models and tests are present | Preserve; run tests before broad refactors |
-| Paper market orders | Working but incomplete | ExecutionService obtains real Upstox LTP and records simulated fills/costs; test coverage exists | Retain existing implementation; expand only with tests |
-| Paper limit orders | Missing fill matcher | LIMIT is persisted as PENDING; no matcher observed in service/worker | Track as follow-up; do not claim fills are supported |
-| Live order placement | Incomplete / disabled | Adapter has order API methods, but shared execution service always creates PAPER orders and does not reconcile broker fills | Keep live trading disabled pending full order lifecycle and safety work |
-| Strategy activation | Defect identified | Worker filters active strategies, but manual /evaluate endpoint calls service directly; service lacked its own active check | Add guard in service and regression test |
-| Daily strategy loss control | Partial | Existing strategy-level realized-loss check is present; portfolio-wide loss/exposure/order-frequency limits not observed | Retain existing tested logic; add broader controls only with design/tests |
-| OAuth state validation | Improved but incomplete | Authorization now issues a signed, user/connection-bound state token with a 10-minute expiry and random nonce; callback validates it before exchanging the code | One-time replay prevention is not yet implemented; keep live trading disabled |
-| Upstox instrument sync / streaming | Missing | Adapter explicitly returns not-implemented results for instrument sync and market-data streaming | Follow-up using official docs; no invented endpoints |
-| Frontend home page | Suspected defect | frontend/app/page.tsx appears to render broker connection settings, duplicating the dedicated broker settings page | Verify intended dashboard requirements before replacing |
-| Frontend lint command | Requires verification | package script uses next lint while Next.js dependency is version 16 | Verify in CI; adjust only after observing failure |
-| Database migrations | Present, require execution verification | Alembic migration files exist | Run migration checks in a suitable environment before schema changes |
+| Area / requirement | Status | Evidence / next action |
+|---|---|---|
+| FastAPI APIs, SQLAlchemy models/repositories | Existing; tests pass | Backend test suite passed on the current backend changes. Continue adding coverage as features change. |
+| Paper market orders | Implemented, still needs operational validation | Uses Upstox LTP for simulated fills and records transaction costs and position/cash updates. Never fall back to a made-up price. |
+| Order input validation | Improved | Service boundary rejects non-positive quantities, unsupported order types, missing/non-positive LIMIT prices, and a limit price attached to MARKET orders. API schema also rejects non-positive limit prices. |
+| Quote price parsing | Improved | Rejects malformed, non-finite, zero, and negative LTP values before paper accounting. |
+| Paper limit orders | Missing matcher | LIMIT orders remain PENDING; they are not automatically filled when market price crosses. |
+| Live order placement | Incomplete / not enabled | Shared execution service still records PAPER orders; broker order placement and execution reconciliation are not complete. Do not enable live orders. |
+| Strategy activation | Fixed | Strategy evaluation returns HOLD for inactive strategies before contacting the broker; regression test added. |
+| Daily risk controls | Partial | Existing strategy-level daily-loss guard remains. Portfolio-wide loss, exposure, and order-frequency caps still need implementation and tests. |
+| Broker OAuth | Improved | State is signed, expires after 10 minutes, and is bound to user/broker/connection. A nonce digest and expiry are persisted and consumed by a conditional database update, so repeated/concurrent callback attempts cannot consume the same state twice. |
+| OAuth schema migration | Added; deployment not yet verified | `202608220001_oauth_state_replay.py` adds the two nullable state columns. Apply and verify migrations in a backup-safe staging environment before deploying to an existing database. |
+| Upstox instrument sync / streaming | Missing | Adapter still has unimplemented instrument-sync and market-data-streaming work. Implement against current official API documentation and test with paper data. |
+| Frontend dashboard | Improved | Root page is now a dashboard with portfolio/cash summaries and links to portfolios, backtests, news, broker settings, and notifications. It no longer duplicates the broker settings page. |
+| Frontend typecheck/build | Verified in CI | TypeScript check and Next.js production build passed. The `lint` script runs TypeScript checking because the project uses Next.js 16, where the old `next lint` command is not available. |
+| Database migrations | Present; production migration path still needs validation | Existing Alembic chain plus the new OAuth state migration must be tested against a staging database before deployment. |
 
-## Changes in this commit
+## Changes committed
 
-1. Strategy evaluation now returns HOLD immediately when a strategy is inactive. This closes a bypass in the manual evaluate path without changing worker behavior or active-strategy behavior.
-2. A regression test verifies an inactive strategy does not call the broker adapter.
-3. Broker OAuth now uses a signed, expiring state token bound to the user, broker, and connection; the frontend returns the state to the backend and the backend rejects mismatches before exchanging the code.
-4. Order execution now rejects invalid quantities, unsupported order types, and missing/non-positive limit prices at the service boundary.
-5. Last-traded-price parsing now rejects non-numeric, non-finite, zero, and negative prices instead of letting them enter paper accounting; regression tests cover those cases.
-6. Added a GitHub Actions workflow intended to run the backend test suite on relevant pushes and pull requests.
+1. Added a service-level inactive-strategy guard and a regression test.
+2. Added signed, expiring OAuth state validation bound to the requesting user and broker connection.
+3. Added persisted, one-time OAuth nonce consumption with an atomic conditional update and Alembic migration.
+4. Added order validation at both the API schema and execution-service boundary.
+5. Hardened last-traded-price parsing so invalid prices cannot enter paper-accounting calculations.
+6. Replaced the duplicate root broker-settings page with an account dashboard.
+7. Updated the frontend check command for Next.js 16.
+8. Added GitHub Actions workflows for backend tests and frontend typecheck/build.
 
-## Deliberately retained
+## Verification
 
-- Existing shared paper execution service, cost calculations, position math, risk engine, strategy engine, models, and routes are retained.
-- No schema migration was needed for the inactive-strategy guard.
-- Live trading remains disabled. No real orders are submitted as part of this work.
+- **Backend:** GitHub Actions run passed — **160 tests passed, 1 deprecation warning**. [View backend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025425365).
+- **Frontend:** TypeScript check and Next.js production build passed. [View frontend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025402726).
+- The tests use SQLite and mocked broker calls; they do not prove a live Upstox session or live market-order execution works.
+- The OAuth migration has been added to the repository but has not been applied to your production database.
+- No live orders have been submitted.
 
-## Verification status
+## Remaining high-priority work
 
-- Source-level inspection completed for the areas listed above.
-- The new tests are committed but have NOT yet been executed successfully. GitHub Actions recorded failed runs with zero jobs returned, so the test runner did not provide a test result; see the workflow run in the repository Actions tab. No test/build success is claimed here.
-- OAuth state is signed and expiring, but replay prevention still requires one-time state storage/consumption.
-- A local test run was not possible because this execution environment could not resolve github.com. GitHub Actions runs were marked failed but returned zero jobs, so they do not establish whether tests pass or fail.
-- Broker reconciliation, order deduplication, instrument sync, streaming, limit matching, portfolio-wide controls, and frontend dashboard correction remain open work items.
+1. Add a paper LIMIT-order matcher with idempotent fills and tests.
+2. Add order deduplication, reconciliation, and a kill switch before any live-trading implementation.
+3. Add portfolio-wide loss/exposure controls and a market-hours/holiday calendar.
+4. Implement instrument master sync and WebSocket market data using current official Upstox documentation.
+5. Verify the Alembic migration path in staging and check the current deployment configuration.
+6. Review remaining dashboard, analytics, and backtest behavior against the requested product requirements.

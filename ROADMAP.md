@@ -5,10 +5,10 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 
 ## Current verified checkpoint
 
-- Design-only live-order idempotency/reconciliation plan exists: [LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md).
+- User-approved live-order idempotency/reconciliation design is implemented partially for Phase 1: [LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md).
 - Architecture, safeguards, README, audit, project instructions and progress tracker link to the design.
-- Phase 1 records/repository/tests are on `main`; latest verified code checkpoint `397e760b8fabcd77ce1904b9c1350ca5ab0b3e00` passed: [workflow 39043177545](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043177545), 210 tests passed, 1 warning. Documentation updates after this checkpoint still require their own CI verification.
-- This checkpoint changes documentation only. It does not implement live submission or reconciliation, does not run a migration and does not prove live trading readiness.
+- Phase 1 records/repository/tests are on `main`; latest verified code checkpoint `54671fd57f21e93938c4c265d29266e50b5f350c` passed: [workflow 39043386194](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043386194), 211 tests passed, 1 warning; clean SQLite `alembic upgrade head` passed. Later documentation commits have their own CI runs.
+- The code checkpoint adds Phase 1 durable storage/repository safeguards and tests only. It does not implement live submission or reconciliation, does not run a production migration and does not prove live trading readiness.
 
 ## Status summary
 

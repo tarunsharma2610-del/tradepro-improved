@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import admin, auth, backtests, instruments, market_data, news, portfolios, settings, strategies, users
+from app.api.v1 import admin, auth, backtests, instruments, market_data, news, portfolios, reconciliation, settings, strategies, users
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
@@ -9,6 +9,7 @@ api_router.include_router(settings.router)
 api_router.include_router(instruments.router)
 api_router.include_router(market_data.router)
 api_router.include_router(portfolios.router)
+api_router.include_router(reconciliation.router)
 api_router.include_router(strategies.router)
 api_router.include_router(backtests.router)
 api_router.include_router(news.router)

@@ -37,3 +37,50 @@ async def test_place_order_uses_current_upstox_hft_host_without_network(monkeypa
     assert captured["json_body"] == payload
     assert result.data["data"]["order_ids"] == ["sandbox-test-id"]
     assert captured["url"] == "https://api-hft.upstox.com/v3/order/place"
+
+
+@pytest.mark.asyncio
+async def test_modify_order_uses_official_upstox_v3_endpoint_without_network(monkeypatch):
+    adapter = UpstoxAdapter()
+    captured = {}
+
+    async def fake_put(url, access_token, json_body):
+        captured.update(url=url, access_token=access_token, json_body=json_body)
+        return BrokerCallResult(ok=True, data={"status": "success", "data": {"order_id": "sandbox-test-id"}})
+
+    monkeypatch.setattr(adapter, "_put", fake_put)
+    payload = {
+        "quantity": 2,
+        "validity": "DAY",
+        "price": 120.01,
+        "order_id": "sandbox-test-id",
+        "order_type": "LIMIT",
+        "disclosed_quantity": 0,
+        "trigger_price": 0,
+    }
+
+    result = await adapter.modify_order("test-token", payload)
+
+    assert result.ok
+    assert captured["url"] == "https://api-hft.upstox.com/v3/order/modify"
+    assert captured["access_token"] == "test-token"
+    assert captured["json_body"] == payload
+
+
+@pytest.mark.asyncio
+async def test_cancel_order_uses_official_upstox_v3_endpoint_without_network(monkeypatch):
+    adapter = UpstoxAdapter()
+    captured = {}
+
+    async def fake_delete(url, access_token, params=None):
+        captured.update(url=url, access_token=access_token, params=params)
+        return BrokerCallResult(ok=True, data={"status": "success", "data": {"order_id": "sandbox-test-id"}})
+
+    monkeypatch.setattr(adapter, "_delete", fake_delete)
+
+    result = await adapter.cancel_order("test-token", "sandbox-test-id")
+
+    assert result.ok
+    assert captured["url"] == "https://api-hft.upstox.com/v3/order/cancel"
+    assert captured["access_token"] == "test-token"
+    assert captured["params"] == {"order_id": "sandbox-test-id"}

@@ -82,6 +82,16 @@ class BrokerAdapter(ABC):
         ...
 
     @abstractmethod
+    async def modify_order(self, access_token: str, order: dict[str, Any]) -> BrokerCallResult:
+        """Modify an open/pending broker order; callers must reconcile the result."""
+        ...
+
+    @abstractmethod
+    async def cancel_order(self, access_token: str, order_id: str) -> BrokerCallResult:
+        """Request broker cancellation; callers must verify the resulting state."""
+        ...
+
+    @abstractmethod
     async def get_order_status(self, access_token: str, order_id: str) -> BrokerCallResult:
         ...
 

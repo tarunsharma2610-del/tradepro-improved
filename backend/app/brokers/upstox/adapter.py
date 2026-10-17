@@ -116,6 +116,16 @@ class UpstoxAdapter(BrokerAdapter):
         # still requires a separately reviewed service and must remain disabled for now.
         return await self._post(f"{API_HFT_V3}/order/place", access_token, json_body=order)
 
+    async def modify_order(self, access_token: str, order: dict[str, Any]) -> BrokerCallResult:
+        # Official Upstox V3 Modify Order endpoint. This method is not wired
+        # into local order management; callers must confirm broker status after the request.
+        return await self._put(f"{API_HFT_V3}/order/modify", access_token, json_body=order)
+
+    async def cancel_order(self, access_token: str, order_id: str) -> BrokerCallResult:
+        # Official Upstox V3 Cancel Order endpoint. A successful request is
+        # not proof that the broker order has reached CANCELLED state.
+        return await self._delete(f"{API_HFT_V3}/order/cancel", access_token, params={"order_id": order_id})
+
     async def get_order_status(self, access_token: str, order_id: str) -> BrokerCallResult:
         # VERIFIED: upstox.com/developer/api-documentation/get-order-details
         return await self._get(f"{API_V2}/order/details", access_token, params={"order_id": order_id})
@@ -152,6 +162,34 @@ class UpstoxAdapter(BrokerAdapter):
         async with httpx.AsyncClient(timeout=15) as client:
             try:
                 resp = await client.post(url, headers=headers, json=json_body)
+            except httpx.HTTPError as exc:
+                return BrokerCallResult(ok=False, error=f"Network error contacting Upstox: {exc}")
+        return self._to_result(resp)
+
+    async def _put(self, url: str, access_token: str, json_body: dict[str, Any]) -> BrokerCallResult:
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {access_token}",
+        }
+        async with httpx.AsyncClient(timeout=15) as client:
+            try:
+                resp = await client.put(url, headers=headers, json=json_body)
+            except httpx.HTTPError as exc:
+                return BrokerCallResult(ok=False, error=f"Network error contacting Upstox: {exc}")
+        return self._to_result(resp)
+
+    async def _delete(
+        self, url: str, access_token: str, params: dict[str, Any] | None = None
+    ) -> BrokerCallResult:
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {access_token}",
+        }
+        async with httpx.AsyncClient(timeout=15) as client:
+            try:
+                resp = await client.delete(url, headers=headers, params=params)
             except httpx.HTTPError as exc:
                 return BrokerCallResult(ok=False, error=f"Network error contacting Upstox: {exc}")
         return self._to_result(resp)

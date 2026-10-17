@@ -72,3 +72,7 @@ See [ROADMAP.md](ROADMAP.md) for the phased implementation plan, verified status
 - Pure Upstox trade normalization and repository-only idempotent fill identity persistence are implemented and CI-tested. Identical duplicate trades are ignored; conflicting payloads are quarantined as conflicts. The repository does not fetch broker trades or update positions/P&L.
 - Latest code/test run: [39052203329](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052203329) — 274 passed, 1 warning, with SQLite/PostgreSQL 16 migration checks.
 - Live trading remains unavailable and disabled.
+
+
+### Phase 2 fill-to-intent validation checkpoint — 17 October 2026
+Linked fill persistence now requires the same broker order ID and exact instrument, side, product and order type as the intent snapshot; it enforces order quantity ceilings and limit-price protection. [Run 39052939770](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052939770) passed 279 tests, 1 warning, with SQLite/PostgreSQL 16 migration checks. It still does not fetch broker data or update live positions/P&L.

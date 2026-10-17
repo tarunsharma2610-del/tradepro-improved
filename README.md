@@ -88,3 +88,7 @@ Order-state persistence now resolves broker status against already-persisted ind
 
 ### Read-only Upstox reconciliation client — 17 October 2026
 Added a separate fixed-path GET-only client for order book, details, history and per-order trades. It exposes no order-write methods and sanitizes upstream failures. Mocked contract tests passed in [run 39056868434](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056868434): 309 passed, 1 warning, with SQLite/PostgreSQL 16 migration checks. The worker has not been implemented or invoked; no real broker requests or order actions occurred.
+
+
+### Reconciliation lease foundation — 17 October 2026
+Added a durable one-per-broker-connection lease with atomic claim, expiry/reclaim, renewal and stale-owner protection. Exact CI run [39057273255](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39057273255) passed 318 tests, 1 warning, including reversible SQLite/PostgreSQL 16 migrations. The lease is not yet connected to a worker; no broker polling has started.

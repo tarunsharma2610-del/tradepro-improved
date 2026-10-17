@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -41,8 +42,15 @@ class InstrumentRepository:
         self.db.refresh(instrument)
         return instrument
 
-    def upsert_many(self, records: list[dict]) -> int:
-        """Upsert a full instrument batch in one transaction, not one commit per row."""
+    def upsert_many(
+        self,
+        records: list[dict],
+        *,
+        snapshot_keys: set[str] | None = None,
+        reconcile_segments: set[str] | None = None,
+        expired_before: date | None = None,
+    ) -> int:
+        """Upsert a full batch and optionally reconcile a validated full snapshot in one transaction."""
         if not records:
             return 0
 
@@ -66,6 +74,32 @@ class InstrumentRepository:
             else:
                 for field, value in record.items():
                     setattr(existing, field, value)
+
+        if snapshot_keys is not None and reconcile_segments:
+            # Only called after the service validates a complete BOD snapshot.
+            # Unknown types still count as present keys, avoiding false delisting.
+            active = (
+                self.db.query(Instrument)
+                .filter(Instrument.is_active.is_(True), Instrument.segment.in_(reconcile_segments))
+                .all()
+            )
+            for instrument in active:
+                if instrument.instrument_key not in snapshot_keys:
+                    instrument.is_active = False
+
+        if expired_before is not None:
+            expired = (
+                self.db.query(Instrument)
+                .filter(
+                    Instrument.is_active.is_(True),
+                    Instrument.instrument_type.in_({"FUTURES", "OPTIONS"}),
+                    Instrument.expiry.is_not(None),
+                    Instrument.expiry < expired_before,
+                )
+                .all()
+            )
+            for instrument in expired:
+                instrument.is_active = False
 
         self.db.commit()
         return len(records)

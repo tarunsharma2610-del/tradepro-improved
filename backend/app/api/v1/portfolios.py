@@ -7,17 +7,19 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.middleware.rate_limit import assistant_rate_limit, order_rate_limit
 from app.models.execution import Execution
+from app.models.order import Order
 from app.models.position import Position
 from app.models.user import User
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.repositories.order_repository import OrderRepository
 from app.schemas.analytics import PortfolioAnalyticsOut, StrategyAnalyticsOut
 from app.schemas.assistant import AssistantAskRequest, AssistantAskResponse
-from app.schemas.order import ExecutionOut, OrderOut, PlaceOrderRequest, PositionOut
+from app.schemas.order import BrokerStatusOut, ExecutionOut, OrderOut, PlaceOrderRequest, PositionOut
 from app.schemas.portfolio import PortfolioCreate, PortfolioOut
 from app.services.ai_assistant_service import AIAssistantService, AssistantError
 from app.services import analytics_service
 from app.services.execution_service import ExecutionService, OrderValidationError
+from app.services.broker_reconciliation_service import BrokerReconciliationService
 from app.services.execution_service import PlaceOrderRequest as ServicePlaceOrderRequest
 from app.services.transaction_costs import Segment, Side
 
@@ -56,6 +58,32 @@ def list_positions(portfolio_id: UUID, db: Session = Depends(get_db), user: User
 def list_orders(portfolio_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     _get_owned_portfolio(db, user, portfolio_id)
     return OrderRepository(db).list_for_portfolio(portfolio_id)
+
+
+@router.get("/{portfolio_id}/orders/{order_id}/broker-status", response_model=BrokerStatusOut)
+async def get_broker_order_status(
+    portfolio_id: UUID,
+    order_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Check portfolio ownership before accessing the order's broker metadata.
+    _get_owned_portfolio(db, user, portfolio_id)
+    order = db.query(Order).filter_by(id=order_id, portfolio_id=portfolio_id).first()
+    if order is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found.")
+    try:
+        result = await BrokerReconciliationService(db).check_order_status(user.id, order_id)
+    except ValueError as exc:
+        message = str(exc)
+        code = status.HTTP_404_NOT_FOUND if message == "Order not found." else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(code, message)
+    return {
+        "order_id": result.order_id,
+        "ok": result.ok,
+        "broker_status": result.broker_status,
+        "error": result.error,
+    }
 
 
 @router.delete("/{portfolio_id}/orders/{order_id}", response_model=OrderOut)

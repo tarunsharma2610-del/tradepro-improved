@@ -19,7 +19,7 @@ Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b66302
 - [ ] OAuth schema migration needs staging verification before deployment.
 
 ## Current phase
-**Phase F — Expanded Upstox instrument catalog sync; final schema/API CI verification pending.**
+**Phase F — Multi-segment instrument sync implemented; comprehensive CI passed, final defensive validation run pending.**
 - Added `PROJECT_INSTRUCTIONS.md` with the mandatory workflow and safety rules (commit `8d7d9d8257f852f3d26e0564be8b521b0fe75764`).
 - Added this `PROGRESS.md` tracker (commit `9986380d8f4ee8939718c858ea9ab925da3f65b1`).
 - Inspected `backend/app/services/execution_service.py`, `backend/app/services/strategy_execution_service.py`, `backend/app/services/risk_engine.py`, `backend/app/core/config.py`, `backend/app/models/order.py`, `backend/app/brokers/upstox/adapter.py`, and relevant execution tests.
@@ -50,12 +50,12 @@ After each coherent step, update this tracker with:
 6. The next single action.
 
 ## Instrument sync expansion — 2026-10-17
-- Expanded `backend/app/services/instrument_service.py` to normalize supported Upstox BOD JSON records for NSE/BSE equities and indices and recognized futures/options across NSE/BSE/MCX segments. Unsupported segments/types and malformed values are skipped; failed/empty/unsupported-only downloads do not write to the catalog. No instrument deactivation is performed because snapshot completeness is not independently validated.
+- Expanded `backend/app/services/instrument_service.py` to normalize supported Upstox BOD JSON records for NSE/BSE equities and indices and recognized futures/options across NSE/BSE/MCX segments. Equity segment classification accepts exchange-specific board codes, while unsupported derivative types and malformed values are skipped; failed/empty/unsupported-only downloads do not write to the catalog. No instrument deactivation is performed because snapshot completeness is not independently validated.
 - Added `InstrumentRepository.upsert_many()` to read existing keys in bounded chunks and commit a catalog batch once, rather than committing per instrument. This avoids thousands of commits on a full master sync.
 - Added derivative metadata (`expiry`, `strike_price`, `option_type`) to the instrument search response schema.
 - Expanded `backend/tests/test_instrument_service.py` to cover multiple exchanges/segments, equity/index/futures/options normalization, expiry/strike/option metadata, unsupported record filtering, malformed/HTTP failure safety, and schema serialization.
 - Updated the adapter comment, README and audit report to describe actual catalog sync ownership and remaining gaps. No real Upstox download, production sync, live order or database migration was run.
-- CI for the initial multi-segment implementation and tests passed: [run 39036534426](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036534426). Subsequent schema/adapter/documentation commits are still being checked by GitHub Actions; do not mark the entire latest change set green until the newest run completes.
+- CI for the expanded all-segment test set passed: **172 tests passed, 1 warning**, with SQLite migration verification in [run 39036649142](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036649142). This run predates the final defensive validation tweaks that reject absurd expiry values and enforce segment/exchange consistency; latest run [39036689089](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036689089) is still in progress at tracker update time. An earlier intermediate run failed because a futures test fixture omitted the now-required expiry; the fixture was corrected to include realistic expiry metadata. Do not mark the latest commit fully green until run 39036689089 completes.
 
 ## Next action
-Wait for the latest backend CI run for the schema/API metadata changes to complete and fix any failures before marking this phase done. Then review the admin sync endpoint and operational safeguards; only after that move to the next priority, portfolio-wide risk limits. Keep live trading disabled.
+Confirm the latest backend CI run `39036689089` (or the newest run on the current HEAD) passes the full test suite and SQLite migration check. If green, mark this phase complete and review the admin sync endpoint and operational safeguards; then move to portfolio-wide risk limits. Keep live trading disabled.

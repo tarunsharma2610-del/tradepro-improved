@@ -10,7 +10,7 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 | Paper market orders | Implemented, still needs operational validation | Uses Upstox LTP for simulated fills and records transaction costs and position/cash updates. Never fall back to a made-up price. |
 | Order input validation | Improved | Service boundary rejects non-positive quantities, unsupported order types, missing/non-positive LIMIT prices, and a limit price attached to MARKET orders. API schema also rejects non-positive limit prices. |
 | Quote price parsing | Improved | Rejects malformed, non-finite, zero, and negative LTP values before paper accounting. |
-| Paper limit orders | Implemented; tests passed | Worker checks pending PAPER LIMIT orders during market passes, fills only when LTP crosses the limit, uses limit-or-better pricing, and shares cost/cash/position accounting. Delivery sells require holdings. |
+| Paper limit orders | Implemented; tests passed | Worker checks pending PAPER LIMIT orders during market passes, fills only when LTP crosses the limit, uses limit-or-better pricing, shares cost/cash/position accounting, and rejects delivery sells without holdings. Owners can cancel pending orders from the portfolio page. |
 | Live order placement | Incomplete / not enabled | Shared execution service still records PAPER orders; broker order placement and execution reconciliation are not complete. Do not enable live orders. |
 | Strategy activation | Fixed | Strategy evaluation returns HOLD for inactive strategies before contacting the broker; regression test added. |
 | Daily risk controls | Partial | Existing strategy-level daily-loss guard remains. Portfolio-wide loss, exposure, and order-frequency caps still need implementation and tests. |
@@ -29,13 +29,14 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 4. Added order validation at both the API schema and execution-service boundary.
 5. Hardened last-traded-price parsing so invalid prices cannot enter paper-accounting calculations.
 6. Added a worker-driven paper LIMIT matcher with crossing rules, limit-or-better pricing, cash/holding checks, and shared accounting.
-7. Replaced the duplicate root broker-settings page with an account dashboard.
-8. Updated the frontend check command for Next.js 16.
-9. Added GitHub Actions workflows for backend tests and frontend typecheck/build.
+7. Added an authenticated cancel endpoint and portfolio UI action for pending paper orders, with ownership and status checks.
+8. Replaced the duplicate root broker-settings page with an account dashboard.
+9. Updated the frontend check command for Next.js 16.
+10. Added GitHub Actions workflows for backend tests and frontend typecheck/build.
 
 ## Verification
 
-- **Backend:** GitHub Actions run passed — **163 tests passed, 1 deprecation warning**, including the paper LIMIT matcher tests. [View backend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025586943).
+- **Backend:** GitHub Actions run passed — **167 tests passed, 1 deprecation warning**, including the paper LIMIT matcher tests. [View backend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025763129).
 - **Frontend:** TypeScript check and Next.js production build passed. [View frontend run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39025402726).
 - The tests use SQLite and mocked broker calls; they do not prove a live Upstox session or live market-order execution works.
 - The OAuth migration has been added to the repository but has not been applied to your production database.

@@ -118,6 +118,13 @@ class BrokerAdapter(ABC):
         ...
 
     @abstractmethod
+    async def get_margin_details(
+        self, access_token: str, instruments: list[dict[str, Any]]
+    ) -> BrokerCallResult:
+        """Return estimated broker margin for one or more proposed instruments."""
+        ...
+
+    @abstractmethod
     async def get_positions(self, access_token: str) -> BrokerCallResult:
         ...
 

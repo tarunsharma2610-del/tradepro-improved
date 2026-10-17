@@ -260,3 +260,99 @@ async def test_get_v3_sends_required_api_version_header_and_preserves_maintenanc
     assert error.ok is False
     assert "423" in error.error
     assert "maintenance window" in error.error
+
+
+@pytest.mark.asyncio
+async def test_get_margin_details_uses_official_endpoint_and_normalizes_valid_inputs(monkeypatch):
+    adapter = UpstoxAdapter()
+    captured = {}
+    response = {
+        "status": "success",
+        "data": {
+            "margins": [{"equity_margin": 33.6, "total_margin": 33.6}],
+            "required_margin": 33.6,
+            "final_margin": 33.6,
+        },
+    }
+
+    async def fake_post(url, access_token, json_body):
+        captured.update(url=url, access_token=access_token, json_body=json_body)
+        return BrokerCallResult(ok=True, data=response)
+
+    monkeypatch.setattr(adapter, "_post", fake_post)
+    result = await adapter.get_margin_details(
+        "test-token",
+        [{
+            "instrument_key": " NSE_EQ|INE669E01016 ",
+            "quantity": 2,
+            "transaction_type": "buy",
+            "product": "d",
+            "price": "100.25",
+        }],
+    )
+
+    assert result.ok
+    assert captured["url"] == "https://api.upstox.com/v2/charges/margin"
+    assert captured["access_token"] == "test-token"
+    assert captured["json_body"] == {
+        "instruments": [{
+            "instrument_key": "NSE_EQ|INE669E01016",
+            "quantity": 2,
+            "transaction_type": "BUY",
+            "product": "D",
+            "price": 100.25,
+        }]
+    }
+    assert result.data["data"]["required_margin"] == 33.6
+
+
+@pytest.mark.asyncio
+async def test_get_margin_details_rejects_invalid_batches_before_network(monkeypatch):
+    adapter = UpstoxAdapter()
+    fake_post = AsyncMock()
+    monkeypatch.setattr(adapter, "_post", fake_post)
+    valid = {
+        "instrument_key": "NSE_EQ|INE669E01016",
+        "quantity": 1,
+        "transaction_type": "BUY",
+        "product": "D",
+    }
+
+    with pytest.raises(ValueError, match="non-empty list"):
+        await adapter.get_margin_details("test-token", [])
+    with pytest.raises(ValueError, match="At most 20"):
+        await adapter.get_margin_details("test-token", [dict(valid, instrument_key=f"NSE_EQ|{i}") for i in range(21)])
+    with pytest.raises(ValueError, match="Duplicate instrument_key"):
+        await adapter.get_margin_details("test-token", [valid, dict(valid)])
+    with pytest.raises(ValueError, match="positive integer"):
+        await adapter.get_margin_details("test-token", [dict(valid, quantity=0)])
+    with pytest.raises(ValueError, match="BUY or SELL"):
+        await adapter.get_margin_details("test-token", [dict(valid, transaction_type="SHORT")])
+    with pytest.raises(ValueError, match="product"):
+        await adapter.get_margin_details("test-token", [dict(valid, product="INVALID")])
+    with pytest.raises(ValueError, match="finite positive number"):
+        await adapter.get_margin_details("test-token", [dict(valid, price=float("nan"))])
+
+    fake_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_margin_details_preserves_broker_error_without_approving_order(monkeypatch):
+    adapter = UpstoxAdapter()
+
+    async def fake_post(url, access_token, json_body):
+        return BrokerCallResult(ok=False, error="Upstox API error (400): invalid instrument")
+
+    monkeypatch.setattr(adapter, "_post", fake_post)
+    result = await adapter.get_margin_details(
+        "test-token",
+        [{
+            "instrument_key": "NSE_EQ|INE669E01016",
+            "quantity": 1,
+            "transaction_type": "BUY",
+            "product": "D",
+        }],
+    )
+
+    assert result.ok is False
+    assert "invalid instrument" in result.error

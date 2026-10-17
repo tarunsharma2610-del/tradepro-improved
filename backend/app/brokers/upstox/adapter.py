@@ -166,6 +166,18 @@ class UpstoxAdapter(BrokerAdapter):
         # breakdown. This is read-only and is not yet used to approve orders.
         return await self._get_v3(f"{API_V3}/user/get-funds-and-margin", access_token)
 
+    async def get_margin_details(
+        self, access_token: str, instruments: list[dict[str, Any]]
+    ) -> BrokerCallResult:
+        # Official Margin Details API. Validate locally so malformed or
+        # unsupported batches never make a broker request.
+        normalized = _validate_margin_instruments(instruments)
+        return await self._post(
+            f"{API_V2}/charges/margin",
+            access_token,
+            json_body={"instruments": normalized},
+        )
+
     async def get_positions(self, access_token: str) -> BrokerCallResult:
         # VERIFIED: upstox.com/developer/api-documentation/get-positions
         return await self._get(f"{API_V2}/portfolio/short-term-positions", access_token)
@@ -239,6 +251,64 @@ class UpstoxAdapter(BrokerAdapter):
             except httpx.HTTPError as exc:
                 return BrokerCallResult(ok=False, error=f"Network error contacting Upstox: {exc}")
         return self._to_result(resp)
+
+def _validate_margin_instruments(instruments: Any) -> list[dict[str, Any]]:
+    if not isinstance(instruments, list) or not instruments:
+        raise ValueError("instruments must be a non-empty list.")
+    if len(instruments) > 20:
+        raise ValueError("At most 20 instruments can be requested per margin calculation.")
+
+    normalized: list[dict[str, Any]] = []
+    seen_keys: set[str] = set()
+    allowed_products = {"I", "D", "CO", "MTF"}
+
+    for index, item in enumerate(instruments):
+        prefix = f"instruments[{index}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"{prefix} must be an object.")
+
+        instrument_key = item.get("instrument_key")
+        if not isinstance(instrument_key, str) or not instrument_key.strip():
+            raise ValueError(f"{prefix}.instrument_key must be a non-empty string.")
+        instrument_key = instrument_key.strip()
+        if instrument_key in seen_keys:
+            raise ValueError("Duplicate instrument_key values are not allowed in a margin request.")
+        seen_keys.add(instrument_key)
+
+        quantity = item.get("quantity")
+        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
+            raise ValueError(f"{prefix}.quantity must be a positive integer.")
+
+        transaction_type = item.get("transaction_type")
+        if not isinstance(transaction_type, str) or transaction_type.upper() not in {"BUY", "SELL"}:
+            raise ValueError(f"{prefix}.transaction_type must be BUY or SELL.")
+
+        product = item.get("product")
+        if not isinstance(product, str) or product.upper() not in allowed_products:
+            raise ValueError(f"{prefix}.product must be one of I, D, CO, MTF.")
+
+        normalized_item: dict[str, Any] = {
+            "instrument_key": instrument_key,
+            "quantity": quantity,
+            "transaction_type": transaction_type.upper(),
+            "product": product.upper(),
+        }
+        if "price" in item and item["price"] is not None:
+            raw_price = item["price"]
+            if isinstance(raw_price, bool):
+                raise ValueError(f"{prefix}.price must be a finite positive number.")
+            try:
+                price = Decimal(str(raw_price))
+            except (InvalidOperation, ValueError):
+                raise ValueError(f"{prefix}.price must be a finite positive number.") from None
+            if not price.is_finite() or price <= 0:
+                raise ValueError(f"{prefix}.price must be a finite positive number.")
+            normalized_item["price"] = float(price)
+
+        normalized.append(normalized_item)
+
+    return normalized
+
 
     @staticmethod
     def _to_result(resp: httpx.Response) -> BrokerCallResult:

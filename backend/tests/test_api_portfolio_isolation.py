@@ -155,6 +155,8 @@ def test_owner_can_cancel_pending_limit_order_but_another_user_cannot(client, db
 
 def test_unsupported_derivative_segments_are_rejected_at_api_boundaries(client, db_session):
     """Equity-only master data must never be priced/accounted as F&O."""
+    from uuid import UUID
+
     from app.models.backtest import BacktestRun
     from app.models.order import Order
     from app.models.strategy import Strategy
@@ -195,6 +197,6 @@ def test_unsupported_derivative_segments_are_rejected_at_api_boundaries(client, 
     assert "Futures and options are not enabled" in order_response.json()["detail"]
     assert strategy_response.status_code == 400
     assert backtest_response.status_code == 400
-    assert db_session.query(Order).filter(Order.portfolio_id == portfolio_id).count() == 0
-    assert db_session.query(Strategy).filter(Strategy.portfolio_id == portfolio_id).count() == 0
+    assert db_session.query(Order).filter(Order.portfolio_id == UUID(portfolio_id)).count() == 0
+    assert db_session.query(Strategy).filter(Strategy.portfolio_id == UUID(portfolio_id)).count() == 0
     assert db_session.query(BacktestRun).count() == 0

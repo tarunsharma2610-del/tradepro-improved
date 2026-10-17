@@ -7,7 +7,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 
 - User-approved live-order idempotency/reconciliation design is implemented partially for Phase 1: [LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md).
 - Architecture, safeguards, README, audit, project instructions and progress tracker link to the design.
-- Phase 1 records/repository/tests are on `main`; latest verified code checkpoint `c098d1c23bd4d422e6d86c56e43c2c65e22d8ab4` passed: [workflow 39043589541](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043589541), 212 tests passed, 1 warning; clean SQLite `alembic upgrade head` passed. Later documentation commits have their own CI runs.
+- Phase 1 records/repository/tests are on `main`; latest verified code checkpoint `c098d1c23bd4d422e6d86c56e43c2c65e22d8ab4` passed: [workflow 39043589541](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043589541), 212 tests passed, 1 warning; clean SQLite migration upgrade → downgrade to `202610170001` → re-upgrade passed in [workflow 39043763339](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043763339). Later documentation commits have their own CI runs.
 - The code checkpoint adds Phase 1 durable storage/repository safeguards and tests only. It does not implement live submission or reconciliation, does not run a production migration and does not prove live trading readiness.
 
 ## Status summary
@@ -37,6 +37,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - [x] Focused repository tests and clean SQLite Alembic migration run passed in GitHub Actions: [run 39043177545](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043177545), 210 tests passed, 1 warning.
 - [x] Add rollback atomicity test and a deterministic independent-session simulation of a competing unique-key winner; repository recovery returns the committed winner.
 - [ ] Add true simultaneous multi-transaction contention coverage against the deployment database engine.
+- [x] CI verifies clean SQLite upgrade → downgrade of the new revision → re-upgrade: [run 39043763339](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043763339).
 - [ ] Verify upgrade/downgrade and constraints against a backup-restored staging copy of the actual deployment DB engine. No production migration has run.
 - Scope boundary: no worker, API route or code path submits/cancels/reconciles broker orders in this phase.
 

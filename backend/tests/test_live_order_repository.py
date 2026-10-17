@@ -592,3 +592,69 @@ def test_limit_fill_cannot_execute_worse_than_limit(db_session, make_user, side,
     with pytest.raises(LiveOrderVersionConflict, match="worse than the linked limit"):
         _record_fill(repository, user, connection, intent, side=side, price=fill_price)
     assert db_session.query(BrokerFillIdentity).count() == 0
+
+
+
+def test_unmatched_fill_can_be_linked_after_intent_is_verified(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    repository = LiveOrderRepository(db_session)
+    fill, created = _record_fill(repository, user, connection, None)
+    assert created is True
+    assert fill.intent_id is None
+
+    intent, _ = repository.create_or_get_intent(**_intent_args(user, portfolio, connection))
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
+
+    linked, changed = repository.link_existing_fill_to_intent(
+        user_id=user.id, fill_id=fill.id, intent_id=intent.id, correlation_id="link-test"
+    )
+    assert changed is True
+    assert linked.intent_id == intent.id
+    assert db_session.query(LiveOrderEvent).filter_by(
+        intent_id=intent.id, event_type="BROKER_FILL_LINKED"
+    ).count() == 1
+
+    replay, replay_changed = repository.link_existing_fill_to_intent(
+        user_id=user.id, fill_id=fill.id, intent_id=intent.id
+    )
+    assert replay_changed is False
+    assert replay.id == fill.id
+    assert db_session.query(LiveOrderEvent).filter_by(
+        intent_id=intent.id, event_type="BROKER_FILL_LINKED"
+    ).count() == 1
+
+
+def test_unmatched_fill_link_rejects_economic_mismatch(db_session, make_user):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    repository = LiveOrderRepository(db_session)
+    fill, _ = _record_fill(repository, user, connection, None)
+    other_snapshot = {
+        "instrument_key": "NSE_EQ|OTHER",
+        "side": "BUY",
+        "order_type": "LIMIT",
+        "quantity": 1,
+        "limit_price": "100.00",
+        "product": "D",
+    }
+    intent, _ = repository.create_or_get_intent(
+        **_intent_args(user, portfolio, connection, key="different-economic-intent", snapshot=other_snapshot)
+    )
+    intent, _ = repository.apply_reconciliation_transition(
+        user_id=user.id, intent_id=intent.id, expected_version=1,
+        new_state="OPEN", broker_order_id="broker-order-1",
+    )
+
+    with pytest.raises(LiveOrderVersionConflict, match="instrument differs"):
+        repository.link_existing_fill_to_intent(
+            user_id=user.id, fill_id=fill.id, intent_id=intent.id
+        )
+    db_session.refresh(fill)
+    assert fill.intent_id is None
+    assert db_session.query(LiveOrderEvent).filter_by(
+        intent_id=intent.id, event_type="BROKER_FILL_LINKED"
+    ).count() == 0

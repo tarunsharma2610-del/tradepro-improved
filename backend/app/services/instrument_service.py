@@ -1,14 +1,12 @@
 """
-`seed_defaults()` is the reliable path — a handful of well-known, real NSE
-large-caps with correct ISINs, enough to exercise the whole trading engine
-against genuinely real instrument identifiers without depending on a
-successful bulk sync first.
+Instrument catalog service.
 
-`sync_from_upstox()` is best-effort: community reports (checked Aug 2026)
-disagree on the exact current file format/URL for Upstox's public
-instrument master and some report 403s on automated access — confirm
-against the live Instruments docs page before depending on this for a
-production data feed rather than the seed set above.
+`seed_defaults()` inserts a small set of real NSE equities for bootstrap and
+tests. `sync_from_upstox()` downloads Upstox's documented BOD JSON instrument
+file (gzip-compressed), currently imports only NSE_EQ records, and upserts
+them into the local catalog. This is not yet a full NSE/BSE/MCX/F&O sync;
+the supported file URL and JSON field names are documented at
+https://upstox.com/developer/api-documentation/instruments/.
 """
 
 import gzip

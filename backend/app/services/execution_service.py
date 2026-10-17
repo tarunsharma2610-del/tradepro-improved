@@ -8,9 +8,8 @@ defaults, nothing else changes).
 MARKET orders fill immediately against a real LTP fetched from the user's
 connected broker — if there's no connected broker or the quote call
 fails, the order is REJECTED with a clear reason. It never falls back to
-a made-up price. LIMIT orders are accepted and stored as PENDING; Phase 2
-does not yet include a background matcher to fill them when price
-crosses — see README known limitations.
+a made-up price. PAPER LIMIT orders are stored as PENDING and checked by
+the worker during market hours; fills use the same accounting engine.
 """
 
 from dataclasses import dataclass
@@ -85,13 +84,6 @@ class ExecutionService:
         if instrument is None:
             raise OrderValidationError("Instrument not found.")
 
-        if req.quantity <= 0:
-            raise OrderValidationError("Order quantity must be greater than zero.")
-        if req.order_type not in {"MARKET", "LIMIT"}:
-            raise OrderValidationError("Unsupported order type.")
-        if req.order_type == "LIMIT" and (req.limit_price is None or req.limit_price <= 0):
-            raise OrderValidationError("LIMIT orders require a positive limit price.")
-
         now = datetime.now(timezone.utc)
         order = Order(
             portfolio_id=portfolio.id,
@@ -140,6 +132,28 @@ class ExecutionService:
                 )
 
         return self._fill(order, portfolio, instrument, req, ltp, costs)
+
+    def cancel_order(self, user_id: UUID, portfolio_id: UUID, order_id: UUID) -> Order:
+        """Cancel a user's pending paper order; filled/rejected orders are immutable."""
+        portfolio = self.portfolios.get_for_user(user_id, portfolio_id)
+        if portfolio is None:
+            raise OrderValidationError("Portfolio not found.")
+
+        order = (
+            self.db.query(Order)
+            .filter(Order.id == order_id, Order.portfolio_id == portfolio.id)
+            .with_for_update()
+            .first()
+        )
+        if order is None:
+            raise OrderValidationError("Order not found.")
+        if order.trading_mode != "PAPER":
+            raise OrderValidationError("Only paper orders can be cancelled through this endpoint.")
+        if order.status != "PENDING":
+            raise OrderValidationError(f"Only pending orders can be cancelled; current status is {order.status}.")
+
+        order.status = "CANCELLED"
+        return self.orders.save(order)
 
     async def match_pending_limit_orders(self, limit: int = 100) -> int:
         """Fill crossed PAPER LIMIT orders using current broker quotes.

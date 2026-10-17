@@ -374,3 +374,49 @@ def normalize_upstox_trade(record: Mapping[str, Any]) -> NormalizedBrokerFill:
         exchange_order_id=optional_text(exchange_order_value, "exchange_order_id"),
         order_ref_id=optional_text(order_ref_value, "order_ref_id"),
     )
+
+
+@dataclass(frozen=True)
+class FillEvidenceResolution:
+    state: str
+    reason: str
+
+
+def resolve_order_state_with_fill_evidence(
+    observed_state: str,
+    *,
+    requested_quantity: int,
+    persisted_fill_quantity: int,
+) -> FillEvidenceResolution:
+    """Resolve stale status observations against persisted trade evidence.
+
+    Trade identities are stronger evidence than a stale active/cancel status, but
+    contradictory quantities/statuses are quarantined rather than guessed.
+    """
+    observed = observed_state.strip().upper()
+    if requested_quantity <= 0 or persisted_fill_quantity < 0:
+        return FillEvidenceResolution("RECONCILIATION_REQUIRED", "invalid requested or persisted fill quantity")
+    if persisted_fill_quantity > requested_quantity:
+        return FillEvidenceResolution("RECONCILIATION_REQUIRED", "persisted fills exceed requested order quantity")
+    if persisted_fill_quantity == 0:
+        return FillEvidenceResolution(observed, "no persisted fill evidence")
+    if persisted_fill_quantity == requested_quantity:
+        return FillEvidenceResolution("FILLED", "persisted trade quantities confirm the full requested quantity")
+    if observed in {"OPEN", "PENDING", "TRIGGER_PENDING", "CANCEL_PENDING", "PARTIALLY_FILLED"}:
+        return FillEvidenceResolution("PARTIALLY_FILLED", "persisted trades override stale active order status")
+    if observed == "CANCELLED":
+        return FillEvidenceResolution(
+            "PARTIALLY_FILLED_CANCELLED",
+            "persisted trades confirm partial execution before cancellation",
+        )
+    if observed in {"FILLED", "REJECTED"}:
+        return FillEvidenceResolution(
+            "RECONCILIATION_REQUIRED",
+            "broker status conflicts with persisted partial trade quantity",
+        )
+    if observed == "PARTIALLY_FILLED_CANCELLED":
+        return FillEvidenceResolution(observed, "partial fill and cancellation both confirmed")
+    return FillEvidenceResolution(
+        "RECONCILIATION_REQUIRED",
+        "fill evidence conflicts with the observed broker status",
+    )

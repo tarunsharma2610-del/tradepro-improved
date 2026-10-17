@@ -74,7 +74,7 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
         _record("NSE_COM", "NSE", "FUT", "NSE_COM|COM123", "COM FUT", expiry=1798675200000),
         _record("MCX_FO", "MCX", "FUT", "MCX_FO|GOLD123", "GOLD FUT", expiry=1798675200000),
         # Unsupported instrument types and malformed segment/key combinations are skipped.
-        _record("NSE_EQ", "NSE", "UNKNOWN", "NSE_EQ|UNKNOWN", "UNKNOWN"),
+        _record("NSE_FO", "NSE", "UNKNOWN", "NSE_FO|UNKNOWN", "UNKNOWN"),
         _record("NSE_FO", "NSE", "FUT", "BSE_FO|WRONG", "WRONG"),
         _record("UNSUPPORTED", "NSE", "EQ", "UNSUPPORTED|ABC", "ABC"),
         _record("NSE_FO", "NSE", "FUT", "NSE_FO|BAD_EXPIRY", "BAD FUT", expiry=10**100),

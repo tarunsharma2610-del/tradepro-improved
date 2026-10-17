@@ -188,3 +188,12 @@ Review the live-order idempotency/reconciliation gap and write a safe implementa
 - No source code or migration was changed, no local tests were run, no production/staging database was touched and no broker order was submitted.
 - **Current gate remains Gate 0 — design review.** Per the persistent project instructions and roadmap, do not start Phase 1 schema/repository code until the user explicitly acknowledges/accepts the design review and that acknowledgement is recorded here. Live submission remains disabled.
 - **Next action:** obtain explicit approval of `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` as the implementation design; then record that approval and begin Phase 1 with additive durable records and concurrency/transaction tests only (no broker POST).
+
+
+## User design approval and Phase 1 start — 2026-10-17
+- **Explicit approval recorded:** the user approved `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md` for implementation and directed that changes be committed to this repository, with roadmap/audit and other required documents updated.
+- Gate 0 design-acceptance requirement is satisfied. This approval authorizes Phase 1 durable records and repository safeguards only; it is **not** authorization to enable or submit real broker orders.
+- Phase 1 scope: additive durable live-order intent, append-only event, transactional outbox and broker-fill identity records; uniqueness constraints; same-key/same-payload reuse and same-key/different-payload conflict; focused tests. Keep the existing PAPER execution path isolated and do not call broker order placement.
+- Current verified base commit before implementation: `03dce02de8777fe02aa7cc8da485f118b9403a50`; its backend CI passed: [run 39041376889](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39041376889).
+- Implementation status at start: no Phase 1 source changes or migration have been committed yet. Do not report completion until source, migration and tests are committed and the exact final commit's CI is checked.
+- Next action: add the additive SQLAlchemy records and Alembic migration, register models, then implement repository idempotency transaction behavior and focused tests.

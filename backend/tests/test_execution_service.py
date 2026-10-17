@@ -635,6 +635,7 @@ async def test_derivative_order_is_rejected_until_contract_risk_support_exists(
 
 @pytest.mark.asyncio
 async def test_manual_delivery_sell_cannot_sell_shares_allocated_to_strategy(db_session, portfolio, instrument):
+    from app.models.strategy import Strategy
     from app.models.strategy_position import StrategyPosition
     from app.services.execution_service import ExecutionService, PlaceOrderRequest
     from app.services.transaction_costs import Segment as OrderSegment, Side as OrderSide

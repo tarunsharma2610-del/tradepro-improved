@@ -160,3 +160,13 @@ Reviewed official Upstox Place Order V2/V3, Order History, Order Book, Order Det
 - Regression coverage includes exact matching, existing broker-order ID matching, wrong instrument/quantity, missing product, duplicate tags, cross-connection isolation and unknown statuses.
 - Exact test commit e9b594ffc2e81c37e1b41c8c44947212d206f3e9 passed [GitHub Actions run 39050424898](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050424898): 255 passed, 1 warning, plus SQLite/PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks.
 - Remaining Phase 2 work: persist safe status transitions with audit/version checks, normalize and ingest broker trades idempotently, and test partial/out-of-order updates. No broker API reads, live order submissions, cancellations or production migrations were performed.
+
+
+### Phase 2 — versioned reconciliation state persistence — 2026-10-17
+- Added LiveOrderRepository.apply_reconciliation_transition() in backend/app/repositories/live_order_repository.py. It is a repository-only method: it does not call Upstox or trigger an order action.
+- It uses an explicit state-transition allowlist, authenticated user ownership, expected-version and previous-state compare-and-set, broker order ID uniqueness, and one transaction for state/version/last-reconciled timestamp plus a BROKER_STATUS_RECONCILED audit event. Safe details reject credential-like keys. Repeated same-state observations at the current version are no-ops without duplicate audit events.
+- Cancel/fill races are explicitly supported: CANCELLED may move to PARTIALLY_FILLED or FILLED when later broker trade evidence proves execution; terminal regressions such as FILLED → OPEN are rejected. RECONCILIATION_REQUIRED is frozen for manual resolution.
+- Added tests for atomic state+event persistence, idempotent same-state observations, stale versions, terminal-state regression, cancel/fill race and secret-field rejection.
+- Exact code checkpoint b3332b839b6f2c39bf2ae678e1aa62ac1f2a3409 passed [GitHub Actions run 39050941218](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39050941218): 261 passed, 1 warning; SQLite/PostgreSQL 16 migration checks passed.
+- CI failures during this step were due to a malformed test import and then an undefined prior-state variable; both were corrected. Failed runs remain visible in Actions history. No broker API call, live order, production migration or fill ingestion occurred.
+- Next: implement a pure, validated trade/fill normalizer and then a transactionally idempotent fill repository method keyed by (broker connection, broker trade ID).

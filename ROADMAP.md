@@ -7,7 +7,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 
 - User-approved live-order idempotency/reconciliation design is implemented partially for Phase 1: [LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md).
 - Architecture, safeguards, README, audit, project instructions and progress tracker link to the design.
-- Phase 1 records/repository/tests are on `main`; latest verified code checkpoint `5508b272efe55997252e8d8a51fdd29761a1070b` passed: [workflow 39047300286](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39047300286), 214 tests passed, 1 warning; clean SQLite migration upgrade → downgrade to `202610170001` → re-upgrade also passed.
+- Phase 1 records/repository/tests are on `main`; latest verified code/test checkpoint `dd36b48a92057ad50618f6f9941f908832c9cea3` passed: [workflow 39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046), **215 tests passed, 1 warning**; the same run passed clean SQLite and PostgreSQL 16 Alembic upgrade → downgrade to `202610170001` → re-upgrade.
 - The code checkpoint adds Phase 1 durable storage/repository safeguards and tests only. It does not implement live submission or reconciliation, does not run a production migration and does not prove live trading readiness.
 
 ## Status summary
@@ -28,7 +28,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 ### Gate 0 — Design review (complete — user approved 2026-10-17)
 - Read [PROJECT_INSTRUCTIONS.md](PROJECT_INSTRUCTIONS.md), [ARCHITECTURE.md](ARCHITECTURE.md), [LIVE_TRADING_SAFEGUARDS.md](LIVE_TRADING_SAFEGUARDS.md), [AUDIT_REPORT.md](AUDIT_REPORT.md), and [LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md](LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md).
 - Confirm order-field canonicalization, supported Upstox products/order varieties, broker tag limits, order-history/trade API semantics and status mapping against current official docs.
-- User explicitly approved `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`; approval is recorded in `PROGRESS.md`. This authorizes Phase 1 durable storage only, not live-order submission.
+- User explicitly approved `LIVE_ORDER_IDEMPOTENCY_RECONCILIATION.md`; approval is recorded in `PROGRESS.md`. This authorizes Phase 1 durable storage/repository safeguards only, not live-order submission.
 
 ### Gate 1 — Durable records only (no broker POST) — in progress
 - [x] Additive SQLAlchemy records and Alembic migration for live intents, audit events, dispatch/outbox and broker-fill identities.
@@ -37,8 +37,8 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - [x] Focused repository tests and clean SQLite Alembic migration run passed in GitHub Actions: [run 39043177545](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043177545), 210 tests passed, 1 warning.
 - [x] Add rollback atomicity test and a deterministic independent-session simulation of a competing unique-key winner; repository recovery returns the committed winner.
 - [x] Validate order snapshots and audit event details as finite JSON and reject credential-like keys (nested access/refresh tokens, secrets, passwords, API keys, authorization headers and cookies); regression tests pass.
-- [ ] Add true simultaneous multi-transaction contention coverage against the deployment database engine.
-- [x] CI verifies clean SQLite upgrade → downgrade of the new revision → re-upgrade: [run 39043763339](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39043763339).
+- [x] Add simultaneous same-key creation coverage using two independent PostgreSQL sessions and a barrier that forces both requests past an initial empty lookup; [workflow 39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046) passed.
+- [x] CI verifies clean SQLite and PostgreSQL 16 upgrade → downgrade of revision `202610170002` → re-upgrade: [run 39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046).
 - [ ] Verify upgrade/downgrade and constraints against a backup-restored staging copy of the actual deployment DB engine. No production migration has run.
 - Scope boundary: no worker, API route or code path submits/cancels/reconciles broker orders in this phase.
 

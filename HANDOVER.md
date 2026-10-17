@@ -12,7 +12,7 @@
 - The current shared `ExecutionService.place_order` creates orders with `trading_mode="PAPER"` and performs local simulated accounting. It does not submit orders through the broker.
 - The Upstox adapter contains a broker `place_order` method, but its existence does not mean the application has a complete or safe live-execution path.
 - Instrument-master sync and market-data WebSocket streaming are explicitly unimplemented in the adapter.
-- Strategy-level daily-loss protection exists. Portfolio-wide loss, exposure, and order-frequency caps remain gaps according to `AUDIT_REPORT.md`.
+- Strategy-level daily-loss protection exists. The safety branch adds a configurable portfolio-wide realized-loss guard for automated strategy entries (default 2% of starting virtual capital); manual orders are not gated by this guard. Exposure, max order/position value, and order-frequency caps remain gaps.
 - The audit reports CI results of 167 backend tests passing and a successful frontend typecheck/build. These are historical CI results, not a fresh run during this continuation.
 
 ## Priority order
@@ -24,6 +24,11 @@
 6. Add broker order lifecycle handling (partial fills, timeout/unknown state, retries, cancellation, reconciliation) before any live order placement.
 7. Run targeted tests, full backend suite, frontend typecheck/build, migration checks, and inspect CI results; report exact results without claiming unrun tests.
 8. Update `AUDIT_REPORT.md` with the implementation and test evidence. Verify migrations against staging before production deployment.
+
+## Additional risk guard — safety branch
+- `PORTFOLIO_DAILY_LOSS_LIMIT_PCT` defaults to 2.0. Once today's realized losses across all fills in a portfolio reach that percentage of starting virtual capital, the existing strategy risk engine blocks new automated entries for that portfolio.
+- Set it in the backend environment; use 0 only if intentionally disabling this additional guard. It is not a live-trading risk control and does not intercept manual order requests.
+- Targeted tests cover losses just below, exactly at, and above the threshold. CI must confirm them before merge.
 
 ## Release gate
 Live trading remains **NOT READY** until broker execution, durable duplicate prevention, broker-state reconciliation, risk limits, credential handling, session expiry, operational controls, and relevant end-to-end tests have all been verified. No real orders are authorized by this handover.

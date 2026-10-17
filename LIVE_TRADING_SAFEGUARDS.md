@@ -277,3 +277,7 @@ A read-only reconciliation worker now exists but is not scheduled or exposed thr
 
 ## Durable worker summary boundary — 2026-10-17
 The worker now records count-only run summaries and sanitized error categories in `live_reconciliation_runs`; a summary contains no raw broker payload, credential, authorization header or exception text. The schema/migration is CI-tested, not staging/production migrated. The worker remains unscheduled and not exposed by an API route. A stale `RUNNING` record may remain after a crash; recovery/manual-review visibility is not yet implemented. This telemetry does not authorize live order submission.
+
+
+## Manual-review queue foundation — 2026-10-17
+`live_reconciliation_issues` stores deduplicated issue categories and minimal safe details; it does not store raw broker payloads or exception strings. The worker records malformed rows, unmatched/ambiguous orders and reconciliation conflicts. The schema is CI-tested only, not staging/production migrated. There is no UI/API issue browser or resolution action yet, so operators cannot rely on this as a complete incident-management interface. Keep live order writes disabled.

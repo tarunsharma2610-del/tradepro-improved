@@ -253,3 +253,7 @@ The repository now validates normalized Upstox per-order trade records and store
 
 ## 17 October 2026 — fill-to-intent economic checks
 Linked fill identity persistence now requires the same broker order ID already linked to the intent, exact instrument/side/product/order-type agreement, valid requested quantity, and per-fill plus aggregate quantity ceilings. BUY LIMIT/SL fills above limit and SELL LIMIT/SL fills below limit are rejected before persistence. CI [run 39052939770](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39052939770) passed 279 tests, 1 warning, and SQLite/PostgreSQL 16 migration checks. These are repository safeguards only; no broker polling, live accounting, or live submission is present.
+
+
+## 17 October 2026 — unmatched-fill relinking
+Unmatched individual fills may now be linked later using a conditional update after rechecking authenticated user/connection, broker order ID, instrument, side, product, order type, quantity ceilings and limit-price constraints. A linked fill cannot be silently reassigned; the link and audit event are atomic. CI [run 39053352921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39053352921) passed 281 tests. No broker reads, worker, live accounting or order submission is present.

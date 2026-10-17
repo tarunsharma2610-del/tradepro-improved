@@ -5,6 +5,7 @@ dependency and cannot submit, cancel, or reconcile broker orders.
 """
 import hashlib
 import json
+import re
 import uuid
 from typing import Any
 
@@ -14,6 +15,38 @@ from sqlalchemy.orm import Session
 from app.models.broker_connection import BrokerConnection
 from app.models.live_order_records import LiveOrderEvent, LiveOrderIntent, LiveOrderOutbox
 from app.models.portfolio import Portfolio
+
+
+_SENSITIVE_KEY_PARTS = (
+    "accesstoken", "refreshtoken", "token", "secret", "password",
+    "authorization", "apikey", "clientsecret", "privatekey", "cookie",
+)
+
+
+def _validate_safe_json(value: Any, *, field_name: str) -> None:
+    """Reject credential-like keys and values that are not finite JSON.
+
+    This is a defense-in-depth key-name check, not a substitute for callers
+    explicitly redacting secrets before building snapshots or audit details.
+    """
+    def walk(node: Any, path: str) -> None:
+        if isinstance(node, dict):
+            for key, child in node.items():
+                if not isinstance(key, str):
+                    raise ValueError(f"{field_name} keys must be strings")
+                normalized = re.sub(r"[^a-z0-9]", "", key.lower())
+                if any(part in normalized for part in _SENSITIVE_KEY_PARTS):
+                    raise ValueError(f"{field_name} must not contain credential-like field '{key}'")
+                walk(child, f"{path}.{key}")
+        elif isinstance(node, (list, tuple)):
+            for index, child in enumerate(node):
+                walk(child, f"{path}[{index}]")
+
+    walk(value, field_name)
+    try:
+        json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must contain finite JSON-compatible values") from exc
 
 
 def canonical_request_hash(
@@ -79,6 +112,7 @@ class LiveOrderRepository:
             raise ValueError("client_idempotency_key must contain 1-128 non-whitespace characters")
         if not isinstance(order_snapshot, dict) or not order_snapshot:
             raise ValueError("order_snapshot must be a non-empty normalized order object")
+        _validate_safe_json(order_snapshot, field_name="order_snapshot")
 
         portfolio = self.db.query(Portfolio).filter(
             Portfolio.id == portfolio_id, Portfolio.user_id == user_id
@@ -160,6 +194,10 @@ class LiveOrderRepository:
         ).first()
         if intent is None:
             raise ValueError("live-order intent not found for authenticated user")
+        if safe_details is not None:
+            if not isinstance(safe_details, dict):
+                raise ValueError("safe_details must be a JSON object")
+            _validate_safe_json(safe_details, field_name="safe_details")
         event = LiveOrderEvent(
             intent_id=intent_id,
             event_type=event_type,

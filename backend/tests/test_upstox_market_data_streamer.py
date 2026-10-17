@@ -53,6 +53,20 @@ async def test_old_exchange_timestamp_is_rejected_as_stale():
     assert streamer.latest_tick("NSE_EQ|INE002A01018") is None
 
 
+@pytest.mark.asyncio
+async def test_unrequested_instrument_keys_are_ignored():
+    streamer = _streamer()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    response.feeds["NSE_EQ|NOT_SUBSCRIBED"].ltpc.ltp = 999
+    response.feeds["NSE_EQ|NOT_SUBSCRIBED"].ltpc.ltt = now_ms
+
+    await streamer._consume(response.SerializeToString())
+
+    assert streamer.latest_tick("NSE_EQ|NOT_SUBSCRIBED") is None
+
+
 def test_missing_or_received_stale_tick_fails_closed():
     streamer = _streamer()
     assert streamer.latest_tick("NSE_EQ|INE002A01018") is None

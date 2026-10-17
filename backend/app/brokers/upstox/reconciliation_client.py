@@ -4,6 +4,8 @@ This class intentionally exposes only GET endpoints. Do not add order placement,
 modification, or cancellation methods here. Error bodies are never returned/logged.
 """
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
@@ -18,6 +20,7 @@ class ReadOnlyBrokerResult:
     data: Any = None
     status_code: int | None = None
     error_code: str | None = None
+    retry_after_seconds: float | None = None
 
 
 class UpstoxReadOnlyReconciliationClient:
@@ -56,11 +59,31 @@ class UpstoxReadOnlyReconciliationClient:
         order_id = self._required_id(order_id, "order_id")
         return await self._get("/order/trades", access_token, {"order_id": order_id})
 
+    async def get_trades_for_day(self, access_token: str) -> ReadOnlyBrokerResult:
+        return await self._get("/order/trades/get-trades-for-day", access_token)
+
     @staticmethod
     def _required_id(value: str, field: str, *, max_length: int = 128) -> str:
         if not isinstance(value, str) or not value.strip() or len(value.strip()) > max_length:
             raise ValueError(f"{field} must contain 1-{max_length} characters")
         return value.strip()
+
+    @staticmethod
+    def _retry_after_seconds(response: httpx.Response) -> float | None:
+        raw = response.headers.get("Retry-After")
+        if not raw:
+            return None
+        try:
+            value = float(raw)
+            return value if value >= 0 else None
+        except (TypeError, ValueError):
+            try:
+                when = parsedate_to_datetime(raw)
+                if when.tzinfo is None:
+                    when = when.replace(tzinfo=timezone.utc)
+                return max(0.0, (when.astimezone(timezone.utc) - datetime.now(timezone.utc)).total_seconds())
+            except (TypeError, ValueError, OverflowError):
+                return None
 
     async def _get(
         self,
@@ -95,7 +118,12 @@ class UpstoxReadOnlyReconciliationClient:
                 category = "UPSTREAM_SERVER_ERROR"
             else:
                 category = "UPSTREAM_CLIENT_ERROR"
-            return ReadOnlyBrokerResult(ok=False, status_code=status, error_code=category)
+            return ReadOnlyBrokerResult(
+                ok=False,
+                status_code=status,
+                error_code=category,
+                retry_after_seconds=self._retry_after_seconds(response),
+            )
         try:
             body = response.json()
         except ValueError:

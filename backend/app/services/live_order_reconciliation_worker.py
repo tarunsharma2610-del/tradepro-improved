@@ -251,14 +251,24 @@ class LiveOrderReconciliationWorker:
                 trade = normalize_upstox_trade(record)
                 if not trade.product or not trade.order_type:
                     raise BrokerOrderDataError("trade is missing product/order type")
-                details = {
-                    key: value for key, value in {
-                        "exchange": trade.exchange,
-                        "trading_symbol": trade.trading_symbol,
-                        "exchange_order_id": trade.exchange_order_id,
-                        "order_ref_id": trade.order_ref_id,
-                    }.items() if value is not None
-                }
+            except BrokerOrderDataError:
+                result.conflicts += 1
+                self.issue_repository.record(
+                    user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
+                    issue_type="INVALID_TRADE_RECORD",
+                    safe_details={"record_index": index, "reason_code": "TRADE_NORMALIZATION_FAILED"},
+                )
+                continue
+
+            details = {
+                key: value for key, value in {
+                    "exchange": trade.exchange,
+                    "trading_symbol": trade.trading_symbol,
+                    "exchange_order_id": trade.exchange_order_id,
+                    "order_ref_id": trade.order_ref_id,
+                }.items() if value is not None
+            }
+            try:
                 _, inserted = self.order_repository.record_broker_fill(
                     user_id=user_id,
                     broker_connection_id=connection_id,
@@ -279,7 +289,7 @@ class LiveOrderReconciliationWorker:
                     result.fills_inserted += 1
                 else:
                     result.duplicate_fills += 1
-            except (BrokerOrderDataError, ValueError, RuntimeError):
+            except (ValueError, RuntimeError):
                 result.conflicts += 1
                 self.issue_repository.record(
                     user_id=user_id, broker_connection_id=connection_id, run_id=run_id,

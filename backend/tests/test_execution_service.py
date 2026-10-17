@@ -552,3 +552,50 @@ async def test_market_order_rejected_above_configured_order_value_cap(db_session
     assert "maximum order value" in order.rejection_reason.lower()
     db_session.refresh(p)
     assert p.cash_balance == Decimal("100000")
+
+
+@pytest.mark.asyncio
+async def test_fill_accounting_rolls_back_atomically_if_execution_persistence_fails(
+    db_session, portfolio, instrument
+):
+    """A failed fill must not leave a FILLED order, changed cash, or a changed
+    position without the corresponding execution row."""
+    from sqlalchemy import event
+
+    from app.models.execution import Execution
+    from app.models.order import Order
+    from app.models.position import Position
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+
+    def fail_execution_insert(_mapper, _connection, _target):
+        raise RuntimeError("simulated execution persistence failure")
+
+    event.listen(Execution, "before_insert", fail_execution_insert)
+    try:
+        with _mock_quote("2500.00"):
+            with pytest.raises(RuntimeError, match="simulated execution persistence failure"):
+                await ExecutionService(db_session).place_order(
+                    user.id,
+                    ServicePlaceOrderRequest(
+                        portfolio_id=p.id,
+                        instrument_id=instrument.id,
+                        side=Side.BUY,
+                        order_type="MARKET",
+                        segment=Segment.EQUITY_DELIVERY,
+                        quantity=1,
+                    ),
+                )
+    finally:
+        event.remove(Execution, "before_insert", fail_execution_insert)
+
+    # Roll back any failed SQLAlchemy unit of work before inspecting persisted state.
+    db_session.rollback()
+    db_session.expire_all()
+
+    assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == 0
+    assert db_session.query(Execution).filter(Execution.portfolio_id == p.id).count() == 0
+    assert db_session.query(Position).filter(Position.portfolio_id == p.id).count() == 0
+    db_session.refresh(p)
+    assert p.cash_balance == Decimal("100000")

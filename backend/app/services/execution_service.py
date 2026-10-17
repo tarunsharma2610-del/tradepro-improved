@@ -18,6 +18,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -54,6 +55,7 @@ class PlaceOrderRequest:
     limit_price: Decimal | None = None
     execution_reason: str = "MANUAL"  # "STRATEGY" when called from strategy_execution_service
     strategy_id: UUID | None = None
+    idempotency_key: str | None = None
 
 
 class ExecutionService:
@@ -90,6 +92,16 @@ class ExecutionService:
         if portfolio is None:
             raise OrderValidationError("Portfolio not found.")
 
+        if req.idempotency_key:
+            existing = (
+                self.db.query(Order)
+                .filter(Order.portfolio_id == portfolio.id, Order.idempotency_key == req.idempotency_key)
+                .first()
+            )
+            if existing is not None:
+                self._ensure_same_idempotent_request(existing, req)
+                return existing
+
         instrument = self.instruments.get_by_id(req.instrument_id)
         if instrument is None:
             raise OrderValidationError("Instrument not found.")
@@ -107,12 +119,14 @@ class ExecutionService:
             trading_mode="PAPER",
             execution_reason=req.execution_reason,
             strategy_id=req.strategy_id,
+            idempotency_key=req.idempotency_key,
             placed_at=now,
         )
 
         if req.order_type == "LIMIT":
             # The worker fills this later if the market quote crosses the limit.
-            return self.orders.create(order)
+            saved, _created = self._persist_order(order)
+            return saved
 
         access_token = self.broker_credentials.get_access_token(user_id, "upstox")
         if access_token is None:
@@ -277,13 +291,16 @@ class ExecutionService:
     def _reject(self, order: Order, reason: str) -> Order:
         order.status = "REJECTED"
         order.rejection_reason = reason
-        return self.orders.create(order)
+        saved, _created = self._persist_order(order)
+        return saved
 
     def _fill(self, order: Order, portfolio: Portfolio, instrument: Instrument, req: PlaceOrderRequest, ltp: Decimal, costs) -> Order:
         now = datetime.now(timezone.utc)
         order.status = "FILLED"
         order.filled_at = now
-        order = self.orders.create(order)
+        order, created = self._persist_order(order)
+        if not created:
+            return order
 
         position = self.positions.get_or_create(portfolio.id, instrument.id)
         update = apply_fill(
@@ -323,6 +340,58 @@ class ExecutionService:
         self.db.commit()
 
         return order
+
+
+    def _persist_order(self, order: Order) -> tuple[Order, bool]:
+        """Persist once; the database uniqueness constraint arbitrates concurrent retries."""
+        try:
+            return self.orders.create(order), True
+        except IntegrityError:
+            self.db.rollback()
+            if not order.idempotency_key:
+                raise
+            existing = (
+                self.db.query(Order)
+                .filter(
+                    Order.portfolio_id == order.portfolio_id,
+                    Order.idempotency_key == order.idempotency_key,
+                )
+                .first()
+            )
+            if existing is None:
+                raise
+            self._ensure_same_order_payload(existing, order)
+            return existing, False
+
+    @staticmethod
+    def _ensure_same_idempotent_request(existing: Order, req: PlaceOrderRequest) -> None:
+        if (
+            existing.instrument_id != req.instrument_id
+            or existing.side != req.side.value
+            or existing.order_type != req.order_type
+            or existing.segment != req.segment.value
+            or existing.quantity != req.quantity
+            or (None if existing.limit_price is None else Decimal(str(existing.limit_price))) != req.limit_price
+        ):
+            raise OrderValidationError(
+                "Idempotency key was already used for a different order request. Use a new key."
+            )
+
+    @staticmethod
+    def _ensure_same_order_payload(existing: Order, candidate: Order) -> None:
+        existing_price = None if existing.limit_price is None else Decimal(str(existing.limit_price))
+        candidate_price = None if candidate.limit_price is None else Decimal(str(candidate.limit_price))
+        if (
+            existing.instrument_id != candidate.instrument_id
+            or existing.side != candidate.side
+            or existing.order_type != candidate.order_type
+            or existing.segment != candidate.segment
+            or existing.quantity != candidate.quantity
+            or existing_price != candidate_price
+        ):
+            raise OrderValidationError(
+                "Idempotency key was already used for a different order request. Use a new key."
+            )
 
 
 def _extract_ltp(quote_data: Any, instrument_key: str) -> Decimal | None:

@@ -266,3 +266,20 @@ Check workflow 39047545900. If the PostgreSQL service starts, resolve any concur
 - The first PostgreSQL-enabled CI run [39047545900](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39047545900) failed in the concurrency test setup: the test inserted the broker connection in the same flush as its user without an ORM relationship ordering guarantee, triggering a foreign-key violation.
 - Corrected the test setup to commit the parent user first, then insert the portfolio and broker connection. Fix commit: dd36b48a92057ad50618f6f9941f908832c9cea3.
 - Verification rerun: [39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046). Status must be checked before marking this resolved; PostgreSQL test and migration verification remain pending until that exact run succeeds.
+
+
+## PostgreSQL concurrency + reversible migration verification — passed — 2026-10-17
+
+- Exact code/test commit: `dd36b48a92057ad50618f6f9941f908832c9cea3`.
+- Exact GitHub Actions run [39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046) succeeded: **215 passed, 1 warning**.
+- The test starts two independent PostgreSQL sessions and synchronizes them after both initially miss the same idempotency key; it verifies both requests return the same intent ID and that exactly one intent, outbox row and initial audit event exist.
+- In the same successful run, Alembic upgrade → downgrade to `202610170001` → re-upgrade passed on both clean SQLite and PostgreSQL 16.
+- The first PostgreSQL run failed because the test setup inserted child rows without first committing the parent user. This was corrected in `dd36b48a92057ad50618f6f9941f908832c9cea3`; the rerun is green. The failed run remains visible in Actions history.
+- CI configuration commit: `e79d6f3bc758bd0e868d4be795eeef865e7c8ee9`; concurrency test commit: `84b12804538a931980d29b6847e655e2bebc59b1`; test setup fix: `dd36b48a92057ad50618f6f9941f908832c9cea3`.
+- Updated design, roadmap, audit, architecture, README and project instructions to match the verified state. Documentation commits: roadmap `9d661313adcb9bb75e558a257ab4569979e14652`; audit `63baafc4822e032e65ea871fea0b0c52fb3a8998`; design `849e4a4fcf18bf255b402cc00b156158188049db`; architecture `0285b2bd8890bf26feba690b3159702077d5c18c`; README `889312894a57cb1b9eb2705e5e8317be1059cad4`; instructions `a347a1e68b5db844df7f83d8677f79c03ff37844`.
+- No real broker order was submitted and no production database was migrated.
+
+### Current gate and next action
+- Automated Phase 1 concurrency and reversible migration checks are complete for SQLite and PostgreSQL 16.
+- Gate 1 remains open until schema/constraints are verified on a backup-restored staging copy of the actual deployment database engine, and broader crash/rollback/contention checks are reviewed.
+- Next: verify CI for each documentation commit; then confirm the deployment database engine and safe staging access before claiming staging verification. Do not start broker submission. Gate 2 is reconciliation-only and must remain unable to submit orders.

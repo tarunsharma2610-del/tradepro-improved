@@ -14,12 +14,12 @@ Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b66302
 - [x] Existing audit reports 167 backend tests passing in a prior GitHub Actions run and frontend typecheck/build passing. These are reported historical CI results, not tests rerun in this session.
 - [x] Existing paper MARKET and LIMIT paths are described as implemented; paper LIMIT matching/cancel tests are reported as passing in prior CI.
 - [ ] Live trading is NOT ready: execution service currently constructs PAPER orders; live placement and broker reconciliation are incomplete. Do not enable.
-- [ ] Upstox instrument sync and WebSocket streaming are incomplete.
-- [ ] Portfolio-wide risk, exposure, and order-frequency controls need further audit.
+- [x] Multi-segment instrument sync, snapshot-gated expiry/delisting reconciliation, and user-scoped Upstox V3 WebSocket client/routes implemented. Live instrument-master sync to disposable SQLite verified; live authenticated WebSocket session still needs account-level verification.
+- [x] Manual per-portfolio risk settings and enforcement implemented for daily realized loss, estimated exposure, per-order value, open/pending positions, and daily order count. Latest test run is being checked.
 - [ ] OAuth schema migration needs staging verification before deployment.
 
 ## Current phase
-**Phase F complete — multi-segment instrument sync implemented and backend CI passed. Next: portfolio-wide risk controls.**
+**Phase G in progress — manual portfolio controls, snapshot reconciliation, WebSocket streaming and live BOD verification implemented; final CI verification and docs are in progress.**
 - Added `PROJECT_INSTRUCTIONS.md` with the mandatory workflow and safety rules (commit `8d7d9d8257f852f3d26e0564be8b521b0fe75764`).
 - Added this `PROGRESS.md` tracker (commit `9986380d8f4ee8939718c858ea9ab925da3f65b1`).
 - Inspected `backend/app/services/execution_service.py`, `backend/app/services/strategy_execution_service.py`, `backend/app/services/risk_engine.py`, `backend/app/core/config.py`, `backend/app/models/order.py`, `backend/app/brokers/upstox/adapter.py`, and relevant execution tests.
@@ -49,15 +49,44 @@ After each coherent step, update this tracker with:
 5. Any failures or unverified assumptions.
 6. The next single action.
 
-## Instrument sync expansion — 2026-10-17
-- Expanded `backend/app/services/instrument_service.py` to normalize supported Upstox BOD JSON records for NSE/BSE equities and indices and recognized futures/options across NSE/BSE/MCX segments. Equity segment classification accepts exchange-specific board codes, while unsupported derivative types and malformed values are skipped; failed/empty/unsupported-only downloads do not write to the catalog. No instrument deactivation is performed because snapshot completeness is not independently validated.
-- Added `InstrumentRepository.upsert_many()` to read existing keys in bounded chunks and commit a catalog batch once, rather than committing per instrument. This avoids thousands of commits on a full master sync.
-- Added derivative metadata (`expiry`, `strike_price`, `option_type`) to the instrument search response schema.
-- Expanded `backend/tests/test_instrument_service.py` to cover multiple exchanges/segments, equity/index/futures/options normalization, expiry/strike/option metadata, unsupported record filtering, malformed/HTTP failure safety, and schema serialization.
-- Updated the adapter comment, README and audit report to describe actual catalog sync ownership and remaining gaps. No real Upstox download, production sync, live order or database migration was run.
-- Final defensive validation rejects impossible expiry timestamps, requires derivative expiry and option strike metadata, enforces segment/exchange/key consistency, and accepts exchange-specific equity board codes based on the equity segment.
-- Final backend CI for code commit `c63c5cd195b4f9c464ab1bfa494deb2879687c9a` passed: **172 tests passed, 1 warning**, and the SQLite Alembic migration verification step also passed. [View run 39036689089](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39036689089).
-- No live Upstox file download was run. No production sync, production migration, or real order was performed. Existing expired/stale instruments are not automatically deactivated yet.
+## Workstream continuation — 2026-10-17
+
+### 1. Expiry and delisting management
+- instrument_service.py derives snapshot keys from the official BOD master, checks for at least 1,000 valid normalized instruments (or at least 90% of the current active supported catalog, whichever is greater), and requires all major NSE/BSE/MCX segments before reconciliation.
+- Unknown upstream instrument types still count as present keys, preventing false delisting when Upstox adds a new type. Missing keys and expired futures/options are reconciled in the same transaction as batch upsert only after the completeness gate passes. Failed or incomplete snapshots leave the existing catalog unchanged.
+- instrument_repository.py reconciles snapshot absence and expiry atomically with the upsert.
+- Added regression tests for deactivation of missing/expired contracts and protection against incomplete snapshots.
+
+### 2. Upstox WebSocket market data
+- Added official Upstox V3 protobuf schema and generated decoder under backend/app/brokers/upstox/proto/, plus the streamer and per-user manager services.
+- Added authenticated endpoints: POST /api/v1/market-data/stream, GET /api/v1/market-data/stream, and DELETE /api/v1/market-data/stream. Start requires a connected Upstox OAuth session and active catalog keys.
+- The client obtains a fresh one-time authorized WebSocket URL per reconnect, validates the Upstox host, keeps TLS verification enabled, sends the V3 binary subscription message, decodes protobuf frames, uses library ping/pong, reconnects with exponential backoff, and rejects stale exchange/receive timestamps.
+- ExecutionService prefers a fresh subscribed WebSocket quote and falls back to authenticated REST LTP if the stream has no fresh quote. A stale stream tick is never used for a fill.
+- Added mocked tests for protobuf decoding, stale data, stream configuration, fresh-stream preference and REST fallback. A real authenticated WebSocket connection has not been tested because no user's live OAuth token/session is available. Streams are in-process and ephemeral; multi-worker deployment needs shared stream state/cache.
+
+### 3. Real instrument-master operational verification
+- Added backend/scripts/verify_upstox_instrument_master.py and .github/workflows/upstox-live-verification.yml. The workflow downloads the real official Upstox BOD gzip JSON and syncs it into a disposable in-memory SQLite database; it never connects to the configured application database.
+- Live verification succeeded in workflow run 39037390129: 123,930 active instruments imported and segment coverage validated. Counts: BCD_FO 10,422; BSE_EQ 13,096; BSE_FO 5,180; BSE_INDEX 79; MCX_FO 15,601; NCD_FO 8,644; NSE_COM 22,585; NSE_EQ 9,832; NSE_FO 38,352; NSE_INDEX is also present in the full job output. This is a real upstream download plus temporary-database sync, not a production sync.
+- Verification link: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39037390129
+
+### 4. Manual portfolio management and risk controls
+- Added six portfolio columns through migration 202610170001_portfolio_risk_controls.py: enable flag, max daily realized loss, max estimated open exposure, max order value, max open/pending positions and max orders per day. Limits remain disabled by default for existing portfolios.
+- Added PortfolioRiskSettings validation, owner-scoped PATCH /api/v1/portfolios/{portfolio_id}/risk-settings and a portfolio UI form for manual rename/configuration. Starting capital/cash ledger is deliberately not editable after trading begins, to avoid rewriting historical accounting.
+- Added portfolio_risk_service.py and wired checks into market-order submission, limit-order submission and limit fills. Pending limit-order exposure is included; reducing orders that close an existing position are allowed through risk caps so users are not trapped in positions. Exposure is estimated from position cost and pending limit notional, not exchange margin or live liquidation exposure.
+- Added schema and order-risk regression tests. The migration passed clean SQLite Alembic verification in CI.
+
+### Files changed in this workstream
+- Backend: portfolio model/schema/API, portfolio risk service, execution service, instrument service/repository, WebSocket streamer/manager/API/schema, Upstox protobuf schema/decoder, main lifecycle, migration, verification script and requirements.
+- Frontend: API client PATCH support and portfolio settings UI.
+- Tests: instrument snapshot reconciliation, portfolio risk schema/order limits, WebSocket protobuf/stale handling and stream quote selection.
+- Docs/workflows: README, audit report, project instructions, progress tracker and live master verification workflow.
+
+### Current limitations / safety boundaries
+- No production application database was written and no production migration was run.
+- No real order was submitted. Live order placement/reconciliation is still unimplemented; TRADING_MODE=LIVE must not be enabled.
+- The WebSocket code has mocked transport/decoder tests, but no live authenticated stream test; the manager is process-local and ephemeral.
+- Exposure uses cost-basis estimates, not broker margin, greeks-based risk, or mark-to-market P&L. Daily loss cap is based on realized P&L only.
+- OAuth schema migration needs backup-safe staging verification before deployment.
 
 ## Next action
-Next audit and design portfolio-wide risk controls (per-portfolio daily loss and open exposure), with explicit configuration semantics and tests. After that, add a safe expiry/deactivation policy for instrument snapshots only if snapshot completeness can be validated. Then implement Upstox WebSocket market data with authorized-URL handling, reconnect/heartbeat/stale-data controls, and mocked tests. Keep live trading disabled.
+Wait for the latest backend and frontend CI runs for current HEAD 6aeb313ae5fa557d812dcb318de828dd241ef9db and later commits. Fix any failures, update the audit/README/instructions, and record final test results. Keep live trading disabled.

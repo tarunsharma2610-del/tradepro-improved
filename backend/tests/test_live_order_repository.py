@@ -162,3 +162,21 @@ def test_audit_event_requires_intent_owned_by_user(db_session, make_user):
             intent_id=intent.id,
             event_type="TEST",
         )
+
+
+def test_failed_commit_rolls_back_intent_event_and_outbox(db_session, make_user, monkeypatch):
+    user = make_user()
+    portfolio, connection = _account(db_session, user)
+    repository = LiveOrderRepository(db_session)
+
+    def fail_commit():
+        raise IntegrityError("forced test failure", {}, Exception("simulated"))
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+    with pytest.raises(IntegrityError, match="forced test failure"):
+        repository.create_or_get_intent(**_intent_args(user, portfolio, connection))
+
+    monkeypatch.undo()
+    assert db_session.query(LiveOrderIntent).count() == 0
+    assert db_session.query(LiveOrderOutbox).count() == 0
+    assert db_session.query(LiveOrderEvent).count() == 0

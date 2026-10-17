@@ -342,7 +342,7 @@ class LiveOrderRepository:
                 new_time = new_time.replace(tzinfo=timezone.utc)
             return (
                 existing.broker_order_id == order_id
-                and existing.intent_id == intent_id
+                and (intent_id is None or existing.intent_id == intent_id)
                 and existing.instrument_key == instrument
                 and existing.side == normalized_side
                 and existing.quantity == quantity
@@ -414,6 +414,133 @@ class LiveOrderRepository:
             raise
         self.db.refresh(fill)
         return fill, True
+
+    def link_existing_fill_to_intent(
+        self,
+        *,
+        user_id: uuid.UUID,
+        fill_id: uuid.UUID,
+        intent_id: uuid.UUID,
+        correlation_id: str | None = None,
+    ) -> tuple[BrokerFillIdentity, bool]:
+        """Safely link a previously unmatched fill after an intent is identified.
+
+        Performs no broker I/O. All account/order/economic checks happen before a
+        compare-and-set update, and the link plus audit event are committed atomically.
+        """
+        fill = self.db.query(BrokerFillIdentity).filter(
+            BrokerFillIdentity.id == fill_id
+        ).first()
+        if fill is None:
+            raise ValueError("broker fill not found")
+        intent = self.db.query(LiveOrderIntent).filter(
+            LiveOrderIntent.id == intent_id,
+            LiveOrderIntent.user_id == user_id,
+            LiveOrderIntent.broker_connection_id == fill.broker_connection_id,
+        ).first()
+        if intent is None:
+            raise ValueError("intent not found for authenticated user and fill broker connection")
+        if fill.intent_id is not None:
+            if fill.intent_id == intent_id:
+                return fill, False
+            raise LiveOrderVersionConflict("broker fill is already linked to a different intent")
+        if not intent.broker_order_id or intent.broker_order_id != fill.broker_order_id:
+            raise LiveOrderVersionConflict("fill broker order ID does not match linked intent")
+        snapshot = intent.order_snapshot or {}
+        expected_instrument = snapshot.get("instrument_key", snapshot.get("instrument_token"))
+        expected_side = snapshot.get("side", snapshot.get("transaction_type"))
+        expected_type = snapshot.get("order_type")
+        expected_product = snapshot.get("product")
+        expected_quantity = snapshot.get("quantity")
+        details = fill.safe_details or {}
+        fill_product = details.get("normalized_product")
+        fill_order_type = details.get("normalized_order_type")
+        if not all(value is not None for value in (
+            expected_instrument, expected_side, expected_type, expected_product,
+            expected_quantity, fill_product, fill_order_type
+        )):
+            raise ValueError("fill or intent is missing required economic fields")
+        if str(expected_instrument).strip() != fill.instrument_key:
+            raise LiveOrderVersionConflict("fill instrument differs from intent")
+        if str(expected_side).strip().upper() != fill.side:
+            raise LiveOrderVersionConflict("fill side differs from intent")
+        if str(expected_type).strip().upper() != str(fill_order_type).strip().upper():
+            raise LiveOrderVersionConflict("fill order type differs from intent")
+        if str(expected_product).strip().upper() != str(fill_product).strip().upper():
+            raise LiveOrderVersionConflict("fill product differs from intent")
+        try:
+            requested_quantity = int(expected_quantity)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("intent quantity is invalid") from exc
+        if (
+            isinstance(expected_quantity, bool)
+            or requested_quantity <= 0
+            or str(expected_quantity).strip() not in {str(requested_quantity), f"{requested_quantity}.0"}
+        ):
+            raise ValueError("intent quantity is invalid")
+        if fill.quantity > requested_quantity:
+            raise LiveOrderVersionConflict("fill quantity exceeds intent quantity")
+        if str(fill_order_type).strip().upper() in {"LIMIT", "SL"}:
+            from decimal import Decimal, InvalidOperation
+            try:
+                limit_price = Decimal(str(snapshot.get("limit_price", snapshot.get("price"))))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise ValueError("intent limit price is invalid") from exc
+            if not limit_price.is_finite() or limit_price <= 0:
+                raise ValueError("intent limit price is invalid")
+            fill_price = Decimal(str(fill.price))
+            if fill.side == "BUY" and fill_price > limit_price:
+                raise LiveOrderVersionConflict("buy fill price is worse than intent limit price")
+            if fill.side == "SELL" and fill_price < limit_price:
+                raise LiveOrderVersionConflict("sell fill price is worse than intent limit price")
+
+        existing_fills = self.db.query(BrokerFillIdentity).filter(
+            BrokerFillIdentity.intent_id == intent_id
+        ).all()
+        if sum(item.quantity for item in existing_fills) + fill.quantity > requested_quantity:
+            raise LiveOrderVersionConflict("linking this fill would exceed aggregate intent quantity")
+        try:
+            result = self.db.execute(
+                update(BrokerFillIdentity)
+                .where(
+                    BrokerFillIdentity.id == fill_id,
+                    BrokerFillIdentity.broker_connection_id == intent.broker_connection_id,
+                    BrokerFillIdentity.intent_id.is_(None),
+                )
+                .values(intent_id=intent_id)
+            )
+            if result.rowcount != 1:
+                self.db.rollback()
+                current = self.db.query(BrokerFillIdentity).filter(
+                    BrokerFillIdentity.id == fill_id
+                ).first()
+                if current is not None and current.intent_id == intent_id:
+                    return current, False
+                raise LiveOrderVersionConflict("fill was linked concurrently; reload before retrying")
+            self.db.add(LiveOrderEvent(
+                intent_id=intent_id,
+                event_type="BROKER_FILL_LINKED",
+                correlation_id=correlation_id,
+                actor_user_id=user_id,
+                safe_details={
+                    "broker_trade_id": fill.broker_trade_id,
+                    "broker_order_id": fill.broker_order_id,
+                    "quantity": fill.quantity,
+                    "price": str(fill.price),
+                    "side": fill.side,
+                },
+            ))
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise LiveOrderVersionConflict("fill link conflicted with a concurrent update") from exc
+        except Exception:
+            self.db.rollback()
+            raise
+        linked = self.db.query(BrokerFillIdentity).filter(
+            BrokerFillIdentity.id == fill_id
+        ).one()
+        return linked, True
 
     def apply_reconciliation_transition(
         self,

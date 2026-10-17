@@ -27,6 +27,21 @@ class PortfolioRepository:
             .first()
         )
 
+    def get_for_user_for_update(self, user_id: UUID, portfolio_id: UUID) -> Portfolio | None:
+        """Lock the portfolio row while validating and accepting an order.
+
+        PostgreSQL serializes competing entries for this portfolio so two
+        concurrent requests cannot both pass the same exposure/cash limits.
+        SQLite ignores FOR UPDATE, so integration tests still cover logic but
+        do not certify production concurrency behavior.
+        """
+        return (
+            self.db.query(Portfolio)
+            .filter(Portfolio.id == portfolio_id, Portfolio.user_id == user_id)
+            .with_for_update()
+            .first()
+        )
+
     def get_by_id(self, portfolio_id: UUID) -> Portfolio | None:
         """No ownership check — for internal/system callers only (the
         strategy worker), which already reached this portfolio_id through

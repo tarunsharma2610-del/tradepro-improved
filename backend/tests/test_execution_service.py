@@ -258,3 +258,35 @@ async def test_invalid_limit_order_input_is_rejected_before_database_order_creat
                 limit_price=Decimal("0"),
             ),
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "order_type,quantity,limit_price,expected_message",
+    [
+        ("MARKET", 0, None, "Quantity"),
+        ("LIMIT", 1, None, "limit price"),
+        ("LIMIT", 1, Decimal("0"), "limit price"),
+        ("LIMIT", 1, Decimal("-1"), "limit price"),
+        ("MARKET", 1, Decimal("2500"), "must not include"),
+    ],
+)
+async def test_malformed_orders_are_rejected_before_broker_or_database_side_effects(
+    db_session, portfolio, instrument, order_type, quantity, limit_price, expected_message
+):
+    user, p = portfolio
+    service = ExecutionService(db_session)
+
+    with pytest.raises(OrderValidationError, match=expected_message):
+        await service.place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type=order_type,
+                segment=Segment.EQUITY_DELIVERY,
+                quantity=quantity,
+                limit_price=limit_price,
+            ),
+        )

@@ -32,6 +32,7 @@ from app.repositories.portfolio_repository import PortfolioRepository
 from app.repositories.position_repository import PositionRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.position_math import apply_fill
+from app.services.portfolio_risk_service import check_portfolio_order
 from app.services.transaction_costs import Segment, Side, calculate_costs
 
 
@@ -101,7 +102,14 @@ class ExecutionService:
         )
 
         if req.order_type == "LIMIT":
-            # The worker fills this later if the market quote crosses the limit.
+            risk_reason = check_portfolio_order(
+                self.db, portfolio, instrument, side=req.side.value, quantity=req.quantity,
+                estimated_price=Decimal(str(req.limit_price)),
+                reducing_position=self._is_reducing_position(portfolio.id, instrument.id, req.side, req.quantity),
+            )
+            if risk_reason:
+                return self._reject(order, risk_reason)
+            # The worker rechecks relevant limits before filling the order.
             return self.orders.create(order)
 
         access_token = self.broker_credentials.get_access_token(user_id, "upstox")
@@ -115,6 +123,14 @@ class ExecutionService:
         ltp = _extract_ltp(quote_result.data, instrument.instrument_key)
         if ltp is None:
             return self._reject(order, "Broker response didn't contain a readable last traded price.")
+
+        risk_reason = check_portfolio_order(
+            self.db, portfolio, instrument, side=req.side.value, quantity=req.quantity,
+            estimated_price=ltp,
+            reducing_position=self._is_reducing_position(portfolio.id, instrument.id, req.side, req.quantity),
+        )
+        if risk_reason:
+            return self._reject(order, risk_reason)
 
         costs = calculate_costs(req.segment, req.side, req.quantity, ltp)
 
@@ -226,6 +242,16 @@ class ExecutionService:
             # fill than its limit: BUY fills at min(LTP, limit), SELL at max.
             fill_price = min(ltp, limit_price) if side == Side.BUY else max(ltp, limit_price)
             segment = Segment(order.segment)
+            risk_reason = check_portfolio_order(
+                self.db, portfolio, order.instrument, side=side.value, quantity=order.quantity,
+                estimated_price=fill_price,
+                reducing_position=self._is_reducing_position(portfolio.id, order.instrument_id, side, order.quantity),
+                check_order_count=False,
+            )
+            if risk_reason:
+                self._reject(order, risk_reason)
+                continue
+
             costs = calculate_costs(segment, side, order.quantity, fill_price)
 
             if side == Side.BUY:
@@ -263,6 +289,18 @@ class ExecutionService:
             filled_count += 1
 
         return filled_count
+
+    def _is_reducing_position(self, portfolio_id: UUID, instrument_id: UUID, side: Side, quantity: int) -> bool:
+        position = (
+            self.db.query(Position)
+            .filter(Position.portfolio_id == portfolio_id, Position.instrument_id == instrument_id)
+            .first()
+        )
+        if position is None or position.quantity == 0:
+            return False
+        if side == Side.SELL:
+            return position.quantity > 0 and quantity <= position.quantity
+        return position.quantity < 0 and quantity <= abs(position.quantity)
 
     def _reject(self, order: Order, reason: str) -> Order:
         order.status = "REJECTED"

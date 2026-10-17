@@ -68,6 +68,9 @@ async def test_sync_from_upstox_imports_supported_exchanges_and_derivatives(db_s
         _record("NSE_EQ", "NSE", "UNKNOWN", "NSE_EQ|UNKNOWN", "UNKNOWN"),
         _record("NSE_FO", "NSE", "FUT", "BSE_FO|WRONG", "WRONG"),
         _record("UNSUPPORTED", "NSE", "EQ", "UNSUPPORTED|ABC", "ABC"),
+        _record("NSE_FO", "NSE", "FUT", "NSE_FO|BAD_EXPIRY", "BAD FUT", expiry=10**100),
+        _record("NSE_FO", "NSE", "PE", "NSE_FO|NO_STRIKE", "BAD OPTION", expiry=1798675200000),
+        _record("NSE_EQ", "BSE", "EQ", "NSE_EQ|WRONG_EXCHANGE", "WRONG"),
     ]
     response = FakeResponse(200, gzip.compress(json.dumps(records).encode("utf-8")))
     fake_client = FakeAsyncClient(response)

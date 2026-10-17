@@ -182,16 +182,17 @@ class BrokerCredentialsService:
 
         # The hash comparison is part of the UPDATE predicate, not just an
         # in-memory check, so only one concurrent callback can consume it.
-        from sqlalchemy import update
-
-        result = self.db.execute(
-            update(BrokerConnection)
-            .where(
+        result = (
+            self.db.query(BrokerConnection)
+            .filter(
                 BrokerConnection.id == conn.id,
                 BrokerConnection.oauth_state_nonce_hash == expected_hash,
                 BrokerConnection.oauth_state_expires_at > now,
             )
-            .values(oauth_state_nonce_hash=None, oauth_state_expires_at=None)
+            .update(
+                {"oauth_state_nonce_hash": None, "oauth_state_expires_at": None},
+                synchronize_session=False,
+            )
         )
         if result.rowcount != 1:
             self.db.rollback()

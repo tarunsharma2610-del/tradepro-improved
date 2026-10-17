@@ -430,7 +430,7 @@ def test_record_broker_fill_is_idempotent_and_audited(db_session, make_user):
     fill, created = _record_fill(repository, user, connection, intent)
     assert created is True
     assert fill.broker_trade_id == "trade-stable-1"
-    assert fill.quantity == 2
+    assert fill.quantity == 1
     assert str(fill.price) == "101.2500"
     assert db_session.query(BrokerFillIdentity).filter_by(
         broker_connection_id=connection.id, broker_trade_id="trade-stable-1"

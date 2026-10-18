@@ -217,6 +217,7 @@ def test_recent_mfa_step_up_rejects_missing_or_wrong_scope_token(make_user):
 
 def test_recent_mfa_step_up_is_user_bound_and_accepts_fresh_token(make_user):
     user = make_user()
+    user.mfa_enabled = True
     token = create_token(user.id, "step_up", extra_claims={
         "scope": "safety.reset", "amr": ["pwd", "totp"],
         "mfa_verified_at": int(datetime.now(timezone.utc).timestamp()),
@@ -225,6 +226,17 @@ def test_recent_mfa_step_up_is_user_bound_and_accepts_fresh_token(make_user):
     another_user = make_user(email="another@example.com")
     with pytest.raises(HTTPException) as exc:
         require_recent_safety_mfa(step_up_token=token, user=another_user)
+    assert exc.value.status_code == 403
+
+
+def test_recent_mfa_step_up_rejects_token_if_mfa_was_disabled(make_user):
+    user = make_user()
+    token = create_token(user.id, "step_up", extra_claims={
+        "scope": "safety.reset", "amr": ["pwd", "totp"],
+        "mfa_verified_at": int(datetime.now(timezone.utc).timestamp()),
+    })
+    with pytest.raises(HTTPException) as exc:
+        require_recent_safety_mfa(step_up_token=token, user=user)
     assert exc.value.status_code == 403
 
 

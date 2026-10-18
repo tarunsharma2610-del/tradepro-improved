@@ -388,3 +388,8 @@ Live trading is **NOT READY** and disabled. No real orders have been submitted.
 ## Architecture verification note — 18 October 2026
 
 The reconcile-before-promote architecture already exists in `LiveOrderFillReconciliationCoordinator`; this continuation did not add a duplicate coordinator or alter runtime registration. Commit `b5783d421f64fcb8e7f1d75f1af5185fd9029f59` adds integration coverage that composes the existing child reconciler, durable trade intake, promotion and accounting services. Broker status/trade reads and charge estimation are mocked. CI verification for the test commit remains pending and must be checked before claiming success. Live order submission remains disabled.
+
+
+### Latest verification test refinement
+
+Commit `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` strengthens the integration test by requiring real trade ingestion to insert broker-returned rows before reconciliation/promotion. CI remains unverified for this exact commit; runtime architecture and live-order wiring are unchanged.

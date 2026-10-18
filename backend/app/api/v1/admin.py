@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import (
     SAFETY_PERMISSIONS,
-    get_current_user,
     get_db,
     require_admin,
     require_recent_safety_mfa,

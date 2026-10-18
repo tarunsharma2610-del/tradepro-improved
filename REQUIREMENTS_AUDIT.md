@@ -166,3 +166,12 @@ Live trading is **NOT READY**. No live order placement should be enabled until c
 - Added read-only `BrokerAdapter.get_margin_details` and Upstox `POST /v2/charges/margin` call. Local validation caps requests at 20 instruments, rejects duplicate/empty keys, non-positive/non-integer quantities, unsupported transaction/product values, and invalid optional prices. Tests use mocks only.
 - Latest CI: [238 passed, 1 warning, clean SQLite migration](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714); [frontend checks passed](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707).
 - Status: read-only adapter foundation only. Response remains untyped/raw and does not authorize orders. Next: audit official response schema and add a typed parser only if no suitable existing parser exists.
+
+
+## Upstox Margin Details parser — 18 October 2026
+
+- Classification: **implemented in code; test execution requires CI confirmation**. Added typed `MarginEstimate` / `MarginBreakdown` models and pure `parse_margin_details` for documented `required_margin`, `final_margin`, and per-instrument margin components.
+- Validation includes successful response envelope, non-empty margins array, required fields, and finite non-negative numeric values. Added valid-response and malformed/error regression tests.
+- Code commits: `3c4dd6ac0d7d88a18916c241d28a224fc5031d5d`; tests `6995f64429b44134edfa5985ad4f50c3b54cfcab`.
+- Safety classification unchanged: read-only estimate parsing only; no order approval, live submission, or account-risk decision consumes these values. Live trading remains not implemented.
+- Verification gap: available Actions results show successful backend/frontend runs for the earlier verified commit, but no run could be confirmed for the current PR head. Do not mark these new tests passed until CI for the current head is inspected.

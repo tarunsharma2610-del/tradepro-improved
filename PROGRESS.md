@@ -501,3 +501,11 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 ### Expected-version regression-test correction — 18 October 2026
 
 Run #39124312326 failed with 405 passed / 1 failed / 5 skipped because the test kept a reference to a mutable ORM state object; its `health.version` reflected the later trip mutation instead of the earlier version. This was a test setup defect, not a failure of the version comparison. The test now snapshots the integer before the mutation in commit `6cd0ced108e35d715359d649a463d80709dd1fb1`. Latest CI run #39124498280 is queued/pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Await exact-head results before marking storage hardening verified.
+
+
+### Verified safety-event storage checkpoint — 18 October 2026 (supersedes pending note)
+
+- **PASS:** GitHub Actions run #625, URL https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280, exact code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`.
+- AST broker-write guard passed. Backend suite: **406 passed, 5 skipped, 1 warning in 29.76s**. SQLite Alembic upgrade passed. PostgreSQL 16 Alembic upgrade passed. PostgreSQL charge-adjustment/account-safety integration: **5 passed in 0.69s**, including direct audit UPDATE/DELETE rejection.
+- The stale-version test now captures the version integer before mutating the ORM row; exact-head verification is green. Subsequent documentation commits do not change the verified code/test/workflow files.
+- Storage hardening checkpoint verified. Authorization/MFA/CSRF, central writer, safety-control API and route/worker/recovery composition remain pending. Phase 2 remains incomplete; live submission remains disabled.

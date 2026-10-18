@@ -154,7 +154,7 @@ async def test_coordinator_rejects_stale_exchange_quote(context):
     adapter = ReadOnlyUpstoxAdapter(quote_timestamp="2026-10-19T09:00:00+05:30")
     coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
 
-    with pytest.raises(LiveExecutionBlocked, match="risk gate rejected"):
+    with pytest.raises(LiveExecutionBlocked, match="stale"):
         await coordinator.preflight(
             user.id, _intent(portfolio, instrument), user_confirmed=True
         )

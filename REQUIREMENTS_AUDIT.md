@@ -366,3 +366,8 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Expected contract: absent/stale/unknown safety state blocks; new state is latched off; threshold of consecutive broker errors opens the circuit and trips the kill switch; repeated idempotency keys do not double-count; successful broker calls do not auto-close the circuit; manual reset requires a fresh passing health check, zero error count, explicit actor and reason.
 - Status: implementation committed, **verification pending** on head `57939799b7e8b436d5095924b86a89ce380a956e`. Await backend pytest and SQLite/PostgreSQL migration CI; PostgreSQL concurrency coverage remains a follow-up.
 - Not wired into order submission and does not authorize live trading.
+
+
+### Reset gate test refinement
+
+Latest test code SHA: `c97be866828bd47a23f22fc44fac2d3359e70f35`. The test now isolates the broker-error counter reset condition by recording a passing health check while the counter is still nonzero, then clearing the counter via broker success and recording another passing health check before manual reset. CI/migration verification remains pending.

@@ -195,3 +195,74 @@ def test_explicit_estimate_is_stored_as_estimate_not_actual(accounting_context):
     assert not result.duplicate
     assert execution.charge_source == "APPROVED_ESTIMATE"
     assert execution.charge_reference == "upstox-estimator-v1"
+
+
+from app.brokers.base import BrokerCallResult
+from app.services.live_charge_estimate_service import LiveChargeEstimateService
+
+
+class FakeBrokerageAdapter:
+    def __init__(self, *, fail=False):
+        self.calls = []
+        self.fail = fail
+
+    async def get_brokerage_details(self, access_token, **params):
+        self.calls.append((access_token, params))
+        if self.fail:
+            return BrokerCallResult(ok=False, error="mock estimate unavailable")
+        return BrokerCallResult(ok=True, data={
+            "status": "success",
+            "data": {
+                "charges": {
+                    "total": 2.63,
+                    "brokerage": 2.00,
+                    "taxes": {"gst": 0.37, "stt": 0.20, "stamp_duty": 0.02},
+                    "other_charges": {
+                        "transaction": 0.03,
+                        "clearing": 0,
+                        "ipft": 0,
+                        "sebi_turnover": 0.01,
+                    },
+                    "dp_plan": {"name": "DP3A", "min_expense": 0},
+                }
+            },
+        })
+
+
+@pytest.mark.asyncio
+async def test_charge_estimate_service_returns_explicit_estimate_without_accounting(
+    accounting_context, monkeypatch
+):
+    db, user, _portfolio, instrument, _connection, _order, _child, record = accounting_context
+    monkeypatch.setattr(
+        BrokerCredentialsService, "get_access_token", lambda *_: "mock-access-token"
+    )
+    adapter = FakeBrokerageAdapter()
+    result = await LiveChargeEstimateService(db, adapter).estimate_for_trade(user.id, record.id)
+
+    assert result.broker_trade_id == record.broker_trade_id
+    assert result.breakdown.source == "APPROVED_ESTIMATE"
+    assert result.breakdown.reference.startswith("upstox:/v2/charges/brokerage")
+    assert result.breakdown.exchange_charges == Decimal("0.03")
+    assert result.breakdown.dp_charges == Decimal("0.00")
+    assert result.estimated_total == Decimal("2.63")
+    assert adapter.calls[0][0] == "mock-access-token"
+    assert adapter.calls[0][1]["instrument_token"] == instrument.instrument_key
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_charge_estimate_service_fails_closed_on_broker_error(
+    accounting_context, monkeypatch
+):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record = accounting_context
+    monkeypatch.setattr(
+        BrokerCredentialsService, "get_access_token", lambda *_: "mock-access-token"
+    )
+    with pytest.raises(LiveExecutionBlocked, match="estimate failed"):
+        await LiveChargeEstimateService(db, FakeBrokerageAdapter(fail=True)).estimate_for_trade(
+            user.id, record.id
+        )
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0

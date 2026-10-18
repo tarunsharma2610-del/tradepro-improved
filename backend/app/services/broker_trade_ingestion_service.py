@@ -75,17 +75,18 @@ class BrokerTradeIngestionService:
             if broker_order is None:
                 raise ValueError("Broker order ID is not mapped to this local order.")
 
+            if broker_order.broker_connection_id is None:
+                raise ValueError("Broker child order is not bound to a broker connection.")
             connection = (
                 self.db.query(BrokerConnection)
                 .filter(
+                    BrokerConnection.id == broker_order.broker_connection_id,
                     BrokerConnection.user_id == user_id,
                     BrokerConnection.broker == broker_order.broker_name,
                 )
                 .first()
             )
             if connection is None:
-                raise ValueError("No broker connection exists for this order owner and broker.")
-            if broker_order.broker_connection_id != connection.id:
                 raise ValueError("Broker child order is not bound to this user’s broker connection.")
 
             instrument = self.db.get(Instrument, order.instrument_id)
@@ -115,11 +116,15 @@ class BrokerTradeIngestionService:
                 if not price.is_finite() or price <= 0:
                     raise ValueError("Trade price must be a valid positive amount.")
 
-                side = str(trade.side).strip().upper()
+                if not isinstance(trade.side, str) or not trade.side.strip():
+                    raise ValueError("Trade side must be BUY or SELL.")
+                side = trade.side.strip().upper()
                 if side not in {"BUY", "SELL"} or side != order.side:
                     raise ValueError("Trade side does not match the local order side.")
                 token = trade.instrument_token
-                if token is not None and token != instrument.instrument_key:
+                if not isinstance(token, str) or not token.strip():
+                    raise ValueError("Trade instrument token is required for safe live reconciliation.")
+                if token.strip() != instrument.instrument_key:
                     raise ValueError("Trade instrument token does not match the local order instrument.")
                 if trade.exchange_timestamp is not None and (
                     not isinstance(trade.exchange_timestamp, str) or not trade.exchange_timestamp.strip()

@@ -453,3 +453,7 @@ The storage hardening changes passed CI run #625 on SHA `6cd0ced108e35d715359d64
 - Implemented the safety_permissions user grant field with default-empty migration, allowlisted permission dependency, malformed JWT subject 401 normalization, and a reusable cookie-Origin mutation dependency.
 - Added tests for explicit grant enforcement, no implicit is_admin grant, invalid permission names, malformed signed subject, and Origin policy.
 - Open: recent-MFA step-up, trusted grant management, wiring guards into safety endpoints, tenant-scoped safety/audit queries, endpoint-level negative HTTP matrix, and CI verification for these commits. No safety route was registered.
+
+### Follow-up correction — 18 October 2026
+
+The Origin guard now requires an exact Origin serialization match (including rejecting a trailing slash), and unused imports were removed from the user model. Follow-up commits: f7c08e2605fb7f7828792154570af79cf5ccf724 and 4337d0ce4ef645914f32c56db87c81699c04763e. CI/status lookup has returned no run/status for the authorization changes; do not claim tests or migration passed until a workflow result is tied to the code/test SHA. Recent-MFA step-up and route wiring remain outstanding.

@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import create_token
+from app.core.security import create_token, hash_password
 from app.core.deps import (
     require_recent_safety_mfa,
     require_same_origin_for_cookie_mutation,
@@ -203,12 +203,13 @@ def test_step_up_http_denies_accounts_without_mfa(client, db_session):
 def test_admin_cannot_grant_safety_permission_without_recent_mfa(client, db_session):
     _register_and_login(client, email="admin@example.com")
     from app.repositories.user_repository import UserRepository
+
     user = UserRepository(db_session).get_by_email("admin@example.com")
     user.is_admin = True
     db_session.commit()
     target = UserRepository(db_session).create(
         email="target@example.com",
-        password_hash=__import__("app.core.security", fromlist=["hash_password"]).hash_password("correct-horse-battery-staple"),
+        password_hash=hash_password("correct-horse-battery-staple"),
         full_name="Target",
     )
     response = client.put(
@@ -225,7 +226,6 @@ def test_admin_cannot_self_grant_safety_permission_even_with_recent_mfa(client, 
     _register_and_login(client, email="admin@example.com")
     from app.repositories.user_repository import UserRepository
     from app.services.auth_service import AuthService
-    from app.core.security import create_token
     user = UserRepository(db_session).get_by_email("admin@example.com")
     user.is_admin = True
     user.mfa_enabled = True

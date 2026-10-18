@@ -435,3 +435,70 @@ def test_safety_audit_read_rejects_invalid_pagination(client, db_session):
     assert client.get("/api/v1/admin/safety/audit?limit=0").status_code == 422
     assert client.get("/api/v1/admin/safety/audit?limit=101").status_code == 422
     assert client.get("/api/v1/admin/safety/audit?offset=-1").status_code == 422
+
+
+def test_safety_status_requires_explicit_permission(client):
+    _register_and_login(client, email="operator@example.com")
+    response = client.get("/api/v1/safety/status")
+    assert response.status_code == 403
+
+
+def test_safety_status_and_trip_are_scoped_to_authenticated_user(client, db_session):
+    _register_and_login(client, email="operator@example.com")
+    from app.repositories.user_repository import UserRepository
+
+    user = UserRepository(db_session).get_by_email("operator@example.com")
+    user.safety_permissions = ["safety.status.read", "safety.kill_switch.trip"]
+    db_session.commit()
+    origin = settings.CORS_ORIGINS[0]
+
+    before = client.get("/api/v1/safety/status")
+    assert before.status_code == 200
+    assert before.json()["state_exists"] is False
+    assert before.json()["allowed"] is False
+    assert before.json()["kill_switch_tripped"] is True
+
+    trip = client.post(
+        "/api/v1/safety/kill-switch/trip",
+        json={"reason": "operator requested emergency stop"},
+        headers={"Origin": origin, "Idempotency-Key": "operator-trip-0001"},
+    )
+    assert trip.status_code == 200
+    assert trip.json()["state_exists"] is True
+    assert trip.json()["kill_switch_tripped"] is True
+    assert trip.json()["allowed"] is False
+
+    state = client.get("/api/v1/safety/status")
+    assert state.status_code == 200
+    assert state.json()["kill_switch_tripped"] is True
+    assert state.json()["version"] == trip.json()["version"]
+
+
+def test_safety_trip_rejects_missing_idempotency_key(client, db_session):
+    _register_and_login(client, email="operator@example.com")
+    from app.repositories.user_repository import UserRepository
+
+    user = UserRepository(db_session).get_by_email("operator@example.com")
+    user.safety_permissions = ["safety.kill_switch.trip"]
+    db_session.commit()
+    response = client.post(
+        "/api/v1/safety/kill-switch/trip",
+        json={"reason": "operator requested emergency stop"},
+        headers={"Origin": settings.CORS_ORIGINS[0]},
+    )
+    assert response.status_code == 422
+
+
+def test_safety_reset_requires_permission_and_recent_mfa(client, db_session):
+    _register_and_login(client, email="operator@example.com")
+    from app.repositories.user_repository import UserRepository
+
+    user = UserRepository(db_session).get_by_email("operator@example.com")
+    user.safety_permissions = ["safety.reset"]
+    db_session.commit()
+    response = client.post(
+        "/api/v1/safety/kill-switch/reset",
+        json={"reason": "reviewed recovery", "expected_version": 1},
+        headers={"Origin": settings.CORS_ORIGINS[0], "Idempotency-Key": "operator-reset-0001"},
+    )
+    assert response.status_code == 403

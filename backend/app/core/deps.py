@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from uuid import UUID
 
 from fastapi import Cookie, Depends, Header, HTTPException, status
@@ -6,6 +7,14 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.user import User
+
+
+SAFETY_PERMISSIONS = frozenset({
+    "safety.status.read",
+    "safety.audit.read",
+    "safety.kill_switch.trip",
+    "safety.reset",
+})
 
 
 def _extract_token(access_token: str | None, authorization: str | None) -> str | None:
@@ -31,11 +40,34 @@ def get_current_user(
     if not payload or payload.get("type") != "access":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
 
-    user = db.get(User, UUID(payload["sub"]))
+    try:
+        subject = UUID(payload.get("sub", ""))
+    except (TypeError, ValueError, AttributeError):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token") from None
+
+    user = db.get(User, subject)
     if not user or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or inactive")
 
     return user
+
+
+def require_safety_permission(permission: str) -> Callable:
+    """Return a default-deny dependency for one explicit safety permission.
+
+    Platform-admin status intentionally grants no safety permission. Grants are
+    assigned explicitly in User.safety_permissions and are not client supplied.
+    """
+    if permission not in SAFETY_PERMISSIONS:
+        raise ValueError(f"Unknown safety permission: {permission}")
+
+    def _require_permission(user: User = Depends(get_current_user)) -> User:
+        grants = user.safety_permissions or []
+        if permission not in grants:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Safety permission required")
+        return user
+
+    return _require_permission
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:

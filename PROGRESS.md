@@ -381,3 +381,14 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Expected checks: 1 execution after first attempt; 2 executions after retry; one live position of quantity 2; no paper cash/position changes; no broker write calls.
 - Status: **committed; CI and execution result not verified in this continuation**. Do not mark green without workflow evidence.
 - Next: inspect CI for the exact SHA. If green, add/verify PostgreSQL integration coverage for this lifecycle before considering any runtime wiring.
+
+
+## Latest task — persistent account-wide safety state and circuit breaker
+
+- Service: `backend/app/services/live_account_safety_service.py`.
+- Migration: `backend/alembic/versions/202610180009_live_account_safety.py`, revision `202610180009` after `202610180008`.
+- Tests: `backend/tests/test_live_account_safety_service.py`.
+- Latest code/test commit: `57939799b7e8b436d5095924b86a89ce380a956e`.
+- Behavior implemented: missing state denies; initialization is kill-switch-tripped; broker errors increment a durable counter and open circuit/trip kill switch at threshold; idempotency keys suppress duplicate events; broker success does not close an open circuit; reset requires a fresh passing health check, zero error count, an explicit reason and actor; stale/unknown state denies.
+- Verification: **not verified yet**. GitHub status checks and associated workflow runs were empty for the exact head. Do not claim tests/migrations passed. Await backend Actions run covering pytest, SQLite and PostgreSQL 16 Alembic upgrades.
+- Next: CI verification, then PostgreSQL concurrency tests and read-only preflight composition. No live order submission wiring.

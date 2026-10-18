@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from app.brokers.upstox.response_parsing import (
     parse_funds_and_margin_v3,
+    parse_margin_details,
     parse_order_details,
     parse_order_history,
     parse_order_trades,
@@ -218,3 +219,55 @@ def test_parse_funds_and_margin_v3_rejects_423_maintenance_error_payload():
     payload = {"status": "error", "errors": [{"errorCode": "UDAPI100072"}]}
     with pytest.raises(ValueError, match="not marked successful"):
         parse_funds_and_margin_v3(payload)
+
+
+def _margin_details_payload():
+    return {
+        "status": "success",
+        "data": {
+            "margins": [
+                {
+                    "span_margin": 57501.5,
+                    "exposure_margin": 12320.55,
+                    "equity_margin": 0,
+                    "net_buy_premium": 0,
+                    "additional_margin": 0,
+                    "total_margin": 69822.05,
+                    "tender_margin": 0,
+                }
+            ],
+            "required_margin": 69822.05,
+            "final_margin": 69822.05,
+        },
+    }
+
+
+def test_parse_margin_details_validates_documented_margin_estimate():
+    result = parse_margin_details(_margin_details_payload())
+    assert result.required_margin == Decimal("69822.05")
+    assert result.final_margin == Decimal("69822.05")
+    assert len(result.margins) == 1
+    assert result.margins[0].span_margin == Decimal("57501.5")
+    assert result.margins[0].exposure_margin == Decimal("12320.55")
+    assert result.margins[0].total_margin == Decimal("69822.05")
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda p: p.update(status="error"),
+        lambda p: p["data"].pop("margins"),
+        lambda p: p["data"].update(margins=[]),
+        lambda p: p["data"].pop("required_margin"),
+        lambda p: p["data"].update(final_margin="NaN"),
+        lambda p: p["data"]["margins"][0].update(total_margin=-1),
+        lambda p: p["data"]["margins"][0].update(span_margin="Infinity"),
+        lambda p: p["data"]["margins"][0].pop("equity_margin"),
+        lambda p: p["data"].update(margins=[None]),
+    ],
+)
+def test_parse_margin_details_rejects_error_or_malformed_response(mutate):
+    payload = _margin_details_payload()
+    mutate(payload)
+    with pytest.raises(ValueError):
+        parse_margin_details(payload)

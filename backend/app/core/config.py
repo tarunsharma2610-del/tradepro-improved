@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     LIVE_MAX_DAILY_LOSS_INR: Decimal = Decimal("1000")
     LIVE_MAX_ORDERS_PER_UTC_DAY: int = 10
     LIVE_MAX_MARKET_DATA_AGE_SECONDS: int = 5
+    # Persistent live-account circuit breaker and state-freshness guard.
+    LIVE_BROKER_ERROR_THRESHOLD: int = 3
+    LIVE_CIRCUIT_BREAKER_COOLDOWN_SECONDS: int = 60
+    LIVE_SAFETY_HEALTH_MAX_AGE_SECONDS: int = 60
 
     @property
     def is_live_trading_enabled(self) -> bool:

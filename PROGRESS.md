@@ -189,3 +189,12 @@ Check CI for the margin parser/test commits. If green, record the exact test/mig
 ## Immediate next action — CI verification
 
 Inspect GitHub Actions for the current PR head returned by PR #1 at the time of verification. If no workflow is associated with that head, use the repository's supported workflow trigger or wait for CI; do not claim success from the older run. Inspect failures and fix only evidenced defects. Then record the exact backend test count, migration result, frontend result and final verification commit in this file and the audit/changelog/handover. Do not merge PR #1 or enable live trading.
+
+
+## Status correction — 18 October 2026 (supersedes stale next-step notes)
+
+The following are now present in the branch: `BrokerAdapter.get_margin_details`, the Upstox `POST /v2/charges/margin` implementation with local request validation, pure `parse_margin_details`, and unit tests for success/error/malformed response shapes. Older notes saying the adapter method or typed parser is still missing are historical snapshots, not current status. The parser is read-only and is not used to authorize orders.
+
+The current blocker is verification: the GitHub integration returned no workflow run and no commit status for the current PR head when checked. Earlier CI results (238 backend tests, one warning, migration/frontend checks green) belong to an older commit and do not verify the margin parser changes. No pass/fail conclusion is possible from the available evidence. Inspect or trigger the configured workflow from GitHub Actions and record actual results before advancing.
+
+`MASTER_ROADMAP.md` is now the current sequencing guide. After this verification gate, the next implementation phase is a separate, initially unregistered `LiveExecutionService` with mocked tests, while preserving the current PAPER-only execution guard. Do not merge the draft PR, place real orders, or enable live trading.

@@ -338,3 +338,8 @@ Implemented in code:
 Run `39124213016` passed on earlier SHA `2b38a0f0ba4dd167419ec116a630ebe63fabac92`; current latest-head run `39124312326` is pending and covers subsequent threshold/version changes: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124312326. Do not treat the checkpoint as fully verified until exact-head CI passes.
 
 Next gates: finish exact-head CI; review migration rollback/immutability constraints; implement explicit least-privilege permissions, recent MFA step-up and CSRF/Origin controls; then central typed broker-write service. No safety API or live route wiring yet. Keep live disabled.
+
+
+### Expected-version test correction — 18 October 2026
+
+CI #39124312326 reported 405 passed / 1 failed / 5 skipped because the stale-version test read a mutable ORM object's version after it had been updated. The test now snapshots the prior integer before the later trip operation, commit `6cd0ced108e35d715359d649a463d80709dd1fb1`. Exact-head CI #39124498280 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Treat this as unverified until green.

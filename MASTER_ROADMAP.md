@@ -13,13 +13,13 @@ Pull request: #1 (draft; do not merge without explicit review)
 ## Current verified state
 
 ### Latest code and CI evidence
-- Added `backend/app/services/live_pre_trade_risk_gate.py` with tests in `backend/tests/test_live_pre_trade_risk_gate.py`.
-- GitHub Actions [run #39111061824](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111061824) on code/test SHA `dd27afcecc64f5cafc91198e1cfc81b61616fff9`: **307 passed, 1 warning in 19.67s**; SQLite Alembic upgrade passed.
-- The gate fails closed on missing/stale/malformed provider data, closed weekday/session hours, absolute INR order/exposure/daily-loss caps, live order-frequency limit, unresolved live-order exposure and broker margin exceeding broker cash availability.
-- Exposure is based on broker position snapshots, not the app's virtual PAPER positions. Provider interfaces are dependency-injected but **not yet wired to real Upstox calls**; holiday/special-session calendar support is missing. No order route/worker or broker POST is wired; LIVE remains disabled.
+- Implemented `backend/app/services/live_pre_trade_risk_gate.py`, `backend/app/services/upstox_live_risk_snapshot_service.py`, strict Upstox snapshot/calendar parsers, and mocked tests.
+- GitHub Actions [run #39111682177](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111682177) on code/test SHA `c683fbd16d114b2a41a80a646fc91ee2d4cf25eb`: **315 passed, 1 warning in 25.97s**; SQLite Alembic upgrade passed.
+- The risk gate requires fresh exchange-timestamped quotes, broker positions, funds/margin snapshots and official session data. It enforces absolute INR order/exposure/daily-loss caps, order-frequency limits and unresolved-order exposure.
+- Official holiday and special-session data are parsed; the gate trusts the injected official session snapshot rather than hardcoding weekday/session hours. Providers are still not injected into an application route/worker; no live order submission path is wired.
 
 ### Immediate next task
-Implement read-only Upstox snapshot collection for quote, broker positions, funds and estimated margin, with strict parsing, timestamp validation and a market holiday/special-session calendar contract. Mock all HTTP interactions; no order submission or production wiring.
+Design and test an async preflight orchestration boundary that first passes the existing environment, explicit-confirmation, ownership, instrument and credential checks, then collects read-only broker snapshots and applies the risk gate. Prove rejected requests cause zero snapshot calls. Keep the orchestrator unregistered from routes/workers; do not submit live orders.
 
 ## Release blockers
 - Latest verified backend run: SHA `dd27afcecc64f5cafc91198e1cfc81b61616fff9`, 307 tests passed and SQLite Alembic upgrade passed.

@@ -1,3 +1,13 @@
+## 2026-10-18 — authoritative verification and reconciliation checkpoint
+
+- Current PR-reported branch head: `15ff31122ba2f7e2f9f2ac1c1a7e80d6b77c80d1`. Workflow #722 passed on `e6a69138e2fd132da0b7a526c35f40aea4630432`, not the current head; exact-head CI remains unverified.
+- `e9a69472e54b84333134568a559fa2592dcc12ce`: staged partial-fill replay/overfill/rollback regression tests.
+- `c2e881103e961aaa999e94ff2436fd1f91c80140` and `e6a69138e2fd132da0b7a526c35f40aea4630432`: fail-closed average-price/fill-quantity validation and negative parser tests.
+- Staging is not accounting. Fill promotion, atomic cash/position/P&L, parent/child terminal states, cancellation after partial fill, and exact-head verification remain open.
+- PAPER mandatory; live broker writes blocked; original `Tradepro` untouched; PR #1 draft/open/unmerged.
+
+---
+
 # Change Log — Tradepro Improved
 
 ## 2026-10-18 — credential-bound preflight and CI hardening

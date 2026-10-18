@@ -288,3 +288,18 @@ The static review is committed in [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_
 ## Order-entry path inventory gate — 18 October 2026
 
 Static inventory is recorded in [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a477489c7e2d5b6883c299c1e9a8aee1cbef055f](https://github.com/tarunsharma2610-del/tradepro-improved/commit/a477489c7e2d5b6883c299c1e9a8aee1cbef055f). The manual order route and strategy/worker paths converge on a PAPER-only service; Upstox adapter write methods exist but no application caller was found in reviewed paths. The live intent recovery service does not yet compose the account-safety-aware coordinator. Next design the central write boundary, durable intent/audit transaction, role policy and source-call guardrails; then test before any route/worker wiring. Live remains disabled.
+
+
+## Central broker-write boundary design gate — 18 October 2026
+
+Design contract: [CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md](CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md), commit `40f9ca652cf4bf5e86ed51a9c5f21a3071ce7e06`. This commit is design-only: no endpoint, route/worker integration, adapter write or live enablement was added.
+
+Required order:
+1. Implement safety-event transaction/version/idempotency semantics and PostgreSQL append-only enforcement, with rollback and concurrency tests.
+2. Add explicit least-privilege safety/broker permissions, tenant scope, recent MFA step-up for reset, CSRF/Origin protection and malformed JWT claim tests.
+3. Implement one typed broker-write service; persist intent+event before network I/O; model unknown outcomes and prohibit blind retry.
+4. Add CI source guard allowing adapter write call sites only in the approved service and isolated adapter tests.
+5. Add HTTP/service/worker negative tests, then wire every reviewed path while live submission remains disabled.
+6. Complete fresh audit, PostgreSQL CI and release review before any separate manual live-enable action.
+
+Keep PR #1 draft/open, `TRADING_MODE=PAPER`, `LIVE_ORDER_SUBMISSION_ENABLED=false`, and original `Tradepro` untouched. Phase 2 remains incomplete.

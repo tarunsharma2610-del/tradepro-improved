@@ -417,3 +417,10 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 ## Verification note — partial promotion retry
 
 Commit `1a3475c69d3a93ece7bfad22ace4dce52231bfa1` adds test coverage around the existing coordinator's partial-progress semantics: reconcile all child orders first, then stop promotion at the first charge-estimation/accounting failure. On retry, already-accounted fills must be idempotent duplicates and the remaining fill can proceed. No production wiring changed; CI remains unverified for this exact SHA.
+
+
+## Persistent live-account safety controls — verification pending
+
+The existing `LiveAccountSafetyState` and `LiveAccountSafetyEvent` models now have a service implementation in `app/services/live_account_safety_service.py`. State is keyed by (user, broker), so all portfolios for that broker account share one safety latch. `check_allowed` is read-only and fails closed for missing state, a tripped kill switch, an open/unknown circuit, nonzero consecutive-error count, missing/stale health check, or a database exception. Mutation events are append-only and idempotency-keyed.
+
+Broker-error threshold trips the circuit and kill switch. A broker success resets the consecutive error count but does not automatically close an open circuit. Manual reset requires a recent passing health event, cleared error count, explicit actor and reason. Alembic revision `202610180009` adds persistence. This service is deliberately not registered in order submission; integration is a later, separately reviewed step. CI for head `57939799b7e8b436d5095924b86a89ce380a956e` remains unverified.

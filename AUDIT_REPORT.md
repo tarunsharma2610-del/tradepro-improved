@@ -370,3 +370,8 @@ Live trading is **NOT READY** and disabled. No real orders have been submitted.
 - Commit: `b5783d421f64fcb8e7f1d75f1af5185fd9029f59` ([diff/commit](https://github.com/tarunsharma2610-del/tradepro-improved/commit/b5783d421f64fcb8e7f1d75f1af5185fd9029f59)).
 - Only broker read payloads and the charge estimator are mocked; the real child reconciliation, ingestion, coordinator, promotion, and accounting logic is exercised. Tests cover replay idempotency, sibling failure blocking promotion, and paper-account isolation.
 - Evidence status: **CI has not yet been confirmed for this commit**; therefore these tests are added but not yet classified as passing. No live API calls or order-write calls were made.
+
+
+### Audit follow-up — latest integration test refinement
+
+Commit `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` supersedes the initial test commit. Integration scenarios now begin without staged rows, forcing the real trade-ingestion service to insert the adapter-returned mock trades. CI for this exact SHA remains unverified; the test is not yet classified as passing.

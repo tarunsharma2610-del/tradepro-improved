@@ -528,3 +528,10 @@ Next: after CI is green, review trigger behavior and migration rollback, then im
 ### CI failure and correction — 18 October 2026
 
 Run #39124312326 failed only `test_manual_reset_rejects_stale_expected_state_version`: the test passed `health.version` from a mutable ORM instance, which reflected the later mutation. The test now captures `health_version = health.version` before tripping the switch (commit `6cd0ced108e35d715359d649a463d80709dd1fb1`). New exact-head run #39124498280 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Check the complete run before proceeding.
+
+
+### Verified current CI — 18 October 2026
+
+Run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Source guard passed; backend suite **406 passed / 5 skipped / 1 warning**; SQLite and PostgreSQL 16 migrations passed; PostgreSQL integration tests **5 passed** including append-only event trigger tests. The earlier stale-version test failure was due to reading a mutable ORM object; the test now snapshots the version and the exact-head run is green.
+
+Next: implement least-privilege authorization, tenant scope, recent MFA step-up and CSRF/Origin foundations. No central writer/endpoints/path wiring yet. Keep PR #1 draft/unmerged and live submission disabled.

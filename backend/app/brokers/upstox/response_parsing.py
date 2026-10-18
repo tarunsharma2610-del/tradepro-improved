@@ -56,6 +56,24 @@ class BrokerTrade:
     exchange_timestamp: str | None = None
 
 
+@dataclass(frozen=True)
+class MarginBreakdown:
+    span_margin: Decimal
+    exposure_margin: Decimal
+    equity_margin: Decimal
+    net_buy_premium: Decimal
+    additional_margin: Decimal
+    total_margin: Decimal
+    tender_margin: Decimal
+
+
+@dataclass(frozen=True)
+class MarginEstimate:
+    required_margin: Decimal
+    final_margin: Decimal
+    margins: tuple[MarginBreakdown, ...]
+
+
 def parse_funds_and_margin_v3(payload: Any) -> FundsAndMarginV3:
     """Validate Funds & Margin V3 while keeping cash separate from pledge margin.
 
@@ -118,6 +136,40 @@ def parse_funds_and_margin_v3(payload: Any) -> FundsAndMarginV3:
             unsettled.get("previous_days"),
             "data.unavailable_to_trade.cash_unavailable_to_trade.unsettled_profit.previous_days",
         ),
+    )
+
+
+def parse_margin_details(payload: Any) -> MarginEstimate:
+    """Validate the documented Upstox POST /v2/charges/margin success payload.
+
+    This is a read-only estimate only; it must not be treated as an order
+    authorization or as a guarantee that the broker will accept an order.
+    """
+    data = _success_data(payload, dict, "margin-details")
+    raw_margins = data.get("margins")
+    if not isinstance(raw_margins, list) or not raw_margins:
+        raise ValueError("Margin Details response must contain a non-empty data.margins list.")
+
+    margin_rows: list[MarginBreakdown] = []
+    for index, raw in enumerate(raw_margins):
+        row = _required_object(raw, f"data.margins[{index}]")
+        prefix = f"data.margins[{index}]"
+        margin_rows.append(
+            MarginBreakdown(
+                span_margin=_decimal(row.get("span_margin"), f"{prefix}.span_margin", allow_zero=True),
+                exposure_margin=_decimal(row.get("exposure_margin"), f"{prefix}.exposure_margin", allow_zero=True),
+                equity_margin=_decimal(row.get("equity_margin"), f"{prefix}.equity_margin", allow_zero=True),
+                net_buy_premium=_decimal(row.get("net_buy_premium"), f"{prefix}.net_buy_premium", allow_zero=True),
+                additional_margin=_decimal(row.get("additional_margin"), f"{prefix}.additional_margin", allow_zero=True),
+                total_margin=_decimal(row.get("total_margin"), f"{prefix}.total_margin", allow_zero=True),
+                tender_margin=_decimal(row.get("tender_margin"), f"{prefix}.tender_margin", allow_zero=True),
+            )
+        )
+
+    return MarginEstimate(
+        required_margin=_decimal(data.get("required_margin"), "data.required_margin", allow_zero=True),
+        final_margin=_decimal(data.get("final_margin"), "data.final_margin", allow_zero=True),
+        margins=tuple(margin_rows),
     )
 
 

@@ -410,3 +410,8 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Positive safety properties: scope is user+broker rather than portfolio; state read errors deny; broker success cannot silently close an open circuit; manual reset requires a recent passing health event and cleared error count.
 - Remaining risks: CI/migration result for head `57939799b7e8b436d5095924b86a89ce380a956e` is unverified; no PostgreSQL concurrency test yet; service is not integrated into the preflight caller and has no authenticated operator API; no real broker calls were made.
 - Do not classify this as release-ready. Keep order submission disabled and PR #1 draft/unmerged.
+
+
+### Test correction addendum — c97be866828bd47a23f22fc44fac2d3359e70f35
+
+The manual-reset regression was corrected so each expected denial occurs for the right precondition: no health check, then nonzero broker-error counter despite a passing health check. It then clears the counter with broker success and records a new passing health check before testing reset. Latest code/test SHA is `c97be866828bd47a23f22fc44fac2d3359e70f35`; CI and migration results remain unverified.

@@ -372,3 +372,12 @@ Latest test code commit is `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88`. It streng
 Implement and test the **persisted account-level live kill switch and broker-error circuit breaker**: durable state, fail-closed read behavior, reason/timestamp/audit trail, threshold-triggered circuit trips, manual-reset policy and account-wide scope across portfolios. Keep it unregistered from order submission until separately reviewed; do not merge PR #1 or enable live trading.
 
 This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` was pending. The latest verified test SHA is `c779f2543ea1f20efbd8b7dca38a9c2aed201749`.
+
+
+## Latest task — real-service partial promotion retry regression
+
+- Committed test change: `1a3475c69d3a93ece7bfad22ace4dce52231bfa1`.
+- Added a real-service integration test where trade intake/reconciliation succeed, the first fill is accounted, charge estimation fails for the second fill, and a subsequent retry must account only the missing fill while recognizing the first as duplicate.
+- Expected checks: 1 execution after first attempt; 2 executions after retry; one live position of quantity 2; no paper cash/position changes; no broker write calls.
+- Status: **committed; CI and execution result not verified in this continuation**. Do not mark green without workflow evidence.
+- Next: inspect CI for the exact SHA. If green, add/verify PostgreSQL integration coverage for this lifecycle before considering any runtime wiring.

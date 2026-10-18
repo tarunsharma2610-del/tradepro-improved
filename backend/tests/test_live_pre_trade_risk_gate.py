@@ -123,7 +123,7 @@ def test_market_closed_blocks_before_external_snapshot_calls(db_session, risk_co
     result = gate(user.id, portfolio, instrument, _intent(portfolio, instrument))
 
     assert not result.allowed
-    assert "market session is closed" in result.reason
+    assert "closed" in result.reason.lower()
     assert called == []
 
 

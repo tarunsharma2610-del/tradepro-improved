@@ -1,9 +1,11 @@
 from collections.abc import Callable
 from uuid import UUID
+from urllib.parse import urlsplit
 
-from fastapi import Cookie, Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.user import User
@@ -50,6 +52,33 @@ def get_current_user(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or inactive")
 
     return user
+
+
+def require_same_origin_for_cookie_mutation(request: Request) -> None:
+    """Reject cross-origin or origin-less cookie-authenticated mutations.
+
+    Bearer-only clients do not rely on ambient browser cookies and are not
+    subject to this Origin check. Safety mutation routes must attach this
+    dependency explicitly; no route is registered by this foundation change.
+    """
+    if request.method.upper() not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return
+    if not request.cookies.get("access_token"):
+        return
+
+    origin = request.headers.get("origin")
+    if not origin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Origin validation failed")
+
+    parsed = urlsplit(origin)
+    normalized_origin = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else ""
+    allowed = {
+        f"{urlsplit(item).scheme}://{urlsplit(item).netloc}"
+        for item in settings.CORS_ORIGINS
+        if urlsplit(item).scheme and urlsplit(item).netloc
+    }
+    if not normalized_origin or normalized_origin != origin.rstrip("/") or normalized_origin not in allowed:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Origin validation failed")
 
 
 def require_safety_permission(permission: str) -> Callable:

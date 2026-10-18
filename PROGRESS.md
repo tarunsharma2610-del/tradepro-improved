@@ -226,3 +226,14 @@ This section supersedes older “current task/next task” paragraphs elsewhere 
 3. [ ] Implement only the verified missing ingestion/idempotency behavior and regression tests.
 4. [ ] Verify tests/CI; record exact commit and results. If CI cannot be retrieved, explicitly leave verification pending.
 5. [ ] Update this log and audit docs after implementation; stop before wiring any live order-submission path.
+
+
+## Latest implementation checkpoint — 18 October 2026 (code committed; verification pending)
+
+- Code commits for this task: initial ingestion implementation `e5052d791aed71eb4e393165902a3505a73bc55e`; connection-scoped broker identity correction `bd91bd577b470897097bb45a09a61dc6516baab2`; cross-account regression test `0865dcf2ddbafba43a4adbc1c3ab6a0c841aa5d7`; migration regression fixture update `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3`. The current branch head is `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3`.
+- Added `BrokerTradeRecord` as a separate normalized intake/staging table, plus `BrokerTradeIngestionService`. It checks LIVE-only scope, user ownership, local-to-broker child-order mapping, connection binding, side, quantity, price, instrument token, replay consistency, and total ingested quantity. Duplicate identical trades are skipped; conflicting reuse is rejected.
+- Staging is deliberately **not an accounted Execution**. The service does not alter order status, child-order fill totals, paper/live cash, positions, or P&L. Charge calculation and safe promotion into live accounting remain separate work.
+- Added migrations `202610180005_broker_trade_ingestion.py` and `202610180006_broker_connection_scoped_trade_ids.py`. Broker child-order and execution uniqueness are now scoped to broker connection rather than globally by broker name/trade ID; legacy child rows are backfilled when the owner's connection can be identified and otherwise remain unusable by the fail-closed ingestion service.
+- Added `backend/tests/test_broker_trade_ingestion.py` for replay idempotency, paper-order rejection, child-order mismatch, malformed/overfilled trade data, conflicting replay, ownership, batch safety and same trade ID across separate user connections. Updated `test_live_broker_schema_migration.py` to exercise the connection-scoped schema.
+- **Verification is still pending.** The GitHub workflow/status lookup for current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3` returned no runs/statuses. Network access from the local execution environment was unavailable, so no local test run is claimed. Do not treat older CI as validation of these changes.
+- Next gate: obtain backend pytest + migration upgrade results for the current head. Fix any failures before calling the ingestion task verified. Do not wire this staging service into live execution or enable live trading.

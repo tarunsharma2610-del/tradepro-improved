@@ -146,6 +146,7 @@ class LiveAccountSafetyService:
             user_id, broker, actor_user_id, idempotency_key, "BROKER_ERROR", reason,
             lambda state, now: self._apply_broker_error(state, now, change),
             error_code=error_code,
+            fingerprint_context={"threshold": threshold},
         )
 
     def record_broker_success(self, user_id: UUID, *, broker: str = DEFAULT_BROKER,
@@ -182,11 +183,18 @@ class LiveAccountSafetyService:
         )
 
     def manual_reset(self, user_id: UUID, reason: str, *, broker: str = DEFAULT_BROKER,
-                     actor_user_id: UUID, idempotency_key: str) -> LiveAccountSafetyState:
+                     actor_user_id: UUID, idempotency_key: str,
+                     expected_version: int | None = None) -> LiveAccountSafetyState:
         reason = self._reason(reason, "Manual reset reason")
+        if expected_version is not None and (
+            isinstance(expected_version, bool) or not isinstance(expected_version, int) or expected_version < 1
+        ):
+            raise LiveExecutionBlocked("Expected safety-state version must be a positive integer.")
         if actor_user_id is None:
             raise LiveExecutionBlocked("An authenticated actor is required for manual safety reset.")
         def change(state, now):
+            if expected_version is not None and state.version != expected_version:
+                raise LiveExecutionBlocked("Safety state changed; reload before attempting manual reset.")
             if state.last_health_check_at is None:
                 raise LiveExecutionBlocked("Manual reset requires a successful health check.")
             checked_at = self._aware(state.last_health_check_at)
@@ -214,12 +222,16 @@ class LiveAccountSafetyService:
         return self._mutate(
             user_id, broker, actor_user_id, idempotency_key, "MANUAL_RESET", reason,
             lambda state, now: change(state, now),
+            fingerprint_context={"expected_version": expected_version},
         )
 
-    def _mutate(self, user_id, broker, actor_user_id, idempotency_key, event_type, reason, mutation, error_code=None):
+    def _mutate(
+        self, user_id, broker, actor_user_id, idempotency_key, event_type, reason,
+        mutation, error_code=None, fingerprint_context=None,
+    ):
         broker = self._broker(broker)
         key = self._key(idempotency_key)
-        fingerprint = self._fingerprint(event_type, reason, error_code)
+        fingerprint = self._fingerprint(event_type, reason, error_code, fingerprint_context)
         try:
             state = self._get_state(user_id, broker, lock=True)
             if state is None:
@@ -290,12 +302,13 @@ class LiveAccountSafetyService:
         ))
 
     @staticmethod
-    def _fingerprint(event_type, reason, error_code):
+    def _fingerprint(event_type, reason, error_code, context=None):
         canonical = json.dumps(
             {
                 "event_type": event_type,
                 "reason": (reason or "")[:500] or None,
                 "error_code": (error_code or "")[:100] or None,
+                "context": context or {},
             },
             sort_keys=True,
             separators=(",", ":"),

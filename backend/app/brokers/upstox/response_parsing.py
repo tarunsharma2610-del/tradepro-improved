@@ -74,6 +74,83 @@ class MarginEstimate:
     margins: tuple[MarginBreakdown, ...]
 
 
+@dataclass(frozen=True)
+class BrokerageChargeEstimate:
+    """Estimated components returned by Upstox GET /v2/charges/brokerage.
+
+    This endpoint computes an estimate for the supplied order parameters; it
+    is not proof of the final fees levied on the executed trade.
+    """
+
+    reported_estimate_total: Decimal
+    brokerage: Decimal
+    gst: Decimal
+    stt: Decimal
+    stamp_duty: Decimal
+    transaction_charges: Decimal
+    clearing_charges: Decimal
+    ipft_charges: Decimal
+    sebi_turnover_charges: Decimal
+    dp_charges: Decimal
+
+    @property
+    def exchange_charges(self) -> Decimal:
+        return self.transaction_charges + self.clearing_charges + self.ipft_charges
+
+    @property
+    def accounting_total(self) -> Decimal:
+        return (
+            self.brokerage + self.gst + self.stt + self.stamp_duty
+            + self.exchange_charges + self.sebi_turnover_charges + self.dp_charges
+        ).quantize(Decimal("0.01"))
+
+
+
+def parse_brokerage_details(payload: Any) -> BrokerageChargeEstimate:
+    """Parse Upstox brokerage estimates, rejecting partial/inconsistent totals."""
+    data = _success_data(payload, dict, "brokerage-details")
+    charges = _required_object(data.get("charges"), "data.charges")
+    taxes = _required_object(charges.get("taxes"), "data.charges.taxes")
+    other = _required_object(charges.get("other_charges"), "data.charges.other_charges")
+    dp_plan_raw = charges.get("dp_plan")
+    dp_plan = _required_object(dp_plan_raw, "data.charges.dp_plan") if dp_plan_raw is not None else {}
+    total = _decimal(charges.get("total"), "data.charges.total", allow_zero=True)
+    brokerage = _decimal(charges.get("brokerage"), "data.charges.brokerage", allow_zero=True)
+    gst = _decimal(taxes.get("gst"), "data.charges.taxes.gst", allow_zero=True)
+    stt = _decimal(taxes.get("stt"), "data.charges.taxes.stt", allow_zero=True)
+    stamp = _decimal(taxes.get("stamp_duty"), "data.charges.taxes.stamp_duty", allow_zero=True)
+    transaction = _decimal(other.get("transaction"), "data.charges.other_charges.transaction", allow_zero=True)
+    clearing = _optional_charge(other, "clearing", "data.charges.other_charges.clearing")
+    ipft = _optional_charge(other, "ipft", "data.charges.other_charges.ipft")
+    sebi = _decimal(other.get("sebi_turnover"), "data.charges.other_charges.sebi_turnover", allow_zero=True)
+    dp = _optional_charge(dp_plan, "min_expense", "data.charges.dp_plan.min_expense")
+    result = BrokerageChargeEstimate(
+        reported_estimate_total=total,
+        brokerage=brokerage,
+        gst=gst,
+        stt=stt,
+        stamp_duty=stamp,
+        transaction_charges=transaction,
+        clearing_charges=clearing,
+        ipft_charges=ipft,
+        sebi_turnover_charges=sebi,
+        dp_charges=dp,
+    )
+    # dp_plan.min_expense is documented separately from the brokerage total.
+    non_dp_total = (result.accounting_total - dp).quantize(Decimal("0.01"))
+    if non_dp_total != total.quantize(Decimal("0.01")):
+        raise ValueError("Brokerage estimate total does not match its disclosed charge components.")
+    return result
+
+
+def _optional_charge(payload: dict[str, Any], key: str, field: str) -> Decimal:
+    if key not in payload:
+        raise ValueError(f"{field} is missing.")
+    if payload[key] is None:
+        return Decimal("0.00")
+    return _decimal(payload[key], field, allow_zero=True)
+
+
 def parse_funds_and_margin_v3(payload: Any) -> FundsAndMarginV3:
     """Validate Funds & Margin V3 while keeping cash separate from pledge margin.
 

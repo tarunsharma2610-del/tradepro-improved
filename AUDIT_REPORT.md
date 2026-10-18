@@ -197,3 +197,12 @@ The official Upstox Margin Details documentation specifies aggregate required_ma
 ## Current verification state — 18 October 2026
 
 The margin parser, tests, and follow-up documentation are committed on `safety/fail-closed-trading-mode`. The latest verified CI evidence still applies to the earlier code commit `e6abb6704b67c54f35bb5d7c2c41acd96846147d` (238 backend tests passed, one warning; SQLite migration and frontend checks passed). The GitHub integration did not return a workflow run for the new test commit/current documentation head, so the added parser tests are **not yet verified**. This is a verification gap, not evidence of failure or success. Next action is to inspect/trigger the current PR head's CI and record actual results. Live order submission remains unimplemented and disabled.
+
+
+## Status correction — 18 October 2026 (supersedes stale next-step notes)
+
+The following are now present in the branch: `BrokerAdapter.get_margin_details`, the Upstox `POST /v2/charges/margin` implementation with local request validation, pure `parse_margin_details`, and unit tests for success/error/malformed response shapes. Older notes saying the adapter method or typed parser is still missing are historical snapshots, not current status. The parser is read-only and is not used to authorize orders.
+
+The current blocker is verification: the GitHub integration returned no workflow run and no commit status for the current PR head when checked. Earlier CI results (238 backend tests, one warning, migration/frontend checks green) belong to an older commit and do not verify the margin parser changes. No pass/fail conclusion is possible from the available evidence. Inspect or trigger the configured workflow from GitHub Actions and record actual results before advancing.
+
+`MASTER_ROADMAP.md` is now the current sequencing guide. After this verification gate, the next implementation phase is a separate, initially unregistered `LiveExecutionService` with mocked tests, while preserving the current PAPER-only execution guard. Do not merge the draft PR, place real orders, or enable live trading.

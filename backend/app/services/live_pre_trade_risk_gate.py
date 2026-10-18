@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.execution import Execution
+from app.models.live_charge_adjustment import LiveChargeAdjustment
 from app.models.instrument import Instrument
 from app.models.order import Order
 from app.models.portfolio import Portfolio
@@ -216,16 +217,56 @@ class AccountWideLiveRiskGate:
         daily_loss_limit = Decimal(str(settings.LIVE_MAX_DAILY_LOSS_INR))
         if daily_loss_limit <= 0:
             raise LiveExecutionBlocked("Live daily-loss limit is invalid or disabled.")
-        realized_pnl = (
-            self.db.query(func.coalesce(func.sum(Execution.realized_pnl), 0))
+        live_executions_today = (
+            self.db.query(Execution)
             .filter(
                 Execution.portfolio_id.in_(portfolio_ids),
                 Execution.executed_at >= day_start,
                 Execution.broker_connection_id.isnot(None),
+                Execution.broker_trade_id.isnot(None),
+            )
+            .all()
+        )
+        execution_ids = [execution.id for execution in live_executions_today]
+        charge_delta_rows = (
+            self.db.query(
+                LiveChargeAdjustment.execution_id,
+                func.coalesce(func.sum(LiveChargeAdjustment.charge_delta), 0),
+            )
+            .filter(LiveChargeAdjustment.execution_id.in_(execution_ids))
+            .group_by(LiveChargeAdjustment.execution_id)
+            .all()
+            if execution_ids else []
+        )
+        charge_deltas = {
+            execution_id: Decimal(str(delta or 0))
+            for execution_id, delta in charge_delta_rows
+        }
+        realized_pnl = sum(
+            (
+                Decimal(str(execution.realized_pnl))
+                - Decimal(str(execution.total_charges))
+                - charge_deltas.get(execution.id, Decimal("0.00"))
+                for execution in live_executions_today
+            ),
+            Decimal("0.00"),
+        )
+
+        # A charge correction received today for an older fill changes today's
+        # risk P&L by its delta, but must not replay the old fill's gross P&L.
+        older_fill_adjustments_today = (
+            self.db.query(func.coalesce(func.sum(LiveChargeAdjustment.net_realized_pnl_delta), 0))
+            .join(Execution, Execution.id == LiveChargeAdjustment.execution_id)
+            .filter(
+                Execution.portfolio_id.in_(portfolio_ids),
+                Execution.broker_connection_id.isnot(None),
+                Execution.broker_trade_id.isnot(None),
+                Execution.executed_at < day_start,
+                LiveChargeAdjustment.created_at >= day_start,
             )
             .scalar()
         )
-        realized_pnl = Decimal(str(realized_pnl or 0))
+        realized_pnl += Decimal(str(older_fill_adjustments_today or 0))
         if realized_pnl < 0 and abs(realized_pnl) >= daily_loss_limit:
             raise LiveExecutionBlocked("Account-wide daily realized-loss limit reached.")
 

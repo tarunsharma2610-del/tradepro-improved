@@ -16,14 +16,12 @@
 - The audit reports CI results of 167 backend tests passing and a successful frontend typecheck/build. These are historical CI results, not a fresh run during this continuation.
 
 ## Priority order
-1. Add and test a fail-closed guard so `ExecutionService` refuses to accept orders when `TRADING_MODE` is not `PAPER`, until a separately reviewed live execution service exists.
-2. Add a regression test proving `TRADING_MODE=LIVE` fails before broker calls or database order creation.
-3. Client request idempotency is added. A read-only `BrokerReconciliationService` now records status for an explicitly LIVE order only when it has a persisted broker order ID; it validates ownership/session/response ID and never changes local accounting. Next add broker IDs from a separately reviewed live submission service, then restart-safe fill/cancel reconciliation.
-4. Add portfolio-level daily-loss, exposure, order-value, and order-frequency limits enforced server-side.
-5. Implement Upstox instrument master sync and streaming only after verifying the current official API documentation.
-6. Add broker order lifecycle handling (partial fills, timeout/unknown state, retries, cancellation, reconciliation) before any live order placement.
-7. Run targeted tests, full backend suite, frontend typecheck/build, migration checks, and inspect CI results; report exact results without claiming unrun tests.
-8. Update `AUDIT_REPORT.md` with the implementation and test evidence. Verify migrations against staging before production deployment.
+1. **Current next task:** implement a concrete account-wide live pre-trade risk gate: positions/exposure, order-value and order-frequency caps, market session/stale quote checks, and broker funds/margin checks. Fail closed and test with mocked external calls.
+2. Keep `LIVE_ORDER_SUBMISSION_ENABLED=false`, keep `TRADING_MODE=PAPER`, and keep the existing `ExecutionService` PAPER-only. Do not wire live routes/workers or submit real orders.
+3. After the risk gate, audit and implement restart-safe broker status/fill reconciliation with partial-fill/cancel state transitions and transactional, connection-scoped trade deduplication.
+4. Verify current Upstox API response behavior through mocked tests first; verify against a sandbox/staging broker only when explicitly authorized. Do not treat mocked tests as real-broker proof.
+5. Run full backend tests, SQLite migrations, PostgreSQL migration checks where available, and frontend typecheck/build; report exact CI evidence.
+6. Update `PROGRESS.md`, `MASTER_ROADMAP.md`, `AUDIT_REPORT.md`, `REQUIREMENTS_AUDIT.md`, `ARCHITECTURE.md`, `LIVE_ORDER_STATE_MACHINE.md`, `CHANGELOG.md`, and this handover after each coherent task. Do not merge PR #1 without explicit authorization.
 
 ## Additional risk guard — safety branch
 - `PORTFOLIO_DAILY_LOSS_LIMIT_PCT` defaults to 2.0. Once today's realized losses across all fills in a portfolio reach that percentage of starting virtual capital, the existing strategy risk engine blocks new automated entries for that portfolio.

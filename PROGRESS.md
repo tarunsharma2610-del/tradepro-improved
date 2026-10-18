@@ -485,3 +485,14 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - The two preceding guard runs failed before pytest due scanner false positives (PAPER service method matching, then a docstring mention); both were corrected. The successful AST-based scanner is covered by regression tests and ignores comments/docstrings.
 - Later commits to progress/handover/roadmap/instructions are documentation-only and are not part of SHA `bdf208e`; the verified code files and workflow configuration are unchanged by those doc updates.
 - Guardrail is now verified on the exact code SHA above. It is a static guard and cannot prove safety against dynamic dispatch/reflection. Central writer, transaction/append-only hardening, scoped permissions, safety API, route/worker composition and end-to-end negative tests remain pending. Phase 2 remains incomplete.
+
+
+## Safety-event storage hardening checkpoint — 18 October 2026
+
+- Added Alembic revision `202610180011` (`backend/alembic/versions/202610180011_safety_event_immutability.py`) after `202610180010`. It adds a request fingerprint and per-state unique event version constraint, plus SQLite and PostgreSQL triggers rejecting event UPDATE/DELETE.
+- Added SHA-256 request fingerprints to new safety events. Reusing a state-scoped idempotency key with a different or unverifiable payload now fails closed; the broker-error threshold and reset expected version are part of the fingerprint.
+- Added optional expected-version validation to manual reset; stale versions are rejected before changing the state. The future safety-control API must require this field rather than rely on the service's compatibility default.
+- State mutation and audit insert remain in the same SQLAlchemy transaction. Added a regression test proving audit-insert failure rolls back the safety-state change, plus idempotency mismatch/threshold and stale-version tests.
+- Added PostgreSQL integration coverage that attempts direct event UPDATE and DELETE and verifies both are rejected and the event remains unchanged.
+- Earlier CI run #612? Do not infer a run number here: run [#? pending current head](https://github.com/tarunsharma2610-del/tradepro-improved/actions) must be checked against the exact latest code SHA before declaring this whole checkpoint verified. Run #39124213016 (SHA `2b38a0f0ba4dd167419ec116a630ebe63fabac92`) passed guard, tests, SQLite/PostgreSQL migrations and concurrency checks, but it predates the expected-version/threshold-context additions. Latest code CI run #39124312326 is pending at this checkpoint: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124312326.
+- No endpoints, central writer, route/worker wiring or broker writes were added. Keep `TRADING_MODE=PAPER`, `LIVE_ORDER_SUBMISSION_ENABLED=false`, PR #1 draft/open/unmerged, and the original `Tradepro` repository untouched. Phase 2 remains incomplete.

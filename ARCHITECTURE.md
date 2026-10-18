@@ -464,3 +464,8 @@ See [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a477
 See [CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md](CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md). The architecture target is one typed `LiveBrokerWriteService` as the only production caller of adapter place/modify/cancel. The existing `ExecutionService` remains explicitly PAPER-only. Routes, strategy execution, scheduled workers and recovery must not call broker write primitives directly. The boundary must persist an idempotent intent and matching audit event atomically before network I/O, preserve an explicit unknown-outcome state, and reconcile by stable broker tag rather than blindly resubmitting.
 
 This is a target design, not current wiring. Safety-control permissions, step-up MFA, CSRF/Origin, tenant-scoped audit reads, event immutability, CI source guard and end-to-end negative tests remain unimplemented. Keep live submission disabled.
+
+
+### Broker-write guard verification — 18 October 2026
+
+The source-call guard is implemented and passed CI run #617 on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574` (full workflow: 402 passed, 4 skipped; SQLite/PostgreSQL migrations and PostgreSQL concurrency tests passed): https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. It enforces the future single-writer convention for adapter-named references but is not itself the central writer. No production broker-write service or live route wiring exists yet.

@@ -478,3 +478,10 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 
 - CI run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: 406 passed, 5 skipped, 1 warning; SQLite/PostgreSQL migrations passed; PostgreSQL integration 5 passed.
 - Verified request fingerprint behavior, stale reset version test, audit-insert rollback and PostgreSQL event immutability tests. This does not complete Phase 2.
+
+
+## 2026-10-18 — least-privilege safety authorization foundation (verification pending)
+
+- Added explicit per-user safety_permissions grants and a default-deny permission dependency for safety status, audit reads, kill-switch trips and resets. is_admin does not implicitly grant safety permissions.
+- Normalized malformed JWT subject claims to HTTP 401 and added a reusable Origin check for cookie-authenticated mutation requests.
+- Added focused regression tests. CI has not yet verified the commits. Recent-MFA step-up, grant provisioning, route wiring and end-to-end tenant/HTTP tests remain outstanding; no safety route or live broker write was enabled.

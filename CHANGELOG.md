@@ -347,3 +347,8 @@ Live trading is **NOT READY** and disabled. No real orders have been submitted.
 - Exercises real child reconciliation, durable trade ingestion, fill promotion, and live accounting with mocked read-only broker responses and mocked charge estimates.
 - Adds assertions for repeated-run idempotency, sibling reconciliation failure blocking promotion, and paper/live accounting isolation.
 - CI for this commit was **not yet confirmed** when this entry was written; passing status must be recorded only after checking the exact commit's workflow result.
+
+
+### Follow-up — integration test now exercises fresh intake
+
+Commit `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` removes pre-seeded staged trades in both integration scenarios so real ingestion must insert them from mocked read-only broker data. CI has not yet been confirmed for this SHA.

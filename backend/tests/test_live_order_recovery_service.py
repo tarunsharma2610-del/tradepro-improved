@@ -479,3 +479,49 @@ def test_submission_claim_is_one_time_and_does_not_submit(
     db_session.refresh(order)
     assert order.status == "SUBMISSION_CLAIMED"
     assert db_session.query(BrokerOrder).filter(BrokerOrder.order_id == order.id).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_recovery_refuses_to_use_a_different_or_disconnected_broker_connection(
+    db_session, recovery_context, monkeypatch
+):
+    service, user, _portfolio, instrument, order = _prepared(
+        db_session, recovery_context, monkeypatch
+    )
+    service.mark_submission_unknown(user.id, order.id)
+    original_connection_id = order.broker_connection_id
+    assert original_connection_id is not None
+
+    connection = db_session.get(BrokerConnection, original_connection_id)
+    connection.is_connected = False
+    db_session.commit()
+    adapter = SimpleNamespace(get_order_history=AsyncMock(), place_order=AsyncMock())
+
+    result = await service.recover_by_tag(user.id, order.id, adapter=adapter)
+
+    assert result.state == "UNKNOWN_REQUIRES_REVIEW"
+    assert "connection" in (result.detail or "").lower()
+    adapter.get_order_history.assert_not_awaited()
+    adapter.place_order.assert_not_awaited()
+    assert db_session.query(BrokerOrder).filter(BrokerOrder.order_id == order.id).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_legacy_unbound_intent_requires_manual_reconciliation_before_recovery(
+    db_session, recovery_context, monkeypatch
+):
+    service, user, _portfolio, _instrument, order = _prepared(
+        db_session, recovery_context, monkeypatch
+    )
+    service.mark_submission_unknown(user.id, order.id)
+    order.broker_connection_id = None
+    db_session.commit()
+    adapter = SimpleNamespace(get_order_history=AsyncMock(), place_order=AsyncMock())
+
+    result = await service.recover_by_tag(user.id, order.id, adapter=adapter)
+
+    assert result.state == "UNKNOWN_REQUIRES_REVIEW"
+    assert "original broker connection is not recorded" in (result.detail or "").lower()
+    adapter.get_order_history.assert_not_awaited()
+    adapter.place_order.assert_not_awaited()
+    assert db_session.query(BrokerOrder).filter(BrokerOrder.order_id == order.id).count() == 0

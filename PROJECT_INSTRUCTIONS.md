@@ -1,3 +1,7 @@
+> **Current status pointer (18 October 2026):** Permanent instructions in this file remain in force. For current branch SHA, latest CI evidence, outstanding blockers, and the single next task, follow the authoritative status block at the top of `PROGRESS.md`. Historical status notes below are not current unless their commit SHA matches the verified branch head. A successful historical workflow must never be presented as exact-head verification.
+
+---
+
 # Tradepro — Existing Codebase Audit, Improvement and Live Trading Upgrade
 
 ## 1. Objective

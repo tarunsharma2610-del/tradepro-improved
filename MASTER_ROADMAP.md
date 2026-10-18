@@ -177,3 +177,13 @@ Add a service-level integration test that composes the **real** `BrokerChildOrde
 
 ### Release status
 Live trading is **NOT READY** and disabled. No real orders have been submitted.
+
+
+## Continuation checkpoint — 18 October 2026: real-service reconciliation integration coverage
+
+- **Implemented and committed test change:** `b5783d421f64fcb8e7f1d75f1af5185fd9029f59` — [commit](https://github.com/tarunsharma2610-del/tradepro-improved/commit/b5783d421f64fcb8e7f1d75f1af5185fd9029f59).
+- Extended `backend/tests/test_live_order_fill_reconciliation_coordinator.py` with integration tests composing the real `BrokerChildOrderReconciliationService`, its real `BrokerTradeIngestionService`, `LiveOrderFillReconciliationCoordinator`, `LiveFillPromotionService`, and `LiveFillAccountingService`. Only broker read responses and the charge estimator are mocked.
+- Coverage checks real service composition, repeat-run idempotency, all-sibling reconciliation failure blocking promotion, no Execution/LivePosition rows on reconciliation failure, and unchanged paper cash/positions. The mock exposes only read methods and contains no order-write path.
+- **Verification status at documentation time:** no CI status checks were returned for this commit yet. Do not report these new tests as passing until a workflow result confirms it. No local test run was performed in this continuation.
+- **Next action:** inspect the workflow result for this exact SHA; if it fails, diagnose and fix the targeted failure, rerun CI, and record exact evidence. If it passes, re-audit the remaining release blockers and choose the next distinct task—do not recreate the coordinator or repeat this integration-test task.
+- Release guardrails unchanged: PR #1 remains draft/open/unmerged; live trading is NOT READY and disabled; no real orders submitted; original `Tradepro` untouched.

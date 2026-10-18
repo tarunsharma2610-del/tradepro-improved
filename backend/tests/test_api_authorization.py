@@ -1,21 +1,22 @@
 """
-Everything in test_auth.py and test_broker_credentials.py exercises the
-service layer directly. This file goes one level up and drives the actual
-HTTP routes, because the auth dependency wiring (cookies, the admin guard on
-/settings/platform, ownership checks) only gets tested for real at that layer.
+HTTP authorization regression tests plus focused tests for the safety
+permission and cookie-Origin dependencies. Safety-control routes are not
+registered by this foundation change.
 """
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from uuid import uuid4
 
 import jwt
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import require_safety_permission
+from app.core.deps import (
+    require_same_origin_for_cookie_mutation,
+    require_safety_permission,
+)
 from app.main import app
 
 
@@ -116,3 +117,43 @@ def test_explicit_safety_permission_is_accepted():
 def test_unknown_safety_permission_fails_at_definition_time():
     with pytest.raises(ValueError):
         require_safety_permission("safety.live_trade")
+
+
+def _request(method: str, headers: list[tuple[bytes, bytes]], cookie: bytes = b"access_token=signed") -> Request:
+    return Request({
+        "type": "http",
+        "http_version": "1.1",
+        "method": method,
+        "scheme": "http",
+        "path": "/api/v1/safety/reset",
+        "raw_path": b"/api/v1/safety/reset",
+        "query_string": b"",
+        "headers": [(b"cookie", cookie), *headers],
+        "client": ("testclient", 50000),
+        "server": ("testserver", 80),
+    })
+
+
+def test_cookie_mutation_requires_allowed_origin():
+    request = _request("POST", [])
+    with pytest.raises(HTTPException) as exc:
+        require_same_origin_for_cookie_mutation(request)
+    assert exc.value.status_code == 403
+
+
+def test_cookie_mutation_rejects_untrusted_origin():
+    request = _request("POST", [(b"origin", b"https://attacker.example")])
+    with pytest.raises(HTTPException) as exc:
+        require_same_origin_for_cookie_mutation(request)
+    assert exc.value.status_code == 403
+
+
+def test_cookie_mutation_accepts_configured_origin():
+    origin = settings.CORS_ORIGINS[0].encode()
+    request = _request("POST", [(b"origin", origin)])
+    require_same_origin_for_cookie_mutation(request)
+
+
+def test_bearer_only_mutation_does_not_depend_on_cookie_origin():
+    request = _request("POST", [], cookie=b"")
+    require_same_origin_for_cookie_mutation(request)

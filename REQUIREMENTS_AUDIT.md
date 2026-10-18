@@ -196,3 +196,8 @@ The current blocker is verification: the GitHub integration returned no workflow
 | Account-scoped broker identifiers | Schema change implemented; migration verification pending | Migration 006 changes broker child-order and execution uniqueness to include broker connection; legacy child rows are backfilled when identifiable. | Test populated legacy rows and current migration chain on SQLite; verify PostgreSQL separately. |
 | Promote staged broker trades into accounted executions | Missing | Intake intentionally does not mutate cash, positions, order status, execution ledger or P&L. Actual fee handling and atomic live accounting are not complete. | Design and test a separate reconciliation/accounting step only after current intake CI is green. |
 | Current branch CI | Requires verification | Current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3` returned no workflow runs/statuses through the connected integration; local network could not clone GitHub. | Obtain exact-SHA backend and migration results; do not infer success. |
+
+
+### Verification note — 18 October 2026
+
+Migration 006 now has a targeted populated-data test for backfilling broker connection IDs on legacy broker child-order and execution rows. This is test code added, not a verified pass. Current head is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; current-head CI must be checked before this requirement is marked verified.

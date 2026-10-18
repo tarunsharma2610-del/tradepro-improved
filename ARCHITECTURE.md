@@ -481,3 +481,8 @@ This improves database-level immutability but does not protect against privilege
 ### Expected-version test correction
 
 The first stale-reset-version regression test failed because it read `version` from a mutable ORM object after a subsequent state change. It now captures the integer before that change (commit `6cd0ced108e35d715359d649a463d80709dd1fb1`). Exact-head CI run #39124498280 is pending.
+
+
+### Verified safety event storage checkpoint — 18 October 2026
+
+CI run #625 passed on SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: guard passed, backend tests 406 passed / 5 skipped, SQLite and PostgreSQL migrations passed, and 5 PostgreSQL integration tests passed including direct audit event mutation rejection. No API endpoint or live order path has been wired.

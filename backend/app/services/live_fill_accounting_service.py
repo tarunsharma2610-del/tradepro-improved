@@ -85,6 +85,8 @@ class LiveFillAccountingService:
             raise LiveExecutionBlocked("Charge source must be BROKER_REPORTED or APPROVED_ESTIMATE.")
         if not reference:
             raise LiveExecutionBlocked("Charge provenance reference is required.")
+        if len(reference) > 200:
+            raise LiveExecutionBlocked("Charge provenance reference must not exceed 200 characters.")
         names = ("brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst", "dp_charges")
         values = {name: cls._money(getattr(charges, name), name) for name in names}
         total = sum(values.values(), Decimal("0.00")).quantize(CENT, rounding=ROUND_HALF_UP)
@@ -162,6 +164,8 @@ class LiveFillAccountingService:
             # Keep the broker's supported four-decimal precision; only gross
             # turnover and fee components are rounded to paise.
             price = price.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+            if price <= 0:
+                raise LiveExecutionBlocked("Trade price is below the supported four-decimal precision.")
             gross_value = (price * Decimal(record.quantity)).quantize(CENT, rounding=ROUND_HALF_UP)
 
             existing = (

@@ -37,13 +37,12 @@ Status meanings: **Complete in current scope** means existing implementation and
 - No real broker orders were placed.
 
 ## Prioritized change plan
-1. Keep the fail-closed PAPER-only service guard until a separate, reviewed live service exists.
-2. Complete strategy-position attribution and atomic paper-fill accounting; regression tests now cover both.
-3. Finish supported instrument validation. Official Upstox docs confirm the public instrument JSON fields, but tick-size units, full derivative mapping, lot sizes and margin treatment still need verification before F&O can be enabled.
-4. Add evaluation-level de-duplication for strategy scheduling; manual order UI idempotency keys are now wired and backend strategy-position guards prevent duplicate fills.
-5. Add portfolio-wide exposure controls and a broker-error circuit breaker; distinguish paper controls from live controls.
-6. Implement a separate live execution lifecycle only after Upstox/regulatory prerequisites, broker-side idempotency, partial-fill/cancel/timeout/restart reconciliation and an account-level kill switch are verified.
-7. Fix remaining documentation drift and repeat backend tests, migration/data-backfill checks, frontend typecheck/build and staging verification after each relevant change.
+1. **Next:** implement a concrete account-wide live pre-trade risk gate (current positions/exposure, order value/frequency, market session/stale quotes and broker funds/margin) with fail-closed tests and mocked external dependencies.
+2. Complete broker status and fill reconciliation: partial fills, cancellation/modification confirmation, connection-scoped fill idempotency and transactional accounting; do not infer fills from order history.
+3. Verify derivative instrument mapping, tick/lot sizes and margin treatment before enabling any non-equity segments.
+4. Implement instrument master sync and streaming using current official Upstox documentation; keep paper mode on real market data and never synthesize broker values.
+5. Add a broker-error circuit breaker, account-level kill switch and operational monitoring/recovery runbooks.
+6. Run full backend, SQLite/PostgreSQL migration, frontend and staging checks. Keep live trading disabled until all release gates and explicit review are complete.
 
 ## Retained unchanged after review
 - Existing paper order/accounting engine, order and position models, cost engine, strategy scoring, backtest engine, notification integrations, OAuth/credential encryption, existing pages, and current migration history.

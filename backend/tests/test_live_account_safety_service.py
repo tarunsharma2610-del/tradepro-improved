@@ -294,6 +294,7 @@ def test_manual_reset_rejects_stale_expected_state_version(safety_context):
         user.id, passed=True, reason="broker session and account snapshots verified",
         actor_user_id=user.id, idempotency_key="fresh-health-1",
     )
+    health_version = health.version
     service.trip_kill_switch(
         user.id, "operator stopped trading", actor_user_id=user.id,
         idempotency_key="trip-after-health",
@@ -302,5 +303,5 @@ def test_manual_reset_rejects_stale_expected_state_version(safety_context):
     with pytest.raises(LiveExecutionBlocked, match="state changed"):
         service.manual_reset(
             user.id, "operator reviewed recovery", actor_user_id=user.id,
-            idempotency_key="stale-reset", expected_version=health.version,
+            idempotency_key="stale-reset", expected_version=health_version,
         )

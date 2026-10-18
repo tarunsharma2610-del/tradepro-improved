@@ -445,3 +445,9 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Added a source scanner and tests to prevent unapproved production references to broker place/modify/cancel methods.
 - Added the scanner to backend CI. Run #614 is pending verification: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569.
 - No central writer, API endpoint, route/worker wiring, or live submission was added.
+
+
+### 2026-10-18 — Guard false-positive fix
+
+- The first guard workflow failed before pytest due to matching PAPER service `.place_order` methods as broker-adapter writes.
+- Narrowed matching to adapter-named receivers in commit `30599b1bd8d32293b856c88cdfb4e2facaa9ce0f`; new CI run #615 is pending.

@@ -732,3 +732,9 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 - The test asserts staged trades still do not alter execution/position/cash/order accounting. It is coverage for the intake boundary, not proof of end-to-end broker reconciliation. Await CI for the new commit before treating it as verified.
 - Next: inspect exact-head CI, then implement the separately reviewed accounting promotion/reconciliation transaction only after validating actual charge-source rules and position math. Keep live broker writes blocked.
 
+
+
+## 2026-10-18 — status snapshot consistency guard
+- Parser now rejects contradictory `filled_quantity`/`average_price` combinations (zero fills with positive average, or positive fills with zero average). Added two negative payload cases.
+- Verify exact-head CI before considering this guard complete. Next review should focus on coordinator-level reconciliation idempotency and parent-order accounting state; keep reconciliation services unregistered and all broker writes blocked.
+

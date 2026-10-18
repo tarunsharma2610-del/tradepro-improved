@@ -453,3 +453,10 @@ Static source review is recorded in [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURIT
 ## Order-entry and broker-write inventory — 18 October 2026
 
 Added [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a477489c7e2d5b6883c299c1e9a8aee1cbef055f](https://github.com/tarunsharma2610-del/tradepro-improved/commit/a477489c7e2d5b6883c299c1e9a8aee1cbef055f). Static review found the manual portfolio order route and both strategy evaluation paths call the shared PAPER-only ExecutionService; it rejects non-PAPER mode. The Upstox adapter contains order-write primitives, but no production call site was found in the reviewed paths. Live recovery persists intents and reads recovery history without submitting; it currently uses LiveExecutionService directly rather than LivePreflightCoordinator, leaving an account-safety/snapshot composition gap. No code was wired or enabled. This is a static path inventory, not proof of runtime impossibility or a production sign-off.
+
+
+## Audit addendum — central broker-write design (18 October 2026)
+
+The design-only artifact `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md` now specifies a single typed broker-write boundary and the controls needed before endpoint implementation. Current findings remain open: live intent recovery bypasses the safety-aware coordinator; no dedicated least-privilege safety permissions or operator audit-history endpoint exists; recent-MFA step-up and CSRF/Origin policy are not established; database-level event immutability is not demonstrated; malformed JWT subject parsing can escape as a non-normalized error; and no CI guard yet prevents new direct adapter write call sites.
+
+No code paths were wired or enabled by this design checkpoint. This is not a penetration test, runtime trace, broker sandbox verification, or release sign-off. Live submission remains disabled.

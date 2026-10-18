@@ -309,3 +309,8 @@ CI run #617 passed on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`: https
 Read the latest `PROGRESS.md` and `HANDOVER.md` before resuming. Code adds revision `202610180011` for safety-event request fingerprints, unique per-state event versions and SQLite/PostgreSQL triggers that reject audit event updates/deletes. The service now rejects idempotency-key payload mismatches and can reject stale manual-reset expected versions. Regression tests cover audit-write rollback; PostgreSQL integration attempts direct update/delete.
 
 Exact-head CI is not yet verified: run `39124312326` for SHA `2ece7b2f5b85faf4b0bbef55b97d5d0fe4c1e9b3` was pending at this checkpoint. Wait for its final result and inspect every workflow step. Do not claim success from earlier run `39124213016`, which predates the final changes. Next after green CI: review migration/trigger behavior, then implement scoped authorization/MFA/CSRF. Do not wire live orders, enable live mode, merge PR #1, or touch original `Tradepro`.
+
+
+### Latest CI correction — safety storage
+
+Run #39124312326 failed one new stale-version test because the test retained a mutable ORM object and read its version after a later mutation. Commit `6cd0ced108e35d715359d649a463d80709dd1fb1` snapshots the version before mutation. Latest exact-head run #39124498280 is pending; inspect all steps before claiming success. Do not enable live trading.

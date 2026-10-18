@@ -460,3 +460,10 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - The scanner flags attribute references to `place_order`, `modify_order`, and `cancel_order` under production `backend/app` sources except the low-level adapter definitions and the exact future boundary file `app/services/live_broker_write_service.py`. The test suite covers unapproved call rejection, the exact allowlist, and method-reference alias detection.
 - CI run #614 is in progress at the time of this checkpoint: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569. Do not mark it passed until the run concludes.
 - This is guardrail work only. Central writer, permissions, safety API, audit storage hardening and route/worker composition remain pending; Phase 2 remains incomplete.
+
+
+### Guard false-positive correction — 18 October 2026
+
+- CI run #614 exposed a real scanner-design false positive: generic `.place_order()` matches included PAPER `ExecutionService` methods and docstring text, not just broker-adapter writes. Run #614 failed at the guard step before the suite ran: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569.
+- Corrected the guard to inspect adapter-named receivers (e.g. `adapter.place_order`, `self.adapter.cancel_order`) rather than generic service method names. This keeps normal paper execution calls outside the broker-adapter scan while preserving explicit adapter naming as a source convention. Commit: `30599b1bd8d32293b856c88cdfb4e2facaa9ce0f`.
+- New CI run #615 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123199888. Await its result before treating the guard as verified. The scanner cannot detect dynamic dispatch/reflection and is one layer of defense, not proof of safety.

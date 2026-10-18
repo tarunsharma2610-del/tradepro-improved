@@ -5,7 +5,13 @@ name: Backend tests
     branches:
       - main
       - 'safety/**'
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-tests.yml'
   pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-tests.yml'
   workflow_dispatch:
 
 permissions:

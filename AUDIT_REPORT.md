@@ -11,7 +11,7 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 | Order input validation | Improved | Service boundary rejects non-positive quantities, unsupported order types, missing/non-positive LIMIT prices, and a limit price attached to MARKET orders. API schema also rejects non-positive limit prices. |
 | Quote price parsing | Improved | Rejects malformed, non-finite, zero, and negative LTP values before paper accounting. |
 | Paper limit orders | Implemented; tests passed | Worker checks pending PAPER LIMIT orders during market passes, fills only when LTP crosses the limit, uses limit-or-better pricing, shares cost/cash/position accounting, and rejects delivery sells without holdings. Owners can cancel pending orders from the portfolio page. |
-| Live order lifecycle | Partial / not enabled | Durable intent/tag recovery and a fail-closed account-wide risk-gate foundation are CI-tested. The risk gate requires injected quote/positions/funds/margin providers that are not wired to Upstox; exchange holidays/special sessions are not covered. No broker POST/route/worker is wired, and no live fills are accounted. Do not enable live orders. |
+| Live order lifecycle | Partial / not enabled | Durable intent/tag recovery, absolute-INR account-wide risk gate, strict read-only Upstox quote/positions/funds/margin/calendar snapshot collection and mocked CI tests are present. Async snapshot collector is not yet orchestrated into preflight or wired to routes/workers. No live order submission or fill accounting is enabled. Do not enable live orders. |
 | Strategy activation | Fixed | Strategy evaluation returns HOLD for inactive strategies before contacting the broker; regression test added. |
 | Daily risk controls | Partial | Strategy/portfolio paper-entry loss guards exist. Live gate adds absolute INR order/exposure/daily-loss limits, frequency caps, freshness/session checks and broker funds/margin checks, but its provider adapters and holiday calendar are not wired. No live order submission is enabled. |
 | Broker OAuth | Improved | State is signed, expires after 10 minutes, and is bound to user/broker/connection. A nonce digest and expiry are persisted and consumed by a conditional database update, so repeated/concurrent callback attempts cannot consume the same state twice. |
@@ -45,11 +45,11 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 
 ## Remaining high-priority work
 
-1. Add durable order idempotency/reconciliation before any live-trading implementation. The automated-entry kill switch is now present but must be included in deployment configuration and operational runbooks.
-2. Add portfolio-wide loss/exposure controls and an exchange holiday calendar.
-3. Implement instrument master sync and WebSocket market data using current official Upstox documentation.
-4. Verify the Alembic migration path in staging and check the current deployment configuration.
-5. Review remaining analytics and backtest behavior against the requested product requirements.
+1. Safely orchestrate the async Upstox risk snapshot collector into live preflight only after all fail-closed environment, confirmation, ownership and credential checks pass.
+2. Add broker-confirmed status/fill/cancel reconciliation, partial-fill accounting and connection-scoped trade deduplication.
+3. Add broker-error circuit breaker, account-level kill switch and operations/recovery runbooks.
+4. Implement instrument master sync and WebSocket market data using current official Upstox documentation.
+5. Verify PostgreSQL migrations, frontend build and deployment behavior in staging.
 
 
 ## Continuation update — 17 October 2026

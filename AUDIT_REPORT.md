@@ -223,3 +223,14 @@ This section supersedes stale next-step notes above. The branch contains a typed
 **Current task:** audit and then implement broker-confirmed trade/fill ingestion with transaction-safe idempotency. Before changing code, verify the model/migration schema, local order-to-broker-child mapping, broker connection/account identity, user ownership, and existing accounting transaction semantics. Specifically investigate whether global `(broker_name, broker_trade_id)` uniqueness incorrectly couples separate broker accounts; the current schema does not include broker connection identity in that key. Do not assume this is safe for multiple accounts.
 
 **Verification:** current PR #1 head observed as `540e1285d3de934b43829948a1b60c67658d1343`; the GitHub integration returned no workflow runs or combined statuses for that head. Current-head CI remains unverified. Older CI results are historical and must not be attributed to the current head. Live order submission remains absent/disabled; the existing PAPER-only execution guard must remain intact.
+
+
+## Broker trade ingestion implementation — 18 October 2026 (verification pending)
+
+Added `BrokerTradeRecord` and `BrokerTradeIngestionService` to stage normalized broker-confirmed trades independently from accounted `Execution` rows. The service enforces LIVE order scope, tenant ownership, exact local-order/child-order mapping, user broker-connection binding, side/instrument consistency, positive finite price and quantity, replay identity consistency, and parent-order quantity bounds. Exact replays are counted and skipped; conflicting trade-ID reuse is rejected.
+
+The audit also identified that broker order IDs and execution trade IDs must be scoped by connection/account, not globally by broker name. Migration `202610180006` changes those uniqueness keys and backfills legacy connection links where safely identifiable. Migration `202610180005` adds the intake table with a unique `(broker_connection_id, broker_trade_id)` constraint.
+
+**Accounting boundary:** this is durable intake only. It intentionally does not change local order status, broker child fill aggregates, positions, cash, or P&L, and it does not write into `executions`. That prevents estimated fees or an incomplete live-accounting flow from corrupting paper accounting. A later step must reconcile actual costs and promote staged fills into live accounting atomically.
+
+Tests added/updated: `backend/tests/test_broker_trade_ingestion.py` and `backend/tests/test_live_broker_schema_migration.py`. Current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3`; workflow/status lookup returned no results for that SHA. Local clone/test execution was unavailable due network DNS failure. **No test pass is claimed for this implementation yet.**

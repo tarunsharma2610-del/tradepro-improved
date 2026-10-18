@@ -622,3 +622,7 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 ## 2026-10-18
 - Added regression coverage for multiple partial broker fills across repeated snapshots, duplicate replay handling, cumulative order-quantity enforcement, rollback on attempted overfill, and the no-accounting-mutation invariant for staged trades. CI verification pending.
 
+
+
+## 2026-10-18
+- Reject internally inconsistent Upstox order-detail snapshots where filled quantity and average fill price disagree; add malformed-response tests.

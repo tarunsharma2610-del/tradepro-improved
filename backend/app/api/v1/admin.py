@@ -16,10 +16,12 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import (
     SAFETY_PERMISSIONS,
+    get_current_user,
     get_db,
     require_admin,
     require_recent_safety_mfa,
     require_same_origin_for_cookie_mutation,
+    require_safety_permission,
 )
 from app.models.audit_log import AuditLog
 from app.models.backtest import BacktestRun
@@ -27,7 +29,13 @@ from app.models.news_item import NewsItem
 from app.models.portfolio import Portfolio
 from app.models.strategy import Strategy
 from app.models.user import User
-from app.schemas.admin import (\n    PlatformStatsOut,\n    SafetyAuditEntry,\n    SafetyAuditPage,\n    SafetyPermissionChange,\n    SafetyPermissionChangeOut,\n)
+from app.schemas.admin import (
+    PlatformStatsOut,
+    SafetyAuditEntry,
+    SafetyAuditPage,
+    SafetyPermissionChange,
+    SafetyPermissionChangeOut,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

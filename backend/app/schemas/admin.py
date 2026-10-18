@@ -8,3 +8,19 @@ class PlatformStatsOut(BaseModel):
     total_strategies: int
     total_news_items: int
     total_backtest_runs: int
+
+
+from typing import Literal
+from uuid import UUID
+
+from pydantic import Field
+
+
+class SafetyPermissionChange(BaseModel):
+    permission: str = Field(min_length=1, max_length=64)
+    action: Literal["grant", "revoke"]
+
+
+class SafetyPermissionChangeOut(BaseModel):
+    user_id: UUID
+    safety_permissions: list[str]

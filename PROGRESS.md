@@ -320,22 +320,22 @@ Implement a concrete, testable **account-wide live pre-trade risk gate** and inj
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading remains **NOT READY**; no real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: read-only Upstox trade fetch and idempotent intake
+## Authoritative checkpoint — 18 October 2026: broker trade intake and child-order reconciliation
 
 ### Verified code and tests
-- Latest verified code/test SHA: `46863a0b28b3641dac13d58f9c21540a7c2729de`. GitHub Actions [run #39112593615](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112593615) succeeded: **331 passed, 1 warning in 25.73s**; SQLite Alembic migration verification passed.
-- Existing schema groundwork includes `BrokerOrder` child-order mappings and `BrokerTradeRecord` intake rows with a unique `(broker_connection_id, broker_trade_id)` key. The additive migrations `202610180005` and `202610180006` create trade intake and scope broker IDs to connections.
-- Existing `BrokerTradeIngestionService.ingest_trades` validates user/order/child-order/connection identity, side, instrument, positive quantity/price, replay consistency and total order quantity. It writes trade intake records idempotently and does not update Execution, local Order status, cash or positions.
-- Added `fetch_and_ingest`: calls only the read-only Upstox `get_order_trades` endpoint, parses each row against the expected broker child-order ID, revalidates connection/token after async I/O, then stages the trades through the existing transactional/idempotent intake path. It does not call place/modify/cancel endpoints.
-- New mocked tests cover successful repeated fetches, duplicate replay, broker error, mismatched order identity, token rotation and unmapped child-order rejection. Latest full CI is 331 passed; SQLite migrations passed.
+- Latest verified code/test SHA: `10836331eaf3eedc1c1a0717f55a12371c3f6a99`. GitHub Actions [run #39112965869](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112965869) succeeded: **337 passed, 1 warning in 26.56s**; SQLite Alembic migration verification passed.
+- Broker trades can now be fetched through the read-only Upstox `get_order_trades` endpoint, parsed against the exact child-order ID, checked against the per-user broker connection/token, and staged idempotently using the connection-scoped trade ID constraint.
+- Added `BrokerChildOrderReconciliationService`: fetches trade intake and official order details, validates requested/filled quantity, instrument, side, average price and recognized broker status, then updates only `BrokerOrder` status/fill aggregate. It uses a child-order row lock and refuses status regressions or contradictory terminal states.
+- Normalized child states include `PENDING`, `OPEN`, `PARTIALLY_FILLED`, `FILLED`, `CANCELLED`, `CANCELLED_PARTIALLY_FILLED`, and `REJECTED`. Unknown/contradictory status or mismatch between reported filled quantity and durable trade records fails closed.
+- Tests cover idempotent replay, partial fills, cancellation after partial fills, full fills, unknown status, fill/status mismatch and terminal-state regression. Latest CI is 337 passed; SQLite migrations passed.
 
-### Remaining caveats
-- Broker responses were mocked; no real Upstox calls or real orders were used. Broker trade response fields and timestamp semantics still require official API-contract review and staging verification.
-- Trade intake is not yet promoted into accounted `Execution` rows. Child-order filled quantity/average price and normalized order-state transitions are not yet reconciled from the trade records and official order status. Cash, positions and P&L must remain unchanged until a separately tested atomic accounting path exists.
-- PostgreSQL migration, exact-head frontend build and staging remain unverified. PR #1 remains draft/open/unmerged.
+### Explicit boundaries / remaining gaps
+- This is mock-verified, not validated against live Upstox responses or staging. No broker order write was used.
+- Reconciliation deliberately does **not** change conceptual `Order.status`, create `Execution` rows, or mutate cash, positions, realized P&L or transaction costs. A separate atomic live-accounting promotion path is still required.
+- PostgreSQL migration, exact-head frontend build and staging remain unverified. PR #1 remains draft/open/unmerged; live trading remains disabled.
 
 ### Next task
-Implement a separate child-order reconciliation step that uses validated trade records plus a validated official broker status/details response to update only `BrokerOrder` fill aggregates and normalized child status (including partial fills). Do not update local `Order` terminal state, create `Execution` rows, or change cash/positions/P&L in this step. Add replay, contradictory status/fill, cancellation-with-partial-fill and multi-child quantity tests. Keep it unregistered and read-only with respect to order submission.
+Audit the existing paper `ExecutionService`, position math, cost/charge calculation and portfolio cash/position updates. Design and implement a separate live-fill accounting service that atomically promotes broker-confirmed `BrokerTradeRecord` rows into `Execution` rows and updates positions/cash using actual fill prices, with connection-scoped idempotency and rollback tests. Do not alter paper behavior or wire live submission/routes/workers.
 
 ### Release status
 Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

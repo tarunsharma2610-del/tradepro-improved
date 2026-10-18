@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # doc for exactly why flipping this alone was never going to be enough.
     TRADING_MODE: str = "PAPER"
 
+    # Independent server-side interlock for the future live execution path.
+    # Default OFF even when TRADING_MODE=LIVE; enabling this alone does not
+    # wire or authorize live orders. A reviewed risk gate and explicit
+    # per-request user confirmation are also required.
+    LIVE_ORDER_SUBMISSION_ENABLED: bool = False
+
     # Emergency stop for automated strategy entries. Set AUTOMATED_ENTRIES_ENABLED=false
     # in the backend environment and restart the API/worker to block new entries.
     # Strategy exits remain enabled so existing positions can still be closed.

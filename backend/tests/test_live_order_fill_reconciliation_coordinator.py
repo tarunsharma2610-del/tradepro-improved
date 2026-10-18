@@ -378,3 +378,70 @@ async def test_real_services_block_all_promotion_if_any_sibling_status_fails(ord
     assert Decimal(str(portfolio.cash_balance)) == cash_before
     assert order.status == "PENDING"
     assert adapter.write_calls == 0
+
+
+class FailOnceIntegrationChargeEstimator(FixedIntegrationChargeEstimator):
+    """Fail one later fill once, then allow a safe idempotent retry."""
+
+    def __init__(self, db):
+        super().__init__(db)
+        self.failed_trade_two = False
+
+    async def estimate_for_trade(self, user_id, broker_trade_record_id):
+        record = self.db.get(BrokerTradeRecord, broker_trade_record_id)
+        if record.broker_trade_id == "trade-2" and not self.failed_trade_two:
+            self.failed_trade_two = True
+            raise ValueError("simulated temporary charge-estimation failure")
+        return await super().estimate_for_trade(user_id, broker_trade_record_id)
+
+
+@pytest.mark.asyncio
+async def test_real_services_retry_partial_promotion_without_duplicate_accounting(order_context, monkeypatch):
+    db, user, portfolio, instrument, order, children, records, now = order_context
+    # Force real ingestion to create the durable records from broker read responses.
+    db.query(BrokerTradeRecord).delete(synchronize_session=False)
+    db.commit()
+    adapter = ReadOnlyUpstoxIntegrationAdapter(instrument.instrument_key)
+    monkeypatch.setattr(
+        BrokerCredentialsService, "get_access_token", lambda *_args: "test-access-token"
+    )
+    estimator = FailOnceIntegrationChargeEstimator(db)
+    promotion = LiveFillPromotionService(
+        db,
+        charge_estimator=estimator,
+        accounting=LiveFillAccountingService(db),
+    )
+    coordinator = LiveOrderFillReconciliationCoordinator(
+        db,
+        child_reconciler=BrokerChildOrderReconciliationService(db, adapter=adapter),
+        promotion_service=promotion,
+    )
+    paper_cash_before = Decimal(str(portfolio.cash_balance))
+
+    first = await coordinator.reconcile_and_promote(user.id, order.id)
+
+    assert first.reconciliation_complete
+    assert not first.promotion_complete
+    assert first.total_promoted_trades == 1
+    assert first.total_duplicate_trades == 0
+    assert "simulated temporary charge-estimation failure" in first.blocked_reason
+    assert db.query(BrokerTradeRecord).count() == 2
+    assert db.query(Execution).count() == 1
+    assert db.query(LivePosition).one().quantity == 1
+
+    second = await coordinator.reconcile_and_promote(user.id, order.id)
+
+    assert second.reconciliation_complete and second.promotion_complete
+    assert second.total_promoted_trades == 1
+    assert second.total_duplicate_trades == 1
+    assert db.query(BrokerTradeRecord).count() == 2
+    assert db.query(Execution).count() == 2
+    position = db.query(LivePosition).one()
+    assert position.quantity == 2
+    assert Decimal(str(position.avg_price)) == Decimal("100.5000")
+    assert db.query(Position).count() == 0
+    db.refresh(portfolio)
+    db.refresh(order)
+    assert Decimal(str(portfolio.cash_balance)) == paper_cash_before
+    assert order.status == "PENDING"
+    assert adapter.write_calls == 0

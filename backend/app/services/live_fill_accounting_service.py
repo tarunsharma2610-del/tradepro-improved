@@ -45,6 +45,7 @@ class LiveChargeBreakdown:
     gst: Decimal
     source: str
     reference: str
+    dp_charges: Decimal = Decimal("0")
 
 
 @dataclass(frozen=True)
@@ -84,7 +85,7 @@ class LiveFillAccountingService:
             raise LiveExecutionBlocked("Charge source must be BROKER_REPORTED or APPROVED_ESTIMATE.")
         if not reference:
             raise LiveExecutionBlocked("Charge provenance reference is required.")
-        names = ("brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst")
+        names = ("brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst", "dp_charges")
         values = {name: cls._money(getattr(charges, name), name) for name in names}
         total = sum(values.values(), Decimal("0.00")).quantize(CENT, rounding=ROUND_HALF_UP)
         return values | {"charge_source": source, "charge_reference": reference}, total
@@ -244,6 +245,7 @@ class LiveFillAccountingService:
                 sebi_charges=validated_charges["sebi_charges"],
                 stamp_duty=validated_charges["stamp_duty"],
                 gst=validated_charges["gst"],
+                dp_charges=validated_charges["dp_charges"],
                 total_charges=total_charges,
                 charge_source=validated_charges["charge_source"],
                 charge_reference=validated_charges["charge_reference"],

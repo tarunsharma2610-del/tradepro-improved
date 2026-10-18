@@ -487,3 +487,10 @@ Latest run #39124312326 failed one test due to the test retaining a mutable ORM 
 ### Verified audit storage controls — 18 October 2026
 
 Run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Backend suite 406 passed / 5 skipped; migrations passed on SQLite and PostgreSQL 16; PostgreSQL integration 5 passed, including event UPDATE/DELETE rejection. This verifies tested migration/trigger behavior under CI but is not a production penetration test or protection against a privileged database owner. Endpoint enforcement and central writer remain absent.
+
+
+## 18 October 2026 — authorization foundation in progress
+
+- Added explicit per-user safety permission grants and a default-deny dependency for status read, audit read, kill-switch trip and reset. Platform is_admin is not an implicit grant.
+- Added malformed JWT subject normalization to 401 and a reusable Origin guard for cookie-authenticated mutation requests, plus focused regression tests.
+- Not complete / not yet verified: recent-MFA step-up, trusted grant provisioning, attaching guards to safety endpoints, endpoint-level cross-tenant negative tests, and current-head CI. No safety-control routes are exposed and live submission remains disabled.

@@ -5,15 +5,16 @@
 
 ## 1. Current implementation audit
 
-The current repository already has:
-- A fail-closed gate in `ExecutionService.place_order`: it rejects LIVE or unknown mode before creating an order.
-- OAuth state binding/single-use checks, encrypted broker credentials, access-token expiry checks, and connection verification.
-- An equity-only instrument/segment validator and paper order accounting with atomic transactions.
-- An `Order` model with a local status, a legacy singular `broker_order_id`, optional idempotency key and broker-status metadata.
-- Read-only broker status checks that require a matching returned `order_id` and deliberately do not update local fills, cash or positions.
-- An Upstox adapter for V3 place/modify/cancel and read-only V2 order details, order book, order trades and order history. These methods are not wired into execution.
+The repository currently has:
+- A fail-closed guard in `ExecutionService.place_order`; the shared execution service remains PAPER-only.
+- OAuth state binding/single-use checks, encrypted broker credentials, token expiry checks and connection verification.
+- An unregistered `LiveExecutionService` preflight-only foundation with a default-off independent interlock, explicit confirmation and an injected risk-gate contract. No API route or worker invokes it.
+- A durable `Order.idempotency_key` scoped to portfolio and a unique nullable `Order.broker_tag`.
+- `LiveOrderRecoveryService`, added and CI-verified on 18 October 2026: persists a stable opaque tag before any future broker request, returns the same local row for same-key/same-intent retries, rejects same-key/different-intent reuse, and looks up ambiguous submissions by tag.
+- Read-only tag recovery that checks tag, instrument, side and total child quantity before persisting `BrokerOrder` identity rows. It does not infer status/fills or mutate accounting. A timeout, lookup error, or empty history is not permission to submit again.
+- An Upstox adapter for V3 place/modify/cancel and read-only V2 order details, order book, trades and history. Adapter methods remain unwired from submission.
 
-Important gaps: no separate live submission service, no durable parent-to-multiple-broker-order mapping, no trade-ID deduplication for live fills, no local PARTIALLY_FILLED state, no broker-trade reconciliation loop, no unknown-timeout recovery, and no complete live/manual pre-trade exposure control or broker-error circuit breaker.
+Still missing: a concrete account-wide live risk gate; any actual live submission lifecycle; automatic status/fill reconciliation and idempotent accounting; full partial-fill/cancel/modify/timeout recovery; broker-error circuit breaker; production/staging and PostgreSQL verification. **Live trading is not ready and remains disabled.**
 
 ## 2. Upstox API facts used in this design
 

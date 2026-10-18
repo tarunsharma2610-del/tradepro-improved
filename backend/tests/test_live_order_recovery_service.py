@@ -525,3 +525,42 @@ async def test_legacy_unbound_intent_requires_manual_reconciliation_before_recov
     adapter.get_order_history.assert_not_awaited()
     adapter.place_order.assert_not_awaited()
     assert db_session.query(BrokerOrder).filter(BrokerOrder.order_id == order.id).count() == 0
+
+
+def test_claimed_submission_revalidation_denies_when_runtime_flag_is_off(
+    db_session, recovery_context, monkeypatch
+):
+    service, user, _portfolio, _instrument, order = _prepared(
+        db_session, recovery_context, monkeypatch
+    )
+    service.claim_submission_attempt(user.id, order.id)
+    monkeypatch.setattr(settings, "LIVE_ORDER_SUBMISSION_ENABLED", False)
+
+    with pytest.raises(LiveExecutionBlocked, match="submission is disabled"):
+        service.validate_claimed_submission(user.id, order.id)
+
+
+def test_claimed_submission_revalidation_denies_missing_account_safety_state(
+    db_session, recovery_context, monkeypatch
+):
+    service, user, _portfolio, _instrument, order = _prepared(
+        db_session, recovery_context, monkeypatch
+    )
+    service.claim_submission_attempt(user.id, order.id)
+
+    with pytest.raises(LiveExecutionBlocked, match="Persistent account safety check denied"):
+        service.validate_claimed_submission(user.id, order.id)
+
+
+def test_claimed_submission_revalidation_denies_changed_connection(
+    db_session, recovery_context, monkeypatch
+):
+    service, user, _portfolio, connection, order = _prepared(
+        db_session, recovery_context, monkeypatch
+    )
+    service.claim_submission_attempt(user.id, order.id)
+    connection.is_connected = False
+    db_session.commit()
+
+    with pytest.raises(LiveExecutionBlocked, match="Original broker connection"):
+        service.validate_claimed_submission(user.id, order.id)

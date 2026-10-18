@@ -18,7 +18,7 @@ def test_unapproved_adapter_write_reference_is_rejected(tmp_path):
     assert "place_order" in violations[0]
 
 
-def test_only_named_boundary_file_may_reference_write_methods(tmp_path):
+def test_central_boundary_must_not_call_adapter_until_reviewed(tmp_path):
     app = tmp_path / "app"
     (app / "services").mkdir(parents=True)
     (app / "services" / "live_broker_write_service.py").write_text(
@@ -26,7 +26,9 @@ def test_only_named_boundary_file_may_reference_write_methods(tmp_path):
         encoding="utf-8",
     )
 
-    assert find_violations(app) == []
+    violations = find_violations(app)
+    assert len(violations) == 1
+    assert "services/live_broker_write_service.py:2" in violations[0]
 
 
 def test_adapter_definitions_are_excluded_but_other_references_are_not(tmp_path):
@@ -55,6 +57,31 @@ def test_docstring_mentions_are_not_treated_as_adapter_calls(tmp_path):
     (app / "services" / "preflight.py").write_text(
         '"""Never call adapter.place_order from preflight."""\n'
         "def check():\n    return True\n",
+        encoding="utf-8",
+    )
+
+    assert find_violations(app) == []
+
+
+def test_generic_receiver_cannot_bypass_broker_write_guard(tmp_path):
+    app = tmp_path / "app"
+    (app / "services").mkdir(parents=True)
+    (app / "services" / "unexpected.py").write_text(
+        "async def submit(client):\\n    return await client.place_order(token, payload)\\n",
+        encoding="utf-8",
+    )
+
+    violations = find_violations(app)
+
+    assert len(violations) == 1
+    assert "unexpected.py:2" in violations[0]
+
+
+def test_known_paper_execution_service_call_is_allowed(tmp_path):
+    app = tmp_path / "app"
+    (app / "services").mkdir(parents=True)
+    (app / "services" / "strategy_execution_service.py").write_text(
+        "async def submit(self, user, request):\\n    return await self.execution.place_order(user, request)\\n",
         encoding="utf-8",
     )
 

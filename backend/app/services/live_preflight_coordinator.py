@@ -126,8 +126,12 @@ class LivePreflightCoordinator:
         # preflight revalidates all local intent/connection/interlock rules.
         # No broker order endpoint is called; this returns only a non-secret plan.
         try:
-            return LiveExecutionService(self.db, risk_gate=gate).preflight(
-                user_id, intent, user_confirmed=user_confirmed
+            return LiveExecutionService(self.db, risk_gate=gate)._preflight_with_expected_snapshot_credentials(
+                user_id,
+                intent,
+                user_confirmed=user_confirmed,
+                expected_access_token=access_token,
+                expected_connection_id=connection.id,
             )
         except LiveExecutionBlocked:
             raise

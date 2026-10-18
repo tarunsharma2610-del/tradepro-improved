@@ -457,3 +457,11 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 
 - CI run #617 passed on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`: guard PASS; backend tests 402 passed / 4 skipped / 1 warning; SQLite and PostgreSQL migrations PASS; PostgreSQL concurrency tests 4 passed.
 - The guard is a preventive static check only. Central broker-write service, safety API, permission foundation, append-only storage protection and path wiring remain pending.
+
+
+### 2026-10-18 — Safety-event storage hardening
+
+- Added migration `202610180011` with request fingerprint support, unique state-version event ordering, and SQLite/PostgreSQL triggers preventing audit event updates/deletes.
+- Safety idempotency replays now reject payload mismatches; broker-error threshold and reset expected-version are fingerprinted.
+- Added tests for audit-write rollback, conflicting idempotency payloads, threshold mismatch, stale reset version, and PostgreSQL rejection of direct audit UPDATE/DELETE.
+- Exact-head CI run `39124312326` was pending at the checkpoint; earlier green run `39124213016` predates the last expected-version/threshold change.

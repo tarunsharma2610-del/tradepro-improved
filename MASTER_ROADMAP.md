@@ -303,3 +303,8 @@ Required order:
 6. Complete fresh audit, PostgreSQL CI and release review before any separate manual live-enable action.
 
 Keep PR #1 draft/open, `TRADING_MODE=PAPER`, `LIVE_ORDER_SUBMISSION_ENABLED=false`, and original `Tradepro` untouched. Phase 2 remains incomplete.
+
+
+### Broker-write source guard added — 18 October 2026
+
+The CI source-call guard and scanner tests were added in commit `04583cd35ecf5360624bc0164c7b91231a058e5e`. Workflow run #614 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569. It rejects production references to adapter place/modify/cancel methods outside the future `app/services/live_broker_write_service.py` and the adapter definitions. This does not establish that the central service exists or that live submission is safe. Await CI result before proceeding; then implement storage/event transaction protections and authorization foundations.

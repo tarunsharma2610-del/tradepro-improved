@@ -43,6 +43,9 @@ class Execution(BaseModel):
     # breakdown. Live promotion must never silently label estimates as actual.
     charge_source: Mapped[str] = mapped_column(String(30), default="PAPER_ESTIMATE", nullable=False)
     charge_reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Separately preserve depository-participant/other charges when a broker's
+    # estimate response reports them outside the normal six components.
+    dp_charges: Mapped[float] = mapped_column(Numeric(18, 2), default=0, nullable=False)
 
     # Realized P&L attributable to THIS fill specifically (0 for fills that
     # open/add to a position rather than close one) — see position_math.py.

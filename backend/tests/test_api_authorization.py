@@ -623,3 +623,38 @@ def test_permission_management_route_rejects_reset_scope_token(client, db_sessio
     assert response.status_code == 403
     db_session.refresh(target)
     assert target.safety_permissions == []
+
+
+def test_step_up_rejects_cookie_request_without_origin(client, db_session):
+    _register_and_login(client, email="origin-check@example.com")
+    from app.repositories.user_repository import UserRepository
+    user = UserRepository(db_session).get_by_email("origin-check@example.com")
+    user.mfa_enabled = True
+    user.mfa_secret_encrypted = "test-encrypted-secret"
+    db_session.commit()
+    response = client.post(
+        "/api/v1/auth/mfa/step-up",
+        json={"password": "correct-horse-battery-staple", "code": "123456"},
+    )
+    assert response.status_code == 403
+
+
+def test_step_up_rejects_unsupported_purpose(client, db_session, monkeypatch):
+    _register_and_login(client, email="invalid-purpose@example.com")
+    from app.repositories.user_repository import UserRepository
+    from app.services.auth_service import AuthService
+    user = UserRepository(db_session).get_by_email("invalid-purpose@example.com")
+    user.mfa_enabled = True
+    user.mfa_secret_encrypted = "test-encrypted-secret"
+    db_session.commit()
+    monkeypatch.setattr(AuthService, "_verify_totp", staticmethod(lambda user, code: code == "123456"))
+    response = client.post(
+        "/api/v1/auth/mfa/step-up",
+        json={
+            "password": "correct-horse-battery-staple",
+            "code": "123456",
+            "purpose": "safety.live_trade",
+        },
+        headers={"Origin": settings.CORS_ORIGINS[0]},
+    )
+    assert response.status_code == 422

@@ -436,3 +436,8 @@ The source-call guard requirement now has a CI implementation and a passing veri
 Partially implemented: request fingerprint and idempotency mismatch rejection; unique state-version audit sequence; DB triggers rejecting UPDATE/DELETE in SQLite and PostgreSQL; transaction rollback test when audit insertion fails; PostgreSQL trigger tests; and stale expected-version validation for manual reset.
 
 Still pending: exact-head CI green confirmation; operational restrictions against privileged trigger removal; endpoint-level mandatory expected-version enforcement; authorization/MFA/CSRF; and central broker-write integration. The latest CI run `39124312326` was pending when this note was written, so do not mark all storage requirements verified yet.
+
+
+### Storage-hardening verification update
+
+The exact-head CI run #39124312326 failed one stale-version test due to a mutable ORM fixture reference; the test was corrected in commit `6cd0ced108e35d715359d649a463d80709dd1fb1`. Run #39124498280 is pending, so database immutability and the final test matrix are not yet marked fully verified.

@@ -283,3 +283,8 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 ## Next gate: security and operator-audit design review — 18 October 2026
 
 The static review is committed in [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT.md), commit [10d87d9d9010b2c48ebcf25c832a2ea574100889](https://github.com/tarunsharma2610-del/tradepro-improved/commit/10d87d9d9010b2c48ebcf25c832a2ea574100889). Do not design or implement safety-control routes until the permission model, step-up auth, CSRF/origin policy, event redaction, atomic audit persistence, audit-read scoping and HTTP negative-test matrix are approved. After that design review, audit every order-entry/retry/recovery/broker-write path before wiring the preflight coordinator. Live order submission stays disabled; PR #1 stays draft/open; original Tradepro remains untouched.
+
+
+## Order-entry path inventory gate — 18 October 2026
+
+Static inventory is recorded in [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a477489c7e2d5b6883c299c1e9a8aee1cbef055f](https://github.com/tarunsharma2610-del/tradepro-improved/commit/a477489c7e2d5b6883c299c1e9a8aee1cbef055f). The manual order route and strategy/worker paths converge on a PAPER-only service; Upstox adapter write methods exist but no application caller was found in reviewed paths. The live intent recovery service does not yet compose the account-safety-aware coordinator. Next design the central write boundary, durable intent/audit transaction, role policy and source-call guardrails; then test before any route/worker wiring. Live remains disabled.

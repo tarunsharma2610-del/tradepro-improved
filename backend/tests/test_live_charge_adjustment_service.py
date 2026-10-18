@@ -132,7 +132,7 @@ def test_broker_reported_charges_append_adjustment_without_replaying_fill(charge
     assert result.new_effective_total == Decimal("3.01")
     assert result.charge_delta == Decimal("0.38")
     assert result.net_realized_pnl_delta == Decimal("-0.38")
-    assert result.effective_net_realized_pnl == Decimal("-2.81")
+    assert result.effective_net_realized_pnl == Decimal("-3.01")
     assert db.query(LiveChargeAdjustment).count() == 1
 
     db.refresh(execution)

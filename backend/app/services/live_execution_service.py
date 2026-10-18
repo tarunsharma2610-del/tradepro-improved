@@ -134,7 +134,10 @@ class LiveExecutionService:
         )
         if connection is None or not connection.is_connected:
             raise LiveExecutionBlocked("No verified Upstox connection is available.")
-        access_token = self.credentials.get_access_token(user_id, self.BROKER_NAME)
+        try:
+            access_token = self.credentials.get_access_token(user_id, self.BROKER_NAME)
+        except Exception as exc:
+            raise LiveExecutionBlocked("Upstox access token could not be validated.") from exc
         if not isinstance(access_token, str) or not access_token.strip():
             raise LiveExecutionBlocked("Upstox access token is missing, expired, or unusable.")
 
@@ -174,7 +177,7 @@ class LiveExecutionService:
             raise LiveExecutionBlocked("Order type must be MARKET or LIMIT.")
         if type(intent.quantity) is not int or intent.quantity <= 0:
             raise LiveExecutionBlocked("Quantity must be a positive integer.")
-        if intent.segment not in {"EQUITY_DELIVERY", "EQUITY_INTRADAY"}:
+        if not isinstance(intent.segment, str) or intent.segment not in {"EQUITY_DELIVERY", "EQUITY_INTRADAY"}:
             raise LiveExecutionBlocked("Only verified equity delivery/intraday segments are supported.")
         if intent.order_type == "LIMIT":
             if intent.limit_price is None:
@@ -187,6 +190,6 @@ class LiveExecutionService:
                 raise LiveExecutionBlocked("LIMIT price must be a valid positive amount.")
         elif intent.limit_price is not None:
             raise LiveExecutionBlocked("MARKET orders must not include a limit price.")
-        if intent.execution_reason not in {"MANUAL", "STRATEGY"}:
+        if not isinstance(intent.execution_reason, str) or intent.execution_reason not in {"MANUAL", "STRATEGY"}:
             raise LiveExecutionBlocked("Unsupported execution reason.")
         return limit_price if intent.order_type == "LIMIT" else None

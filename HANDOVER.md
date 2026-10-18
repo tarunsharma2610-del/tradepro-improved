@@ -356,22 +356,23 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: net live P&L consumers
+## Authoritative checkpoint — 18 October 2026: older-fill charge corrections and live analytics API
 
 ### Verified code and CI evidence
-- Latest verified code/test SHA: `9eea650419c5312daa39e5823893d72c69679413`. GitHub Actions [run #39116925375](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39116925375) succeeded: **372 passed, 1 warning in 32.37s**; SQLite Alembic migration verification passed.
-- Account-wide live daily-loss protection now computes net P&L for today's broker-confirmed executions as gross realized P&L minus original execution charges and all append-only charge deltas. Charge corrections posted today for older fills affect today's risk P&L only by their adjustment delta, without replaying old gross P&L.
-- Existing `portfolio_analytics` and strategy analytics now explicitly include PAPER orders only; live fills cannot change the virtual portfolio's reconstructed cash curve.
-- Added read-only `GET /api/v1/portfolios/{portfolio_id}/live-analytics` with separate live-only metrics: gross realized P&L, net realized P&L, effective costs, fill counts and net fill win rate. It does not synthesize a live cash/equity curve; broker account balances remain authoritative.
-- The analytics regression test confirms a live fill and a charge adjustment appear only in live metrics while paper analytics/cash remain unchanged. Risk-gate tests confirm charge-adjusted net losses trigger the daily loss cap.
+- Latest verified code/test SHA: `f3ae256af5e2ab158ba3276943a68740823ba3fa`. GitHub Actions [run #39117161349](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39117161349) succeeded: **375 passed, 1 warning in 30.53s**; SQLite Alembic migration verification passed.
+- Added coverage proving a charge adjustment posted today for an older fill affects today's daily-risk P&L by its adjustment delta only; the old fill's gross P&L is not counted again.
+- Added API tests for `GET /api/v1/portfolios/{portfolio_id}/live-analytics`: authenticated owner gets live-only net metrics, unauthenticated requests are rejected, another user receives 404, and the normal analytics endpoint remains PAPER-only.
+- Read-only live analytics subtracts effective charges (original charges plus append-only charge deltas), does not synthesize a broker cash curve, and keeps live executions out of virtual paper analytics.
+- Promotion and charge-adjustment services remain unregistered in order routes/workers. No broker order POST or live-mode activation was added.
 
 ### Remaining caveats
-- Live charge adjustment source references are caller supplied and not independently authenticated against an imported contract note.
-- Read-only analytics/risk code has SQLite CI coverage; PostgreSQL migration/concurrency, real Upstox contract-note handling, exact-head frontend build, and staging remain unverified.
-- Promotion and charge-adjustment services remain unregistered in routes/workers; no live order submission path exists. Live mode remains disabled.
+- PostgreSQL row-lock and concurrent-adjustment behavior has not been executed against a PostgreSQL service in this checkpoint; SQLite CI does not prove PostgreSQL concurrency semantics.
+- Caller-supplied broker-reported charge references are not independently authenticated against imported contract-note documents.
+- Frontend display/integration, real Upstox contract-note behavior, deployment/staging and exact-head frontend checks remain unverified.
+- PR #1 remains draft/open/unmerged; original `Tradepro` remains untouched; live trading is disabled and not ready.
 
 ### Next task
-Add explicit coverage for **charge adjustments to older fills** and API-level ownership/response behavior of the read-only live analytics endpoint. Then review PostgreSQL locking/unique-constraint behavior and document any environment checks that cannot be run here. Keep promotion/adjustment services unregistered; no broker POST, PR merge, or live-mode enablement.
+Review database concurrency guarantees for child-fill promotion and charge adjustments, add deterministic tests for duplicate/conflicting references and adjustment ordering, and document the PostgreSQL verification gap. Do not wire promotion or adjustment services to routes/workers, do not add broker order submission, do not merge PR #1, and do not enable live mode.
 
 ### Release status
-PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled.
+Live trading is **NOT READY** and disabled. No real orders have been submitted.

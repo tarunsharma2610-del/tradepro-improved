@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -30,9 +32,10 @@ class MfaVerifyRequest(BaseModel):
 
 
 class MfaStepUpRequest(BaseModel):
-    """Fresh credentials required before a privileged safety reset."""
+    """Fresh credentials required for a narrowly scoped privileged action."""
     password: str = Field(min_length=1, max_length=128)
     code: str = Field(min_length=6, max_length=6)
+    purpose: Literal["safety.reset", "safety.admin.permissions"] = "safety.reset"
 
 
 class MfaStepUpResponse(BaseModel):

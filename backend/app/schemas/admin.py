@@ -17,7 +17,7 @@ from pydantic import Field
 
 
 class SafetyPermissionChange(BaseModel):
-    permission: str = Field(min_length=1, max_length=64)
+    permission: Literal["safety.status.read", "safety.audit.read", "safety.kill_switch.trip", "safety.reset"]
     action: Literal["grant", "revoke"]
 
 

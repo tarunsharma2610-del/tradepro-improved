@@ -496,3 +496,8 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Added PostgreSQL integration coverage that attempts direct event UPDATE and DELETE and verifies both are rejected and the event remains unchanged.
 - Earlier CI run #612? Do not infer a run number here: run [#? pending current head](https://github.com/tarunsharma2610-del/tradepro-improved/actions) must be checked against the exact latest code SHA before declaring this whole checkpoint verified. Run #39124213016 (SHA `2b38a0f0ba4dd167419ec116a630ebe63fabac92`) passed guard, tests, SQLite/PostgreSQL migrations and concurrency checks, but it predates the expected-version/threshold-context additions. Latest code CI run #39124312326 is pending at this checkpoint: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124312326.
 - No endpoints, central writer, route/worker wiring or broker writes were added. Keep `TRADING_MODE=PAPER`, `LIVE_ORDER_SUBMISSION_ENABLED=false`, PR #1 draft/open/unmerged, and the original `Tradepro` repository untouched. Phase 2 remains incomplete.
+
+
+### Expected-version regression-test correction — 18 October 2026
+
+Run #39124312326 failed with 405 passed / 1 failed / 5 skipped because the test kept a reference to a mutable ORM state object; its `health.version` reflected the later trip mutation instead of the earlier version. This was a test setup defect, not a failure of the version comparison. The test now snapshots the integer before the mutation in commit `6cd0ced108e35d715359d649a463d80709dd1fb1`. Latest CI run #39124498280 is queued/pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Await exact-head results before marking storage hardening verified.

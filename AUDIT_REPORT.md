@@ -415,3 +415,11 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 ### Test correction addendum — c97be866828bd47a23f22fc44fac2d3359e70f35
 
 The manual-reset regression was corrected so each expected denial occurs for the right precondition: no health check, then nonzero broker-error counter despite a passing health check. It then clears the counter with broker success and records a new passing health check before testing reset. Latest code/test SHA is `c97be866828bd47a23f22fc44fac2d3359e70f35`; CI and migration results remain unverified.
+
+## Superseding checkpoint — 18 October 2026: Alembic duplicate-revision fix under CI
+
+- Regression test commit: [8e73e9156db260b26b92666ba4cb81b5cf0ff9ea](https://github.com/tarunsharma2610-del/tradepro-improved/commit/8e73e9156db260b26b92666ba4cb81b5cf0ff9ea) adds coverage that a database read exception in `LiveAccountSafetyService.check_allowed` denies permission.
+- CI run [#605](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39120252989) exposed a migration graph defect: **392 passed, 1 skipped, 3 failed, 1 warning**. All three failures reported multiple Alembic heads caused by two migration files claiming revision `202610180009` (the charge-adjustment ledger and the newly added safety migration).
+- Fix commit: [410e87e7ece87d72e33c717e42871028bd0e3c36](https://github.com/tarunsharma2610-del/tradepro-improved/commit/410e87e7ece87d72e33c717e42871028bd0e3c36) removes the duplicate `202610180009_live_account_safety.py`. The existing `202610180010_live_account_safety.py` is the canonical safety migration and follows the charge-adjustment revision `202610180009`.
+- Verification for the fix: GitHub Actions [run #606](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39120397940) is **in progress** at the time of this note. Do not mark the fix green until pytest, SQLite migration upgrade, PostgreSQL 16 migration upgrade and the PostgreSQL integration step finish successfully.
+- Safety unchanged: account safety service remains unregistered from order submission; live order submission is not enabled; PR #1 stays draft/open/unmerged; original `Tradepro` remains untouched.

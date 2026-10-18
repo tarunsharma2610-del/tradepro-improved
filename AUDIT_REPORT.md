@@ -362,3 +362,11 @@ Add a service-level integration test that composes the **real** `BrokerChildOrde
 
 ### Release status
 Live trading is **NOT READY** and disabled. No real orders have been submitted.
+
+
+## Audit addendum — 18 October 2026: integration test of existing reconciliation lifecycle
+
+- The audit identified a verification gap, not a missing coordinator: earlier coordinator tests injected fake child-reconciliation and promotion collaborators. This change addresses that gap by composing the real services in `backend/tests/test_live_order_fill_reconciliation_coordinator.py`.
+- Commit: `b5783d421f64fcb8e7f1d75f1af5185fd9029f59` ([diff/commit](https://github.com/tarunsharma2610-del/tradepro-improved/commit/b5783d421f64fcb8e7f1d75f1af5185fd9029f59)).
+- Only broker read payloads and the charge estimator are mocked; the real child reconciliation, ingestion, coordinator, promotion, and accounting logic is exercised. Tests cover replay idempotency, sibling failure blocking promotion, and paper-account isolation.
+- Evidence status: **CI has not yet been confirmed for this commit**; therefore these tests are added but not yet classified as passing. No live API calls or order-write calls were made.

@@ -39,9 +39,9 @@ def risk_context(db_session, make_user, monkeypatch):
     ))
     db_session.commit()
     now = datetime(2026, 10, 19, 5, 0, tzinfo=timezone.utc)  # Monday, 10:30 IST
-    monkeypatch.setattr(settings, "LIVE_MAX_ORDER_VALUE_PCT", Decimal("5"))
-    monkeypatch.setattr(settings, "LIVE_MAX_GROSS_EXPOSURE_PCT", Decimal("50"))
-    monkeypatch.setattr(settings, "LIVE_MAX_DAILY_LOSS_PCT", Decimal("2"))
+    monkeypatch.setattr(settings, "LIVE_MAX_ORDER_VALUE_INR", Decimal("10000"))
+    monkeypatch.setattr(settings, "LIVE_MAX_GROSS_EXPOSURE_INR", Decimal("50000"))
+    monkeypatch.setattr(settings, "LIVE_MAX_DAILY_LOSS_INR", Decimal("1000"))
     monkeypatch.setattr(settings, "LIVE_MAX_ORDERS_PER_UTC_DAY", 10)
     monkeypatch.setattr(settings, "LIVE_MAX_MARKET_DATA_AGE_SECONDS", 5)
     return user, portfolio, instrument, now
@@ -172,7 +172,7 @@ def test_order_value_cap_blocks(db_session, risk_context):
 
     result = gate(
         user.id, portfolio, instrument,
-        _intent(portfolio, instrument, quantity=60),
+        _intent(portfolio, instrument, quantity=101),
     )
 
     assert not result.allowed

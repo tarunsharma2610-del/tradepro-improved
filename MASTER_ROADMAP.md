@@ -158,23 +158,23 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: older-fill charge corrections and live analytics API
+## Authoritative checkpoint — 18 October 2026: PostgreSQL locking and idempotent promotion verification
 
 ### Verified code and CI evidence
-- Latest verified code/test SHA: `f3ae256af5e2ab158ba3276943a68740823ba3fa`. GitHub Actions [run #39117161349](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39117161349) succeeded: **375 passed, 1 warning in 30.53s**; SQLite Alembic migration verification passed.
-- Added coverage proving a charge adjustment posted today for an older fill affects today's daily-risk P&L by its adjustment delta only; the old fill's gross P&L is not counted again.
-- Added API tests for `GET /api/v1/portfolios/{portfolio_id}/live-analytics`: authenticated owner gets live-only net metrics, unauthenticated requests are rejected, another user receives 404, and the normal analytics endpoint remains PAPER-only.
-- Read-only live analytics subtracts effective charges (original charges plus append-only charge deltas), does not synthesize a broker cash curve, and keeps live executions out of virtual paper analytics.
-- Promotion and charge-adjustment services remain unregistered in order routes/workers. No broker order POST or live-mode activation was added.
+- Latest verified code/test SHA: `fc273f08c32d21acf206962d5f1e3064c8d45dcc`. GitHub Actions [run #39117895784](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39117895784) succeeded.
+- Full backend suite: **375 passed, 1 skipped, 1 warning in 31.77s**. SQLite Alembic upgrade passed.
+- Added a PostgreSQL 16 service to GitHub Actions; the full Alembic migration chain, including `202610180009_live_charge_adjustment_ledger`, upgraded successfully on PostgreSQL.
+- PostgreSQL-only integration test passed (**1 passed in 0.35s**): concurrent distinct charge revisions serialize into a consistent adjustment-number/previous-total chain; concurrent replay of the same contract-note reference inserts only once; concurrent promotion of one staged broker trade produces one Execution and one LivePosition quantity update.
+- The PostgreSQL integration test exposed and fixed `FOR UPDATE` queries that attempted to lock the nullable side of joined Instrument relationships. Lock scopes now explicitly target `Execution`, `Order`, and `LivePosition`; broker-trade ingestion also scopes its Order lock. This is now verified against PostgreSQL 16, not inferred from SQLite.
 
 ### Remaining caveats
-- PostgreSQL row-lock and concurrent-adjustment behavior has not been executed against a PostgreSQL service in this checkpoint; SQLite CI does not prove PostgreSQL concurrency semantics.
-- Caller-supplied broker-reported charge references are not independently authenticated against imported contract-note documents.
-- Frontend display/integration, real Upstox contract-note behavior, deployment/staging and exact-head frontend checks remain unverified.
-- PR #1 remains draft/open/unmerged; original `Tradepro` remains untouched; live trading is disabled and not ready.
+- These are database/service integration tests with synthetic rows and no live broker requests. They do not verify actual Upstox response contracts, exchange operations, or live order placement.
+- Contract-note source references remain caller supplied and are not independently authenticated.
+- Frontend build, staging, operational monitoring, account-level kill switch, broker-error circuit breaker, and complete production live lifecycle remain unverified/incomplete.
+- Promotion and charge-adjustment services remain unregistered in routes/workers. Live order submission remains disabled; PR #1 remains draft/open/unmerged; original `Tradepro` is untouched.
 
 ### Next task
-Review database concurrency guarantees for child-fill promotion and charge adjustments, add deterministic tests for duplicate/conflicting references and adjustment ordering, and document the PostgreSQL verification gap. Do not wire promotion or adjustment services to routes/workers, do not add broker order submission, do not merge PR #1, and do not enable live mode.
+Build an unregistered **read-only reconciliation-to-promotion coordinator** that first runs official child-order/trade reconciliation, and only then promotes the staged trades for that successfully reconciled child. If broker status or durable trade totals do not reconcile, promote none of that child's staged fills. Make retries idempotent, expose per-child outcomes for later review, and test all behavior with mocked broker calls. Do not add an order-submission path or register a route/worker.
 
 ### Release status
 Live trading is **NOT READY** and disabled. No real orders have been submitted.

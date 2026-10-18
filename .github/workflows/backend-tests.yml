@@ -4,6 +4,7 @@ name: Backend tests
   push:
     branches:
       - main
+      - 'safety/**'
   pull_request:
   workflow_dispatch:
 

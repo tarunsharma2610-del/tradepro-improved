@@ -124,20 +124,22 @@ def mfa_step_up(
     _rl=Depends(login_rate_limit),
     _origin=Depends(require_same_origin_for_cookie_mutation),
 ):
-    """Issue a five-minute safety-reset token only after fresh password + TOTP."""
+    """Issue a five-minute purpose-bound token only after fresh password + TOTP."""
     if not user.mfa_enabled:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "MFA must be enabled for safety reset")
     if not verify_password(payload.password, user.password_hash) or not AuthService._verify_totp(user, payload.code):
         write_audit_log(db, action="user.mfa_step_up_failed", user_id=user.id, request=request)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Credential verification failed")
+    if payload.purpose == "safety.admin.permissions" and not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin access required for this MFA purpose")
     from datetime import datetime, timezone
     verified_at = int(datetime.now(timezone.utc).timestamp())
     token = create_token(
         user.id,
         "step_up",
-        extra_claims={"scope": "safety.reset", "amr": ["pwd", "totp"], "mfa_verified_at": verified_at},
+        extra_claims={"scope": payload.purpose, "amr": ["pwd", "totp"], "mfa_verified_at": verified_at},
     )
-    write_audit_log(db, action="user.mfa_step_up_succeeded", user_id=user.id, request=request)
+    write_audit_log(db, action="user.mfa_step_up_succeeded", user_id=user.id, request=request, metadata={"purpose": payload.purpose})
     return MfaStepUpResponse(step_up_token=token, expires_in=300)
 
 

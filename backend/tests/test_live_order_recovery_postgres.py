@@ -164,3 +164,36 @@ def test_postgres_concurrent_submission_unknown_transition_is_idempotent(pg_sess
         assert order is not None
         assert order.status == "SUBMISSION_UNKNOWN"
         assert order.trading_mode == "LIVE"
+
+
+def test_postgres_concurrent_submission_claim_has_exactly_one_winner(pg_sessions):
+    user_id, portfolio_id, instrument_id, instrument_key, connection_id = _create_intent_context(pg_sessions)
+    intent, plan = _intent_plan(user_id, portfolio_id, instrument_id, instrument_key, connection_id)
+    with pg_sessions() as db:
+        order = LiveOrderRecoveryService(db).persist_preflighted_intent(
+            user_id, intent, plan, idempotency_key="concurrent-submission-claim"
+        )
+        order_id = order.id
+
+    barrier = Barrier(2)
+
+    def claim():
+        barrier.wait(timeout=10)
+        with pg_sessions() as db:
+            try:
+                result = LiveOrderRecoveryService(db).claim_submission_attempt(user_id, order_id)
+                return result.status
+            except LiveExecutionBlocked:
+                return "BLOCKED"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(claim) for _ in range(2)]
+        outcomes = [future.result(timeout=20) for future in futures]
+
+    assert outcomes.count("SUBMISSION_CLAIMED") == 1
+    assert outcomes.count("BLOCKED") == 1
+    with pg_sessions() as db:
+        order = db.get(Order, order_id)
+        assert order is not None
+        assert order.status == "SUBMISSION_CLAIMED"
+        assert order.trading_mode == "LIVE"

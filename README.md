@@ -60,3 +60,8 @@ The broker-intake migration-backfill regression and the account-safety migration
 ### Safety-control security review (18 October 2026)
 
 Before any safety-control API is designed, read [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT.md). The static review found that authentication and basic ownership/admin checks exist, but operator audit visibility and safety-specific permissions are not yet implemented; step-up authentication, CSRF policy, atomic state/audit persistence, strict redaction and endpoint-level security tests remain open. No safety-control route is registered, and live order submission remains disabled.
+
+
+### Order-path safety review (18 October 2026)
+
+See [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md) for the current manual, strategy, worker and broker-write path map. The shared order service remains PAPER-only. Live preflight and recovery are not registered as submission routes, and the live recovery foundation does not yet compose the account-safety-aware coordinator. No live order route is ready or enabled.

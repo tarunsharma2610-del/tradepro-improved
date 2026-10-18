@@ -13,13 +13,13 @@ Pull request: #1 (draft; do not merge without explicit review)
 ## Current verified state
 
 ### Latest code and CI evidence
-- Added `AccountWideLiveRiskGate`, strict read-only Upstox quote/position/funds/margin/calendar parsers, `UpstoxLiveRiskSnapshotService`, and `LivePreflightCoordinator`.
-- GitHub Actions [run #39112112534](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112112534) on code/test SHA `85aba3e54dde698a1266db5313d774317a814194`: **323 passed, 1 warning in 24.71s**; SQLite Alembic upgrade passed.
-- Invalid intent, disabled strategy entries, disabled interlocks and invalid snapshots fail closed. Tests verify invalid requests do not make broker snapshot calls.
-- The coordinator remains unregistered and preflight-only. No order route/worker, broker order submission or live accounting is connected.
+- Implemented `AccountWideLiveRiskGate`, read-only Upstox quote/position/funds/margin/calendar parsers and collector, and credential-bound `LivePreflightCoordinator`.
+- GitHub Actions [run #39112247035](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112247035) on code/test SHA `e7a2ca8d473f9536839b02e0538bf6768343a627`: **326 passed, 1 warning in 26.85s**; SQLite Alembic upgrade passed.
+- Preflight validates the interlocks, intent, ownership, instrument, strategy-entry switch and credentials before broker snapshots; it revalidates connection/token identity after async collection. All broker calls in CI are mocked.
+- The coordinator remains unregistered. No order route/worker, broker order submission or live accounting is connected.
 
 ### Immediate next task
-Audit and harden connection/token consistency and concurrency in the coordinator; test expired/replaced credentials, wrong-user portfolio access, missing broker connection and stale/failing snapshots. No route/worker wiring or live order submission.
+Audit `BrokerOrder`, execution/fill models, migrations and reconciliation services. Implement a minimal additive, transaction-safe broker trade/fill idempotency and partial-fill aggregation foundation with mocked tests; no live order route/worker or broker order endpoint.
 
 ## Release blockers
 - Latest verified backend run: SHA `dd27afcecc64f5cafc91198e1cfc81b61616fff9`, 307 tests passed and SQLite Alembic upgrade passed.
@@ -162,7 +162,7 @@ PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live t
 
 ### Verified code and tests
 - Latest verified code/test SHA: `e7a2ca8d473f9536839b02e0538bf6768343a627`. GitHub Actions [run #39112247035](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112247035) succeeded: **326 passed, 1 warning in 26.85s**; SQLite Alembic migration verification passed.
-- Read-only Upstox adapter and strict parsers now cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
+- Read-only Upstox adapter and strict parsers cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
 - `UpstoxLiveRiskSnapshotService` gathers the snapshots required by the account-wide risk gate and has no order-placement call.
 - `LivePreflightCoordinator` composes the per-user credential service, read-only snapshots and `AccountWideLiveRiskGate` into the existing `LiveExecutionService.preflight` contract. It validates intent and portfolio ownership before broker calls, checks connection status, refreshes the connection after asynchronous collection, and rejects a changed/expired token or changed connection identity. Mocked tests cover successful preflight, disabled interlock, malformed/stale/provider-failure paths, token rotation, missing connection and cross-user portfolio access.
 - The coordinator remains unregistered. No API route or worker calls it; no order is submitted, persisted, modified or cancelled.

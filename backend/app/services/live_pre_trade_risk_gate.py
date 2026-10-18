@@ -127,11 +127,11 @@ class AccountWideLiveRiskGate:
             proposed_value = Decimal(str(intent.limit_price)) * Decimal(intent.quantity)
             # Market price remains a required fresh check even for limit orders.
 
-        capital = Decimal(str(portfolio.virtual_capital))
-        max_order_pct = Decimal(str(settings.LIVE_MAX_ORDER_VALUE_PCT))
-        if capital <= 0 or max_order_pct <= 0:
-            raise LiveExecutionBlocked("Live order-value limit is invalid or disabled.")
-        if proposed_value > capital * max_order_pct / Decimal("100"):
+        max_order_value = Decimal(str(settings.LIVE_MAX_ORDER_VALUE_INR))
+        max_gross_exposure = Decimal(str(settings.LIVE_MAX_GROSS_EXPOSURE_INR))
+        if max_order_value <= 0 or max_gross_exposure <= 0:
+            raise LiveExecutionBlocked("Configured live order-value/exposure caps must be positive.")
+        if proposed_value > max_order_value:
             raise LiveExecutionBlocked("Proposed order exceeds the configured live order-value limit.")
 
         portfolios = self.db.query(Portfolio.id).filter(Portfolio.user_id == user_id).all()
@@ -181,7 +181,7 @@ class AccountWideLiveRiskGate:
                 mark = self._fresh_quote(user_id, pending_instrument, now).price
             exposure += Decimal(order.quantity) * mark
 
-        if exposure + proposed_value > capital * Decimal(str(settings.LIVE_MAX_GROSS_EXPOSURE_PCT)) / Decimal("100"):
+        if exposure + proposed_value > max_gross_exposure:
             raise LiveExecutionBlocked("Account-wide gross exposure limit would be exceeded.")
 
         frequency_limit = int(settings.LIVE_MAX_ORDERS_PER_UTC_DAY)
@@ -200,8 +200,8 @@ class AccountWideLiveRiskGate:
         if today_count >= frequency_limit:
             raise LiveExecutionBlocked("Account-wide live order-frequency limit reached.")
 
-        daily_loss_pct = Decimal(str(settings.LIVE_MAX_DAILY_LOSS_PCT))
-        if daily_loss_pct <= 0:
+        daily_loss_limit = Decimal(str(settings.LIVE_MAX_DAILY_LOSS_INR))
+        if daily_loss_limit <= 0:
             raise LiveExecutionBlocked("Live daily-loss limit is invalid or disabled.")
         realized_pnl = (
             self.db.query(func.coalesce(func.sum(Execution.realized_pnl), 0))
@@ -213,8 +213,7 @@ class AccountWideLiveRiskGate:
             .scalar()
         )
         realized_pnl = Decimal(str(realized_pnl or 0))
-        loss_limit = capital * daily_loss_pct / Decimal("100")
-        if realized_pnl < 0 and abs(realized_pnl) >= loss_limit:
+        if realized_pnl < 0 and abs(realized_pnl) >= daily_loss_limit:
             raise LiveExecutionBlocked("Account-wide daily realized-loss limit reached.")
 
         funds = self.funds_provider(user_id)

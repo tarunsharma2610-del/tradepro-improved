@@ -1,6 +1,6 @@
 # Tradepro Improved — Persistent Progress Log
 
-Last updated: 2026-10-17  
+Last updated: 2026-10-18  
 Repository: `tarunsharma2610-del/tradepro-improved`  
 Working branch: `safety/fail-closed-trading-mode`  
 Original repository: `tarunsharma2610-del/Tradepro` — **must remain untouched**  
@@ -22,7 +22,7 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 
 ## Current verified repository state
 
-- Latest verified code commit: `e6abb6704b67c54f35bb5d7c2c41acd96846147d` — “Restore Upstox response helper to adapter class”. Backend [run 39035755714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714): **238 passed, 1 warning**, clean SQLite Alembic upgrade; frontend [run 39035755707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707): TypeScript and Next.js build passed.
+- Latest previously verified code commit: `e6abb6704b67c54f35bb5d7c2c41acd96846147d` — “Restore Upstox response helper to adapter class”. Current PR head is `01abc1d3ee55f4dd04a1ab4ba0f8eef79c09de4e`; the new margin parser/tests are committed but CI for this head is not yet confirmed. Backend [run 39035755714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714): **238 passed, 1 warning**, clean SQLite Alembic upgrade; frontend [run 39035755707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707): TypeScript and Next.js build passed.
 - Main remains `2cf83089070e064c61f3b75fcb6b663021cbf625`; all code changes remain on the safety branch.
 - PR #1 was open, draft, and not merged.
 - Baseline CI before the migration regression test: backend [run 39031184000](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184000) — 189 passed, 1 warning, clean SQLite Alembic upgrade; frontend [run 39031184092](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184092) — TypeScript and Next.js build passed.
@@ -165,13 +165,12 @@ Added `FundsAndMarginV3` and `parse_funds_and_margin_v3`. It validates the neste
 - Latest verified code commit `e6abb6704b67c54f35bb5d7c2c41acd96846147d`: backend **238 passed, 1 warning**, clean SQLite Alembic upgrade ([run 39035755714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714)); frontend TypeScript/build passed ([run 39035755707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707)).
 - This is a read-only margin estimate only. It is not connected to order approval, does not validate live funds, and is not a complete risk preflight.
 
-## Next task (not started): audit and type-parse the margin-calculation response
+## Completed code change; verification pending: audit and type-parse the margin-calculation response
 
-1. Read the official current Upstox Margin Details docs and inspect representative documented success/error response structures.
-2. Inspect existing broker result parsers and tests first; do not duplicate an existing parser.
-3. Add a small typed parser only if the current response is raw/unvalidated and a typed result materially improves correctness. Validate required fields, numeric finiteness/non-negativity where appropriate, and error envelopes.
-4. Add mocked tests for valid response, missing/malformed fields and broker errors. Do not connect it to order approval or enable live trading.
-5. Run targeted tests, full backend suite/migration check and frontend checks if shared interfaces change. Then update `PROGRESS.md`, `HANDOVER.md`, and `CHANGELOG.md` and commit the progress update.
+1. Official docs and existing parser/test code were inspected; the response was raw and no matching typed parser existed.
+2. Added `MarginEstimate`, `MarginBreakdown`, and pure `parse_margin_details`; added valid-response and malformed/error tests.
+3. Code commit: `3c4dd6ac0d7d88a18916c241d28a224fc5031d5d`; test commit: `6995f64429b44134edfa5985ad4f50c3b54cfcab`.
+4. Documentation has been updated in progress, handover, changelog and audit. **Tests have not been verified for the current PR head.** The last confirmed backend run was 238 passed with one warning and the frontend build passed on the prior code commit. Do not reuse those counts for this change.
 
 
 ## Completed code task: typed Upstox margin-estimate parser — 18 October 2026
@@ -185,3 +184,8 @@ Added `FundsAndMarginV3` and `parse_funds_and_margin_v3`. It validates the neste
 ## Next task
 
 Check CI for the margin parser/test commits. If green, record the exact test/migration/frontend results and commit final documentation updates. If red, inspect failing job logs, correct the specific defect, rerun CI, and update this file before moving on. Keep live trading disabled.
+
+
+## Immediate next action — CI verification
+
+Inspect GitHub Actions for the current PR head `01abc1d3ee55f4dd04a1ab4ba0f8eef79c09de4e`. If no workflow is associated with that head, use the repository's supported workflow trigger or wait for CI; do not claim success from the older run. Inspect failures and fix only evidenced defects. Then record the exact backend test count, migration result, frontend result and final verification commit in this file and the audit/changelog/handover. Do not merge PR #1 or enable live trading.

@@ -201,3 +201,6 @@ The current blocker is verification: the GitHub integration returned no workflow
 ### Verification note — 18 October 2026
 
 Migration 006 now has a targeted populated-data test for backfilling broker connection IDs on legacy broker child-order and execution rows. This is test code added, not a verified pass. Current head is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; current-head CI must be checked before this requirement is marked verified.
+
+
+Final verification note: code/test target `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; documentation-only commits followed it. The PR head observed at the last check (`1b0056d9739cd55d50cd5484cddf955aa8bf07db`) had no workflow run/status returned. Keep ingestion and migration requirements marked “verification pending.”

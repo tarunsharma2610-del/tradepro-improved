@@ -268,3 +268,8 @@ The current code/test target is `b780c39f770a6839dab0af63fc424c341eff9d70`. Dire
 1. Manually run `.github/workflows/backend-tests.yml` with `workflow_dispatch` from GitHub Actions on branch `safety/fail-closed-trading-mode`, or otherwise obtain a run tied to the current code. The workflow runs backend pytest and `alembic upgrade head` on SQLite.
 2. Inspect the actual logs; fix failures and rerun. Record exact SHA, test count, warning count, migration outcome, and frontend status if separately run.
 3. Only after this gate passes, continue Phase 2 with the next audited live-lifecycle foundation task. Do not register/wire the service, merge PR #1, deploy migrations to production, or enable/place live orders.
+
+
+### Additional Phase 2 regression test — 18 October 2026
+
+Added `test_ingestion_rejects_legacy_child_order_without_connection_binding` in commit `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`. This covers legacy child-order rows whose connection ID remains NULL after migration backfill cannot safely identify an owner connection; ingestion must reject them without creating staging records. Latest code/test target is now `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`. Test/migration execution remains pending.

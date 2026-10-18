@@ -12,6 +12,7 @@ from app.services.instrument_service import InstrumentService
 from app.services.live_execution_service import LiveOrderIntent
 from app.services.live_pre_trade_risk_gate import (
     AccountWideLiveRiskGate,
+    MarketSessionSnapshot,
     BrokerFundsSnapshot,
     BrokerMarginSnapshot,
     BrokerPositionSnapshot,
@@ -67,6 +68,7 @@ def _gate(db_session, user, instrument, now, *, quote=None, positions=(), funds=
     return AccountWideLiveRiskGate(
         db_session,
         quote_provider=lambda _uid, requested: quote,
+        session_provider=lambda _now: MarketSessionSnapshot(True, now),
         positions_provider=lambda _uid: positions,
         funds_provider=lambda _uid: funds,
         margin_provider=lambda _uid, _instrument, _intent, _value: margin,
@@ -91,6 +93,7 @@ def test_missing_broker_positions_provider_fails_closed(db_session, risk_context
     gate = AccountWideLiveRiskGate(
         db_session,
         quote_provider=lambda *_: LiveQuoteSnapshot(Decimal("100"), now),
+        session_provider=lambda _now: MarketSessionSnapshot(True, now),
         positions_provider=None,
         funds_provider=lambda *_: BrokerFundsSnapshot(Decimal("100000"), now),
         margin_provider=lambda *_: BrokerMarginSnapshot(Decimal("200"), now),
@@ -110,6 +113,7 @@ def test_market_closed_blocks_before_external_snapshot_calls(db_session, risk_co
     gate = AccountWideLiveRiskGate(
         db_session,
         quote_provider=lambda *_: called.append("quote"),
+        session_provider=lambda _now: MarketSessionSnapshot(False, closed, "Official calendar closed"),
         positions_provider=lambda *_: called.append("positions"),
         funds_provider=lambda *_: called.append("funds"),
         margin_provider=lambda *_: called.append("margin"),
@@ -237,6 +241,7 @@ def test_provider_exception_fails_closed_without_propagating(db_session, risk_co
     gate = AccountWideLiveRiskGate(
         db_session,
         quote_provider=lambda *_: (_ for _ in ()).throw(RuntimeError("provider down")),
+        session_provider=lambda _now: MarketSessionSnapshot(True, now),
         positions_provider=lambda *_: (),
         funds_provider=lambda *_: BrokerFundsSnapshot(Decimal("100000"), now),
         margin_provider=lambda *_: BrokerMarginSnapshot(Decimal("200"), now),

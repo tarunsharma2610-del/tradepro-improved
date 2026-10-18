@@ -343,3 +343,8 @@ Next gates: finish exact-head CI; review migration rollback/immutability constra
 ### Expected-version test correction — 18 October 2026
 
 CI #39124312326 reported 405 passed / 1 failed / 5 skipped because the stale-version test read a mutable ORM object's version after it had been updated. The test now snapshots the prior integer before the later trip operation, commit `6cd0ced108e35d715359d649a463d80709dd1fb1`. Exact-head CI #39124498280 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Treat this as unverified until green.
+
+
+### Safety storage hardening verified — 18 October 2026
+
+CI run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Guard PASS; **406 passed, 5 skipped, 1 warning**; SQLite/PostgreSQL migrations PASS; PostgreSQL integration **5 passed** including audit UPDATE/DELETE rejection. This supersedes the earlier pending/failed notes for the stale-version regression test. Next gate: authorization, step-up MFA and CSRF/Origin before central broker writer and endpoint implementation. Live stays disabled.

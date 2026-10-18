@@ -6,10 +6,12 @@ import pytest
 from app.brokers.base import BrokerCallResult
 from app.core.config import settings
 from app.models.broker_connection import BrokerConnection
+from app.models.live_account_safety import LiveAccountSafetyEvent, LiveAccountSafetyState
 from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.instrument_service import InstrumentService
+from app.services.live_account_safety_service import LiveAccountSafetyService
 from app.services.live_execution_service import LiveExecutionBlocked, LiveOrderIntent
 from app.services.live_preflight_coordinator import LivePreflightCoordinator
 
@@ -98,6 +100,23 @@ def context(db_session, make_user, monkeypatch):
         is_connected=True,
     ))
     db_session.commit()
+    safety = LiveAccountSafetyService(db_session, clock=lambda: NOW)
+    safety.initialize(
+        user.id, actor_user_id=user.id, idempotency_key="preflight-safety-initialize"
+    )
+    safety.record_health_check(
+        user.id,
+        passed=True,
+        reason="preflight test account health verified",
+        actor_user_id=user.id,
+        idempotency_key="preflight-safety-health",
+    )
+    safety.manual_reset(
+        user.id,
+        "test operator approved preflight",
+        actor_user_id=user.id,
+        idempotency_key="preflight-safety-reset",
+    )
     monkeypatch.setattr(settings, "TRADING_MODE", "LIVE")
     monkeypatch.setattr(settings, "LIVE_ORDER_SUBMISSION_ENABLED", True)
     monkeypatch.setattr(settings, "AUTOMATED_ENTRIES_ENABLED", False)
@@ -278,3 +297,65 @@ async def test_coordinator_rejects_portfolio_owned_by_another_user(context, make
         )
 
     assert adapter.calls == []
+
+@pytest.mark.asyncio
+async def test_coordinator_blocks_missing_account_safety_state_before_broker_calls(context):
+    db, user, portfolio, instrument = context
+    state = db.query(LiveAccountSafetyState).filter_by(
+        user_id=user.id, broker="upstox"
+    ).one()
+    db.query(LiveAccountSafetyEvent).filter_by(state_id=state.id).delete(
+        synchronize_session=False
+    )
+    db.delete(state)
+    db.commit()
+
+    adapter = ReadOnlyUpstoxAdapter()
+    coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
+
+    with pytest.raises(LiveExecutionBlocked, match="account safety check denied"):
+        await coordinator.preflight(
+            user.id, _intent(portfolio, instrument), user_confirmed=True
+        )
+
+    assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_coordinator_blocks_tripped_account_safety_latch_before_broker_calls(context):
+    db, user, portfolio, instrument = context
+    LiveAccountSafetyService(db, clock=lambda: NOW).trip_kill_switch(
+        user.id,
+        "operator emergency stop",
+        actor_user_id=user.id,
+        idempotency_key="preflight-emergency-stop",
+    )
+    adapter = ReadOnlyUpstoxAdapter()
+    coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
+
+    with pytest.raises(LiveExecutionBlocked, match="operator emergency stop"):
+        await coordinator.preflight(
+            user.id, _intent(portfolio, instrument), user_confirmed=True
+        )
+
+    assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_coordinator_blocks_if_account_safety_check_raises(context, monkeypatch):
+    db, user, portfolio, instrument = context
+
+    def fail_safety_check(*_args, **_kwargs):
+        raise RuntimeError("safety storage unavailable")
+
+    monkeypatch.setattr(LiveAccountSafetyService, "check_allowed", fail_safety_check)
+    adapter = ReadOnlyUpstoxAdapter()
+    coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
+
+    with pytest.raises(LiveExecutionBlocked, match="safety check failed"):
+        await coordinator.preflight(
+            user.id, _intent(portfolio, instrument), user_confirmed=True
+        )
+
+    assert adapter.calls == []
+

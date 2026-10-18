@@ -12,14 +12,14 @@ Pull request: #1 (draft; do not merge without explicit review)
 
 ## Current verified state
 
-### Implemented and verified on current CI head
-- Broker child-order schema and connection-scoped trade identity, normalized broker-trade staging, idempotent ingestion, ownership checks, conflicting replay rejection, and regression tests.
-- Upstox response parsers for place-order IDs, order details/history/trades, Funds & Margin V3 and margin estimates.
-- Separate unregistered `LiveExecutionService` preflight foundation. Requires default-off `LIVE_ORDER_SUBMISSION_ENABLED`, `TRADING_MODE=LIVE`, explicit confirmation, a supplied risk gate, valid owned portfolio/instrument, and usable broker connection/token. It has no submit method/path and makes no DB/order/accounting side effects.
-- GitHub Actions run [#39109587876](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39109587876) on `677fcf882e0ce1e6e02be3bb8df0d074b8fbf220`: **286 passed, 1 warning**; SQLite `alembic upgrade head` succeeded.
+### Latest code and CI evidence
+- Idempotent live intent persistence and read-only tag recovery are implemented in `backend/app/services/live_order_recovery_service.py`; tests are in `backend/tests/test_live_order_recovery_service.py`.
+- GitHub Actions [run #39110239225](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39110239225), code/test SHA `de2e2b7524f09b1be2d4378a9b5ac29bdf26f9e7`: **296 passed, 1 warning**; SQLite `alembic upgrade head` passed.
+- The service persists a stable 40-character tag and local intent before any future request, returns same-key/same-payload retries, rejects same-key/different-payload, and only recovers broker IDs via order-history lookup. Timeout/error/no-match is not permission to resubmit.
+- No broker POST, API route, or worker is wired to this service. No accounting is changed during recovery. Live mode remains disabled.
 
 ### Immediate next task
-Build and test stable idempotency/tag recovery for ambiguous submissions, without calling Place Order or wiring any route/worker. Inspect current `Order.idempotency_key`, `broker_tag`, and order-history-by-tag adapter first. A timeout is unknown, not rejection; no blind retry. The next change must prove a retry cannot submit a duplicate.
+Implement and test a concrete account-wide live pre-trade risk gate (positions/exposure, notional and frequency limits, market session/stale quote, broker funds/margin), fail-closed and with mocked external dependencies. Do not add live submission, wire routes/workers, merge PR #1, or enable live trading.
 
 ## Release blockers
 - Current PR CI for the new margin parser/tests is not confirmed.
@@ -120,3 +120,19 @@ This verifies the code present at that SHA in CI. It does not validate PostgreSQ
 ### Next implementation task
 
 **Stable idempotency/tag recovery for ambiguous submissions — design and mocked tests only.** Audit existing `Order.idempotency_key`, `broker_tag`, and adapter `get_order_history(tag=...)` behavior. Add a deterministic tag/intent persistence design and tests proving a retry never submits a second POST after a timeout. Do not implement or invoke real broker submission in this task; do not wire the service into routes/workers; do not merge PR #1 or enable live trading. After code/test commit, update progress, audit, requirements, roadmap, changelog, architecture, state-machine and handover files with exact CI evidence.
+
+## Authoritative checkpoint — 18 October 2026 (idempotent live intent and tag recovery)
+
+### Current verified implementation
+- Latest code/test SHA: `de2e2b7524f09b1be2d4378a9b5ac29bdf26f9e7`. GitHub Actions [run #39110239225](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39110239225) completed successfully: **296 passed, 1 warning in 22.04s**; SQLite `alembic upgrade head` passed.
+- Added `backend/app/services/live_order_recovery_service.py`: deterministic opaque 40-character broker tag, durable LIVE intent persistence, idempotency-key replay with exact-payload validation, submission-unknown state persistence, and read-only recovery through Upstox order-history-by-tag.
+- Added `backend/tests/test_live_order_recovery_service.py`: stable tag, repeated intent, key/payload mismatch, fail-closed preflight, timeout/no-match no-resubmit, mismatched tag/intent, sliced child-order quantity reconciliation and repeated recovery.
+- No `place_order` call is made by the new service. No API route or worker invokes it. Recovery stores broker child IDs only and does not infer order status/fills or change cash, positions, executions or P&L.
+- The CI warning is a dependency/runner deprecation warning; test and SQLite migration steps passed. This run does not verify PostgreSQL migration, real broker API behavior, frontend build, or production deployment.
+- Code and tests were committed separately: service `4990f28e7b8cfeadca85598abfac8111c8fe7130`; tests `de2e2b7524f09b1be2d4378a9b5ac29bdf26f9e7`.
+
+### Next task
+Implement a concrete, testable **account-wide live pre-trade risk gate** and inject it into the preflight path: current positions/exposure, order-value and order-frequency limits, market-session/stale-quote requirements, and broker funds/margin checks with fail-closed behavior. Mock all external calls. Do not add a broker POST, wire any route/worker, merge PR #1, or enable live trading in that task.
+
+### Release status
+PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading remains **NOT READY**; no real orders have been submitted.

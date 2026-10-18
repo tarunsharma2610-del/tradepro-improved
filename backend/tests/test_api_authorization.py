@@ -366,7 +366,6 @@ def test_safety_audit_read_is_tenant_scoped_and_paginated(client, db_session):
     from app.repositories.user_repository import UserRepository
     from app.models.audit_log import AuditLog
     from app.models.user import User
-    import uuid
 
     users = UserRepository(db_session)
     operator = users.get_by_email("operator@example.com")

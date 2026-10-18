@@ -272,3 +272,8 @@ The reset-gate test was corrected in commit `c97be866828bd47a23f22fc44fac2d3359e
 - Regression tests prove missing state, a tripped latch, and an unexpected safety-check exception all block before any read-only broker call. Existing successful preflight tests explicitly establish a passing health check and manual reset in the test fixture.
 - This is read-only preflight composition only. LivePreflightCoordinator remains unregistered from order routes/workers, no broker order-write method is called, live trading remains disabled, PR #1 stays draft/open/unmerged, and the original Tradepro repository remains untouched.
 - **Next task:** audit authentication/authorization and operator audit visibility for any future safety-control endpoint. Do not create or wire a control route until that review is complete; keep live order submission disabled.
+
+
+## Continuation rules — security-control API gate (18 October 2026)
+
+Read [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT.md) before any future safety-control API design. The audit is static review only and identifies missing operator audit visibility, dedicated safety permissions, step-up auth, CSRF/origin policy, atomic state/event persistence, DB-enforced audit immutability, strict metadata redaction and endpoint-level negative tests. Do not create or wire a safety-control endpoint until these are resolved in an explicit design. Next map all manual/strategy/worker/retry/recovery/broker-write paths. Keep PR #1 draft/unmerged, live order submission disabled, and original Tradepro untouched. Update PROGRESS.md, HANDOVER.md, MASTER_ROADMAP.md, AUDIT_REPORT.md, ARCHITECTURE.md, REQUIREMENTS_AUDIT.md and CHANGELOG.md for every verified checkpoint.

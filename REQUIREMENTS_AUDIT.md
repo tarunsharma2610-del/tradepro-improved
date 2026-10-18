@@ -300,22 +300,22 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: append-only final-charge adjustment ledger
+## Authoritative checkpoint — 18 October 2026: net live P&L consumers
 
 ### Verified code and CI evidence
-- Latest verified code/test SHA: `fe22008b6fafa11b8040569b53a0dc6efd5e64e6`. GitHub Actions [run #39116546204](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39116546204) succeeded: **370 passed, 1 warning in 30.99s**; SQLite Alembic migration verification passed.
-- Live fill accounting now requires a successfully reconciled broker child order, a valid confirmed filled quantity, and exact equality between staged trade quantity and broker-confirmed child filled quantity. Cumulative accounted quantity plus a new fill cannot exceed the confirmed total.
-- Added migration `202610180009_live_charge_adjustment_ledger.py`, model `LiveChargeAdjustment`, and `LiveChargeAdjustmentService`. Contract-note adjustments are append-only, keyed idempotently by broker connection + trade ID + source reference. They record previous/new effective charges, charge delta, and the corresponding net realized-P&L delta.
-- Original `Execution` and `LivePosition` rows are not rewritten; adjustments never replay fill quantity or change positions. Same-reference replay must match exactly. Older reference replays report both the historical adjustment and latest effective charge total.
-- Promotion/accounting and charge-adjustment services remain unregistered in API routes/workers. Caller-supplied `BROKER_REPORTED` provenance is not independently authenticated; contract-note authenticity still needs a verified ingestion/source process.
+- Latest verified code/test SHA: `9eea650419c5312daa39e5823893d72c69679413`. GitHub Actions [run #39116925375](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39116925375) succeeded: **372 passed, 1 warning in 32.37s**; SQLite Alembic migration verification passed.
+- Account-wide live daily-loss protection now computes net P&L for today's broker-confirmed executions as gross realized P&L minus original execution charges and all append-only charge deltas. Charge corrections posted today for older fills affect today's risk P&L only by their adjustment delta, without replaying old gross P&L.
+- Existing `portfolio_analytics` and strategy analytics now explicitly include PAPER orders only; live fills cannot change the virtual portfolio's reconstructed cash curve.
+- Added read-only `GET /api/v1/portfolios/{portfolio_id}/live-analytics` with separate live-only metrics: gross realized P&L, net realized P&L, effective costs, fill counts and net fill win rate. It does not synthesize a live cash/equity curve; broker account balances remain authoritative.
+- The analytics regression test confirms a live fill and a charge adjustment appear only in live metrics while paper analytics/cash remain unchanged. Risk-gate tests confirm charge-adjusted net losses trigger the daily loss cap.
 
-### Important limitations
-- The ledger provides the auditable charge delta and per-execution effective net P&L result, but portfolio analytics and the account-wide daily-loss gate have **not yet been updated to consume the adjustment ledger**. Until that integration is verified, charge-corrected net P&L should not be treated as reflected in all dashboards/risk checks.
-- No PostgreSQL concurrency/migration verification, real Upstox contract-note behavior, exact-head frontend build, or staging verification has been completed.
-- No live order route/worker is wired, no real broker order has been submitted, and live mode remains disabled.
+### Remaining caveats
+- Live charge adjustment source references are caller supplied and not independently authenticated against an imported contract note.
+- Read-only analytics/risk code has SQLite CI coverage; PostgreSQL migration/concurrency, real Upstox contract-note handling, exact-head frontend build, and staging remain unverified.
+- Promotion and charge-adjustment services remain unregistered in routes/workers; no live order submission path exists. Live mode remains disabled.
 
 ### Next task
-Update **read-only live P&L/risk consumers** to compute effective net realized P&L from each live execution's gross realized P&L minus its original charges and all append-only charge deltas. Apply this to the account-wide daily-loss gate and explicitly scoped analytics without mixing live fills into paper cash accounting. Add tests for upward/downward charge revisions and leave routes, workers, and order submission unregistered.
+Add explicit coverage for **charge adjustments to older fills** and API-level ownership/response behavior of the read-only live analytics endpoint. Then review PostgreSQL locking/unique-constraint behavior and document any environment checks that cannot be run here. Keep promotion/adjustment services unregistered; no broker POST, PR merge, or live-mode enablement.
 
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled.

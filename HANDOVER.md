@@ -16,12 +16,12 @@
 - The audit reports CI results of 167 backend tests passing and a successful frontend typecheck/build. These are historical CI results, not a fresh run during this continuation.
 
 ## Priority order
-1. **Current next task:** implement a concrete account-wide live pre-trade risk gate: positions/exposure, order-value and order-frequency caps, market session/stale quote checks, and broker funds/margin checks. Fail closed and test with mocked external calls.
-2. Keep `LIVE_ORDER_SUBMISSION_ENABLED=false`, keep `TRADING_MODE=PAPER`, and keep the existing `ExecutionService` PAPER-only. Do not wire live routes/workers or submit real orders.
-3. After the risk gate, audit and implement restart-safe broker status/fill reconciliation with partial-fill/cancel state transitions and transactional, connection-scoped trade deduplication.
-4. Verify current Upstox API response behavior through mocked tests first; verify against a sandbox/staging broker only when explicitly authorized. Do not treat mocked tests as real-broker proof.
-5. Run full backend tests, SQLite migrations, PostgreSQL migration checks where available, and frontend typecheck/build; report exact CI evidence.
-6. Update `PROGRESS.md`, `MASTER_ROADMAP.md`, `AUDIT_REPORT.md`, `REQUIREMENTS_AUDIT.md`, `ARCHITECTURE.md`, `LIVE_ORDER_STATE_MACHINE.md`, `CHANGELOG.md`, and this handover after each coherent task. Do not merge PR #1 without explicit authorization.
+1. **Current next task:** implement read-only Upstox snapshot collection for quotes, actual broker positions, funds and estimated margin; strict response/timestamp validation; and an exchange holiday/special-session calendar contract. Use mocked HTTP responses only.
+2. Review how asynchronous Upstox data collection can feed the synchronous preflight safely. Do not connect it to any order-submission route or worker yet.
+3. Keep `LIVE_ORDER_SUBMISSION_ENABLED=false`, `TRADING_MODE=PAPER`, and `ExecutionService` PAPER-only. No real orders for tests.
+4. After provider/calendar verification, complete broker status/fill/cancel reconciliation with partial-fill states and connection-scoped trade deduplication.
+5. Run backend tests, SQLite/PostgreSQL migration checks where available, frontend typecheck/build and staging checks; report exact evidence.
+6. Update progress, roadmap, audit, requirements, architecture, state-machine, changelog and handover after each coherent task. Do not merge PR #1 without explicit authorization.
 
 ## Additional risk guard — safety branch
 - `PORTFOLIO_DAILY_LOSS_LIMIT_PCT` defaults to 2.0. Once today's realized losses across all fills in a portfolio reach that percentage of starting virtual capital, the existing strategy risk engine blocks new automated entries for that portfolio.
@@ -336,3 +336,19 @@ Implement a concrete, testable **account-wide live pre-trade risk gate** and inj
 
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading remains **NOT READY**; no real orders have been submitted.
+
+## Authoritative checkpoint — 18 October 2026: account-wide live risk gate foundation
+
+### Code and test evidence
+- Latest verified code/test SHA: `dd27afcecc64f5cafc91198e1cfc81b61616fff9` — GitHub Actions [run #39111061824](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111061824): **307 passed, 1 warning in 19.67s**; SQLite Alembic upgrade passed. Run conclusion: success.
+- Added `backend/app/services/live_pre_trade_risk_gate.py` and `backend/tests/test_live_pre_trade_risk_gate.py`.
+- The gate checks India equity market weekday/session hours (09:15–15:30 IST), fresh quote/position/funds/margin timestamps, account-wide exposure from broker position snapshots (not virtual paper positions), absolute INR order/exposure/daily-loss caps, daily live order frequency, unresolved live-order exposure, and broker estimated margin against broker cash availability. Provider failures and malformed/stale data fail closed.
+- Defaults are conservative absolute limits: ₹10,000 per order, ₹50,000 gross exposure, ₹1,000 daily realized loss, 10 live order attempts per UTC day, and 5-second market-data age. They are limits, not a promise of suitability; configure after reviewed testing.
+- Important limits: market calendar currently checks weekdays and session hours only; exchange holidays and special sessions are not yet handled. Broker quote/positions/funds/margin providers are injected dependencies and are **not yet wired to live Upstox calls**. The risk gate is not automatically injected into a production path, and no route/worker or broker POST uses it. Existing PAPER-only guard remains.
+- Test warning: GitHub runner reports Node.js 20 action deprecation; tests and SQLite migration succeeded. PostgreSQL migration behavior, real broker responses, front-end build against this exact head, and staging remain unverified.
+
+### Next task
+Implement a read-only **Upstox snapshot provider/collector** for quotes, positions, funds and estimated margin with strict parser validation and timestamps, plus an exchange holiday/special-session calendar contract. Keep it unconnected to any order-submission route. Test only with mocked HTTP responses; no real orders, no route/worker wiring, no PR merge, no live-mode enablement.
+
+### Release status
+PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

@@ -502,3 +502,54 @@ def test_safety_reset_requires_permission_and_recent_mfa(client, db_session):
         headers={"Origin": settings.CORS_ORIGINS[0], "Idempotency-Key": "operator-reset-0001"},
     )
     assert response.status_code == 403
+
+
+def test_safety_reset_with_recent_mfa_still_requires_fresh_health_check(client, db_session):
+    _register_and_login(client, email="operator@example.com")
+    from datetime import datetime, timezone
+    from app.repositories.user_repository import UserRepository
+    from app.services.live_account_safety_service import LiveAccountSafetyService
+
+    user = UserRepository(db_session).get_by_email("operator@example.com")
+    user.safety_permissions = ["safety.reset"]
+    user.mfa_enabled = True
+    db_session.commit()
+    LiveAccountSafetyService(db_session).initialize(
+        user.id, actor_user_id=user.id, idempotency_key="test-initialize-safety",
+    )
+    verified_at = int(datetime.now(timezone.utc).timestamp())
+    step_up = create_token(
+        user.id,
+        "step_up",
+        extra_claims={
+            "scope": "safety.reset",
+            "amr": ["pwd", "totp"],
+            "mfa_verified_at": verified_at,
+        },
+    )
+    response = client.post(
+        "/api/v1/safety/kill-switch/reset",
+        json={"reason": "reviewed recovery", "expected_version": 1},
+        headers={
+            "Origin": settings.CORS_ORIGINS[0],
+            "Idempotency-Key": "operator-reset-0002",
+            "X-Safety-Step-Up": step_up,
+        },
+    )
+    assert response.status_code == 409
+    assert "health check" in response.json()["detail"].lower()
+
+
+def test_cookie_authenticated_safety_trip_rejects_missing_origin(client, db_session):
+    _register_and_login(client, email="operator@example.com")
+    from app.repositories.user_repository import UserRepository
+
+    user = UserRepository(db_session).get_by_email("operator@example.com")
+    user.safety_permissions = ["safety.kill_switch.trip"]
+    db_session.commit()
+    response = client.post(
+        "/api/v1/safety/kill-switch/trip",
+        json={"reason": "operator requested emergency stop"},
+        headers={"Idempotency-Key": "operator-trip-0002"},
+    )
+    assert response.status_code == 403

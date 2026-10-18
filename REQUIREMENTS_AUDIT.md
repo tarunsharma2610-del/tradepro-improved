@@ -358,3 +358,11 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Requirement: a charge/accounting failure after earlier fills have been promoted must stop subsequent processing and allow safe retries without duplicating earlier executions.
 - Added test coverage in commit `1a3475c69d3a93ece7bfad22ace4dce52231bfa1`, using the real reconciliation, ingestion, promotion and accounting services with broker reads/charge estimates mocked.
 - Status: **pending exact-SHA CI**. Do not mark verified until the workflow for this SHA passes. No production wiring or real broker order was introduced.
+
+
+## Requirement — durable account-wide kill switch and broker circuit breaker
+
+- Implemented service logic in `backend/app/services/live_account_safety_service.py`, durable schema in migration `202610180009`, and tests in `backend/tests/test_live_account_safety_service.py`.
+- Expected contract: absent/stale/unknown safety state blocks; new state is latched off; threshold of consecutive broker errors opens the circuit and trips the kill switch; repeated idempotency keys do not double-count; successful broker calls do not auto-close the circuit; manual reset requires a fresh passing health check, zero error count, explicit actor and reason.
+- Status: implementation committed, **verification pending** on head `57939799b7e8b436d5095924b86a89ce380a956e`. Await backend pytest and SQLite/PostgreSQL migration CI; PostgreSQL concurrency coverage remains a follow-up.
+- Not wired into order submission and does not authorize live trading.

@@ -222,3 +222,26 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Safety assertions include no broker write calls, unchanged paper cash/positions, and exactly two executions after successful retry.
 - **Verification status:** CI for this exact SHA is not yet confirmed; no pass is claimed. Do not treat the task as complete until the exact commit's workflow result is checked.
 - Next: check CI for this SHA; diagnose only demonstrated failures. If green, review whether the real-service reconciliation and promotion path needs PostgreSQL-backed integration coverage and update the audit with the exact verified evidence. No live wiring, order submission, merge, or live-mode enablement.
+
+
+## Phase 2 continuation — persistent account-level kill switch and broker circuit breaker
+
+### Implemented, verification pending
+- Added `backend/app/services/live_account_safety_service.py` to operate the existing account-wide `LiveAccountSafetyState` and append-only `LiveAccountSafetyEvent` tables.
+- Added migration `backend/alembic/versions/202610180009_live_account_safety.py` (revision `202610180009`, revises `202610180008`) for durable safety state and event audit tables.
+- Added `backend/tests/test_live_account_safety_service.py` covering missing-state fail-closed behavior, default tripped state, broker-error threshold/circuit trip, event idempotency, manual reset requirements, failed/stale health checks and unknown circuit values.
+- Latest code/test head at this checkpoint: `57939799b7e8b436d5095924b86a89ce380a956e` ([GitHub commit](https://github.com/tarunsharma2610-del/tradepro-improved/commit/57939799b7e8b436d5095924b86a89ce380a956e)).
+- **Verification pending:** GitHub returned no status checks/workflow runs for this exact head. Do not mark tests or migration green until Actions confirms backend pytest, SQLite migration upgrade, PostgreSQL 16 migration upgrade, and existing PostgreSQL integration job.
+
+### Safety contract
+- State scope is account/user + broker, not portfolio.
+- Missing state, stale health, database exceptions, unknown circuit states, a tripped kill switch or an open/non-closed circuit all deny permission.
+- New state is initialized with kill switch tripped. Broker success clears consecutive-error count only; it never silently closes an open circuit.
+- Manual reset requires authenticated actor, a recent passing health-check event, zero consecutive broker errors, and an explicit reason. State changes are append-only audited and idempotency-keyed.
+- Service is not registered in live order submission or routes; no live order capability was enabled.
+
+### Next distinct steps
+1. Verify CI and migration upgrades for exact head `57939799b7e8b436d5095924b86a89ce380a956e`; fix only observed failures.
+2. Add PostgreSQL concurrency tests for duplicate error-event idempotency, concurrent threshold trips and manual-reset serialization.
+3. Add a read-only preflight integration test that composes persisted safety decision with existing `AccountWideLiveRiskGate`; keep actual submission unregistered.
+4. Review authentication/authorization API and operator audit visibility before any control endpoint exists.

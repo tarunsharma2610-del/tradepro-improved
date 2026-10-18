@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
-from app.core.security import decode_token
+from app.core.security import create_token, decode_token, verify_password
 from app.middleware.audit import write_audit_log
 from app.middleware.rate_limit import login_rate_limit, register_rate_limit
 from app.models.user import User
@@ -12,6 +12,8 @@ from app.schemas.auth import (
     LoginResult,
     MfaEnrollResponse,
     MfaVerifyRequest,
+    MfaStepUpRequest,
+    MfaStepUpResponse,
     RegisterRequest,
 )
 from app.schemas.user import UserOut
@@ -111,6 +113,31 @@ def mfa_verify(
     if not service.verify_and_enable_mfa(user, payload.code):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect code")
     write_audit_log(db, action="user.mfa_enabled", user_id=user.id, request=request)
+
+
+@router.post("/mfa/step-up", response_model=MfaStepUpResponse)
+def mfa_step_up(
+    payload: MfaStepUpRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    _rl=Depends(login_rate_limit),
+):
+    """Issue a five-minute safety-reset token only after fresh password + TOTP."""
+    if not user.mfa_enabled:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "MFA must be enabled for safety reset")
+    if not verify_password(payload.password, user.password_hash) or not AuthService._verify_totp(user, payload.code):
+        write_audit_log(db, action="user.mfa_step_up_failed", user_id=user.id, request=request)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Credential verification failed")
+    from datetime import datetime, timezone
+    verified_at = int(datetime.now(timezone.utc).timestamp())
+    token = create_token(
+        user.id,
+        "step_up",
+        extra_claims={"scope": "safety.reset", "amr": ["pwd", "totp"], "mfa_verified_at": verified_at},
+    )
+    write_audit_log(db, action="user.mfa_step_up_succeeded", user_id=user.id, request=request)
+    return MfaStepUpResponse(step_up_token=token, expires_in=300)
 
 
 @router.post("/mfa/disable", status_code=status.HTTP_204_NO_CONTENT)

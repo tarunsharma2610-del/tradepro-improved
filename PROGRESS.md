@@ -206,3 +206,23 @@ The current blocker is verification: the GitHub integration returned no workflow
 - Investigated workflow run `39028914012` (`Backend pytest`): it ran against the earlier PR merge checkout `d04dfa5` and reported `177 passed, 3 errors`; all three errors were fixture setup failures (`portfolio` not found) in that checkout. The current branch version of `backend/tests/test_broker_reconciliation.py` defines the fixture, but this alone is not proof the current branch passes.
 - The GitHub integration's commit-SHA workflow lookup and combined-status lookup returned no results for the current branch head. The old failed run is not a valid test of current head `2625191740554efe5a41f99eff15306ebd68ec5c`; current CI remains unverified.
 - Next: inspect the latest PR run in GitHub Actions (PR workflows check out the generated merge ref), confirm backend tests, migration and frontend results, and fix only current-head failures. Do not claim green CI or enable live trading.
+
+
+## Authoritative continuation checkpoint — 18 October 2026
+
+This section supersedes older “current task/next task” paragraphs elsewhere in this file. Historical entries above remain a record of earlier work and must not be read as the current next step.
+
+- Repository/branch: `tarunsharma2610-del/tradepro-improved` / `safety/fail-closed-trading-mode`. Original `tarunsharma2610-del/Tradepro` remains untouched.
+- PR #1 is open, draft, and unmerged. Latest PR head observed before this checkpoint: `540e1285d3de934b43829948a1b60c67658d1343`.
+- The PR-head workflow lookup and combined-status lookup returned no runs/statuses. Current-head CI is **unverified**. Earlier green CI results apply only to their explicitly listed older commits; the old failing run `39028914012` used an earlier merge checkout and is not proof of current-head status.
+- Present foundation: Upstox trade response parser `parse_order_trades` and typed `BrokerTrade`; additive `BrokerOrder` child-order model; nullable execution broker references; unique constraint on `(broker_name, broker_trade_id)`; read-only order/trade/history adapter methods. These pieces are not yet wired into fill ingestion/accounting.
+- Critical schema/audit question to resolve before implementation: trade identity is currently unique by broker name + trade ID, not by broker connection/account + trade ID. Check whether this is sufficiently scoped for multiple users/accounts; do not assume it is.
+- **Current implementation task:** audit the exact execution schema, migrations, connection ownership and accounting path; then implement broker-confirmed trade ingestion with transactional idempotency and tests. Do not mutate paper accounting from broker fills, infer a fill from status alone, submit live orders, or enable live trading.
+- No new ingestion code has been claimed complete in this checkpoint. Do not mark the task done until code/tests are committed and current CI evidence is recorded.
+
+### Current sequence
+1. [x] Commit this progress/audit/roadmap/handover/changelog checkpoint before more feature work.
+2. [ ] Audit relevant code, migrations, ownership boundaries and test fixtures for fill ingestion.
+3. [ ] Implement only the verified missing ingestion/idempotency behavior and regression tests.
+4. [ ] Verify tests/CI; record exact commit and results. If CI cannot be retrieved, explicitly leave verification pending.
+5. [ ] Update this log and audit docs after implementation; stop before wiring any live order-submission path.

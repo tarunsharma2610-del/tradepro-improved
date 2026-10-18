@@ -47,3 +47,8 @@ See [AUDIT_REPORT.md](./AUDIT_REPORT.md) for findings, verification links and re
 ## Development status and roadmap
 
 See [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md) for the current implementation sequence, verification gate, safety constraints and release blockers. Live trading is not ready and remains disabled.
+
+
+## Broker trade intake status (18 October 2026)
+
+The safety branch now includes a connection-scoped `BrokerTradeRecord` intake table and `BrokerTradeIngestionService` with ownership, child-order mapping, validation and replay protection. These records are **staged broker trade data, not accounted executions**: ingestion does not change balances, positions, P&L or order state, and is not wired to a live submission path. Current-head CI/migration verification is pending; keep live trading disabled. See `PROGRESS.md` and `AUDIT_REPORT.md` for exact commits and the verification gate.

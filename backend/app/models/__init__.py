@@ -12,6 +12,7 @@ from app.models.position import Position  # noqa: F401
 from app.models.live_position import LivePosition  # noqa: F401
 from app.models.execution import Execution  # noqa: F401
 from app.models.live_charge_adjustment import LiveChargeAdjustment  # noqa: F401
+from app.models.live_account_safety import LiveAccountSafetyEvent, LiveAccountSafetyState  # noqa: F401
 from app.models.strategy import Strategy  # noqa: F401
 from app.models.strategy_position import StrategyPosition  # noqa: F401
 from app.models.backtest import BacktestRun  # noqa: F401
@@ -35,6 +36,8 @@ __all__ = [
     "LivePosition",
     "Execution",
     "LiveChargeAdjustment",
+    "LiveAccountSafetyState",
+    "LiveAccountSafetyEvent",
     "Strategy",
     "StrategyPosition",
     "BacktestRun",

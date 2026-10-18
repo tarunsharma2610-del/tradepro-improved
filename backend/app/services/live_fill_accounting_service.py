@@ -148,11 +148,19 @@ class LiveFillAccountingService:
                 raise LiveExecutionBlocked("Live order instrument is missing or inactive.")
             if record.side not in {"BUY", "SELL"} or record.side != order.side:
                 raise LiveExecutionBlocked("Staged trade side conflicts with its parent order.")
+            if record.instrument_token != instrument.instrument_key:
+                raise LiveExecutionBlocked("Staged trade instrument token conflicts with its parent order.")
             if record.quantity <= 0 or record.price is None:
                 raise LiveExecutionBlocked("Staged trade quantity or price is invalid.")
-            price = self._money(record.price, "Trade price")
-            if price <= 0:
-                raise LiveExecutionBlocked("Trade price must be positive.")
+            try:
+                price = Decimal(str(record.price))
+            except (InvalidOperation, TypeError, ValueError):
+                raise LiveExecutionBlocked("Trade price must be a valid monetary amount.") from None
+            if not price.is_finite() or price <= 0:
+                raise LiveExecutionBlocked("Trade price must be finite and positive.")
+            # Keep the broker's supported four-decimal precision; only gross
+            # turnover and fee components are rounded to paise.
+            price = price.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
             gross_value = (price * Decimal(record.quantity)).quantize(CENT, rounding=ROUND_HALF_UP)
 
             existing = (

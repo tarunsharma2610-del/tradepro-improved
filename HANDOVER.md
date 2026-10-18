@@ -469,3 +469,12 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Review is static only. Existing access-token validation, active-user check, admin guard, ownership checks, MFA capability and audit writes are documented alongside gaps. There is no operator audit-history API or dedicated safety permission model. Step-up auth, CSRF, atomic state/event persistence, immutable audit enforcement, strict redaction and HTTP-level safety endpoint tests are unresolved.
 - No safety-control endpoint was created. No order route/worker wiring was changed. Live trading remains disabled and original Tradepro remains untouched.
 - **Resume here:** read PROJECT_INSTRUCTIONS.md, PROGRESS.md and SECURITY_CONTROL_ENDPOINT_AUDIT.md; approve the safety permission and audit contract; then perform an exhaustive order-entry/retry/recovery/broker-write path inventory before implementing an endpoint.
+
+
+## Latest handover — order-entry path inventory (18 October 2026)
+
+- Read [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md) and [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT.md).
+- Inventory commit: [a477489c7e2d5b6883c299c1e9a8aee1cbef055f](https://github.com/tarunsharma2610-del/tradepro-improved/commit/a477489c7e2d5b6883c299c1e9a8aee1cbef055f).
+- Manual order and strategy entry/exit paths converge on the PAPER-only ExecutionService; it rejects LIVE/unknown modes. The Upstox adapter's place/modify/cancel methods exist, but no caller was found in reviewed app paths. Recovery does not submit orders, but currently uses LiveExecutionService directly rather than LivePreflightCoordinator.
+- No code paths were wired or changed. Keep live disabled and PR #1 draft/open. Original Tradepro untouched.
+- Resume by designing a single allowed broker-write boundary, atomic intent+audit persistence, safety-specific permissions, source-call CI guardrails and negative tests. Only then plan safe route/worker integration.

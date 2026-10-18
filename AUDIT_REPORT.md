@@ -394,3 +394,10 @@ Commit `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` supersedes the initial test co
 Implement and test the **persisted account-level live kill switch and broker-error circuit breaker**: durable state, fail-closed read behavior, reason/timestamp/audit trail, threshold-triggered circuit trips, manual-reset policy and account-wide scope across portfolios. Keep it unregistered from order submission until separately reviewed; do not merge PR #1 or enable live trading.
 
 This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` was pending. The latest verified test SHA is `c779f2543ea1f20efbd8b7dca38a9c2aed201749`.
+
+
+## Audit addendum — partial promotion and safe retry
+
+- Commit `1a3475c69d3a93ece7bfad22ace4dce52231bfa1` adds an integration regression for the real reconcile → ingest → promote → account path when a later fill's charge estimation fails once.
+- The test is designed to prove the first successful fill is not duplicated on retry and the unprocessed fill is eventually accounted; paper-account isolation and no broker-write calls are asserted.
+- **Evidence status: pending exact-SHA CI**. This is added test coverage, not a verified pass. Runtime remains unregistered and live trading remains disabled.

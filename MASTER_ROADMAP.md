@@ -54,3 +54,17 @@ Follow `LIVE_ORDER_STATE_MACHINE.md` implementation order:
 - Investigated workflow run `39028914012` (`Backend pytest`): it ran against the earlier PR merge checkout `d04dfa5` and reported `177 passed, 3 errors`; all three errors were fixture setup failures (`portfolio` not found) in that checkout. The current branch version of `backend/tests/test_broker_reconciliation.py` defines the fixture, but this alone is not proof the current branch passes.
 - The GitHub integration's commit-SHA workflow lookup and combined-status lookup returned no results for the current branch head. The old failed run is not a valid test of current head `2625191740554efe5a41f99eff15306ebd68ec5c`; current CI remains unverified.
 - Next: inspect the latest PR run in GitHub Actions (PR workflows check out the generated merge ref), confirm backend tests, migration and frontend results, and fix only current-head failures. Do not claim green CI or enable live trading.
+
+
+## Authoritative continuation checkpoint — 18 October 2026
+
+This checkpoint supersedes the earlier “next implementation phase after verification” sequencing above. The current concrete task is **broker-trade/fill ingestion**, not live order submission/service wiring.
+
+1. Audit `Execution`, `BrokerOrder`, `Order`, broker-connection ownership, migrations, and accounting repositories/services. Confirm what fields and uniqueness guarantees actually exist.
+2. Review `parse_order_trades` / `BrokerTrade` and tests; reuse them rather than duplicate the parser.
+3. Implement a transaction-safe ingestion path for broker-confirmed fills only, with durable deduplication and explicit mapping to the correct local order/child broker order. Resolve whether uniqueness should be scoped to broker connection/account instead of only broker name.
+4. Add regression tests for replayed trades, repeated ingestion, wrong/missing child-order mapping, invalid quantity/price/side, transaction rollback, and separation from paper accounting. Do not infer fills from status events.
+5. Run/inspect current-head CI and migrations. Record only evidence for the exact tested SHA.
+6. Update progress/audit/handover/changelog after the code/test commit. Keep the PAPER-only guard; no real order placement, live service registration, or PR merge.
+
+Current PR #1 head last observed: `540e1285d3de934b43829948a1b60c67658d1343`. Workflow-run and combined-status lookups returned no results for that head, so verification remains pending. The project is **not live-trading ready**.

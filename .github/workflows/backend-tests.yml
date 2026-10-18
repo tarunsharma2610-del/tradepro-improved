@@ -67,10 +67,10 @@ jobs:
           MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: alembic upgrade head
-      - name: Verify PostgreSQL charge-adjustment concurrency
+      - name: Verify PostgreSQL account-safety and charge-adjustment concurrency
         env:
           DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
           POSTGRES_TEST_DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
           MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
-        run: python -m pytest -q tests/test_live_charge_adjustment_postgres.py
+        run: python -m pytest -q tests/test_live_charge_adjustment_postgres.py tests/test_live_account_safety_postgres.py

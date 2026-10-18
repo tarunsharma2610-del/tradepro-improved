@@ -476,3 +476,8 @@ The source-call guard is implemented and passed CI run #617 on code SHA `bdf208e
 Migration `202610180011` adds SHA-256 request fingerprints and uniqueness of `(state_id, state_version)`; the safety service validates request fingerprints on idempotency replay and rejects stale manual-reset expected versions when supplied. A state transition and its audit event are committed in one DB transaction. SQLite and PostgreSQL triggers reject event UPDATE/DELETE, with PostgreSQL integration tests for both operations and unit coverage for state rollback on event insert failure.
 
 This improves database-level immutability but does not protect against privileged database owners. Legacy rows with no request fingerprint are deliberately non-replayable. Future reset endpoints must require expected version. Exact-head CI remains pending at run `39124312326`; no endpoints or live broker paths have been added.
+
+
+### Expected-version test correction
+
+The first stale-reset-version regression test failed because it read `version` from a mutable ORM object after a subsequent state change. It now captures the integer before that change (commit `6cd0ced108e35d715359d649a463d80709dd1fb1`). Exact-head CI run #39124498280 is pending.

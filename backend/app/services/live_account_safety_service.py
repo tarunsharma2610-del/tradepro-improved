@@ -7,6 +7,8 @@ closed. Scope is (user, broker), never a single portfolio.
 """
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import hashlib
+import json
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -93,7 +95,10 @@ class LiveAccountSafetyService:
             )
             self.db.add(state)
             self.db.flush()
-            self._event(state, actor_user_id, key, "INITIALIZED", state.kill_switch_reason)
+            self._event(
+                state, actor_user_id, key, "INITIALIZED", state.kill_switch_reason,
+                request_fingerprint=self._fingerprint("INITIALIZED", state.kill_switch_reason, None),
+            )
             self.db.commit()
             self.db.refresh(state)
             return state
@@ -214,6 +219,7 @@ class LiveAccountSafetyService:
     def _mutate(self, user_id, broker, actor_user_id, idempotency_key, event_type, reason, mutation, error_code=None):
         broker = self._broker(broker)
         key = self._key(idempotency_key)
+        fingerprint = self._fingerprint(event_type, reason, error_code)
         try:
             state = self._get_state(user_id, broker, lock=True)
             if state is None:
@@ -223,13 +229,17 @@ class LiveAccountSafetyService:
                 LiveAccountSafetyEvent.idempotency_key == key,
             ).one_or_none()
             if replay is not None:
+                self._assert_same_request(replay, fingerprint)
                 return state
             now = self._now()
             result = mutation(state, now)
             # mutation may return a specialized event type for threshold trips.
             if isinstance(result, str):
                 event_type = result
-            self._event(state, actor_user_id, key, event_type, reason, error_code=error_code)
+            self._event(
+                state, actor_user_id, key, event_type, reason, error_code=error_code,
+                request_fingerprint=fingerprint,
+            )
             self.db.commit()
             self.db.refresh(state)
             return state
@@ -245,6 +255,7 @@ class LiveAccountSafetyService:
                         LiveAccountSafetyEvent.idempotency_key == key,
                     ).one_or_none()
                     if replay is not None:
+                        self._assert_same_request(replay, fingerprint)
                         return state
             except Exception:
                 self.db.rollback()
@@ -263,9 +274,13 @@ class LiveAccountSafetyService:
         state.kill_switch_tripped_at = now
         state.version += 1
 
-    def _event(self, state, actor_user_id, key, event_type, reason, error_code=None):
+    def _event(
+        self, state, actor_user_id, key, event_type, reason, error_code=None,
+        request_fingerprint=None,
+    ):
         self.db.add(LiveAccountSafetyEvent(
             state_id=state.id, actor_user_id=actor_user_id, idempotency_key=key,
+            request_fingerprint=request_fingerprint,
             event_type=event_type, reason=(reason or "")[:500] or None,
             error_code=(error_code or "")[:100] or None,
             consecutive_broker_errors=state.consecutive_broker_errors,
@@ -273,6 +288,26 @@ class LiveAccountSafetyService:
             kill_switch_tripped=state.kill_switch_tripped,
             state_version=state.version,
         ))
+
+    @staticmethod
+    def _fingerprint(event_type, reason, error_code):
+        canonical = json.dumps(
+            {
+                "event_type": event_type,
+                "reason": (reason or "")[:500] or None,
+                "error_code": (error_code or "")[:100] or None,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(canonical).hexdigest()
+
+    @staticmethod
+    def _assert_same_request(event, fingerprint):
+        if not event.request_fingerprint or event.request_fingerprint != fingerprint:
+            raise LiveExecutionBlocked(
+                "Idempotency key was already used for a different or unverifiable safety request."
+            )
 
     def _get_state(self, user_id, broker, *, lock):
         query = self.db.query(LiveAccountSafetyState).filter(

@@ -306,7 +306,7 @@ This verifies the code present at that SHA in CI. It does not validate PostgreSQ
 
 ### Latest verified state
 
-- Latest verified code/workflow SHA: `677fcf882e0ce1e6e02be3bb8df0d074b8fbf220`; subsequent commits only update documentation. Current branch head after those docs commits: `7fb582f5ce75165f178e296472beb0a50cd03ac9`.
+- Latest verified code/workflow SHA: `677fcf882e0ce1e6e02be3bb8df0d074b8fbf220`; commits after this SHA update documentation only and do not change the verified backend code.
 - GitHub Actions [run #39109587876](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39109587876) on that exact SHA: **286 passed, 1 warning in 18.93s**, followed by successful SQLite `alembic upgrade head`. Run conclusion: success.
 - Earlier verified baseline run #39109239829 had 266 passed; the newer 286-test run includes the new preflight tests. Do not use older “CI pending” paragraphs below as current status.
 - The single Python warning is the existing Starlette/AnyIO deprecation. No test or migration failures occurred in the verified run.

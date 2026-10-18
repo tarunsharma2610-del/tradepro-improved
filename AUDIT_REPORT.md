@@ -239,3 +239,8 @@ Tests added/updated: `backend/tests/test_broker_trade_ingestion.py` and `backend
 ### Migration backfill coverage added — 18 October 2026
 
 Added a regression test that seeds a legacy broker child order and execution at revision 005, upgrades to head, and asserts migration 006 backfills both broker connection IDs from the owning user's connection. Latest head: `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. Current-head CI remains unverified.
+
+
+### Final verification clarification — 18 October 2026
+
+The last code/test commit is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; subsequent documentation updates advanced the branch without changing code. At the check, PR head `1b0056d9739cd55d50cd5484cddf955aa8bf07db` had no workflow run/status returned. The intake/migration changes remain unverified until backend tests and `alembic upgrade head` run on the current code.

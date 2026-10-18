@@ -130,3 +130,12 @@ The adapter now has read-only `get_funds_and_margin` using the official V3 endpo
 ## Funds response parser status — 17 October 2026
 
 The pure `parse_funds_and_margin_v3` parser is implemented and tested. It intentionally separates total available-to-trade from cash and pledge margin; this avoids treating pledged collateral as cash. It is not connected to order approval. Next is read-only instrument-specific margin calculation support, still without live execution wiring.
+
+
+## Status correction — 18 October 2026 (supersedes stale next-step notes)
+
+The following are now present in the branch: `BrokerAdapter.get_margin_details`, the Upstox `POST /v2/charges/margin` implementation with local request validation, pure `parse_margin_details`, and unit tests for success/error/malformed response shapes. Older notes saying the adapter method or typed parser is still missing are historical snapshots, not current status. The parser is read-only and is not used to authorize orders.
+
+The current blocker is verification: the GitHub integration returned no workflow run and no commit status for the current PR head when checked. Earlier CI results (238 backend tests, one warning, migration/frontend checks green) belong to an older commit and do not verify the margin parser changes. No pass/fail conclusion is possible from the available evidence. Inspect or trigger the configured workflow from GitHub Actions and record actual results before advancing.
+
+`MASTER_ROADMAP.md` is now the current sequencing guide. After this verification gate, the next implementation phase is a separate, initially unregistered `LiveExecutionService` with mocked tests, while preserving the current PAPER-only execution guard. Do not merge the draft PR, place real orders, or enable live trading.

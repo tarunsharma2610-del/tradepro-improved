@@ -477,3 +477,8 @@ The AST-based source guard passed CI run #617 on code SHA `bdf208efcc32b44a63671
 Implemented: request fingerprints for new safety events; idempotency mismatch denial; unique per-state state-version constraint; SQLite/PostgreSQL triggers rejecting UPDATE/DELETE; rollback regression coverage proving safety state is unchanged when event persistence fails; PostgreSQL direct-mutation rejection test; and optional expected-version validation on manual reset.
 
 Limitations: historical events have a NULL fingerprint and cannot be proven equivalent on replay, so the service rejects such replays rather than assuming equivalence. The service accepts an omitted reset expected-version for compatibility; any future safety-control endpoint must require it. Triggers prevent ordinary row UPDATE/DELETE but do not protect against a privileged database owner disabling/dropping them. Exact-head CI run `39124312326` was pending at this checkpoint; the preceding successful run does not include all final changes. This is not production security sign-off.
+
+
+### Expected-version regression-test status
+
+Latest run #39124312326 failed one test due to the test retaining a mutable ORM state reference, not due to a demonstrated safety bypass. The test was corrected to snapshot the pre-mutation version in commit `6cd0ced108e35d715359d649a463d80709dd1fb1`. Verification of this correction is pending in run #39124498280. Do not represent storage hardening as fully verified until that run passes.

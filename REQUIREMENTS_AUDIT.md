@@ -213,9 +213,9 @@ Final verification note: code/test target `a68c336e4a35ccc0bfe4d6539760ad03e4067
 | Bind ingested trades to the exact user's broker connection | Code hardened; verification pending | Commit `2cdbbe290f8b661cb91110dbb4e165fcef36f800` resolves the connection using the broker child order's connection ID plus owner and broker; null/unowned mappings fail closed. | Run cross-user binding regression test on current code. |
 | Require instrument identity before staging broker fills | Code hardened; verification pending | Intake now rejects missing/non-text tokens and mismatches against the local instrument key. | Run parser + ingestion tests against current head and confirm Upstox trade-book payload contains the expected instrument token. |
 | Malformed broker trade side | Code hardened; verification pending | Non-string/blank side input now returns a controlled validation error rather than an attribute error. | Run new negative-path tests. |
-| Current-head backend/migration verification | Blocked/pending | Code/test target `b780c39f770a6839dab0af63fc424c341eff9d70`; no Actions run returned for this branch/head. | Manually dispatch `.github/workflows/backend-tests.yml` on the safety branch and record actual results. |
+| Current-head backend/migration verification | Blocked/pending | Code/test target `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`; no Actions run returned for this branch/head. | Manually dispatch `.github/workflows/backend-tests.yml` on the safety branch and record actual results. |
 
 No live-order, execution-ledger, position, cash, order-status or P&L behavior was added by this continuation. The live-trading release gate remains closed.
 
 
-Additional regression: commit `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` adds coverage that legacy broker child orders left without a determinable connection are rejected by ingestion. This test has been added but not executed on current-head CI.
+Additional regression: commit `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` adds coverage that legacy broker child orders left without a determinable connection are rejected by ingestion. Latest code/test target is `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`; this test has been added but not executed on current-head CI.

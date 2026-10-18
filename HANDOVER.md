@@ -269,3 +269,6 @@ Read `PROJECT_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `MASTER_ROADMAP.md`, `PROGRES
 Latest code/test commit: `b780c39f770a6839dab0af63fc424c341eff9d70` (code hardening commit: `2cdbbe290f8b661cb91110dbb4e165fcef36f800`). Intake now resolves the exact child-order broker connection and rejects missing/mismatched instrument tokens and malformed side values. Added regression coverage for foreign connection binding and malformed/missing identity fields.
 
 **Immediate next step:** run `.github/workflows/backend-tests.yml` manually with `workflow_dispatch` on the safety branch. Current-head Actions lookup returned no run; do not claim the new tests/migrations passed. Fix and rerun failures before starting the next Phase 2 task. The service remains unregistered and does not touch execution accounting, cash, positions, order status or P&L. Do not merge, deploy to production, or enable live trading.
+
+
+Latest test addition: `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` covers rejection of legacy child-order rows that have no connection binding. Latest code/test target is `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`; test and migration results are still pending.

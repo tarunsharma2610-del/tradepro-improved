@@ -69,7 +69,7 @@ class LiveChargeAdjustmentService:
                     Execution.broker_trade_id == broker_trade_id,
                     Portfolio.user_id == user_id,
                 )
-                .with_for_update()
+                .with_for_update(of=Execution)
                 .first()
             )
             if execution is None:

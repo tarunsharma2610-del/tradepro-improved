@@ -268,7 +268,7 @@ async def test_coordinator_blocks_if_connection_disappears_before_preflight(cont
 @pytest.mark.asyncio
 async def test_coordinator_rejects_portfolio_owned_by_another_user(context, make_user):
     db, user, portfolio, instrument = context
-    other_user = make_user()
+    other_user = make_user(email="different-user@example.com")
     adapter = ReadOnlyUpstoxAdapter()
     coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
 

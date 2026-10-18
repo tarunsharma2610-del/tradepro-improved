@@ -76,6 +76,8 @@ def accounting_context(db_session, make_user):
         broker_order_id="broker-child-1",
         requested_quantity=5,
         filled_quantity=2,
+        status="PARTIALLY_FILLED",
+        status_checked_at=datetime.now(timezone.utc),
     )
     db_session.add(child)
     db_session.flush()
@@ -334,3 +336,48 @@ async def test_promotion_coordinator_writes_nothing_when_estimate_fails(
 
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
+
+
+def test_accounting_blocks_unreconciled_child_order(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, child, record = accounting_context
+    child.status = "UNKNOWN"
+    child.status_checked_at = None
+    db.commit()
+
+    with pytest.raises(LiveExecutionBlocked, match="not been successfully reconciled"):
+        LiveFillAccountingService(db).account_trade(user.id, record.id, _charges())
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+
+
+def test_accounting_blocks_when_staged_quantity_differs_from_confirmed_child_fill(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, child, record = accounting_context
+    child.filled_quantity = 3
+    db.commit()
+
+    with pytest.raises(LiveExecutionBlocked, match="does not match.*confirmed fill quantity"):
+        LiveFillAccountingService(db).account_trade(user.id, record.id, _charges())
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+
+
+def test_replay_cannot_silently_replace_estimated_charges_with_broker_reported_charges(
+    accounting_context,
+):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record = accounting_context
+    service = LiveFillAccountingService(db)
+    estimate = _charges(source="APPROVED_ESTIMATE", reference="upstox-estimator-v1")
+    service.account_trade(user.id, record.id, estimate)
+
+    with pytest.raises(LiveExecutionBlocked, match="final-charge adjustments require"):
+        service.account_trade(
+            user.id,
+            record.id,
+            _charges(source="BROKER_REPORTED", reference="contract-note-2026-10-18"),
+        )
+
+    assert db.query(Execution).count() == 1
+    assert db.query(LivePosition).one().quantity == 2
+    assert db.query(Execution).one().charge_source == "APPROVED_ESTIMATE"

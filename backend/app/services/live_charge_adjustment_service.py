@@ -32,6 +32,7 @@ class LiveChargeAdjustmentResult:
     duplicate: bool
     previous_effective_total: Decimal
     new_effective_total: Decimal
+    effective_charge_total: Decimal
     charge_delta: Decimal
     net_realized_pnl_delta: Decimal
     effective_net_realized_pnl: Decimal
@@ -87,11 +88,17 @@ class LiveChargeAdjustmentService:
                     raise LiveExecutionBlocked(
                         "This charge-document reference already exists with different values."
                     )
+                latest = (
+                    self.db.query(LiveChargeAdjustment)
+                    .filter(LiveChargeAdjustment.execution_id == execution.id)
+                    .order_by(LiveChargeAdjustment.adjustment_number.desc())
+                    .first()
+                )
                 return self._result(
                     execution,
                     replay,
                     duplicate=True,
-                    effective_total=Decimal(str(replay.new_effective_total)),
+                    effective_total=Decimal(str(latest.new_effective_total if latest else execution.total_charges)),
                 )
 
             latest = (
@@ -150,9 +157,15 @@ class LiveChargeAdjustmentService:
             if replay is not None and self._same_breakdown(replay, values, new_total):
                 execution = self.db.query(Execution).filter(Execution.id == replay.execution_id).first()
                 if execution is not None:
+                    latest = (
+                        self.db.query(LiveChargeAdjustment)
+                        .filter(LiveChargeAdjustment.execution_id == execution.id)
+                        .order_by(LiveChargeAdjustment.adjustment_number.desc())
+                        .first()
+                    )
                     return self._result(
                         execution, replay, duplicate=True,
-                        effective_total=Decimal(str(replay.new_effective_total)),
+                        effective_total=Decimal(str(latest.new_effective_total if latest else execution.total_charges)),
                     )
             raise LiveExecutionBlocked(
                 "Concurrent charge adjustment detected; reload the latest effective charges and retry."
@@ -180,8 +193,9 @@ class LiveChargeAdjustmentService:
         effective_total: Decimal,
     ) -> LiveChargeAdjustmentResult:
         previous = Decimal(str(row.previous_effective_total))
-        new = Decimal(str(effective_total))
-        delta = (new - previous).quantize(Decimal("0.01"))
+        new = Decimal(str(row.new_effective_total))
+        current_effective = Decimal(str(effective_total))
+        delta = Decimal(str(row.charge_delta)).quantize(Decimal("0.01"))
         return LiveChargeAdjustmentResult(
             execution_id=execution.id,
             adjustment_id=row.id,
@@ -191,9 +205,10 @@ class LiveChargeAdjustmentService:
             duplicate=duplicate,
             previous_effective_total=previous,
             new_effective_total=new,
+            effective_charge_total=current_effective,
             charge_delta=delta,
             net_realized_pnl_delta=(-delta).quantize(Decimal("0.01")),
             effective_net_realized_pnl=(
-                Decimal(str(execution.realized_pnl)) - new
+                Decimal(str(execution.realized_pnl)) - current_effective
             ).quantize(Decimal("0.01")),
         )

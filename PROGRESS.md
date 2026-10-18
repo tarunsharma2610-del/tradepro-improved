@@ -242,3 +242,8 @@ This section supersedes older “current task/next task” paragraphs elsewhere 
 ### Verification checkpoint correction — 18 October 2026
 
 The migration test suite now also includes `test_connection_scope_migration_backfills_existing_broker_links`, which seeds a pre-006 child order and execution and asserts migration 006 backfills both to the owning connection. Latest branch head is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. Current-head Actions/status still needs a fresh check; no test result is claimed until that SHA is actually tested.
+
+
+### Final checkpoint clarification — 18 October 2026
+
+The last **code/test** commit for this task is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. The subsequent commits updating README/architecture/progress/audit/handover/roadmap/changelog/requirements audit are documentation-only. The PR head observed after those docs updates was `1b0056d9739cd55d50cd5484cddf955aa8bf07db`; no workflow run or combined status was returned for that observed head. Do not confuse an earlier green run on the previous code with verification of this ingestion/migration work.

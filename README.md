@@ -55,3 +55,8 @@ The safety branch includes a connection-scoped `BrokerTradeRecord` intake table 
 
 
 The broker-intake migration-backfill regression and the account-safety migration graph are covered by the successful CI run above. This does not constitute staging/production migration approval; back up and verify any existing deployment database separately.
+
+
+### Safety-control security review (18 October 2026)
+
+Before any safety-control API is designed, read [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT.md). The static review found that authentication and basic ownership/admin checks exist, but operator audit visibility and safety-specific permissions are not yet implemented; step-up authentication, CSRF policy, atomic state/audit persistence, strict redaction and endpoint-level security tests remain open. No safety-control route is registered, and live order submission remains disabled.

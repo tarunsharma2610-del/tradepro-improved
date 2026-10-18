@@ -3,7 +3,6 @@
 These endpoints operate only on the persistent safety latch. They do not submit
 broker orders and do not enable live trading.
 """
-from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session

@@ -544,3 +544,10 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 - [ ] Verify GitHub Actions for commit `e9a69472e54b84333134568a559fa2592dcc12ce`.
 - [ ] Implement broker-confirmed fill promotion into `Execution` and position/cash/P&L accounting as one transaction, with actual-charge provenance and concurrency-safe idempotency. This remains blocked from production use until reviewed; no broker writes.
 
+
+
+## 2026-10-18 reconciliation checkpoint
+- [x] Add regression coverage for partial-fill staging, replay idempotency, overfill rollback, and no accounting side effects.
+- [x] Reject broker order-detail snapshots with inconsistent filled quantity and average price.
+- [ ] Verify CI for the latest parser and test commits.
+- [ ] Continue coordinator-level reconciliation idempotency, accounting rollback, and parent order terminal-state review.

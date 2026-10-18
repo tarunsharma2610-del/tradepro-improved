@@ -9,6 +9,7 @@ from app.models.order import Order  # noqa: F401
 from app.models.broker_order import BrokerOrder  # noqa: F401
 from app.models.broker_trade_record import BrokerTradeRecord  # noqa: F401
 from app.models.position import Position  # noqa: F401
+from app.models.live_position import LivePosition  # noqa: F401
 from app.models.execution import Execution  # noqa: F401
 from app.models.strategy import Strategy  # noqa: F401
 from app.models.strategy_position import StrategyPosition  # noqa: F401
@@ -30,6 +31,7 @@ __all__ = [
     "BrokerOrder",
     "BrokerTradeRecord",
     "Position",
+    "LivePosition",
     "Execution",
     "Strategy",
     "StrategyPosition",

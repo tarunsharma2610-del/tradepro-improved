@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -5,12 +6,78 @@ import pytest
 from app.models.execution import Execution
 from app.models.live_charge_adjustment import LiveChargeAdjustment
 from app.models.live_position import LivePosition
+from app.models.broker_connection import BrokerConnection
+from app.models.broker_order import BrokerOrder
+from app.models.broker_trade_record import BrokerTradeRecord
+from app.models.order import Order
+from app.repositories.instrument_repository import InstrumentRepository
+from app.repositories.portfolio_repository import PortfolioRepository
+from app.services.instrument_service import InstrumentService
 from app.services.live_execution_service import LiveExecutionBlocked
 from app.services.live_fill_accounting_service import (
     LiveChargeBreakdown,
     LiveFillAccountingService,
 )
 from app.services.live_charge_adjustment_service import LiveChargeAdjustmentService
+
+
+
+@pytest.fixture()
+def charge_adjustment_context(db_session, make_user):
+    user = make_user()
+    portfolio = PortfolioRepository(db_session).create(
+        user_id=user.id, name="Charge adjustment", virtual_capital=Decimal("100000")
+    )
+    InstrumentService(db_session).seed_defaults()
+    instrument = InstrumentRepository(db_session).search("RELIANCE")[0]
+    connection = BrokerConnection(
+        user_id=user.id,
+        broker="upstox",
+        api_key_encrypted="test-key",
+        api_secret_encrypted="test-secret",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=True,
+    )
+    order = Order(
+        portfolio_id=portfolio.id,
+        instrument_id=instrument.id,
+        side="BUY",
+        order_type="MARKET",
+        segment="EQUITY_DELIVERY",
+        quantity=5,
+        status="PENDING",
+        trading_mode="LIVE",
+        execution_reason="MANUAL",
+        broker_order_id="broker-child-adjustment",
+        placed_at=datetime.now(timezone.utc),
+    )
+    db_session.add_all([connection, order])
+    db_session.flush()
+    child = BrokerOrder(
+        order_id=order.id,
+        broker_connection_id=connection.id,
+        broker_name="upstox",
+        broker_order_id="broker-child-adjustment",
+        requested_quantity=5,
+        filled_quantity=2,
+        status="PARTIALLY_FILLED",
+        status_checked_at=datetime.now(timezone.utc),
+    )
+    db_session.add(child)
+    db_session.flush()
+    record = BrokerTradeRecord(
+        broker_connection_id=connection.id,
+        broker_order_ref_id=child.id,
+        broker_trade_id="trade-adjustment-001",
+        quantity=2,
+        price=Decimal("100.25"),
+        side="BUY",
+        instrument_token=instrument.instrument_key,
+        exchange_timestamp="2026-10-18T09:20:00+05:30",
+    )
+    db_session.add(record)
+    db_session.commit()
+    return db_session, user, portfolio, instrument, connection, order, child, record
 
 
 def _charges(**overrides):
@@ -46,8 +113,8 @@ def _account_estimate(context):
     return db, user, connection, record
 
 
-def test_broker_reported_charges_append_adjustment_without_replaying_fill(accounting_context):
-    db, user, connection, record = _account_estimate(accounting_context)
+def test_broker_reported_charges_append_adjustment_without_replaying_fill(charge_adjustment_context):
+    db, user, connection, record = _account_estimate(charge_adjustment_context)
     execution = db.query(Execution).one()
     original_execution_id = execution.id
     original_total = Decimal(str(execution.total_charges))
@@ -76,8 +143,8 @@ def test_broker_reported_charges_append_adjustment_without_replaying_fill(accoun
     assert db.query(LivePosition).one().quantity == original_quantity == 2
 
 
-def test_same_contract_note_replay_is_idempotent(accounting_context):
-    db, user, connection, record = _account_estimate(accounting_context)
+def test_same_contract_note_replay_is_idempotent(charge_adjustment_context):
+    db, user, connection, record = _account_estimate(charge_adjustment_context)
     service = LiveChargeAdjustmentService(db)
     charges = _charges(brokerage=Decimal("2.25"), gst=Decimal("0.50"))
 
@@ -97,8 +164,8 @@ def test_same_contract_note_replay_is_idempotent(accounting_context):
     assert db.query(LivePosition).one().quantity == 2
 
 
-def test_same_contract_note_reference_with_different_amounts_is_rejected(accounting_context):
-    db, user, connection, record = _account_estimate(accounting_context)
+def test_same_contract_note_reference_with_different_amounts_is_rejected(charge_adjustment_context):
+    db, user, connection, record = _account_estimate(charge_adjustment_context)
     service = LiveChargeAdjustmentService(db)
 
     service.apply_broker_reported_charges(
@@ -115,8 +182,8 @@ def test_same_contract_note_reference_with_different_amounts_is_rejected(account
     assert db.query(Execution).count() == 1
 
 
-def test_new_charge_revision_uses_prior_effective_total_not_original_estimate(accounting_context):
-    db, user, connection, record = _account_estimate(accounting_context)
+def test_new_charge_revision_uses_prior_effective_total_not_original_estimate(charge_adjustment_context):
+    db, user, connection, record = _account_estimate(charge_adjustment_context)
     service = LiveChargeAdjustmentService(db)
     first = service.apply_broker_reported_charges(
         user.id, connection.id, record.broker_trade_id,
@@ -139,8 +206,8 @@ def test_new_charge_revision_uses_prior_effective_total_not_original_estimate(ac
     assert db.query(LivePosition).one().quantity == 2
 
 
-def test_charge_adjustment_rejects_estimate_source(accounting_context):
-    db, user, connection, record = _account_estimate(accounting_context)
+def test_charge_adjustment_rejects_estimate_source(charge_adjustment_context):
+    db, user, connection, record = _account_estimate(charge_adjustment_context)
     with pytest.raises(LiveExecutionBlocked, match="requires broker-reported final charges"):
         LiveChargeAdjustmentService(db).apply_broker_reported_charges(
             user.id,
@@ -151,8 +218,8 @@ def test_charge_adjustment_rejects_estimate_source(accounting_context):
     assert db.query(LiveChargeAdjustment).count() == 0
 
 
-def test_foreign_user_cannot_adjust_another_users_trade(accounting_context, make_user):
-    db, user, connection, record = _account_estimate(accounting_context)
+def test_foreign_user_cannot_adjust_another_users_trade(charge_adjustment_context, make_user):
+    db, user, connection, record = _account_estimate(charge_adjustment_context)
     stranger = make_user(email="charge-adjustment-stranger@example.com")
 
     with pytest.raises(LiveExecutionBlocked, match="No accounted live execution"):
@@ -163,8 +230,8 @@ def test_foreign_user_cannot_adjust_another_users_trade(accounting_context, make
     assert db.query(LiveChargeAdjustment).count() == 0
 
 
-def test_replaying_older_contract_note_reports_latest_effective_charge_total(accounting_context):
-    db, user, connection, record = _account_estimate(accounting_context)
+def test_replaying_older_contract_note_reports_latest_effective_charge_total(charge_adjustment_context):
+    db, user, connection, record = _account_estimate(charge_adjustment_context)
     service = LiveChargeAdjustmentService(db)
     v1 = _charges(brokerage=Decimal("2.25"), gst=Decimal("0.50"), reference="contract-note:v1")
     v2 = _charges(reference="contract-note:v2")

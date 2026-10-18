@@ -292,3 +292,8 @@ Read `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md` before implementing any broker-wr
 ### Source-call guard checkpoint — 18 October 2026
 
 Added `backend/scripts/check_broker_write_boundary.py`, tests in `backend/tests/test_broker_write_boundary_guard.py`, and a CI step in `.github/workflows/backend-tests.yml` to reject broker write method references outside the exact future boundary file and low-level adapter definitions. The CI run for this change is pending at checkpoint time. This guard does not implement the broker-write service or make live trading possible; do not widen its allowlist casually.
+
+
+### Latest guard verification note — 18 October 2026
+
+The AST-based source guard and docstring regression test are committed. Run #617 passed the guard step but the full test suite and database steps are still running: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Do not report this guard/CI task complete until the entire run succeeds.

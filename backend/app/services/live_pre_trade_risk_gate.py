@@ -6,11 +6,10 @@ order; it never substitutes paper cash or a fabricated quote. This is a
 reviewable risk foundation, not authorization to submit live orders.
 """
 from dataclasses import dataclass
-from datetime import datetime, time, timezone
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Callable
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -27,7 +26,6 @@ from app.services.live_execution_service import (
     LiveRiskDecision,
 )
 
-IST = ZoneInfo("Asia/Kolkata")
 PENDING_LIVE_STATES = ("PENDING_SUBMISSION", "SUBMITTING", "SUBMISSION_UNKNOWN", "PENDING", "PARTIALLY_FILLED")
 
 
@@ -124,10 +122,6 @@ class AccountWideLiveRiskGate:
         now = self.clock()
         if now.tzinfo is None or now.utcoffset() is None:
             raise LiveExecutionBlocked("Risk-gate clock must return a timezone-aware timestamp.")
-        now_ist = now.astimezone(IST)
-        if now_ist.weekday() >= 5 or not (time(9, 15) <= now_ist.time().replace(tzinfo=None) < time(15, 30)):
-            raise LiveExecutionBlocked("Indian equity market session is closed; live order blocked.")
-
         if not all((self.quote_provider, self.session_provider, self.positions_provider, self.funds_provider, self.margin_provider)):
             raise LiveExecutionBlocked("Fresh quote, official market-session, broker positions, funds, and margin providers are all required.")
         try:

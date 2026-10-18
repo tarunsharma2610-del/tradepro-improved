@@ -234,6 +234,38 @@ class LiveOrderRecoveryService:
         self.db.refresh(order)
         return order
 
+    def claim_submission_attempt(self, user_id: UUID, order_id: UUID) -> Order:
+        """Atomically claim the one permitted initial submission attempt.
+
+        This is only a durable local claim. It deliberately performs no broker
+        I/O. A future submitter must commit this claim before network I/O and
+        treat a crash after the claim as ambiguous, requiring read-only recovery.
+        """
+        order = self._get_owned_order(user_id, order_id)
+        if order.trading_mode != "LIVE" or not order.broker_tag:
+            raise LiveExecutionBlocked("Only a tagged LIVE intent can be claimed.")
+        changed = (
+            self.db.query(Order)
+            .filter(
+                Order.id == order.id,
+                Order.trading_mode == "LIVE",
+                Order.broker_tag.isnot(None),
+                Order.status == "PENDING_SUBMISSION",
+            )
+            .update(
+                {Order.status: "SUBMISSION_CLAIMED"},
+                synchronize_session=False,
+            )
+        )
+        self.db.commit()
+        self.db.expire_all()
+        current = self._get_owned_order(user_id, order_id)
+        if changed != 1 or current.status != "SUBMISSION_CLAIMED":
+            raise LiveExecutionBlocked(
+                "Submission claim was already taken or order state changed; reconcile before any broker write."
+            )
+        return current
+
     def mark_submission_unknown(self, user_id: UUID, order_id: UUID) -> Order:
         """Durably mark the point immediately before a future broker POST.
 
@@ -244,7 +276,7 @@ class LiveOrderRecoveryService:
         order = self._get_owned_order(user_id, order_id)
         if order.trading_mode != "LIVE" or not order.broker_tag:
             raise LiveExecutionBlocked("Only a tagged LIVE intent can enter submission recovery.")
-        if order.status not in {"PENDING_SUBMISSION", "SUBMISSION_UNKNOWN"}:
+        if order.status not in {"PENDING_SUBMISSION", "SUBMISSION_CLAIMED", "SUBMISSION_UNKNOWN"}:
             raise LiveExecutionBlocked("Order is not in a submission-recovery eligible state.")
 
         # Compare-and-set the state in SQL. A stale ORM object must never
@@ -255,7 +287,7 @@ class LiveOrderRecoveryService:
                 Order.id == order.id,
                 Order.trading_mode == "LIVE",
                 Order.broker_tag.isnot(None),
-                Order.status.in_({"PENDING_SUBMISSION", "SUBMISSION_UNKNOWN"}),
+                Order.status.in_({"PENDING_SUBMISSION", "SUBMISSION_CLAIMED", "SUBMISSION_UNKNOWN"}),
             )
             .update(
                 {Order.status: "SUBMISSION_UNKNOWN"},

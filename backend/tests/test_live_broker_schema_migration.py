@@ -211,3 +211,93 @@ def test_live_broker_schema_migration_preserves_existing_paper_data(tmp_path):
                 )
 
     engine.dispose()
+
+def test_connection_scope_migration_backfills_existing_broker_links(tmp_path):
+    database_path = tmp_path / "connection-scope.sqlite"
+    database_url = f"sqlite:///{database_path.as_posix()}"
+    _run_alembic(database_url, "202610170003")
+
+    user_id, connection_id, portfolio_id, instrument_id, order_id = (
+        _id(), _id(), _id(), _id(), _id()
+    )
+    now = datetime.now(timezone.utc).isoformat()
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text("INSERT INTO users (id, email, password_hash, full_name) VALUES (:id, :email, :password, :name)"),
+            {"id": user_id, "email": "scope-migration@example.com", "password": "test-hash", "name": "Scope Test"},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO broker_connections (id, user_id, broker, api_key_encrypted, api_secret_encrypted, redirect_uri) "
+                "VALUES (:id, :user_id, 'upstox', 'encrypted-key', 'encrypted-secret', 'https://example.invalid/callback')"
+            ),
+            {"id": connection_id, "user_id": user_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO portfolios (id, user_id, name, virtual_capital, cash_balance) "
+                "VALUES (:id, :user_id, 'Live portfolio', 100000, 100000)"
+            ),
+            {"id": portfolio_id, "user_id": user_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO instruments (id, instrument_key, exchange, segment, instrument_type, trading_symbol, name) "
+                "VALUES (:id, 'NSE_EQ|SCOPE_TEST', 'NSE', 'NSE_EQ', 'EQUITY', 'SCOPE', 'Scope Test')"
+            ),
+            {"id": instrument_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO orders (id, portfolio_id, instrument_id, side, order_type, segment, quantity, status, "
+                "trading_mode, execution_reason, placed_at) "
+                "VALUES (:id, :portfolio_id, :instrument_id, 'BUY', 'MARKET', 'EQUITY_DELIVERY', 1, 'PENDING', "
+                "'LIVE', 'MANUAL', :placed_at)"
+            ),
+            {
+                "id": order_id, "portfolio_id": portfolio_id,
+                "instrument_id": instrument_id, "placed_at": now,
+            },
+        )
+
+    _run_alembic(database_url, "202610180005")
+    broker_order_id, execution_id = _id(), _id()
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO broker_orders (id, order_id, broker_name, broker_order_id, status, requested_quantity, filled_quantity) "
+                "VALUES (:id, :order_id, 'upstox', 'legacy-child-id', 'complete', 1, 1)"
+            ),
+            {"id": broker_order_id, "order_id": order_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO executions "
+                "(id, order_id, portfolio_id, instrument_id, side, quantity, price, gross_value, brokerage, stt, "
+                "exchange_charges, sebi_charges, stamp_duty, gst, total_charges, realized_pnl, strategy_realized_pnl, "
+                "executed_at, broker_order_ref_id, broker_name, broker_trade_id) "
+                "VALUES (:id, :order_id, :portfolio_id, :instrument_id, 'BUY', 1, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0, NULL, "
+                ":executed_at, :broker_order_ref_id, 'upstox', 'legacy-trade-id')"
+            ),
+            {
+                "id": execution_id, "order_id": order_id, "portfolio_id": portfolio_id,
+                "instrument_id": instrument_id, "executed_at": now,
+                "broker_order_ref_id": broker_order_id,
+            },
+        )
+
+    _run_alembic(database_url, "head")
+    with engine.connect() as connection:
+        child = connection.execute(
+            text("SELECT broker_connection_id FROM broker_orders WHERE id = :id"),
+            {"id": broker_order_id},
+        ).scalar_one()
+        execution_connection = connection.execute(
+            text("SELECT broker_connection_id FROM executions WHERE id = :id"),
+            {"id": execution_id},
+        ).scalar_one()
+        assert child == connection_id
+        assert execution_connection == connection_id
+    engine.dispose()
+

@@ -401,3 +401,12 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Commit `1a3475c69d3a93ece7bfad22ace4dce52231bfa1` adds an integration regression for the real reconcile → ingest → promote → account path when a later fill's charge estimation fails once.
 - The test is designed to prove the first successful fill is not duplicated on retry and the unprocessed fill is eventually accounted; paper-account isolation and no broker-write calls are asserted.
 - **Evidence status: pending exact-SHA CI**. This is added test coverage, not a verified pass. Runtime remains unregistered and live trading remains disabled.
+
+
+## Audit addendum — persistent account safety state (verification pending)
+
+- Added a durable account-wide kill switch and broker-error circuit-breaker service using the existing safety state/event models. Migration revision `202610180009` creates the state and append-only event tables.
+- Unit coverage targets missing-state denial, default tripped latch, threshold-based circuit trip, event idempotency, manual-reset gates, stale health and unknown circuit states.
+- Positive safety properties: scope is user+broker rather than portfolio; state read errors deny; broker success cannot silently close an open circuit; manual reset requires a recent passing health event and cleared error count.
+- Remaining risks: CI/migration result for head `57939799b7e8b436d5095924b86a89ce380a956e` is unverified; no PostgreSQL concurrency test yet; service is not integrated into the preflight caller and has no authenticated operator API; no real broker calls were made.
+- Do not classify this as release-ready. Keep order submission disabled and PR #1 draft/unmerged.

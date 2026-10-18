@@ -202,9 +202,10 @@ from app.services.live_charge_estimate_service import LiveChargeEstimateService
 
 
 class FakeBrokerageAdapter:
-    def __init__(self, *, fail=False):
+    def __init__(self, *, fail=False, dp_charge=0):
         self.calls = []
         self.fail = fail
+        self.dp_charge = dp_charge
 
     async def get_brokerage_details(self, access_token, **params):
         self.calls.append((access_token, params))
@@ -223,7 +224,7 @@ class FakeBrokerageAdapter:
                         "ipft": 0,
                         "sebi_turnover": 0.01,
                     },
-                    "dp_plan": {"name": "DP3A", "min_expense": 0},
+                    "dp_plan": {"name": "DP3A", "min_expense": self.dp_charge},
                 }
             },
         })
@@ -264,5 +265,21 @@ async def test_charge_estimate_service_fails_closed_on_broker_error(
         await LiveChargeEstimateService(db, FakeBrokerageAdapter(fail=True)).estimate_for_trade(
             user.id, record.id
         )
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_charge_estimate_refuses_to_allocate_daily_dp_minimum_per_fill(
+    accounting_context, monkeypatch
+):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record = accounting_context
+    monkeypatch.setattr(
+        BrokerCredentialsService, "get_access_token", lambda *_: "mock-access-token"
+    )
+    with pytest.raises(LiveExecutionBlocked, match="daily per-scrip DP minimum"):
+        await LiveChargeEstimateService(
+            db, FakeBrokerageAdapter(dp_charge=18.5)
+        ).estimate_for_trade(user.id, record.id)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0

@@ -266,7 +266,7 @@ Last code/test SHA: `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; later commits ar
 
 Read `PROJECT_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `MASTER_ROADMAP.md`, `PROGRESS.md`, `AUDIT_REPORT.md`, `REQUIREMENTS_AUDIT.md`, `HANDOVER.md` and `LIVE_ORDER_STATE_MACHINE.md` before further changes. Current branch: `safety/fail-closed-trading-mode`; PR #1 remains draft/open/unmerged; original `Tradepro` repository must remain untouched.
 
-Latest code/test commit: `b780c39f770a6839dab0af63fc424c341eff9d70` (code hardening commit: `2cdbbe290f8b661cb91110dbb4e165fcef36f800`). Intake now resolves the exact child-order broker connection and rejects missing/mismatched instrument tokens and malformed side values. Added regression coverage for foreign connection binding and malformed/missing identity fields.
+Latest code/test target: `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` (test follow-up to `b780c39f770a6839dab0af63fc424c341eff9d70`; code hardening commit: `2cdbbe290f8b661cb91110dbb4e165fcef36f800`). Intake now resolves the exact child-order broker connection and rejects missing/mismatched instrument tokens and malformed side values. Added regression coverage for foreign connection binding and malformed/missing identity fields.
 
 **Immediate next step:** run `.github/workflows/backend-tests.yml` manually with `workflow_dispatch` on the safety branch. Current-head Actions lookup returned no run; do not claim the new tests/migrations passed. Fix and rerun failures before starting the next Phase 2 task. The service remains unregistered and does not touch execution accounting, cash, positions, order status or P&L. Do not merge, deploy to production, or enable live trading.
 

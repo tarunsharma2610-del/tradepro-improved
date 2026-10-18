@@ -543,3 +543,7 @@ Next: implement least-privilege authorization, tenant scope, recent MFA step-up 
 - require_safety_permission() denies by default; malformed signed JWT subject UUIDs are normalized to 401; require_same_origin_for_cookie_mutation() is available for cookie-authenticated mutation routes.
 - Regression tests were added, but the new commits still require CI verification. The Origin dependency is not yet wired to routes; no safety endpoint has been exposed.
 - Still required before endpoint work: recent-MFA step-up, safe trusted grant provisioning, endpoint-level tenant isolation tests, and attaching permission/Origin/step-up guards. Keep live submission disabled.
+
+### Follow-up correction — 18 October 2026
+
+The Origin guard now requires an exact Origin serialization match (including rejecting a trailing slash), and unused imports were removed from the user model. Follow-up commits: f7c08e2605fb7f7828792154570af79cf5ccf724 and 4337d0ce4ef645914f32c56db87c81699c04763e. CI/status lookup has returned no run/status for the authorization changes; do not claim tests or migration passed until a workflow result is tied to the code/test SHA. Recent-MFA step-up and route wiring remain outstanding.

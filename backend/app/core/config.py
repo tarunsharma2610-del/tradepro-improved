@@ -66,11 +66,12 @@ class Settings(BaseSettings):
     # starting virtual capital. Set to 0 to disable this paper-order guard.
     MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL: Decimal = Decimal("25.0")
 
-    # Independent conservative limits for the future live pre-trade gate.
-    # These do not enable live trading and fail closed when set to zero/invalid.
-    LIVE_MAX_ORDER_VALUE_PCT: Decimal = Decimal("5.0")
-    LIVE_MAX_GROSS_EXPOSURE_PCT: Decimal = Decimal("50.0")
-    LIVE_MAX_DAILY_LOSS_PCT: Decimal = Decimal("2.0")
+    # Independent conservative absolute INR limits for the future live pre-trade gate.
+    # These deliberately do not use virtual portfolio capital as real broker equity.
+    # They do not enable live trading and fail closed when zero/invalid.
+    LIVE_MAX_ORDER_VALUE_INR: Decimal = Decimal("10000")
+    LIVE_MAX_GROSS_EXPOSURE_INR: Decimal = Decimal("50000")
+    LIVE_MAX_DAILY_LOSS_INR: Decimal = Decimal("1000")
     LIVE_MAX_ORDERS_PER_UTC_DAY: int = 10
     LIVE_MAX_MARKET_DATA_AGE_SECONDS: int = 5
 

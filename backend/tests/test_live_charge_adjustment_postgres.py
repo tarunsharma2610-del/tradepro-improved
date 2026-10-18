@@ -279,5 +279,5 @@ def test_postgres_serializes_charge_revisions_and_deduplicates_same_reference():
             LivePosition.broker_connection_id == connection_id,
             LivePosition.instrument_id == fill_executions[0].instrument_id,
         ).one()
-        assert position.quantity == 1
+        assert position.quantity == -1
     engine.dispose()

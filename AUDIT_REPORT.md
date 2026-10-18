@@ -214,3 +214,12 @@ The current blocker is verification: the GitHub integration returned no workflow
 - Investigated workflow run `39028914012` (`Backend pytest`): it ran against the earlier PR merge checkout `d04dfa5` and reported `177 passed, 3 errors`; all three errors were fixture setup failures (`portfolio` not found) in that checkout. The current branch version of `backend/tests/test_broker_reconciliation.py` defines the fixture, but this alone is not proof the current branch passes.
 - The GitHub integration's commit-SHA workflow lookup and combined-status lookup returned no results for the current branch head. The old failed run is not a valid test of current head `2625191740554efe5a41f99eff15306ebd68ec5c`; current CI remains unverified.
 - Next: inspect the latest PR run in GitHub Actions (PR workflows check out the generated merge ref), confirm backend tests, migration and frontend results, and fix only current-head failures. Do not claim green CI or enable live trading.
+
+
+## Authoritative status and next audit — 18 October 2026
+
+This section supersedes stale next-step notes above. The branch contains a typed `parse_order_trades` parser, a `BrokerTrade` data type, broker child-order schema, nullable broker references on executions, and a uniqueness constraint on `(broker_name, broker_trade_id)`. Adapter trade lookup is read-only; no confirmed-trade ingestion service currently connects it to durable accounting.
+
+**Current task:** audit and then implement broker-confirmed trade/fill ingestion with transaction-safe idempotency. Before changing code, verify the model/migration schema, local order-to-broker-child mapping, broker connection/account identity, user ownership, and existing accounting transaction semantics. Specifically investigate whether global `(broker_name, broker_trade_id)` uniqueness incorrectly couples separate broker accounts; the current schema does not include broker connection identity in that key. Do not assume this is safe for multiple accounts.
+
+**Verification:** current PR #1 head observed as `540e1285d3de934b43829948a1b60c67658d1343`; the GitHub integration returned no workflow runs or combined statuses for that head. Current-head CI remains unverified. Older CI results are historical and must not be attributed to the current head. Live order submission remains absent/disabled; the existing PAPER-only execution guard must remain intact.

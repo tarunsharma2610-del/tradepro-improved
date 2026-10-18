@@ -143,7 +143,7 @@ The current blocker is verification: the GitHub integration returned no workflow
 
 ## Broker trade intake validation update — 18 October 2026
 
-The staging-only `BrokerTradeIngestionService` was hardened to resolve the exact broker connection from the mapped child order and verify owner/broker binding. It rejects missing instrument tokens and malformed side values, with regression tests added. It remains separate from `Execution` accounting and is not registered as a live execution path. Current code/test target `b780c39f770a6839dab0af63fc424c341eff9d70` has no current-head Actions result available; do not proceed to live lifecycle wiring until tests and migration checks are verified.
+The staging-only `BrokerTradeIngestionService` was hardened to resolve the exact broker connection from the mapped child order and verify owner/broker binding. It rejects missing instrument tokens and malformed side values, with regression tests added. It remains separate from `Execution` accounting and is not registered as a live execution path. Current code/test target `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` has no current-head Actions result available; do not proceed to live lifecycle wiring until tests and migration checks are verified.
 
 
 A further regression test now confirms intake rejects legacy child-order rows with no resolvable broker connection. Code/test target `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`; verification still pending.

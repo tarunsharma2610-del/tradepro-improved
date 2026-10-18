@@ -78,19 +78,6 @@ class LivePreflightCoordinator:
         # Reject malformed requests before credentials or any broker snapshots.
         LiveExecutionService._validate_intent(intent)
 
-        # The persisted account-wide latch is an additional preflight interlock.
-        # It is read-only and must deny before credentials or broker snapshots.
-        try:
-            safety_decision = self.account_safety.check_allowed(user_id, self.BROKER_NAME)
-        except Exception as exc:
-            raise LiveExecutionBlocked(
-                "Persistent account safety check failed; live preflight blocked."
-            ) from exc
-        if not safety_decision.allowed:
-            raise LiveExecutionBlocked(
-                f"Persistent account safety check denied live preflight: {safety_decision.reason}"
-            )
-
         portfolio = (
             self.db.query(Portfolio)
             .filter(Portfolio.id == intent.portfolio_id, Portfolio.user_id == user_id)
@@ -110,6 +97,19 @@ class LivePreflightCoordinator:
                 raise LiveExecutionBlocked("Strategy orders require a strategy_id.")
             if not settings.AUTOMATED_ENTRIES_ENABLED:
                 raise LiveExecutionBlocked("Automated entries are disabled.")
+
+        # The persisted account-wide latch is an additional preflight interlock.
+        # It is read-only and must deny before credentials or broker snapshots.
+        try:
+            safety_decision = self.account_safety.check_allowed(user_id, self.BROKER_NAME)
+        except Exception as exc:
+            raise LiveExecutionBlocked(
+                "Persistent account safety check failed; live preflight blocked."
+            ) from exc
+        if not safety_decision.allowed:
+            raise LiveExecutionBlocked(
+                f"Persistent account safety check denied live preflight: {safety_decision.reason}"
+            )
 
         connection = self.connections.get_for_user(user_id, self.BROKER_NAME)
         if connection is None or not connection.is_connected:

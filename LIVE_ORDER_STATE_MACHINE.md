@@ -286,3 +286,8 @@ Commit `1a3475c69d3a93ece7bfad22ace4dce52231bfa1` adds a service-composition reg
 ## Account-safety interlock — new, not yet wired to submission
 
 Before any future live order may be considered, the account-level persisted safety decision must be checked in addition to the existing environment interlocks and pre-trade risk gate. The decision is denied if state is absent, kill switch is tripped, circuit is not CLOSED, error counter is nonzero, health check is missing/stale, or the database read fails. Threshold broker errors open the circuit and trip the latch. Only an explicit manual reset after a fresh passing health check and zero consecutive errors can clear the latch. Service/migration/tests are committed but exact-head CI is pending. No order route or worker currently invokes this service.
+
+
+### Latest safety reset verification note
+
+The account-safety manual-reset test correction is in commit `c97be866828bd47a23f22fc44fac2d3359e70f35`. Reset remains denied without health evidence or while consecutive broker errors remain; after the error counter is cleared, a new passing health check is required before explicit manual reset. Exact-SHA CI is pending; no order-submission wiring was added.

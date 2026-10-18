@@ -37,8 +37,8 @@ Status meanings: **Complete in current scope** means existing implementation and
 - No real broker orders were placed.
 
 ## Prioritized change plan
-1. **Next:** implement a read-only Upstox snapshot collector for quotes, actual broker positions, funds and margin; validate response shapes and timestamps; add exchange holiday/special-session calendar handling. Mock all HTTP calls.
-2. Inject the validated snapshots into the existing risk-gate contract only after asynchronous/network boundaries and stale-data behavior are reviewed. Keep it out of any order-submission route/worker for now.
+1. **Next:** build an async preflight orchestration boundary to connect validated Upstox quote/positions/funds/margin/calendar snapshots to the live risk gate only after environment, confirmation, ownership, instrument and credential checks pass.
+2. Test that all preflight rejections happen before broker snapshot calls; missing, stale, malformed or failed data must block. Keep this service out of API routes/workers.
 3. Complete broker status/fill reconciliation: partial fills, cancellation/modification confirmation, connection-scoped fill idempotency and transactional accounting; do not infer fills from order history.
 4. Verify derivative instrument mapping, tick/lot sizes and margin treatment before enabling non-equity segments.
 5. Add a broker-error circuit breaker, account-level kill switch and operational monitoring/recovery runbooks.

@@ -6,20 +6,25 @@ or live accounting. A later reconciliation stage must explicitly promote these
 records only after charge handling and live accounting rules are verified.
 """
 from dataclasses import dataclass
+import hmac
 from decimal import Decimal, InvalidOperation
-from typing import Sequence
+from typing import Any, Sequence
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.brokers.upstox.response_parsing import BrokerTrade
+from app.brokers.base import BrokerAdapter, BrokerCallResult
+from app.brokers.registry import get_broker_adapter
+from app.brokers.upstox.response_parsing import BrokerTrade, parse_order_trades
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.instrument import Instrument
 from app.models.order import Order
 from app.models.portfolio import Portfolio
+from app.repositories.broker_connection_repository import BrokerConnectionRepository
+from app.services.broker_credentials_service import BrokerCredentialsService
 
 
 @dataclass(frozen=True)
@@ -33,8 +38,97 @@ class BrokerTradeIngestionResult:
 class BrokerTradeIngestionService:
     """Validate ownership/order mapping, then persist each broker trade once."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, adapter: BrokerAdapter | Any | None = None):
         self.db = db
+        self.adapter = adapter
+        self.connections = BrokerConnectionRepository(db)
+        self.credentials = BrokerCredentialsService(db)
+
+    async def fetch_and_ingest(
+        self,
+        user_id: UUID,
+        local_order_id: UUID,
+        broker_order_id: str,
+    ) -> BrokerTradeIngestionResult:
+        """Read trades from Upstox, validate identity, then stage them idempotently.
+
+        This method never calls a broker order-write endpoint and never changes
+        local order state or accounting. Credentials and connection identity are
+        checked again after the async broker request to reject rotation races.
+        """
+        if not isinstance(broker_order_id, str) or not broker_order_id.strip():
+            raise ValueError("A broker order ID is required.")
+        broker_order_id = broker_order_id.strip()
+
+        row = (
+            self.db.query(Order, Portfolio.user_id)
+            .join(Portfolio, Portfolio.id == Order.portfolio_id)
+            .filter(Order.id == local_order_id, Portfolio.user_id == user_id)
+            .first()
+        )
+        if row is None:
+            raise ValueError("Order not found.")
+        order, _owner_id = row
+        if order.trading_mode != "LIVE":
+            raise ValueError("Broker trades can only be fetched for LIVE orders.")
+
+        child = (
+            self.db.query(BrokerOrder)
+            .filter(
+                BrokerOrder.order_id == order.id,
+                BrokerOrder.broker_order_id == broker_order_id,
+            )
+            .first()
+        )
+        if child is None:
+            raise ValueError("Broker order ID is not mapped to this local order.")
+        if child.broker_connection_id is None:
+            raise ValueError("Broker child order is not bound to a broker connection.")
+
+        connection = self.connections.get_for_user(user_id, child.broker_name)
+        if (
+            connection is None
+            or not connection.is_connected
+            or connection.id != child.broker_connection_id
+        ):
+            raise ValueError("Broker child order is not bound to this user's verified broker connection.")
+        try:
+            token = self.credentials.get_access_token(user_id, child.broker_name)
+        except Exception as exc:
+            raise ValueError("Broker access token could not be validated.") from exc
+        if not isinstance(token, str) or not token.strip():
+            raise ValueError("No usable broker access token; trade fetch blocked.")
+
+        adapter = self.adapter or get_broker_adapter(child.broker_name)
+        try:
+            response = await adapter.get_order_trades(token, broker_order_id)
+        except Exception as exc:
+            raise ValueError("Broker trade lookup failed; no trades were ingested.") from exc
+        if not isinstance(response, BrokerCallResult) or not response.ok:
+            detail = response.error if isinstance(response, BrokerCallResult) else "invalid adapter result"
+            raise ValueError(f"Broker trade lookup failed; no trades were ingested: {detail or 'unknown error'}.")
+
+        try:
+            trades = parse_order_trades(response.data, broker_order_id)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Broker trade response failed validation: {exc}") from exc
+
+        # Async network I/O creates a race window: reload connection/token and
+        # refuse to persist data fetched under credentials that have changed.
+        try:
+            self.db.refresh(connection)
+            current_token = self.credentials.get_access_token(user_id, child.broker_name)
+        except Exception as exc:
+            raise ValueError("Broker connection could not be revalidated after trade lookup.") from exc
+        if (
+            not connection.is_connected
+            or connection.id != child.broker_connection_id
+            or not isinstance(current_token, str)
+            or not hmac.compare_digest(current_token, token)
+        ):
+            raise ValueError("Broker connection or token changed during trade lookup; ingestion blocked.")
+
+        return self.ingest_trades(user_id, local_order_id, broker_order_id, trades)
 
     def ingest_trades(
         self,

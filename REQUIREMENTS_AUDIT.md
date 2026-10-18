@@ -204,3 +204,15 @@ Migration 006 now has a targeted populated-data test for backfilling broker conn
 
 
 Final verification note: code/test target `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; documentation-only commits followed it. The PR head observed at the last check (`1b0056d9739cd55d50cd5484cddf955aa8bf07db`) had no workflow run/status returned. Keep ingestion and migration requirements marked “verification pending.”
+
+
+## Phase 2 follow-up audit — 18 October 2026
+
+| Requirement | Current status | Evidence | Remaining gate |
+|---|---|---|---|
+| Bind ingested trades to the exact user's broker connection | Code hardened; verification pending | Commit `2cdbbe290f8b661cb91110dbb4e165fcef36f800` resolves the connection using the broker child order's connection ID plus owner and broker; null/unowned mappings fail closed. | Run cross-user binding regression test on current code. |
+| Require instrument identity before staging broker fills | Code hardened; verification pending | Intake now rejects missing/non-text tokens and mismatches against the local instrument key. | Run parser + ingestion tests against current head and confirm Upstox trade-book payload contains the expected instrument token. |
+| Malformed broker trade side | Code hardened; verification pending | Non-string/blank side input now returns a controlled validation error rather than an attribute error. | Run new negative-path tests. |
+| Current-head backend/migration verification | Blocked/pending | Code/test target `b780c39f770a6839dab0af63fc424c341eff9d70`; no Actions run returned for this branch/head. | Manually dispatch `.github/workflows/backend-tests.yml` on the safety branch and record actual results. |
+
+No live-order, execution-ledger, position, cash, order-status or P&L behavior was added by this continuation. The live-trading release gate remains closed.

@@ -460,3 +460,12 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Regression tests prove missing state, a tripped latch, and an unexpected safety-check exception all block before any read-only broker call. Existing successful preflight tests explicitly establish a passing health check and manual reset in the test fixture.
 - This is read-only preflight composition only. LivePreflightCoordinator remains unregistered from order routes/workers, no broker order-write method is called, live trading remains disabled, PR #1 stays draft/open/unmerged, and the original Tradepro repository remains untouched.
 - **Next task:** audit authentication/authorization and operator audit visibility for any future safety-control endpoint. Do not create or wire a control route until that review is complete; keep live order submission disabled.
+
+
+## Latest continuation handover — safety-control security audit (18 October 2026)
+
+- New audit document: [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT.md).
+- Audit commit: [10d87d9d9010b2c48ebcf25c832a2ea574100889](https://github.com/tarunsharma2610-del/tradepro-improved/commit/10d87d9d9010b2c48ebcf25c832a2ea574100889).
+- Review is static only. Existing access-token validation, active-user check, admin guard, ownership checks, MFA capability and audit writes are documented alongside gaps. There is no operator audit-history API or dedicated safety permission model. Step-up auth, CSRF, atomic state/event persistence, immutable audit enforcement, strict redaction and HTTP-level safety endpoint tests are unresolved.
+- No safety-control endpoint was created. No order route/worker wiring was changed. Live trading remains disabled and original Tradepro remains untouched.
+- **Resume here:** read PROJECT_INSTRUCTIONS.md, PROGRESS.md and SECURITY_CONTROL_ENDPOINT_AUDIT.md; approve the safety permission and audit contract; then perform an exhaustive order-entry/retry/recovery/broker-write path inventory before implementing an endpoint.

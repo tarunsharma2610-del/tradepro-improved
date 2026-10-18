@@ -385,3 +385,8 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Added Alembic revision `202610180009` for safety state and event tables.
 - Added focused service tests for safe initialization, threshold trips, idempotency, reset gates, stale health and unknown states.
 - Current-head CI/migration verification is pending; no pass is claimed.
+
+
+### Safety reset test correction
+
+Commit `c97be866828bd47a23f22fc44fac2d3359e70f35` corrects the manual-reset test sequence so it asserts the error-counter guard only after a fresh passing health check, then requires broker success plus a second passing health check before reset. CI for this code SHA remains unverified.

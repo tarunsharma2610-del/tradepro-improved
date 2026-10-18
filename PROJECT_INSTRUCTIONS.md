@@ -287,3 +287,8 @@ Read [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md) and [SECURIT
 ## Continuation checkpoint — central broker-write and safety-control design (18 October 2026)
 
 Read `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md` before implementing any broker-write service or safety endpoint. This is a proposed contract only; no API endpoint, adapter wiring, or live order submission was implemented. The design requires one typed `LiveBrokerWriteService` boundary, atomic DB intent+event transactions before external calls, explicit unknown-outcome recovery, least-privilege permissions, recent-MFA step-up for reset, CSRF/Origin controls, tenant-scoped audit reads, PostgreSQL append-only event enforcement, and CI source scanning for unapproved adapter writes. Preserve `TRADING_MODE=PAPER`, `LIVE_ORDER_SUBMISSION_ENABLED=false`, PR #1 draft/unmerged, and original `Tradepro` untouched. Work next through storage/authorization foundations and tests; do not wire live routes until every gate is verified.
+
+
+### Source-call guard checkpoint — 18 October 2026
+
+Added `backend/scripts/check_broker_write_boundary.py`, tests in `backend/tests/test_broker_write_boundary_guard.py`, and a CI step in `.github/workflows/backend-tests.yml` to reject broker write method references outside the exact future boundary file and low-level adapter definitions. The CI run for this change is pending at checkpoint time. This guard does not implement the broker-write service or make live trading possible; do not widen its allowlist casually.

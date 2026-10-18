@@ -163,3 +163,51 @@ def test_ingestion_enforces_order_ownership(db_session, trade_context, make_user
             stranger.id, order.id, "broker-child-1", [_trade()]
         )
     assert db_session.query(BrokerTradeRecord).count() == 0
+
+def test_same_trade_id_is_scoped_to_each_users_broker_connection(db_session, trade_context, make_user):
+    owner, _portfolio, instrument, _connection, order, _broker_order = trade_context
+    service = BrokerTradeIngestionService(db_session)
+    service.ingest_trades(owner.id, order.id, "broker-child-1", [_trade()])
+
+    other = make_user(email="second-owner@example.com")
+    other_portfolio = PortfolioRepository(db_session).create(
+        user_id=other.id, name="Second account", virtual_capital=Decimal("100000")
+    )
+    other_connection = BrokerConnection(
+        user_id=other.id,
+        broker="upstox",
+        api_key_encrypted="other-key",
+        api_secret_encrypted="other-secret",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=True,
+    )
+    other_order = Order(
+        portfolio_id=other_portfolio.id,
+        instrument_id=instrument.id,
+        side="BUY",
+        order_type="MARKET",
+        segment="EQUITY_DELIVERY",
+        quantity=5,
+        status="PENDING",
+        trading_mode="LIVE",
+        execution_reason="MANUAL",
+        broker_order_id="broker-child-1",
+        placed_at=datetime.now(timezone.utc),
+    )
+    db_session.add_all([other_connection, other_order])
+    db_session.flush()
+    db_session.add(BrokerOrder(
+        order_id=other_order.id,
+        broker_connection_id=other_connection.id,
+        broker_name="upstox",
+        broker_order_id="broker-child-1",
+        requested_quantity=5,
+        filled_quantity=0,
+    ))
+    db_session.commit()
+
+    result = service.ingest_trades(other.id, other_order.id, "broker-child-1", [_trade()])
+    assert result.inserted_count == 1
+    assert result.duplicate_count == 0
+    assert db_session.query(BrokerTradeRecord).count() == 2
+

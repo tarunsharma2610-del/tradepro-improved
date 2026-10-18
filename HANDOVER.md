@@ -384,3 +384,8 @@ Live trading is **NOT READY** and disabled. No real orders have been submitted.
 - Checks successful promotion/replay idempotency, sibling status failure blocks all promotion, and no paper cash/position changes. This does not make live trading ready and does not call a write endpoint.
 - **Before coding again:** inspect CI for this exact SHA. If failing, fix the demonstrated failure; if successful, select the next distinct gap from the audit. Do not recreate the coordinator; it already exists. No local tests were run in this continuation and CI was not yet confirmed.
 - Safety: PR #1 stays draft/unmerged, live trading stays disabled, original `Tradepro` untouched.
+
+
+### Superseding handover update
+
+Use latest test commit `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` (supersedes `b5783d421f64fcb8e7f1d75f1af5185fd9029f59`). Integration tests now force real ingestion to create staged trade rows rather than replaying fixture-seeded rows. First check CI for this exact SHA. Do not recreate the coordinator or mark tests green without workflow evidence.

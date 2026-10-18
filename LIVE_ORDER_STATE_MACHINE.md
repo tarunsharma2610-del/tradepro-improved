@@ -247,3 +247,8 @@ Add a service-level integration test that composes the **real** `BrokerChildOrde
 
 ### Release status
 Live trading is **NOT READY** and disabled. No real orders have been submitted.
+
+
+## Verification addendum — 18 October 2026
+
+The existing state flow remains: broker read/reconcile → durable staged trades → all-child reconciliation gate → chronological/idempotent promotion → live Execution/LivePosition. Commit `b5783d421f64fcb8e7f1d75f1af5185fd9029f59` adds integration tests for the real service composition, repeat-run behavior, sibling reconciliation failure, and paper-account isolation. No state transition or order-submission wiring was changed. CI is pending confirmation for this commit; do not treat the new test coverage as passing until verified.

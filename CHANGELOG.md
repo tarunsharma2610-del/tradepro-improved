@@ -451,3 +451,9 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 
 - The first guard workflow failed before pytest due to matching PAPER service `.place_order` methods as broker-adapter writes.
 - Narrowed matching to adapter-named receivers in commit `30599b1bd8d32293b856c88cdfb4e2facaa9ce0f`; new CI run #615 is pending.
+
+
+### 2026-10-18 — Broker-write guard verified
+
+- CI run #617 passed on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`: guard PASS; backend tests 402 passed / 4 skipped / 1 warning; SQLite and PostgreSQL migrations PASS; PostgreSQL concurrency tests 4 passed.
+- The guard is a preventive static check only. Central broker-write service, safety API, permission foundation, append-only storage protection and path wiring remain pending.

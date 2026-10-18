@@ -491,3 +491,7 @@ CI run #625 passed on SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: guard pass
 ## Safety-control authorization foundation — 18 October 2026
 
 Safety scopes are explicit per-user grants, not synonyms for the broad platform is_admin flag. The initial allowlist is safety.status.read, safety.audit.read, safety.kill_switch.trip, and safety.reset; existing users receive an empty list from migration 202610180012. The require_safety_permission dependency is default-deny. Cookie-authenticated mutation routes should attach the Origin guard, but it is not yet wired to any safety endpoint. Recent-MFA step-up and trusted permission provisioning are still required. These primitives alone do not authorize or enable live trading.
+
+### Follow-up correction — 18 October 2026
+
+The Origin guard now requires an exact Origin serialization match (including rejecting a trailing slash), and unused imports were removed from the user model. Follow-up commits: f7c08e2605fb7f7828792154570af79cf5ccf724 and 4337d0ce4ef645914f32c56db87c81699c04763e. CI/status lookup has returned no run/status for the authorization changes; do not claim tests or migration passed until a workflow result is tied to the code/test SHA. Recent-MFA step-up and route wiring remain outstanding.

@@ -441,3 +441,8 @@ Still pending: exact-head CI green confirmation; operational restrictions agains
 ### Storage-hardening verification update
 
 The exact-head CI run #39124312326 failed one stale-version test due to a mutable ORM fixture reference; the test was corrected in commit `6cd0ced108e35d715359d649a463d80709dd1fb1`. Run #39124498280 is pending, so database immutability and the final test matrix are not yet marked fully verified.
+
+
+### Storage verification superseding pending status — 18 October 2026
+
+The storage hardening changes passed CI run #625 on SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Backend tests 406 passed / 5 skipped; SQLite and PostgreSQL migrations passed; five PostgreSQL integration tests passed including append-only enforcement. Mark only these storage/transaction controls verified. Authorization, MFA, CSRF, safety endpoints, central writer and end-to-end composition remain open.

@@ -478,3 +478,13 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Manual order and strategy entry/exit paths converge on the PAPER-only ExecutionService; it rejects LIVE/unknown modes. The Upstox adapter's place/modify/cancel methods exist, but no caller was found in reviewed app paths. Recovery does not submit orders, but currently uses LiveExecutionService directly rather than LivePreflightCoordinator.
 - No code paths were wired or changed. Keep live disabled and PR #1 draft/open. Original Tradepro untouched.
 - Resume by designing a single allowed broker-write boundary, atomic intent+audit persistence, safety-specific permissions, source-call CI guardrails and negative tests. Only then plan safe route/worker integration.
+
+
+## Latest handover — central broker-write boundary design (18 October 2026)
+
+- Added [CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md](CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md), commit `40f9ca652cf4bf5e86ed51a9c5f21a3071ce7e06`.
+- Design-only checkpoint: no API endpoint, order route/worker wiring, broker write call, or live-trading enablement was added.
+- The proposed `LiveBrokerWriteService` is the sole approved production caller for adapter place/modify/cancel. New submissions and exposure-increasing modifications require all account-wide safety/risk/fresh-snapshot gates; cancellation has a narrow risk-reducing exception so a tripped kill switch cannot prevent risk reduction.
+- Intent + audit event must commit atomically before broker I/O; external network calls cannot be part of the DB transaction. Unknown submission outcomes require stable-tag reconciliation, never blind retries.
+- Least-privilege scopes, step-up MFA, CSRF/Origin, tenant-scoped audit reads, strict redaction, PostgreSQL append-only protection, malformed JWT normalization, and source-call CI guard are specified.
+- Next: implement and test storage/event immutability and transaction semantics, then scoped authorization/step-up/CSRF foundation. Keep `TRADING_MODE=PAPER`, `LIVE_ORDER_SUBMISSION_ENABLED=false`, PR #1 draft/open, and original `Tradepro` untouched.

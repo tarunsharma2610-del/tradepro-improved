@@ -339,3 +339,12 @@ Add a service-level integration test that composes the **real** `BrokerChildOrde
 
 ### Release status
 Live trading is **NOT READY** and disabled. No real orders have been submitted.
+
+
+## Continuation checkpoint — 18 October 2026: service-composition integration tests
+
+- Change commit: `b5783d421f64fcb8e7f1d75f1af5185fd9029f59` ([GitHub](https://github.com/tarunsharma2610-del/tradepro-improved/commit/b5783d421f64fcb8e7f1d75f1af5185fd9029f59)).
+- Added two tests to `backend/tests/test_live_order_fill_reconciliation_coordinator.py` that use the real child reconciler/trade ingestion, coordinator, promotion service, and accounting service; only Upstox read responses and charge estimation are mocked.
+- Intended assertions: successful chronological promotion and duplicate-safe replay; a sibling broker-status failure prevents any promotion; paper cash and paper positions stay unchanged; no order-write calls.
+- Status: **committed; CI pending/unverified at time of this note**. No test result is claimed here. Check CI for this exact SHA before marking complete.
+- Next: inspect CI, fix only observed failures, and then update this file plus roadmap/audit/handover with exact final evidence. Do not recreate the already-existing coordinator.

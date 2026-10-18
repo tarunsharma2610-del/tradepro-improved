@@ -70,6 +70,21 @@ class BrokerAdapter(ABC):
         ...
 
     @abstractmethod
+    async def get_full_market_quote(self, access_token: str, instrument_keys: list[str]) -> BrokerCallResult:
+        """Return exchange timestamped quote snapshots for risk checks."""
+        ...
+
+    @abstractmethod
+    async def get_market_holidays(self, access_token: str) -> BrokerCallResult:
+        """Return exchange holiday/special-session calendar metadata."""
+        ...
+
+    @abstractmethod
+    async def get_market_timings(self, access_token: str, market_date: date) -> BrokerCallResult:
+        """Return official exchange open/close times for one market date."""
+        ...
+
+    @abstractmethod
     def get_market_data_stream_url(self, access_token: str) -> BrokerCallResult:
         """Authenticated WebSocket URL for live market data. Full streaming
         client lands in Phase 2 alongside the rest of real-time market

@@ -5,6 +5,8 @@ import pytest
 
 from app.core.config import settings
 from app.models.broker_connection import BrokerConnection
+from app.models.execution import Execution
+from app.models.live_charge_adjustment import LiveChargeAdjustment
 from app.models.order import Order
 from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.portfolio_repository import PortfolioRepository
@@ -252,3 +254,75 @@ def test_provider_exception_fails_closed_without_propagating(db_session, risk_co
 
     assert not result.allowed
     assert "quote lookup failed" in result.reason.lower()
+
+
+def test_daily_loss_gate_includes_live_charges_and_append_only_charge_adjustments(
+    db_session, risk_context
+):
+    user, portfolio, instrument, now = risk_context
+    connection = db_session.query(BrokerConnection).filter_by(user_id=user.id, broker="upstox").one()
+    order = Order(
+        portfolio_id=portfolio.id,
+        instrument_id=instrument.id,
+        side="SELL",
+        order_type="MARKET",
+        segment="EQUITY_DELIVERY",
+        quantity=2,
+        status="FILLED",
+        trading_mode="LIVE",
+        execution_reason="MANUAL",
+        idempotency_key="daily-loss-net-pnl-test",
+        placed_at=now,
+    )
+    db_session.add(order)
+    db_session.flush()
+    execution = Execution(
+        order_id=order.id,
+        portfolio_id=portfolio.id,
+        instrument_id=instrument.id,
+        side="SELL",
+        quantity=2,
+        price=Decimal("100"),
+        gross_value=Decimal("200"),
+        brokerage=Decimal("40"),
+        stt=Decimal("20"),
+        exchange_charges=Decimal("10"),
+        sebi_charges=Decimal("5"),
+        stamp_duty=Decimal("10"),
+        gst=Decimal("15"),
+        dp_charges=Decimal("0"),
+        total_charges=Decimal("100"),
+        realized_pnl=Decimal("-500"),
+        broker_name="upstox",
+        broker_connection_id=connection.id,
+        broker_trade_id="daily-loss-charge-trade",
+        executed_at=now,
+    )
+    db_session.add(execution)
+    db_session.flush()
+    db_session.add(LiveChargeAdjustment(
+        execution_id=execution.id,
+        broker_connection_id=connection.id,
+        broker_trade_id="daily-loss-charge-trade",
+        adjustment_number=1,
+        source="BROKER_REPORTED",
+        source_reference="contract-note:daily-loss",
+        brokerage=Decimal("240"),
+        stt=Decimal("100"),
+        exchange_charges=Decimal("50"),
+        sebi_charges=Decimal("20"),
+        stamp_duty=Decimal("80"),
+        gst=Decimal("110"),
+        dp_charges=Decimal("0"),
+        previous_effective_total=Decimal("100"),
+        new_effective_total=Decimal("600"),
+        charge_delta=Decimal("500"),
+        net_realized_pnl_delta=Decimal("-500"),
+    ))
+    db_session.commit()
+    gate = _gate(db_session, user, instrument, now)
+
+    result = gate(user.id, portfolio, instrument, _intent(portfolio, instrument))
+
+    assert not result.allowed
+    assert "daily realized-loss limit" in result.reason.lower()

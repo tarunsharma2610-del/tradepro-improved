@@ -291,3 +291,11 @@ Before any future live order may be considered, the account-level persisted safe
 ### Latest safety reset verification note
 
 The account-safety manual-reset test correction is in commit `c97be866828bd47a23f22fc44fac2d3359e70f35`. Reset remains denied without health evidence or while consecutive broker errors remain; after the error counter is cleared, a new passing health check is required before explicit manual reset. Exact-SHA CI is pending; no order-submission wiring was added.
+
+## Superseding checkpoint — 18 October 2026: Alembic duplicate-revision fix under CI
+
+- Regression test commit: [8e73e9156db260b26b92666ba4cb81b5cf0ff9ea](https://github.com/tarunsharma2610-del/tradepro-improved/commit/8e73e9156db260b26b92666ba4cb81b5cf0ff9ea) adds coverage that a database read exception in `LiveAccountSafetyService.check_allowed` denies permission.
+- CI run [#605](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39120252989) exposed a migration graph defect: **392 passed, 1 skipped, 3 failed, 1 warning**. All three failures reported multiple Alembic heads caused by two migration files claiming revision `202610180009` (the charge-adjustment ledger and the newly added safety migration).
+- Fix commit: [410e87e7ece87d72e33c717e42871028bd0e3c36](https://github.com/tarunsharma2610-del/tradepro-improved/commit/410e87e7ece87d72e33c717e42871028bd0e3c36) removes the duplicate `202610180009_live_account_safety.py`. The existing `202610180010_live_account_safety.py` is the canonical safety migration and follows the charge-adjustment revision `202610180009`.
+- Verification for the fix: GitHub Actions [run #606](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39120397940) is **in progress** at the time of this note. Do not mark the fix green until pytest, SQLite migration upgrade, PostgreSQL 16 migration upgrade and the PostgreSQL integration step finish successfully.
+- Safety unchanged: account safety service remains unregistered from order submission; live order submission is not enabled; PR #1 stays draft/open/unmerged; original `Tradepro` remains untouched.

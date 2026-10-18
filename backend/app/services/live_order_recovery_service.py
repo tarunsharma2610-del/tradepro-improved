@@ -173,6 +173,14 @@ class LiveOrderRecoveryService:
         )
         if portfolio is None or not portfolio.is_active:
             raise LiveExecutionBlocked("An active portfolio owned by this user is required.")
+        instrument = self.db.get(Instrument, plan.instrument_id)
+        if (
+            instrument is None
+            or not instrument.is_active
+            or instrument.instrument_key != plan.instrument_key
+        ):
+            raise LiveExecutionBlocked("Instrument changed after preflight; intent persistence blocked.")
+
         connection = self.connections.get_for_user(user_id, self.BROKER_NAME)
         if (
             connection is None

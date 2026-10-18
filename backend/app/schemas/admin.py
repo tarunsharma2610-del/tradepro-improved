@@ -1,3 +1,6 @@
+from typing import Literal
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -10,14 +13,13 @@ class PlatformStatsOut(BaseModel):
     total_backtest_runs: int
 
 
-from typing import Literal
-from uuid import UUID
-
-from pydantic import Field
-
-
 class SafetyPermissionChange(BaseModel):
-    permission: Literal["safety.status.read", "safety.audit.read", "safety.kill_switch.trip", "safety.reset"]
+    permission: Literal[
+        "safety.status.read",
+        "safety.audit.read",
+        "safety.kill_switch.trip",
+        "safety.reset",
+    ]
     action: Literal["grant", "revoke"]
 
 

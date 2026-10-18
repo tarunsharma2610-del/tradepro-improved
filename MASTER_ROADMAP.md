@@ -79,3 +79,8 @@ Current PR #1 head last observed: `540e1285d3de934b43829948a1b60c67658d1343`. Wo
 **Current gate:** backend test suite and Alembic upgrade must pass on current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3`. The connected GitHub API returned no workflow runs/statuses for this SHA and the local runtime could not clone GitHub due unavailable DNS. Do not proceed to live accounting wiring until current-head tests/migrations are verified.
 
 Next sequence: (1) verify/fix current implementation, (2) add populated migration backfill coverage for connection-scoped IDs, (3) design actual charge reconciliation and safe live accounting promotion, (4) only later integrate a dedicated live lifecycle. PAPER-only guard stays in force; no merge or real orders.
+
+
+### Latest test-scope update — 18 October 2026
+
+Added populated legacy-data coverage for migration 006: a child order and execution created before the connection-scope migration must be backfilled to the owner's broker connection. Current head is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; the verification gate remains open until CI proves the new test and full migration chain pass.

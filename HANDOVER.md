@@ -375,3 +375,12 @@ Add a service-level integration test that composes the **real** `BrokerChildOrde
 
 ### Release status
 Live trading is **NOT READY** and disabled. No real orders have been submitted.
+
+
+## Latest handover checkpoint — 18 October 2026: service-level integration test
+
+- Current change commit: `b5783d421f64fcb8e7f1d75f1af5185fd9029f59`.
+- Added real-service integration coverage in `backend/tests/test_live_order_fill_reconciliation_coordinator.py`: actual child reconciler + ingestion + coordinator + promotion + accounting, with only broker read payloads and charge estimator mocked.
+- Checks successful promotion/replay idempotency, sibling status failure blocks all promotion, and no paper cash/position changes. This does not make live trading ready and does not call a write endpoint.
+- **Before coding again:** inspect CI for this exact SHA. If failing, fix the demonstrated failure; if successful, select the next distinct gap from the audit. Do not recreate the coordinator; it already exists. No local tests were run in this continuation and CI was not yet confirmed.
+- Safety: PR #1 stays draft/unmerged, live trading stays disabled, original `Tradepro` untouched.

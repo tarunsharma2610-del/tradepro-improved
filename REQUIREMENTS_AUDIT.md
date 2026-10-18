@@ -417,3 +417,10 @@ See [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a477
 - [ ] Add source-call guardrails and fail-closed tests for every route/worker/strategy entry point.
 - [ ] Resolve auth/operator-audit design findings and atomic state/audit persistence before creating safety-control routes.
 - [ ] Verify all order paths in CI and explicit broker sandbox tests before any live-enable decision.
+
+
+## Requirements checkpoint — central write and operator safety controls (18 October 2026)
+
+Design requirements are consolidated in `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md`. New explicit gates: only one production broker-write service; no unapproved direct adapter calls (CI-enforced); account-wide safety/risk/freshness checks for submit/modify; narrowly defined risk-reducing cancellation semantics; durable intent+event before external I/O; no blind retry on ambiguous broker outcomes; least-privilege scopes; server-derived actor; recent MFA step-up for reset; CSRF/Origin controls; tenant-scoped paginated audit reads; strict redaction; PostgreSQL append-only protection; and service/API/worker/PostgreSQL concurrency tests.
+
+Status is **design specified, implementation pending**. Do not treat the requirements as satisfied. Live submission stays disabled.

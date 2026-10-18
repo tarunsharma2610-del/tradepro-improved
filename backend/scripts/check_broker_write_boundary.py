@@ -1,11 +1,11 @@
 """Fail CI if production app code bypasses the approved broker-write boundary.
 
-The AST scanner checks adapter-named receivers (adapter, *_adapter, or
-*upstox*) and ignores comments/docstrings. Normal PAPER
-ExecutionService.place_order calls are not broker API writes. Production code
-that wraps a broker adapter must keep its write-capable receiver explicitly
-adapter-named. Dynamic dispatch/reflection is prohibited for broker writes and
-cannot be reliably found by this source guard alone.
+The AST scanner rejects every production attribute reference to place/modify/
+cancel methods, regardless of receiver variable name. The only exception is
+the known PAPER strategy-to-ExecutionService.place_order call. Low-level method
+definitions in the Upstox adapter are allowed; the central live write service
+must not call an adapter until a later reviewed implementation. Dynamic
+dispatch/reflection cannot be fully proven safe by this source guard alone.
 """
 from __future__ import annotations
 
@@ -14,7 +14,15 @@ import sys
 from pathlib import Path
 
 WRITE_METHODS = {"place_order", "modify_order", "cancel_order"}
-APPROVED_CALLER = Path("services/live_broker_write_service.py")
+PAPER_EXECUTION_CALLER = Path("services/strategy_execution_service.py")
+
+
+def _is_approved_paper_execution_call(relative: Path, method: str, chain: list[str]) -> bool:
+    return (
+        relative == PAPER_EXECUTION_CALLER
+        and method.lower() == "place_order"
+        and chain == ["execution", "self"]
+    )
 
 
 def _attribute_chain(node: ast.AST) -> list[str]:
@@ -37,8 +45,6 @@ def find_violations(app_root: Path) -> list[str]:
         relative = source.relative_to(app_root)
         if relative == Path("brokers/upstox/adapter.py"):
             continue  # Defines the low-level HTTP adapter methods.
-        if relative == APPROVED_CALLER:
-            continue  # Sole production call site, once the boundary is implemented.
         try:
             tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(relative))
         except (OSError, UnicodeError, SyntaxError) as exc:
@@ -48,10 +54,10 @@ def find_violations(app_root: Path) -> list[str]:
             if not isinstance(node, ast.Attribute) or node.attr.lower() not in WRITE_METHODS:
                 continue
             chain = _attribute_chain(node.value)
-            if not any("adapter" in part or "upstox" in part for part in chain):
+            if _is_approved_paper_execution_call(relative, node.attr, chain):
                 continue
             violations.append(
-                f"{relative}:{node.lineno}: unapproved broker-adapter write reference: {node.attr}"
+                f"{relative}:{node.lineno}: unapproved broker-write reference: {node.attr}"
             )
     return violations
 

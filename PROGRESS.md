@@ -392,3 +392,8 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Behavior implemented: missing state denies; initialization is kill-switch-tripped; broker errors increment a durable counter and open circuit/trip kill switch at threshold; idempotency keys suppress duplicate events; broker success does not close an open circuit; reset requires a fresh passing health check, zero error count, an explicit reason and actor; stale/unknown state denies.
 - Verification: **not verified yet**. GitHub status checks and associated workflow runs were empty for the exact head. Do not claim tests/migrations passed. Await backend Actions run covering pytest, SQLite and PostgreSQL 16 Alembic upgrades.
 - Next: CI verification, then PostgreSQL concurrency tests and read-only preflight composition. No live order submission wiring.
+
+
+### Superseding test correction
+
+Latest code/test commit: `c97be866828bd47a23f22fc44fac2d3359e70f35`. The manual-reset test now establishes a fresh passing health check before asserting that a nonzero broker-error counter blocks reset, then requires broker success and a second fresh passing health check before reset can succeed. This supersedes `57939799b7e8b436d5095924b86a89ce380a956e`. Exact-SHA GitHub status and workflow queries returned no results; no test pass is claimed.

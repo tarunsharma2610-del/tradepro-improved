@@ -460,3 +460,8 @@ Added [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a4
 The design-only artifact `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md` now specifies a single typed broker-write boundary and the controls needed before endpoint implementation. Current findings remain open: live intent recovery bypasses the safety-aware coordinator; no dedicated least-privilege safety permissions or operator audit-history endpoint exists; recent-MFA step-up and CSRF/Origin policy are not established; database-level event immutability is not demonstrated; malformed JWT subject parsing can escape as a non-normalized error; and no CI guard yet prevents new direct adapter write call sites.
 
 No code paths were wired or enabled by this design checkpoint. This is not a penetration test, runtime trace, broker sandbox verification, or release sign-off. Live submission remains disabled.
+
+
+### Source-call guardrail status — 18 October 2026
+
+A static source guard now scans production app Python sources for references to adapter `place_order`, `modify_order`, and `cancel_order`, with only the exact future central service path allowlisted (commit `04583cd35ecf5360624bc0164c7b91231a058e5e`). Its unit tests and CI run #614 are pending verification: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569. This is a preventive CI guard, not proof against dynamic dispatch/reflection and not a substitute for a complete call-path audit.

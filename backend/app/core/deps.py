@@ -112,33 +112,32 @@ def require_recent_safety_mfa(
         user: User = Depends(get_current_user),
     ) -> User:
         """Require a short-lived, user-bound token issued after password + TOTP."""
-    if not step_up_token:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
-    payload = decode_token(step_up_token)
-    if not payload or payload.get("type") != "step_up" or payload.get("scope") != scope:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
-    try:
-        subject = UUID(payload.get("sub", ""))
-        verified_at = int(payload.get("mfa_verified_at", 0))
-        issued_at = int(payload.get("iat", 0))
-    except (TypeError, ValueError, AttributeError, OverflowError):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required") from None
-    now = int(datetime.now(timezone.utc).timestamp())
-    if (
-        not user.mfa_enabled
-        or subject != user.id
-        or "totp" not in (payload.get("amr") or [])
-        or verified_at <= 0
-        or issued_at <= 0
-        or verified_at > now
-        or now - verified_at > 300
-        or abs(now - issued_at) > 300
-    ):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
+        if not step_up_token:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
+        payload = decode_token(step_up_token)
+        if not payload or payload.get("type") != "step_up" or payload.get("scope") != scope:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
+        try:
+            subject = UUID(payload.get("sub", ""))
+            verified_at = int(payload.get("mfa_verified_at", 0))
+            issued_at = int(payload.get("iat", 0))
+        except (TypeError, ValueError, AttributeError, OverflowError):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required") from None
+        now = int(datetime.now(timezone.utc).timestamp())
+        if (
+            not user.mfa_enabled
+            or subject != user.id
+            or "totp" not in (payload.get("amr") or [])
+            or verified_at <= 0
+            or issued_at <= 0
+            or verified_at > now
+            or now - verified_at > 300
+            or abs(now - issued_at) > 300
+        ):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
         return user
 
     return _require_recent_safety_mfa
-
 
 def require_admin(user: User = Depends(get_current_user)) -> User:
     """Guards every /settings/platform/* route. Regular users never reach

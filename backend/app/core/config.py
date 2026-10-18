@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     # starting virtual capital. Set to 0 to disable this paper-order guard.
     MAX_ORDER_VALUE_PCT_OF_VIRTUAL_CAPITAL: Decimal = Decimal("25.0")
 
+    # Independent conservative limits for the future live pre-trade gate.
+    # These do not enable live trading and fail closed when set to zero/invalid.
+    LIVE_MAX_ORDER_VALUE_PCT: Decimal = Decimal("5.0")
+    LIVE_MAX_GROSS_EXPOSURE_PCT: Decimal = Decimal("50.0")
+    LIVE_MAX_DAILY_LOSS_PCT: Decimal = Decimal("2.0")
+    LIVE_MAX_ORDERS_PER_UTC_DAY: int = 10
+    LIVE_MAX_MARKET_DATA_AGE_SECONDS: int = 5
+
     @property
     def is_live_trading_enabled(self) -> bool:
         return self.TRADING_MODE.upper() == "LIVE"

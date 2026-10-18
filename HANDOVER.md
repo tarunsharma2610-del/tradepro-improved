@@ -206,3 +206,10 @@ Live trading remains **NOT READY** until broker execution, durable duplicate pre
 - Debugging note: CI first exposed missing decimal imports and a class helper accidentally nested beneath the module-level validator. A first patch repeated the helper placement error; after inspecting the exact source and failed test log, the helper was relocated once at class scope. Do not repeat blind text replacements; verify indentation and helper location.
 - Latest verified commit `e6abb6704b67c54f35bb5d7c2c41acd96846147d`: backend **238 passed, 1 warning**, clean SQLite migration ([run 39035755714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714)); frontend checks passed ([run 39035755707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707)).
 - Next: audit official margin response schema and existing parsers, then add a typed response parser only if needed. No live order approval is connected.
+
+
+## Upstox Margin Details response parsing — 18 October 2026
+
+The official Margin Details API documentation was checked: https://upstox.com/developer/api-documentation/margin/. Added pure parse_margin_details and immutable MarginEstimate / MarginBreakdown result types for data.required_margin, data.final_margin, and the seven documented per-instrument margin fields. Regression tests cover a valid documented response and malformed/error payloads, including missing fields, empty rows, negative/non-finite values and unsuccessful envelopes.
+
+Commits: parser 3c4dd6ac0d7d88a18916c241d28a224fc5031d5d; tests 6995f64429b44134edfa5985ad4f50c3b54cfcab. CI verification is pending; inspect GitHub Actions before describing this as verified. The parser is not connected to order approval and must not be used as a live-trading authorization. Next: inspect CI results, fix any actual failures, then finalize progress/audit/changelog with verified counts.

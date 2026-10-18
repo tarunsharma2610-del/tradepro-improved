@@ -281,3 +281,8 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 ## Latest retry-path test checkpoint
 
 Commit `1a3475c69d3a93ece7bfad22ace4dce52231bfa1` adds a service-composition regression for: broker read/reconcile → fresh staged trade intake → first fill accounted → second-fill charge estimation fails → retry skips the already-accounted fill and accounts the remaining fill. This is test intent only until exact-SHA CI passes. Live order submission remains outside this state machine.
+
+
+## Account-safety interlock — new, not yet wired to submission
+
+Before any future live order may be considered, the account-level persisted safety decision must be checked in addition to the existing environment interlocks and pre-trade risk gate. The decision is denied if state is absent, kill switch is tripped, circuit is not CLOSED, error counter is nonzero, health check is missing/stale, or the database read fails. Threshold broker errors open the circuit and trip the latch. Only an explicit manual reset after a fresh passing health check and zero consecutive errors can clear the latch. Service/migration/tests are committed but exact-head CI is pending. No order route or worker currently invokes this service.

@@ -457,3 +457,10 @@ Before adding routes for account safety, follow [SECURITY_CONTROL_ENDPOINT_AUDIT
 ## Order submission path inventory — 18 October 2026
 
 See [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a477489c7e2d5b6883c299c1e9a8aee1cbef055f](https://github.com/tarunsharma2610-del/tradepro-improved/commit/a477489c7e2d5b6883c299c1e9a8aee1cbef055f). Current manual and strategy orders converge on the PAPER-only ExecutionService, which rejects non-PAPER mode. The Upstox adapter has place/modify/cancel write methods, but they were not found called from reviewed application paths. Live preflight, recovery and reconciliation are not registered as order endpoints/workers. In particular, LiveOrderRecoveryService currently composes LiveExecutionService directly, not LivePreflightCoordinator. Before live support, create one central broker-write owner, compose account safety and fresh snapshot checks, persist intent/audit atomically, add source-call CI guardrails, and keep paper/live paths separated.
+
+
+## Proposed broker-write boundary (design gate, 18 October 2026)
+
+See [CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md](CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md). The architecture target is one typed `LiveBrokerWriteService` as the only production caller of adapter place/modify/cancel. The existing `ExecutionService` remains explicitly PAPER-only. Routes, strategy execution, scheduled workers and recovery must not call broker write primitives directly. The boundary must persist an idempotent intent and matching audit event atomically before network I/O, preserve an explicit unknown-outcome state, and reconcile by stable broker tag rather than blindly resubmitting.
+
+This is a target design, not current wiring. Safety-control permissions, step-up MFA, CSRF/Origin, tenant-scoped audit reads, event immutability, CI source guard and end-to-end negative tests remain unimplemented. Keep live submission disabled.

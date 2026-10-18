@@ -12,36 +12,14 @@ Pull request: #1 (draft; do not merge without explicit review)
 
 ## Current verified state
 
-### Implemented in code; current CI verification pending
-- Additive schema foundations for broker child orders, order tags, partial/unknown order state and deduplicated broker trade IDs.
-- Pure response parsers for place-order IDs, order details, order history, order trades and Funds & Margin V3.
-- Read-only Upstox adapter methods for Funds & Margin V3 and instrument margin estimates (`POST /v2/charges/margin`), with local input validation.
-- Pure `parse_margin_details` returning typed `MarginEstimate` / `MarginBreakdown`; tests cover a documented success payload and malformed/error payloads.
-- Documentation status is intentionally **implemented but not verified by CI for the current PR head**.
+### Implemented and verified on current CI head
+- Broker child-order schema and connection-scoped trade identity, normalized broker-trade staging, idempotent ingestion, ownership checks, conflicting replay rejection, and regression tests.
+- Upstox response parsers for place-order IDs, order details/history/trades, Funds & Margin V3 and margin estimates.
+- Separate unregistered `LiveExecutionService` preflight foundation. Requires default-off `LIVE_ORDER_SUBMISSION_ENABLED`, `TRADING_MODE=LIVE`, explicit confirmation, a supplied risk gate, valid owned portfolio/instrument, and usable broker connection/token. It has no submit method/path and makes no DB/order/accounting side effects.
+- GitHub Actions run [#39109587876](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39109587876) on `677fcf882e0ce1e6e02be3bb8df0d074b8fbf220`: **286 passed, 1 warning**; SQLite `alembic upgrade head` succeeded.
 
-### Last verified baseline (not verification of the newest margin parser)
-- Previously reported CI: 238 backend tests passed, one warning; migration and frontend checks passed on an earlier code commit.
-- Current PR head had no workflow runs or commit statuses returned by the connected GitHub integration at the last check. This is a verification gap, not a pass or failure.
-- Do not reuse the old baseline as evidence that new tests passed.
-
-## Immediate task — Phase 2 verification gate (current; supersedes older gate notes)
-
-1. Current code/test target: `b780c39f770a6839dab0af63fc424c341eff9d70`. The later documentation commits do not change code; use the latest PR head to start the workflow and record both SHAs.
-2. Verify the margin parser changes and broker-trade intake/migration changes together: run `.github/workflows/backend-tests.yml` on `safety/fail-closed-trading-mode` using `workflow_dispatch` from GitHub Actions, or obtain a workflow run tied to the current code. The workflow runs backend pytest and `alembic upgrade head` on SQLite.
-3. The connected GitHub integration has no workflow-dispatch action and current branch/head lookup returns no Actions run. Do not use an older `main` run as evidence. If the UI must be used, this is the explicit manual gate.
-4. Inspect actual logs; fix only evidenced defects; rerun after fixes. Record exact run URL/SHA, test count, warning count, migration result, and frontend result if run in `PROGRESS.md`, `AUDIT_REPORT.md`, `REQUIREMENTS_AUDIT.md`, `HANDOVER.md`, and `CHANGELOG.md`.
-5. Keep the PR draft/unmerged and Live Trading disabled. Do not begin the next live lifecycle task until the current code/migration gate passes.
-
-
-## Next implementation phase after verification
-Follow `LIVE_ORDER_STATE_MACHINE.md` implementation order:
-1. Build a separate, initially unregistered `LiveExecutionService` with explicit fail-closed gates and mocked tests. Do not change the existing paper `ExecutionService` or route any real orders.
-2. Add stable idempotency/tag recovery for ambiguous submissions and prove a retry cannot submit a duplicate.
-3. Add broker reconciliation for parent/child orders and status events, including partial fills and restart recovery.
-4. Apply broker trade-ID deduplication and atomic accounting updates.
-5. Add account-wide pre-trade risk checks (funds vs pledged margin, order notional, position/exposure, daily loss, order frequency, market session/stale quote) and an account-level kill switch.
-6. Test paper/live isolation, concurrent submissions, migrations on clean and populated databases, and broker error/timeout paths.
-7. Only after independent review and authorized sandbox/staging evidence may live API/UI wiring be considered. Obtain explicit user authorization before any real order path can be enabled.
+### Immediate next task
+Build and test stable idempotency/tag recovery for ambiguous submissions, without calling Place Order or wiring any route/worker. Inspect current `Order.idempotency_key`, `broker_tag`, and order-history-by-tag adapter first. A timeout is unknown, not rejection; no blind retry. The next change must prove a retry cannot submit a duplicate.
 
 ## Release blockers
 - Current PR CI for the new margin parser/tests is not confirmed.
@@ -58,18 +36,9 @@ Follow `LIVE_ORDER_STATE_MACHINE.md` implementation order:
 - Next: inspect the latest PR run in GitHub Actions (PR workflows check out the generated merge ref), confirm backend tests, migration and frontend results, and fix only current-head failures. Do not claim green CI or enable live trading.
 
 
-## Authoritative continuation checkpoint — 18 October 2026
+## Historical checkpoint (superseded)
 
-This checkpoint supersedes the earlier “next implementation phase after verification” sequencing above. The current concrete task is **broker-trade/fill ingestion**, not live order submission/service wiring.
-
-1. Audit `Execution`, `BrokerOrder`, `Order`, broker-connection ownership, migrations, and accounting repositories/services. Confirm what fields and uniqueness guarantees actually exist.
-2. Review `parse_order_trades` / `BrokerTrade` and tests; reuse them rather than duplicate the parser.
-3. Implement a transaction-safe ingestion path for broker-confirmed fills only, with durable deduplication and explicit mapping to the correct local order/child broker order. Resolve whether uniqueness should be scoped to broker connection/account instead of only broker name.
-4. Add regression tests for replayed trades, repeated ingestion, wrong/missing child-order mapping, invalid quantity/price/side, transaction rollback, and separation from paper accounting. Do not infer fills from status events.
-5. Run/inspect current-head CI and migrations. Record only evidence for the exact tested SHA.
-6. Update progress/audit/handover/changelog after the code/test commit. Keep the PAPER-only guard; no real order placement, live service registration, or PR merge.
-
-Current PR #1 head last observed: `540e1285d3de934b43829948a1b60c67658d1343`. Workflow-run and combined-status lookups returned no results for that head, so verification remains pending. The project is **not live-trading ready**.
+The older checkpoint below recorded broker-trade intake as the next task before implementation and CI evidence were available. It is retained in the Git history; the current state and next task are in the final authoritative checkpoint at the end of this file.
 
 
 ## Broker trade intake — implementation present, verification gate open (18 October 2026)
@@ -129,3 +98,25 @@ GitHub Actions run [#39109239829](https://github.com/tarunsharma2610-del/tradepr
 - Workflow job and overall run conclusion: **success**.
 
 This verifies the code present at that SHA in CI. It does not validate PostgreSQL migration behavior, live broker connectivity, real order submission, live accounting, frontend build, or production deployment. Keep those as separate gates.
+
+
+## Authoritative continuation checkpoint — 18 October 2026 (supersedes older pending-CI and next-task notes)
+
+### Latest verified state
+
+- Latest branch head: `677fcf882e0ce1e6e02be3bb8df0d074b8fbf220` on `safety/fail-closed-trading-mode`.
+- GitHub Actions [run #39109587876](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39109587876) on that exact SHA: **286 passed, 1 warning in 18.93s**, followed by successful SQLite `alembic upgrade head`. Run conclusion: success.
+- Earlier verified baseline run #39109239829 had 266 passed; the newer 286-test run includes the new preflight tests. Do not use older “CI pending” paragraphs below as current status.
+- The single Python warning is the existing Starlette/AnyIO deprecation. No test or migration failures occurred in the verified run.
+
+### Completed in this continuation
+
+1. Hardened migration 006 so it backfills broker connection IDs only when a unique owner/broker match exists; unresolved legacy rows remain unbound. Added regression coverage.
+2. Added a separate `LiveExecutionService` preflight-only module and default-off `LIVE_ORDER_SUBMISSION_ENABLED` environment interlock.
+3. Preflight requires `TRADING_MODE=LIVE`, the separate default-off interlock, explicit per-request confirmation, an injected reviewed account-wide risk gate, owned/active portfolio, active supported equity instrument, verified Upstox connection and usable token. Invalid inputs and risk-gate failures block.
+4. The service returns a non-secret preflight plan only. It creates no Order row, does not call any broker adapter, does not persist a tag/intent, and does not change cash, positions, executions or trade staging. It is not registered to any API or worker. Live trading remains disabled.
+5. Backend workflow now runs on `safety/**` pushes and relevant backend/workflow changes, while documentation-only changes do not retrigger backend CI.
+
+### Next implementation task
+
+**Stable idempotency/tag recovery for ambiguous submissions — design and mocked tests only.** Audit existing `Order.idempotency_key`, `broker_tag`, and adapter `get_order_history(tag=...)` behavior. Add a deterministic tag/intent persistence design and tests proving a retry never submits a second POST after a timeout. Do not implement or invoke real broker submission in this task; do not wire the service into routes/workers; do not merge PR #1 or enable live trading. After code/test commit, update progress, audit, requirements, roadmap, changelog, architecture, state-machine and handover files with exact CI evidence.

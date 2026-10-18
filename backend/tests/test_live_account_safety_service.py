@@ -269,3 +269,38 @@ def test_audit_insert_failure_rolls_back_safety_state_mutation(safety_context):
     assert db.query(LiveAccountSafetyEvent).filter_by(
         state_id=state.id, idempotency_key="audit-write-fails"
     ).count() == 0
+
+
+def test_idempotency_fingerprint_includes_circuit_threshold(safety_context):
+    _db, user, service, _now = safety_context
+    _initialize(user, service)
+    service.record_broker_error(
+        user.id, "HTTP_502", "temporary upstream failure",
+        threshold=3, idempotency_key="same-error-key",
+    )
+
+    with pytest.raises(LiveExecutionBlocked, match="different or unverifiable"):
+        service.record_broker_error(
+            user.id, "HTTP_502", "temporary upstream failure",
+            threshold=1, idempotency_key="same-error-key",
+        )
+
+
+def test_manual_reset_rejects_stale_expected_state_version(safety_context):
+    _db, user, service, _now = safety_context
+    _initialize(user, service)
+    service.record_broker_success(user.id, idempotency_key="success-1")
+    health = service.record_health_check(
+        user.id, passed=True, reason="broker session and account snapshots verified",
+        actor_user_id=user.id, idempotency_key="fresh-health-1",
+    )
+    service.trip_kill_switch(
+        user.id, "operator stopped trading", actor_user_id=user.id,
+        idempotency_key="trip-after-health",
+    )
+
+    with pytest.raises(LiveExecutionBlocked, match="state changed"):
+        service.manual_reset(
+            user.id, "operator reviewed recovery", actor_user_id=user.id,
+            idempotency_key="stale-reset", expected_version=health.version,
+        )

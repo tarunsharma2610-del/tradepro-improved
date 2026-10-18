@@ -161,3 +161,28 @@ def test_foreign_user_cannot_adjust_another_users_trade(accounting_context, make
         )
 
     assert db.query(LiveChargeAdjustment).count() == 0
+
+
+def test_replaying_older_contract_note_reports_latest_effective_charge_total(accounting_context):
+    db, user, connection, record = _account_estimate(accounting_context)
+    service = LiveChargeAdjustmentService(db)
+    v1 = _charges(brokerage=Decimal("2.25"), gst=Decimal("0.50"), reference="contract-note:v1")
+    v2 = _charges(reference="contract-note:v2")
+
+    first = service.apply_broker_reported_charges(
+        user.id, connection.id, record.broker_trade_id, v1
+    )
+    second = service.apply_broker_reported_charges(
+        user.id, connection.id, record.broker_trade_id, v2
+    )
+    replay_v1 = service.apply_broker_reported_charges(
+        user.id, connection.id, record.broker_trade_id, v1
+    )
+
+    assert first.new_effective_total == Decimal("2.81")
+    assert second.new_effective_total == Decimal("2.63")
+    assert replay_v1.duplicate
+    assert replay_v1.new_effective_total == Decimal("2.81")  # original v1 event value
+    assert replay_v1.effective_charge_total == Decimal("2.63")  # latest effective value
+    assert replay_v1.effective_net_realized_pnl == Decimal("-2.63")
+    assert db.query(LiveChargeAdjustment).count() == 2

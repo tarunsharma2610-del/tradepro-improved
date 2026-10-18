@@ -240,3 +240,12 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Expected assertions: first fill is accounted once, later promotion stops at the charge-estimation error, retry treats the first fill as a duplicate and accounts only the remaining fill, with no paper-account changes or broker write calls.
 - **Do not claim this test passes until CI for this exact SHA is confirmed.** No local test execution was available in this continuation. Do not create another coordinator or repeat the already implemented preflight coordinator.
 - Next action: inspect CI for this exact commit; fix only evidenced failures. If green, review PostgreSQL-backed reconciliation/promotion coverage and release blockers. Keep PR #1 draft/unmerged, live trading disabled, and original `Tradepro` untouched.
+
+
+## Latest continuation checkpoint — persistent account safety controls
+
+- New service commit: `9ef0ed6e2738ff5fa92b3817deca31b03712de4e`; migration commit: `5b61799efa76f0311174bb130ead4408c8fd4d6c`; idempotency fix: `140da30c93fa8e9e2a44935fce342ab1133eac5e`; tests/refinement latest code SHA: `57939799b7e8b436d5095924b86a89ce380a956e`.
+- Implemented `LiveAccountSafetyService` over the already-registered `LiveAccountSafetyState` / `LiveAccountSafetyEvent` models. Added Alembic revision `202610180009` after `202610180008` and unit tests for missing-state denial, initial tripped latch, threshold circuit opening, idempotency, manual reset prerequisites, stale health, and unknown circuit state.
+- **No claim of test or migration success yet:** GitHub status/workflow query for latest head `57939799b7e8b436d5095924b86a89ce380a956e` returned no status checks/runs. The backend workflow is configured for pushes to `safety/**`; re-check exact-head Actions results and fix only evidenced failures.
+- Service remains intentionally unregistered from order submission. Missing/stale state blocks; new state starts kill-switch tripped; broker successes never auto-close an open circuit; manual reset requires a fresh passing health event, zero consecutive errors and an actor.
+- Next: verify pytest plus SQLite/PostgreSQL Alembic upgrade on exact head; then test PostgreSQL concurrency/idempotency for safety-state transitions. Only after review consider a read-only integration into preflight. Never enable order submission, merge PR #1, or modify original `Tradepro`.

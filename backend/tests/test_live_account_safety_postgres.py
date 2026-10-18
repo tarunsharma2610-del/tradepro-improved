@@ -10,7 +10,8 @@ from threading import Barrier
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import sessionmaker
 
 from app.models.live_account_safety import LiveAccountSafetyEvent, LiveAccountSafetyState
@@ -190,3 +191,43 @@ def test_postgres_concurrent_manual_reset_allows_only_one_reset(pg_sessions):
     assert state.circuit_state == "CLOSED"
     assert state.consecutive_broker_errors == 0
     assert reset_count == 1
+
+
+def test_postgres_safety_events_reject_update_and_delete(pg_sessions):
+    user_id = _create_user(pg_sessions)
+    _initialize(pg_sessions, user_id)
+
+    with pg_sessions() as db:
+        event_row = db.execute(
+            text("""
+                SELECT id, reason
+                FROM live_account_safety_events
+                WHERE event_type = 'INITIALIZED'
+                ORDER BY created_at
+                LIMIT 1
+            """)
+        ).mappings().one()
+        event_id = str(event_row["id"])
+        original_reason = event_row["reason"]
+
+        with pytest.raises(DBAPIError):
+            db.execute(
+                text("UPDATE live_account_safety_events SET reason = 'tampered' WHERE id = :id"),
+                {"id": event_id},
+            )
+            db.commit()
+        db.rollback()
+
+        with pytest.raises(DBAPIError):
+            db.execute(
+                text("DELETE FROM live_account_safety_events WHERE id = :id"),
+                {"id": event_id},
+            )
+            db.commit()
+        db.rollback()
+
+        persisted = db.execute(
+            text("SELECT reason FROM live_account_safety_events WHERE id = :id"),
+            {"id": event_id},
+        ).scalar_one()
+        assert persisted == original_reason

@@ -496,3 +496,8 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Added the guard as an explicit CI step in `.github/workflows/backend-tests.yml`; run #614 is pending at checkpoint time: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569.
 - The exact allowlist reserves only `app/services/live_broker_write_service.py` as the future production writer; the adapter file is excluded because it defines the low-level methods. No such service exists yet and no production write path was added.
 - Next verify CI, then implement transaction/event storage hardening and authorization foundations. Live remains disabled.
+
+
+### Guard correction / current CI — 18 October 2026
+
+The first workflow run with the guard (#614) failed because its initial generic method-reference pattern incorrectly flagged paper `ExecutionService.place_order` calls and descriptive text. This was a scanner false positive; the full suite was skipped, so it is not a backend test regression. Corrected the scanner to target adapter-named receivers in commit `30599b1bd8d32293b856c88cdfb4e2facaa9ce0f`. New run #615 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123199888. Verify its outcome before proceeding.

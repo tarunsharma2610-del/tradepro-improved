@@ -199,6 +199,8 @@ def test_foreign_portfolio_is_not_visible_to_user(db_session, live_context, make
         ({"quantity": 0}, "positive integer"),
         ({"order_type": "STOP"}, "Order type"),
         ({"segment": "OPTIONS"}, "Only verified equity"),
+        ({"segment": []}, "Only verified equity"),
+        ({"execution_reason": []}, "Unsupported execution reason"),
         ({"order_type": "LIMIT"}, "LIMIT orders require"),
         ({"order_type": "LIMIT", "limit_price": "NaN"}, "valid positive amount"),
         ({"order_type": "MARKET", "limit_price": Decimal("10")}, "must not include"),

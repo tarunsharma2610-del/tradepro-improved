@@ -274,3 +274,8 @@ The `BrokerTradeIngestionService` stages validated broker-confirmed trade rows i
 
 
 The connection-scoped broker identity migration includes legacy-link backfill logic and a populated-data regression test. Current-head test/migration verification is pending; do not treat the migration as deployment-verified until CI passes.
+
+
+### Intake identity hardening — 18 October 2026
+
+The staging service resolves the broker connection by the exact `BrokerOrder.broker_connection_id` and confirms the connection owner and broker match the request and child-order record. Missing or foreign bindings fail closed. A staged trade must include a non-empty instrument token matching the local instrument key; absent identity is not treated as safe. This remains a staging-only path, with no execution-accounting mutation or live submission wiring. Current-head tests/migrations remain unverified.

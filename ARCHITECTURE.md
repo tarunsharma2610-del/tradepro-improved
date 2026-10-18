@@ -368,7 +368,7 @@ PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live t
 
 ### Verified code and tests
 - Latest verified code/test SHA: `e7a2ca8d473f9536839b02e0538bf6768343a627`. GitHub Actions [run #39112247035](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112247035) succeeded: **326 passed, 1 warning in 26.85s**; SQLite Alembic migration verification passed.
-- Read-only Upstox adapter and strict parsers now cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
+- Read-only Upstox adapter and strict parsers cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
 - `UpstoxLiveRiskSnapshotService` gathers the snapshots required by the account-wide risk gate and has no order-placement call.
 - `LivePreflightCoordinator` composes the per-user credential service, read-only snapshots and `AccountWideLiveRiskGate` into the existing `LiveExecutionService.preflight` contract. It validates intent and portfolio ownership before broker calls, checks connection status, refreshes the connection after asynchronous collection, and rejects a changed/expired token or changed connection identity. Mocked tests cover successful preflight, disabled interlock, malformed/stale/provider-failure paths, token rotation, missing connection and cross-user portfolio access.
 - The coordinator remains unregistered. No API route or worker calls it; no order is submitted, persisted, modified or cancelled.

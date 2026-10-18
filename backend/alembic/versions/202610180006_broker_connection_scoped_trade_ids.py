@@ -41,6 +41,14 @@ def upgrade() -> None:
             LIMIT 1
         )
         WHERE broker_connection_id IS NULL
+          AND (
+              SELECT COUNT(*)
+              FROM orders o
+              JOIN portfolios p ON p.id = o.portfolio_id
+              JOIN broker_connections bc
+                ON bc.user_id = p.user_id AND bc.broker = broker_orders.broker_name
+              WHERE o.id = broker_orders.order_id
+          ) = 1
     """))
     op.create_index(
         "ix_broker_orders_broker_connection_id",
@@ -68,6 +76,15 @@ def upgrade() -> None:
         )
         WHERE broker_order_ref_id IS NOT NULL
           AND broker_connection_id IS NULL
+          AND (
+              SELECT COUNT(*)
+              FROM broker_orders bo
+              JOIN orders o ON o.id = bo.order_id
+              JOIN portfolios p ON p.id = o.portfolio_id
+              JOIN broker_connections bc
+                ON bc.user_id = p.user_id AND bc.broker = bo.broker_name
+              WHERE bo.id = executions.broker_order_ref_id
+          ) = 1
     """))
     op.create_index(
         "ix_executions_broker_connection_id",

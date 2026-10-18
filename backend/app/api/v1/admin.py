@@ -14,7 +14,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.deps import (\n    SAFETY_PERMISSIONS,\n    get_db,\n    require_admin,\n    require_recent_safety_mfa,\n    require_same_origin_for_cookie_mutation,\n)
+from app.core.deps import (
+    SAFETY_PERMISSIONS,
+    get_db,
+    require_admin,
+    require_recent_safety_mfa,
+    require_same_origin_for_cookie_mutation,
+)
 from app.models.audit_log import AuditLog
 from app.models.backtest import BacktestRun
 from app.models.news_item import NewsItem

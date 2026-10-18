@@ -485,3 +485,7 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Added explicit per-user safety_permissions grants and a default-deny permission dependency for safety status, audit reads, kill-switch trips and resets. is_admin does not implicitly grant safety permissions.
 - Normalized malformed JWT subject claims to HTTP 401 and added a reusable Origin check for cookie-authenticated mutation requests.
 - Added focused regression tests. CI has not yet verified the commits. Recent-MFA step-up, grant provisioning, route wiring and end-to-end tenant/HTTP tests remain outstanding; no safety route or live broker write was enabled.
+
+### Follow-up correction — 18 October 2026
+
+The Origin guard now requires an exact Origin serialization match (including rejecting a trailing slash), and unused imports were removed from the user model. Follow-up commits: f7c08e2605fb7f7828792154570af79cf5ccf724 and 4337d0ce4ef645914f32c56db87c81699c04763e. CI/status lookup has returned no run/status for the authorization changes; do not claim tests or migration passed until a workflow result is tied to the code/test SHA. Recent-MFA step-up and route wiring remain outstanding.

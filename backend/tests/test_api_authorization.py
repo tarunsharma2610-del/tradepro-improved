@@ -579,7 +579,7 @@ def test_non_admin_cannot_request_permission_management_step_up(client, db_sessi
 def test_reset_step_up_token_cannot_authorize_permission_management(client, db_session):
     _register_and_login(client, email="admin@example.com")
     from app.repositories.user_repository import UserRepository
-    from app.core.deps import require_recent_safety_mfa
+    from app.core.deps import require_recent_safety_mfa_scope
     user = UserRepository(db_session).get_by_email("admin@example.com")
     user.is_admin = True
     user.mfa_enabled = True
@@ -589,7 +589,7 @@ def test_reset_step_up_token_cannot_authorize_permission_management(client, db_s
         "amr": ["pwd", "totp"],
         "mfa_verified_at": int(datetime.now(timezone.utc).timestamp()),
     })
-    dependency = require_recent_safety_mfa("safety.admin.permissions")
+    dependency = require_recent_safety_mfa_scope("safety.admin.permissions")
     with pytest.raises(HTTPException) as exc:
         dependency(step_up_token=token, user=user)
     assert exc.value.status_code == 403

@@ -6,7 +6,7 @@ to the conceptual parent order. Multiple fills require distinct, timezone-aware
 exchange timestamps so position accounting is applied in deterministic order.
 """
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -141,6 +141,15 @@ class LiveOrderFillReconciliationCoordinator:
                 )
 
         if reconciliation_errors:
+            staged_rows = (
+                self.db.query(BrokerTradeRecord)
+                .filter(BrokerTradeRecord.broker_order_ref_id.in_(list(child_data)))
+                .all()
+            )
+            for staged_row in staged_rows:
+                entry = child_data.get(staged_row.broker_order_ref_id)
+                if entry is not None:
+                    entry["staged_count"] += 1
             return self._result(
                 order.id,
                 child_data,
@@ -216,7 +225,7 @@ class LiveOrderFillReconciliationCoordinator:
                             "no fills were promoted."
                         ),
                     )
-                timestamp = timestamp.astimezone()
+                timestamp = timestamp.astimezone(timezone.utc)
                 if timestamp in seen_timestamps:
                     return self._result(
                         order.id,

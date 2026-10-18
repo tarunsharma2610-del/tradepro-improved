@@ -429,3 +429,10 @@ Status is **design specified, implementation pending**. Do not treat the require
 ### CI guard verification — 18 October 2026
 
 The source-call guard requirement now has a CI implementation and a passing verification on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`, run #617: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Backend suite 402 passed / 4 skipped; migrations and PostgreSQL concurrency checks passed. Mark only the guardrail requirement as verified; central writer, safety permissions/API, atomic event semantics, DB-enforced immutability and end-to-end enforcement remain pending.
+
+
+## Safety audit storage requirement checkpoint — 18 October 2026
+
+Partially implemented: request fingerprint and idempotency mismatch rejection; unique state-version audit sequence; DB triggers rejecting UPDATE/DELETE in SQLite and PostgreSQL; transaction rollback test when audit insertion fails; PostgreSQL trigger tests; and stale expected-version validation for manual reset.
+
+Still pending: exact-head CI green confirmation; operational restrictions against privileged trigger removal; endpoint-level mandatory expected-version enforcement; authorization/MFA/CSRF; and central broker-write integration. The latest CI run `39124312326` was pending when this note was written, so do not mark all storage requirements verified yet.

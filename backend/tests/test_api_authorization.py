@@ -561,9 +561,11 @@ def test_cookie_authenticated_safety_trip_rejects_missing_origin(client, db_sess
     assert response.status_code == 403
 
 
-def test_non_admin_cannot_request_permission_management_step_up(client, db_session):
+def test_non_admin_cannot_request_permission_management_step_up(client, db_session, monkeypatch):
     _register_and_login(client, email="ordinary@example.com")
     from app.repositories.user_repository import UserRepository
+    from app.services.auth_service import AuthService
+    monkeypatch.setattr(AuthService, "_verify_totp", staticmethod(lambda user, code: code == "123456"))
     user = UserRepository(db_session).get_by_email("ordinary@example.com")
     user.mfa_enabled = True
     user.mfa_secret_encrypted = "test-encrypted-secret"

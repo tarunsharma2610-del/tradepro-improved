@@ -228,23 +228,22 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: PostgreSQL locking and idempotent promotion verification
+## Authoritative checkpoint — 18 October 2026: reconcile-before-promote coordinator
 
 ### Verified code and CI evidence
-- Latest verified code/test SHA: `fc273f08c32d21acf206962d5f1e3064c8d45dcc`. GitHub Actions [run #39117895784](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39117895784) succeeded.
-- Full backend suite: **375 passed, 1 skipped, 1 warning in 31.77s**. SQLite Alembic upgrade passed.
-- Added a PostgreSQL 16 service to GitHub Actions; the full Alembic migration chain, including `202610180009_live_charge_adjustment_ledger`, upgraded successfully on PostgreSQL.
-- PostgreSQL-only integration test passed (**1 passed in 0.35s**): concurrent distinct charge revisions serialize into a consistent adjustment-number/previous-total chain; concurrent replay of the same contract-note reference inserts only once; concurrent promotion of one staged broker trade produces one Execution and one LivePosition quantity update.
-- The PostgreSQL integration test exposed and fixed `FOR UPDATE` queries that attempted to lock the nullable side of joined Instrument relationships. Lock scopes now explicitly target `Execution`, `Order`, and `LivePosition`; broker-trade ingestion also scopes its Order lock. This is now verified against PostgreSQL 16, not inferred from SQLite.
+- Latest verified code/test SHA: `cfa038fe49dfde1c441f77d5c4a12fcb13ba695a`. GitHub Actions [run #39118263100](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39118263100) succeeded.
+- Full backend suite: **380 passed, 1 skipped, 1 warning in 27.98s**; SQLite Alembic upgrade passed; PostgreSQL 16 Alembic upgrade passed; PostgreSQL concurrency integration passed (**1 passed in 0.36s**).
+- Added unregistered `LiveOrderFillReconciliationCoordinator`. It reconciles every mapped Upstox child order and its durable trade list before promoting any staged fill for that conceptual parent order. If any child fails reconciliation, none of the parent's fills are promoted.
+- Multiple fills require distinct timezone-aware exchange timestamps, preventing ambiguous position-accounting order. Promotion stops at the first charge/accounting failure; completed fills are reported and retries remain idempotent.
+- Regression tests cover successful chronological promotion, sibling reconciliation failure, missing/duplicate timestamps, and promotion failure. The parent Order remains unchanged; the coordinator contains no order-placement call and is not registered to routes/workers.
 
 ### Remaining caveats
-- These are database/service integration tests with synthetic rows and no live broker requests. They do not verify actual Upstox response contracts, exchange operations, or live order placement.
-- Contract-note source references remain caller supplied and are not independently authenticated.
-- Frontend build, staging, operational monitoring, account-level kill switch, broker-error circuit breaker, and complete production live lifecycle remain unverified/incomplete.
-- Promotion and charge-adjustment services remain unregistered in routes/workers. Live order submission remains disabled; PR #1 remains draft/open/unmerged; original `Tradepro` is untouched.
+- Coordinator tests currently inject fake reconciliation/promotion collaborators; the separate PostgreSQL integration test covers real SQLAlchemy service concurrency with synthetic records, not live Upstox behavior.
+- Contract-note references remain caller supplied and not independently authenticated. Frontend build, staging, monitoring, account-level kill switch, broker-error circuit breaker, and complete production live lifecycle remain unverified/incomplete.
+- PR #1 remains draft/open/unmerged; original `Tradepro` is untouched; live trading remains disabled and not ready.
 
 ### Next task
-Build an unregistered **read-only reconciliation-to-promotion coordinator** that first runs official child-order/trade reconciliation, and only then promotes the staged trades for that successfully reconciled child. If broker status or durable trade totals do not reconcile, promote none of that child's staged fills. Make retries idempotent, expose per-child outcomes for later review, and test all behavior with mocked broker calls. Do not add an order-submission path or register a route/worker.
+Add a service-level integration test that composes the **real** `BrokerChildOrderReconciliationService`, `BrokerTradeIngestionService`, `LiveFillPromotionService`, and `LiveFillAccountingService` with a fully mocked read-only Upstox adapter and charge estimator. Verify reconciliation happens before promotion, repeated runs are idempotent, failures leave no accounting rows, and paper cash/positions remain unchanged. Keep all promotion services unregistered; no order submission, PR merge, or live-mode enablement.
 
 ### Release status
 Live trading is **NOT READY** and disabled. No real orders have been submitted.

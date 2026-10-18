@@ -472,3 +472,9 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Fixed a regression-test setup bug by capturing the expected state version before a later ORM mutation.
 - Commit: `6cd0ced108e35d715359d649a463d80709dd1fb1`.
 - Exact-head CI run #39124498280 is pending.
+
+
+### 2026-10-18 — Safety storage verification
+
+- CI run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: 406 passed, 5 skipped, 1 warning; SQLite/PostgreSQL migrations passed; PostgreSQL integration 5 passed.
+- Verified request fingerprint behavior, stale reset version test, audit-insert rollback and PostgreSQL event immutability tests. This does not complete Phase 2.

@@ -32,15 +32,18 @@ def needs_rehash(password_hash: str) -> bool:
     return _hasher.check_needs_rehash(password_hash)
 
 
-TokenType = Literal["access", "refresh"]
+TokenType = Literal["access", "refresh", "step_up"]
 
 
 def create_token(user_id: UUID, token_type: TokenType, extra_claims: dict[str, Any] | None = None) -> str:
     now = datetime.now(timezone.utc)
     if token_type == "access":
         expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    else:
+    elif token_type == "refresh":
         expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    else:
+        # Purpose-bound credential for privileged safety resets; never a session token.
+        expire = now + timedelta(minutes=5)
 
     payload: dict[str, Any] = {
         "sub": str(user_id),

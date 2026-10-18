@@ -535,3 +535,11 @@ Run #39124312326 failed only `test_manual_reset_rejects_stale_expected_state_ver
 Run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Source guard passed; backend suite **406 passed / 5 skipped / 1 warning**; SQLite and PostgreSQL 16 migrations passed; PostgreSQL integration tests **5 passed** including append-only event trigger tests. The earlier stale-version test failure was due to reading a mutable ORM object; the test now snapshots the version and the exact-head run is green.
 
 Next: implement least-privilege authorization, tenant scope, recent MFA step-up and CSRF/Origin foundations. No central writer/endpoints/path wiring yet. Keep PR #1 draft/unmerged and live submission disabled.
+
+
+## Authorization foundation — 18 October 2026
+
+- User.safety_permissions is an explicit JSON grant list with an empty default. Allowed scopes: safety.status.read, safety.audit.read, safety.kill_switch.trip, safety.reset. is_admin does not grant any safety scope.
+- require_safety_permission() denies by default; malformed signed JWT subject UUIDs are normalized to 401; require_same_origin_for_cookie_mutation() is available for cookie-authenticated mutation routes.
+- Regression tests were added, but the new commits still require CI verification. The Origin dependency is not yet wired to routes; no safety endpoint has been exposed.
+- Still required before endpoint work: recent-MFA step-up, safe trusted grant provisioning, endpoint-level tenant isolation tests, and attaching permission/Origin/step-up guards. Keep live submission disabled.

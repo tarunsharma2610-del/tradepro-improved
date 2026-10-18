@@ -1,5 +1,14 @@
 # Change Log — Tradepro Improved
 
+## 2026-10-18 — read-only live risk snapshots and official session calendar
+
+- Added a fail-closed account-wide live risk gate with absolute INR caps, broker-position exposure, unresolved-order exposure, order-frequency and daily-loss checks, and funds/margin checks.
+- Added read-only Upstox full market quotes, positions, funds/margin-estimate and market holiday/timing requests; quote and calendar parsers reject malformed or mismatched payloads.
+- Added `UpstoxLiveRiskSnapshotService` to collect validated broker snapshots without placing orders. The collector and risk gate remain unregistered and are not wired to submission routes/workers.
+- Official NSE holiday/special-session data now governs the session decision; special sessions are not blocked by hardcoded normal hours.
+- CI [run #39111682177](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111682177): 315 passed, 1 warning; SQLite Alembic upgrade passed. No live orders were submitted.
+
+
 ## 2026-10-17 — audit and safety branch
 
 ### Existing functionality retained

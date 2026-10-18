@@ -29,6 +29,10 @@ from app.services.live_fill_accounting_service import LiveChargeBreakdown
 @dataclass(frozen=True)
 class LiveChargeEstimateResult:
     broker_trade_id: str
+    broker_connection_id: UUID
+    instrument_token: str
+    quantity: int
+    price: Decimal
     breakdown: LiveChargeBreakdown
     estimated_total: Decimal
     dp_charges: Decimal
@@ -149,6 +153,10 @@ class LiveChargeEstimateService:
         )
         return LiveChargeEstimateResult(
             broker_trade_id=record.broker_trade_id,
+            broker_connection_id=record.broker_connection_id,
+            instrument_token=record.instrument_token,
+            quantity=record.quantity,
+            price=Decimal(str(record.price)),
             breakdown=breakdown,
             estimated_total=parsed.reported_estimate_total,
             dp_charges=parsed.dp_charges,

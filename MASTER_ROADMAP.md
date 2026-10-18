@@ -313,3 +313,8 @@ The CI source-call guard and scanner tests were added in commit `04583cd35ecf536
 ### Guard correction — 18 October 2026
 
 The first guard workflow run (#614) failed before tests because the scanner incorrectly treated paper `ExecutionService.place_order` as a broker adapter write. The scanner was narrowed to adapter-named receivers in commit `30599b1bd8d32293b856c88cdfb4e2facaa9ce0f`. New run #615 is pending at https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123199888. Do not mark the guard complete until this run passes.
+
+
+### Latest source-guard status — 18 October 2026
+
+The AST-based scanner now ignores comments/docstrings and flags adapter-named write references. Latest CI run #617 passed the guard but is still running pytest; SQLite/PostgreSQL migration and concurrency steps have not yet completed: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Full guardrail acceptance remains pending until all workflow steps pass.

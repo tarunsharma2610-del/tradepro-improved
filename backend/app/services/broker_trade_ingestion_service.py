@@ -85,6 +85,8 @@ class BrokerTradeIngestionService:
             )
             if connection is None:
                 raise ValueError("No broker connection exists for this order owner and broker.")
+            if broker_order.broker_connection_id != connection.id:
+                raise ValueError("Broker child order is not bound to this user’s broker connection.")
 
             instrument = self.db.get(Instrument, order.instrument_id)
             if instrument is None:

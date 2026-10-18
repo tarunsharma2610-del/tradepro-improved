@@ -314,3 +314,8 @@ Exact-head CI is not yet verified: run `39124312326` for SHA `2ece7b2f5b85faf4b0
 ### Latest CI correction — safety storage
 
 Run #39124312326 failed one new stale-version test because the test retained a mutable ORM object and read its version after a later mutation. Commit `6cd0ced108e35d715359d649a463d80709dd1fb1` snapshots the version before mutation. Latest exact-head run #39124498280 is pending; inspect all steps before claiming success. Do not enable live trading.
+
+
+### Verified storage checkpoint — 18 October 2026
+
+The previous pending note is superseded by CI run #625, which passed on exact code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Guard PASS; backend tests 406 passed / 5 skipped / 1 warning; SQLite/PostgreSQL migrations PASS; PostgreSQL integration tests 5 passed including audit immutability. Continue with authorization/MFA/CSRF foundations; do not wire broker writes or enable live mode.

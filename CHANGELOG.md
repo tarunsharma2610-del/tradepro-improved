@@ -377,3 +377,11 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 
 - Added a real-service integration test for a temporary charge-estimation failure on a later fill, followed by idempotent retry (commit `1a3475c69d3a93ece7bfad22ace4dce52231bfa1`).
 - The test checks prior successful accounting is not duplicated and the remaining fill is accounted on retry. CI is not yet confirmed for this exact SHA.
+
+
+## 18 October 2026 — persistent account safety controls
+
+- Added `LiveAccountSafetyService` for a durable account-wide kill switch, broker-error counter/circuit breaker, fail-closed checks, audited idempotent events, health-check tracking and explicit manual reset.
+- Added Alembic revision `202610180009` for safety state and event tables.
+- Added focused service tests for safe initialization, threshold trips, idempotency, reset gates, stale health and unknown states.
+- Current-head CI/migration verification is pending; no pass is claimed.

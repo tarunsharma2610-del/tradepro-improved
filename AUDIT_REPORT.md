@@ -1,3 +1,21 @@
+> **AUTHORITATIVE CURRENT STATUS — 18 October 2026**
+>
+> This block supersedes older “current status”, “latest verified”, and “next task” statements elsewhere in this document. Dated entries below are historical evidence and must not be read as current status unless their commit SHA matches the current branch head.
+>
+> - Repository: `tarunsharma2610-del/tradepro-improved`; working branch: `safety/fail-closed-trading-mode`.
+> - PR #1: open, draft, unmerged. Do not merge without explicit user authorization. Original `tarunsharma2610-del/Tradepro` must remain untouched.
+> - Branch head reported by PR API at the documentation review: `15ff31122ba2f7e2f9f2ac1c1a7e80d6b77c80d1`.
+> - Latest broker parser test workflow observed: GitHub Actions run #722, SHA `e6a69138e2fd132da0b7a526c35f40aea4630432`, conclusion `success`. This is **not** the same SHA as the branch head above. Therefore exact-head CI is **NOT VERIFIED** by that run.
+> - Recent reconciliation changes: commit `e9a69472e54b84333134568a559fa2592dcc12ce` adds staged partial-fill replay/overfill/rollback regression coverage; `c2e881103e961aaa999e94ff2436fd1f91c80140` rejects order snapshots where average price contradicts filled quantity; `e6a69138e2fd132da0b7a526c35f40aea4630432` adds negative parser test cases.
+> - Trade staging is not fill accounting. Broker-confirmed fills have **not** been proven to promote exactly once into executions and atomically update cash, positions, fees, and P&L. Parent/child terminal-state and cancellation-after-partial-fill behavior remain open for end-to-end verification.
+> - Safety-control, durable intent/claim, account-bound recovery, and authorization foundations are documented in PR #1, but they do not constitute a complete broker-write path. `prepare_order_intent` and `validate_claimed_submission` are not permission to submit an order; the final check-to-network-I/O race remains unresolved.
+> - Mandatory safety: `TRADING_MODE=PAPER`; `LIVE_ORDER_SUBMISSION_ENABLED=false`; no live `place_order`, `modify_order`, or `cancel_order`; no real orders in tests; no changes to original `Tradepro`.
+>
+> **Audit rule:** each finding must remain explicitly open until source inspection and a relevant test on a verified commit demonstrate closure. This status block does not mark any open security or requirements finding resolved.
+>
+> **Evidence links:** [PR #1](https://github.com/tarunsharma2610-del/tradepro-improved/pull/1) · [workflow #722](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39143953569) · [partial-fill regression commit](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e9a69472e54b84333134568a559fa2592dcc12ce) · [parser fix](https://github.com/tarunsharma2610-del/tradepro-improved/commit/c2e881103e961aaa999e94ff2436fd1f91c80140) · [parser tests](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e6a69138e2fd132da0b7a526c35f40aea4630432)
+>
+> ---
 # Tradepro Improved — Audit and Change Log
 
 Audit target: `main` in this repository. The original `Tradepro` repository is read-only and has not been modified.

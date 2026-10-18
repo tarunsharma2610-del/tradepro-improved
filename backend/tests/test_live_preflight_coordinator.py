@@ -105,8 +105,8 @@ def context(db_session, make_user, monkeypatch):
     return db_session, user, portfolio, instrument
 
 
-def _intent(portfolio, instrument):
-    return LiveOrderIntent(
+def _intent(portfolio, instrument, **overrides):
+    values = dict(
         portfolio_id=portfolio.id,
         instrument_id=instrument.id,
         side="BUY",
@@ -114,6 +114,8 @@ def _intent(portfolio, instrument):
         segment="EQUITY_DELIVERY",
         quantity=2,
     )
+    values.update(overrides)
+    return LiveOrderIntent(**values)
 
 
 @pytest.mark.asyncio
@@ -170,6 +172,52 @@ async def test_coordinator_live_interlock_stops_before_broker_calls(context, mon
     with pytest.raises(LiveExecutionBlocked, match="remains disabled"):
         await coordinator.preflight(
             user.id, _intent(portfolio, instrument), user_confirmed=True
+        )
+
+    assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"quantity": 0}, "positive integer"),
+        ({"side": "BUYISH"}, "Side must be BUY or SELL"),
+        ({"segment": "OPTIONS"}, "Only verified equity"),
+    ],
+)
+async def test_invalid_intent_is_rejected_before_any_broker_snapshot_call(
+    context, overrides, message
+):
+    db, user, portfolio, instrument = context
+    adapter = ReadOnlyUpstoxAdapter()
+    coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
+
+    with pytest.raises(LiveExecutionBlocked, match=message):
+        await coordinator.preflight(
+            user.id, _intent(portfolio, instrument, **overrides), user_confirmed=True
+        )
+
+    assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_disabled_strategy_entries_are_rejected_before_broker_calls(context):
+    from uuid import uuid4
+
+    db, user, portfolio, instrument = context
+    adapter = ReadOnlyUpstoxAdapter()
+    coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
+
+    with pytest.raises(LiveExecutionBlocked, match="Automated entries are disabled"):
+        await coordinator.preflight(
+            user.id,
+            _intent(
+                portfolio, instrument,
+                execution_reason="STRATEGY",
+                strategy_id=uuid4(),
+            ),
+            user_confirmed=True,
         )
 
     assert adapter.calls == []

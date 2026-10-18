@@ -52,3 +52,6 @@ See [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md) for the current implementation sequ
 ## Broker trade intake status (18 October 2026)
 
 The safety branch now includes a connection-scoped `BrokerTradeRecord` intake table and `BrokerTradeIngestionService` with ownership, child-order mapping, validation and replay protection. These records are **staged broker trade data, not accounted executions**: ingestion does not change balances, positions, P&L or order state, and is not wired to a live submission path. Current-head CI/migration verification is pending; keep live trading disabled. See `PROGRESS.md` and `AUDIT_REPORT.md` for exact commits and the verification gate.
+
+
+The latest broker-intake change also includes a populated migration-backfill regression test. It has not yet been verified on current-head CI; do not deploy these migrations to an existing database until the migration checks pass.

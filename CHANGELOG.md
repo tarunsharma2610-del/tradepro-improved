@@ -295,3 +295,18 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
+
+## Authoritative checkpoint — 18 October 2026: Upstox risk snapshot collector
+
+- Latest verified code/test SHA: `c683fbd16d114b2a41a80a646fc91ee2d4cf25eb` — GitHub Actions [run #39111682177](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111682177): **315 passed, 1 warning in 25.97s**; SQLite Alembic upgrade passed. Run conclusion: success.
+- Added read-only Upstox full-market-quote, positions, funds/margin-estimate, holiday and market-timings collection, strict response parsers, and mocked regression tests.
+- Full-market quote timestamps are parsed from Upstox exchange data; broker positions are marked against those quotes. The official calendar checks trading holidays and special NSE sessions. The risk gate requires an official session snapshot and permits special sessions only when the official timing provider reports open.
+- The account-wide gate uses absolute limits: ₹10,000 per order, ₹50,000 gross exposure, ₹1,000 daily realized loss, 10 live attempts per UTC day, and 5-second maximum quote/position data age. Limits are configurable safety defaults, not financial advice or a guarantee of suitability.
+- **Not wired into an order route or worker.** No order-submission POST was added, no real order was submitted, and no accounting was changed. The collector can call read-only broker data endpoints and the existing margin-estimate endpoint when explicitly invoked; CI uses mocks only.
+- CI warning: GitHub Actions reports Node.js 20 action deprecation. PostgreSQL migration behavior, real account responses, full frontend verification against this exact SHA and staging remain unverified.
+
+### Next task
+Safely integrate the async Upstox snapshot collector with the live preflight risk gate without duplicating or bypassing the environment/confirmation/ownership gates. First design an async preflight orchestration boundary and tests proving all fail-closed gates run before broker snapshot calls. Keep it unregistered from API routes/workers and do not add live order submission.
+
+### Release status
+PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

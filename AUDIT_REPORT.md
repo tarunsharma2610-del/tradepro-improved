@@ -494,3 +494,7 @@ Run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: htt
 - Added explicit per-user safety permission grants and a default-deny dependency for status read, audit read, kill-switch trip and reset. Platform is_admin is not an implicit grant.
 - Added malformed JWT subject normalization to 401 and a reusable Origin guard for cookie-authenticated mutation requests, plus focused regression tests.
 - Not complete / not yet verified: recent-MFA step-up, trusted grant provisioning, attaching guards to safety endpoints, endpoint-level cross-tenant negative tests, and current-head CI. No safety-control routes are exposed and live submission remains disabled.
+
+### Follow-up correction — 18 October 2026
+
+The Origin guard now requires an exact Origin serialization match (including rejecting a trailing slash), and unused imports were removed from the user model. Follow-up commits: f7c08e2605fb7f7828792154570af79cf5ccf724 and 4337d0ce4ef645914f32c56db87c81699c04763e. CI/status lookup has returned no run/status for the authorization changes; do not claim tests or migration passed until a workflow result is tied to the code/test SHA. Recent-MFA step-up and route wiring remain outstanding.

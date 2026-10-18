@@ -438,3 +438,27 @@ def test_persist_preflighted_intent_rejects_instrument_key_change_after_snapshot
         )
 
     assert db_session.query(Order).count() == 0
+
+
+def test_mark_submission_unknown_is_idempotent_and_refuses_terminal_states(
+    db_session, recovery_context, monkeypatch
+):
+    service, user, _portfolio, _instrument, order = _prepared(
+        db_session, recovery_context, monkeypatch
+    )
+
+    first = service.mark_submission_unknown(user.id, order.id)
+    second = service.mark_submission_unknown(user.id, order.id)
+
+    assert first.status == "SUBMISSION_UNKNOWN"
+    assert second.status == "SUBMISSION_UNKNOWN"
+
+    second.status = "FILLED"
+    db_session.add(second)
+    db_session.commit()
+
+    with pytest.raises(LiveExecutionBlocked, match="eligible state"):
+        service.mark_submission_unknown(user.id, order.id)
+
+    db_session.refresh(second)
+    assert second.status == "FILLED"

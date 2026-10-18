@@ -589,3 +589,6 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 - Commits: schema `4c09723127b545fe111adc6bf6ff70cd509fa13d`; dependency `36e23c178b7fadcee0f5b9d0304363d6093cf9f3`; auth issuance `61dfcc54abe66825a2f3eccfc728920a3faef7c8`; admin route `af9b1d32b3d91d313a0cd9451f2b60f4a60d2df1`; tests `c9e35bc102c14683c4c1a8216abd9f6cd19908e` and `9d5eee236f252a5b8ef6c263553ac89100a52c44`.
 - Verification remains pending: tests were not run locally; query available for exact-head workflow/status returned no records on the previous checkpoint and must be repeated for this latest head. Do not treat this change as passing until CI executes.
 - Next: run CI and address failures, review the full safety MFA dependency/route matrix, then proceed to the central broker-write boundary. PAPER mode and disabled live order submission remain mandatory; Phase 2 is incomplete.
+
+
+- Follow-up integration fix: explicitly bound `/api/v1/safety/kill-switch/reset` to the `safety.reset` MFA dependency after introducing the scope-specific dependency factory. Commit: `c0e20109f1372109c81dca06cba528ea8c2c37c8`. This is also unverified pending CI.

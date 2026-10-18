@@ -187,3 +187,10 @@ Live trading is **NOT READY** and disabled. No real orders have been submitted.
 - **Verification status at documentation time:** no CI status checks were returned for this commit yet. Do not report these new tests as passing until a workflow result confirms it. No local test run was performed in this continuation.
 - **Next action:** inspect the workflow result for this exact SHA; if it fails, diagnose and fix the targeted failure, rerun CI, and record exact evidence. If it passes, re-audit the remaining release blockers and choose the next distinct task—do not recreate the coordinator or repeat this integration-test task.
 - Release guardrails unchanged: PR #1 remains draft/open/unmerged; live trading is NOT READY and disabled; no real orders submitted; original `Tradepro` untouched.
+
+
+### Superseding integration-test commit — 18 October 2026
+
+- Latest code/test commit: `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` ([GitHub](https://github.com/tarunsharma2610-del/tradepro-improved/commit/4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88)). It supersedes the earlier integration-test commit `b5783d421f64fcb8e7f1d75f1af5185fd9029f59`.
+- Integration tests now delete pre-seeded staged trade records before invoking the real child reconciliation service. Thus the actual trade-ingestion path must insert rows from the mocked read-only broker response before status reconciliation and promotion. The failure case verifies staged rows can exist without any accounting rows when a sibling status lookup fails.
+- CI remains **unverified/pending** for the latest commit; no test result is claimed. Next action remains checking the workflow for this exact SHA, fixing only demonstrated failures, then re-auditing the next distinct gap.

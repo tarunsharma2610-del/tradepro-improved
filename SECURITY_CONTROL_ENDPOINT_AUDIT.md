@@ -194,3 +194,11 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 - Added guard tests for generic receiver bypass, central-service adapter-call rejection, and the approved PAPER call sites. Test updates are committed through `e9c31a043465e3d09223894ddfe45629cfc0302e`.
 - CI for the latest guard/test fix is in progress: [run #39134878791](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39134878791). Do not treat this guard hardening as verified until the exact-head workflow passes. The preceding strict-guard failures were expected detection/allowlist gaps and prevented pytest/migration stages from running.
 - Live broker writes remain unimplemented and denied by the central service. Keep PAPER mode mandatory, live order submission disabled, PR #1 draft/open/unmerged, and original `Tradepro` untouched.
+
+## Latest verified Phase 2 checkpoint — 18 October 2026
+
+- Latest verified GitHub Actions run: [#39136563051](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39136563051), code/test SHA `c40689ac227ab56ca58993072112d6fd575aff46`.
+- Result: broker-write source guard passed; backend **449 passed, 5 skipped, 1 warning**; SQLite and PostgreSQL 16 migration upgrades passed; PostgreSQL safety/charge-adjustment concurrency tests **5 passed**.
+- Central `LiveBrokerWriteService.prepare_order_intent` composes safety-aware read-only preflight with durable idempotent intent persistence. The persistence path rechecks owner/intent fields, active instrument and instrument key, and current broker-connection identity.
+- Scope limitation: this is preflight and local intent persistence only. `place_order`, `modify_order`, and `cancel_order` remain deny-all; no real broker order-write request is enabled. Keep PAPER mode mandatory and live submission disabled.
+- Next: test concurrent intent creation and state transitions, including submission-unknown recovery. Any future submitter must recheck account safety/interlocks immediately before network I/O and must not blindly retry ambiguous outcomes. PR #1 stays draft/open/unmerged; original `Tradepro` remains untouched.

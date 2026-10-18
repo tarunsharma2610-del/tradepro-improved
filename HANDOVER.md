@@ -488,3 +488,11 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Intent + audit event must commit atomically before broker I/O; external network calls cannot be part of the DB transaction. Unknown submission outcomes require stable-tag reconciliation, never blind retries.
 - Least-privilege scopes, step-up MFA, CSRF/Origin, tenant-scoped audit reads, strict redaction, PostgreSQL append-only protection, malformed JWT normalization, and source-call CI guard are specified.
 - Next: implement and test storage/event immutability and transaction semantics, then scoped authorization/step-up/CSRF foundation. Keep `TRADING_MODE=PAPER`, `LIVE_ORDER_SUBMISSION_ENABLED=false`, PR #1 draft/open, and original `Tradepro` untouched.
+
+
+### Source-call guard update — 18 October 2026
+
+- Added the production source-call guard `backend/scripts/check_broker_write_boundary.py` and three guard behavior tests in `backend/tests/test_broker_write_boundary_guard.py`.
+- Added the guard as an explicit CI step in `.github/workflows/backend-tests.yml`; run #614 is pending at checkpoint time: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569.
+- The exact allowlist reserves only `app/services/live_broker_write_service.py` as the future production writer; the adapter file is excluded because it defines the low-level methods. No such service exists yet and no production write path was added.
+- Next verify CI, then implement transaction/event storage hardening and authorization foundations. Live remains disabled.

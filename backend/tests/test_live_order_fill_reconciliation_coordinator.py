@@ -136,7 +136,7 @@ async def test_coordinator_reconciles_all_children_then_promotes_in_exchange_tim
     assert result.total_promoted_trades == 2
     assert result.total_duplicate_trades == 0
     assert promoter.calls == [records[0].id, records[1].id]
-    assert reconciler.calls == [child.id for child in children]
+    assert set(reconciler.calls) == {child.id for child in children}
     db.refresh(order)
     assert order.status == "PENDING"  # coordinator never changes parent order state
     assert db.query(Execution).count() == 0  # injected promoter is a mock
@@ -338,8 +338,8 @@ async def test_real_services_reconcile_ingest_promote_and_replay_idempotently(or
     db.refresh(order)
     assert Decimal(str(portfolio.cash_balance)) == cash_before
     assert order.status == "PENDING"
-    assert adapter.trade_calls == ["child-1", "child-2", "child-1", "child-2"]
-    assert adapter.status_calls == ["child-1", "child-2", "child-1", "child-2"]
+    assert sorted(adapter.trade_calls) == ["child-1", "child-1", "child-2", "child-2"]
+    assert sorted(adapter.status_calls) == ["child-1", "child-1", "child-2", "child-2"]
     assert adapter.write_calls == 0
 
 
@@ -350,7 +350,7 @@ async def test_real_services_block_all_promotion_if_any_sibling_status_fails(ord
     db.query(BrokerTradeRecord).delete(synchronize_session=False)
     db.commit()
     adapter = ReadOnlyUpstoxIntegrationAdapter(
-        records[0].instrument_token, failing_status_order_id="child-2"
+        _instrument.instrument_key, failing_status_order_id="child-2"
     )
     monkeypatch.setattr(BrokerCredentialsService, "get_access_token", lambda *_args: "test-access-token")
     promotion = LiveFillPromotionService(

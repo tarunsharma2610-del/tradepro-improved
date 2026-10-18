@@ -349,3 +349,93 @@ def test_recent_mfa_step_up_rejects_stale_verification(make_user):
 def test_bearer_only_mutation_does_not_depend_on_cookie_origin():
     request = _request("POST", [], cookie=b"")
     require_same_origin_for_cookie_mutation(request)
+
+
+
+def test_safety_audit_read_requires_explicit_permission(client, db_session):
+    _register_and_login(client, email="operator@example.com")
+    from app.repositories.user_repository import UserRepository
+
+    user = UserRepository(db_session).get_by_email("operator@example.com")
+    response = client.get("/api/v1/admin/safety/audit")
+    assert response.status_code == 403
+
+
+def test_safety_audit_read_is_tenant_scoped_and_paginated(client, db_session):
+    _register_and_login(client, email="operator@example.com")
+    from app.repositories.user_repository import UserRepository
+    from app.models.audit_log import AuditLog
+    from app.models.user import User
+    import uuid
+
+    users = UserRepository(db_session)
+    operator = users.get_by_email("operator@example.com")
+    operator.safety_permissions = ["safety.audit.read"]
+    other = User(
+        email="other@example.com",
+        password_hash=hash_password("correct-horse-battery-staple"),
+        full_name="Other",
+    )
+    db_session.add(other)
+    db_session.flush()
+    db_session.add_all([
+        AuditLog(
+            user_id=operator.id,
+            action="safety.permission.grant",
+            resource_type="user",
+            resource_id=str(other.id),
+            event_metadata={"permission": "safety.audit.read"},
+        ),
+        AuditLog(
+            user_id=operator.id,
+            action="safety.kill_switch.trip",
+            resource_type="account",
+            resource_id="own-account",
+            event_metadata={},
+        ),
+        AuditLog(
+            user_id=other.id,
+            action="safety.kill_switch.trip",
+            resource_type="account",
+            resource_id="other-account-secret",
+            event_metadata={"secret": "must-not-leak"},
+        ),
+        AuditLog(
+            user_id=operator.id,
+            action="user.login",
+            resource_type="session",
+            resource_id="not-safety",
+            event_metadata={},
+        ),
+    ])
+    db_session.commit()
+
+    first = client.get("/api/v1/admin/safety/audit?limit=1&offset=0")
+    assert first.status_code == 200
+    body = first.json()
+    assert body["total"] == 2
+    assert len(body["items"]) == 1
+    assert body["next_offset"] == 1
+    assert body["items"][0]["action"] in {"safety.permission.grant", "safety.kill_switch.trip"}
+
+    second = client.get("/api/v1/admin/safety/audit?limit=1&offset=1")
+    assert second.status_code == 200
+    assert len(second.json()["items"]) == 1
+    assert second.json()["next_offset"] is None
+
+    serialized = first.text + second.text
+    assert "other-account-secret" not in serialized
+    assert "must-not-leak" not in serialized
+    assert "user.login" not in serialized
+
+
+def test_safety_audit_read_rejects_invalid_pagination(client, db_session):
+    _register_and_login(client, email="operator@example.com")
+    from app.repositories.user_repository import UserRepository
+
+    user = UserRepository(db_session).get_by_email("operator@example.com")
+    user.safety_permissions = ["safety.audit.read"]
+    db_session.commit()
+    assert client.get("/api/v1/admin/safety/audit?limit=0").status_code == 422
+    assert client.get("/api/v1/admin/safety/audit?limit=101").status_code == 422
+    assert client.get("/api/v1/admin/safety/audit?offset=-1").status_code == 422

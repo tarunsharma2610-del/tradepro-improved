@@ -4,10 +4,16 @@ from decimal import Decimal
 import pytest
 
 from app.models.execution import Execution
+from app.models.broker_connection import BrokerConnection
+from app.models.live_charge_adjustment import LiveChargeAdjustment
 from app.models.order import Order
 from app.models.strategy import Strategy
 from app.repositories.portfolio_repository import PortfolioRepository
-from app.services.analytics_service import portfolio_analytics, strategy_analytics
+from app.services.analytics_service import (
+    live_portfolio_analytics,
+    portfolio_analytics,
+    strategy_analytics,
+)
 from app.services.instrument_service import InstrumentService
 
 
@@ -116,3 +122,98 @@ def test_strategy_analytics_separates_by_strategy(db_session, portfolio, instrum
     assert results["Strategy B"].is_active is False
     # No third entry for the manual trade — confirms it wasn't misattributed.
     assert len(results) == 2
+
+
+def test_live_analytics_uses_charge_adjustments_and_stays_separate_from_paper_cash(
+    db_session, portfolio, instrument
+):
+    now = datetime.now(timezone.utc)
+    _make_order_and_execution(
+        db_session, portfolio.id, instrument.id,
+        side="SELL", realized_pnl=Decimal("150"), gross_value=Decimal("1100"),
+        total_charges=Decimal("26"), when=now,
+    )
+    connection = BrokerConnection(
+        user_id=portfolio.user_id,
+        broker="upstox",
+        api_key_encrypted="test-key",
+        api_secret_encrypted="test-secret",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=True,
+    )
+    live_order = Order(
+        portfolio_id=portfolio.id,
+        instrument_id=instrument.id,
+        side="SELL",
+        order_type="MARKET",
+        segment="EQUITY_DELIVERY",
+        quantity=2,
+        status="FILLED",
+        trading_mode="LIVE",
+        execution_reason="MANUAL",
+        broker_order_id="analytics-live-child",
+        placed_at=now,
+        filled_at=now,
+    )
+    db_session.add_all([connection, live_order])
+    db_session.flush()
+    live_execution = Execution(
+        order_id=live_order.id,
+        portfolio_id=portfolio.id,
+        instrument_id=instrument.id,
+        side="SELL",
+        quantity=2,
+        price=Decimal("100"),
+        gross_value=Decimal("200"),
+        brokerage=Decimal("4"),
+        stt=Decimal("2"),
+        exchange_charges=Decimal("1"),
+        sebi_charges=Decimal("1"),
+        stamp_duty=Decimal("1"),
+        gst=Decimal("1"),
+        dp_charges=Decimal("0"),
+        total_charges=Decimal("10"),
+        charge_source="APPROVED_ESTIMATE",
+        charge_reference="estimator-v1",
+        realized_pnl=Decimal("80"),
+        broker_name="upstox",
+        broker_connection_id=connection.id,
+        broker_trade_id="analytics-live-trade",
+        executed_at=now + timedelta(minutes=1),
+    )
+    db_session.add(live_execution)
+    db_session.flush()
+    db_session.add(LiveChargeAdjustment(
+        execution_id=live_execution.id,
+        broker_connection_id=connection.id,
+        broker_trade_id="analytics-live-trade",
+        adjustment_number=1,
+        source="BROKER_REPORTED",
+        source_reference="contract-note:analytics-live-trade",
+        brokerage=Decimal("6"),
+        stt=Decimal("3"),
+        exchange_charges=Decimal("2"),
+        sebi_charges=Decimal("1"),
+        stamp_duty=Decimal("1"),
+        gst=Decimal("2"),
+        dp_charges=Decimal("0"),
+        previous_effective_total=Decimal("10"),
+        new_effective_total=Decimal("15"),
+        charge_delta=Decimal("5"),
+        net_realized_pnl_delta=Decimal("-5"),
+    ))
+    db_session.commit()
+
+    paper = portfolio_analytics(db_session, portfolio.id, Decimal("100000"))
+    live = live_portfolio_analytics(db_session, portfolio.id)
+
+    assert paper.total_realized_pnl == Decimal("150")
+    assert paper.total_costs_paid == Decimal("26")
+    assert len(paper.equity_curve) == 1  # live fill never enters virtual cash curve
+    assert live.total_gross_realized_pnl == Decimal("80")
+    assert live.total_net_realized_pnl == Decimal("65")
+    assert live.total_effective_costs == Decimal("15")
+    assert live.total_fills == 1
+    assert live.profitable_fills == 1
+    assert live.unprofitable_fills == 0
+    assert live.win_rate_pct == Decimal("100.00")

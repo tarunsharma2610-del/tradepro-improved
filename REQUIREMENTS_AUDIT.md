@@ -37,10 +37,10 @@ Status meanings: **Complete in current scope** means existing implementation and
 - No real broker orders were placed.
 
 ## Prioritized change plan
-1. **Next:** audit/harden the async preflight coordinator's connection/token consistency and concurrency. Test expired/replaced credentials, wrong-user portfolio access, missing broker connection and stale/failing snapshots.
-2. Keep all environment, explicit-confirmation, ownership, intent-shape and strategy-entry gates ahead of broker snapshot calls. Keep coordinator unregistered from API routes/workers.
-3. Complete broker-confirmed status/fill/cancel reconciliation: partial fills, transactional accounting and connection-scoped trade-ID deduplication; never infer fills from order history.
-4. Add broker-error circuit breaker, account-level kill switch and operational monitoring/recovery runbooks.
+1. **Next:** audit `BrokerOrder`, execution/fill models, migrations and reconciliation services; implement the smallest additive, transaction-safe broker trade/fill idempotency and partial-fill aggregation foundation.
+2. Test repeated trade IDs, concurrent/replayed intake, quantity aggregation and rollback with mocked broker responses. Never double-count or mutate PAPER accounting.
+3. Keep the preflight coordinator unregistered from routes/workers and live submission disabled.
+4. Complete broker-confirmed order status/fill/cancel reconciliation, account-level kill switch, broker-error circuit breaker and operational recovery.
 5. Verify derivative mapping, tick/lot sizes and margin treatment before enabling non-equity segments.
 6. Run backend tests, SQLite/PostgreSQL migration checks, frontend typecheck/build and staging verification. Keep live trading disabled until all release gates and explicit review are complete.
 
@@ -304,7 +304,7 @@ PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live t
 
 ### Verified code and tests
 - Latest verified code/test SHA: `e7a2ca8d473f9536839b02e0538bf6768343a627`. GitHub Actions [run #39112247035](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112247035) succeeded: **326 passed, 1 warning in 26.85s**; SQLite Alembic migration verification passed.
-- Read-only Upstox adapter and strict parsers now cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
+- Read-only Upstox adapter and strict parsers cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
 - `UpstoxLiveRiskSnapshotService` gathers the snapshots required by the account-wide risk gate and has no order-placement call.
 - `LivePreflightCoordinator` composes the per-user credential service, read-only snapshots and `AccountWideLiveRiskGate` into the existing `LiveExecutionService.preflight` contract. It validates intent and portfolio ownership before broker calls, checks connection status, refreshes the connection after asynchronous collection, and rejects a changed/expired token or changed connection identity. Mocked tests cover successful preflight, disabled interlock, malformed/stale/provider-failure paths, token rotation, missing connection and cross-user portfolio access.
 - The coordinator remains unregistered. No API route or worker calls it; no order is submitted, persisted, modified or cancelled.

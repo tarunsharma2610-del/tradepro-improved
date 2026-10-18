@@ -68,3 +68,14 @@ This checkpoint supersedes the earlier “next implementation phase after verifi
 6. Update progress/audit/handover/changelog after the code/test commit. Keep the PAPER-only guard; no real order placement, live service registration, or PR merge.
 
 Current PR #1 head last observed: `540e1285d3de934b43829948a1b60c67658d1343`. Workflow-run and combined-status lookups returned no results for that head, so verification remains pending. The project is **not live-trading ready**.
+
+
+## Broker trade intake — implementation present, verification gate open (18 October 2026)
+
+**Implemented on the safety branch:** normalized staging table and service, idempotency scoped to broker connection, ownership and child-order mapping checks, validation of side/quantity/price/instrument, conflicting replay rejection, quantity bound checks, and tests for paper isolation and same trade IDs across users. Schema migrations 005 and 006 add the staging table and scope broker order/execution identity constraints by connection.
+
+**Important limit:** this records broker trade intake only; it does not account fills, change order states, update positions/cash/P&L, or call the broker. It is not wired to a route, worker, or live execution service. Actual live accounting, actual fee reconciliation, partial-fill aggregation and restart recovery remain incomplete.
+
+**Current gate:** backend test suite and Alembic upgrade must pass on current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3`. The connected GitHub API returned no workflow runs/statuses for this SHA and the local runtime could not clone GitHub due unavailable DNS. Do not proceed to live accounting wiring until current-head tests/migrations are verified.
+
+Next sequence: (1) verify/fix current implementation, (2) add populated migration backfill coverage for connection-scoped IDs, (3) design actual charge reconciliation and safe live accounting promotion, (4) only later integrate a dedicated live lifecycle. PAPER-only guard stays in force; no merge or real orders.

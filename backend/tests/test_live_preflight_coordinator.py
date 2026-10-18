@@ -221,3 +221,60 @@ async def test_disabled_strategy_entries_are_rejected_before_broker_calls(contex
         )
 
     assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_coordinator_blocks_if_token_changes_during_snapshot_collection(context, monkeypatch):
+    db, user, portfolio, instrument = context
+    calls = {"count": 0}
+
+    def rotating_token(*_):
+        calls["count"] += 1
+        return "snapshot-token" if calls["count"] == 1 else "replacement-token"
+
+    monkeypatch.setattr(BrokerCredentialsService, "get_access_token", rotating_token)
+    adapter = ReadOnlyUpstoxAdapter()
+    coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
+
+    with pytest.raises(LiveExecutionBlocked, match="token changed or expired"):
+        await coordinator.preflight(
+            user.id, _intent(portfolio, instrument), user_confirmed=True
+        )
+
+    assert calls["count"] == 2
+    assert "quote" in adapter.calls
+    assert not any("place_order" in endpoint for endpoint in adapter.calls)
+
+
+@pytest.mark.asyncio
+async def test_coordinator_blocks_if_connection_disappears_before_preflight(context):
+    db, user, portfolio, instrument = context
+    adapter = ReadOnlyUpstoxAdapter()
+    coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
+    db.query(BrokerConnection).filter(
+        BrokerConnection.user_id == user.id,
+        BrokerConnection.broker == "upstox",
+    ).delete(synchronize_session=False)
+    db.commit()
+
+    with pytest.raises(LiveExecutionBlocked, match="No verified Upstox connection"):
+        await coordinator.preflight(
+            user.id, _intent(portfolio, instrument), user_confirmed=True
+        )
+
+    assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_coordinator_rejects_portfolio_owned_by_another_user(context, make_user):
+    db, user, portfolio, instrument = context
+    other_user = make_user()
+    adapter = ReadOnlyUpstoxAdapter()
+    coordinator = LivePreflightCoordinator(db, adapter=adapter, clock=lambda: NOW)
+
+    with pytest.raises(LiveExecutionBlocked, match="owned by this user"):
+        await coordinator.preflight(
+            other_user.id, _intent(portfolio, instrument), user_confirmed=True
+        )
+
+    assert adapter.calls == []

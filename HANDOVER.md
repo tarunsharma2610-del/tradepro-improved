@@ -501,3 +501,8 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 ### Guard correction / current CI — 18 October 2026
 
 The first workflow run with the guard (#614) failed because its initial generic method-reference pattern incorrectly flagged paper `ExecutionService.place_order` calls and descriptive text. This was a scanner false positive; the full suite was skipped, so it is not a backend test regression. Corrected the scanner to target adapter-named receivers in commit `30599b1bd8d32293b856c88cdfb4e2facaa9ce0f`. New run #615 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123199888. Verify its outcome before proceeding.
+
+
+### Latest guard verification — 18 October 2026
+
+Run #615 failed at the guard because a docstring contained the literal method name. The scanner now uses AST rather than raw line matching and has a docstring regression test. Latest run #617 has passed the guard and is running pytest; remaining DB steps are pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Confirm the full result before proceeding.

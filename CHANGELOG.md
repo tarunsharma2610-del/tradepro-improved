@@ -320,22 +320,22 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: credential-bound read-only live preflight
+## Authoritative checkpoint — 18 October 2026: read-only Upstox trade fetch and idempotent intake
 
 ### Verified code and tests
-- Latest verified code/test SHA: `e7a2ca8d473f9536839b02e0538bf6768343a627`. GitHub Actions [run #39112247035](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112247035) succeeded: **326 passed, 1 warning in 26.85s**; SQLite Alembic migration verification passed.
-- Read-only Upstox adapter and strict parsers cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
-- `UpstoxLiveRiskSnapshotService` gathers the snapshots required by the account-wide risk gate and has no order-placement call.
-- `LivePreflightCoordinator` composes the per-user credential service, read-only snapshots and `AccountWideLiveRiskGate` into the existing `LiveExecutionService.preflight` contract. It validates intent and portfolio ownership before broker calls, checks connection status, refreshes the connection after asynchronous collection, and rejects a changed/expired token or changed connection identity. Mocked tests cover successful preflight, disabled interlock, malformed/stale/provider-failure paths, token rotation, missing connection and cross-user portfolio access.
-- The coordinator remains unregistered. No API route or worker calls it; no order is submitted, persisted, modified or cancelled.
+- Latest verified code/test SHA: `46863a0b28b3641dac13d58f9c21540a7c2729de`. GitHub Actions [run #39112593615](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112593615) succeeded: **331 passed, 1 warning in 25.73s**; SQLite Alembic migration verification passed.
+- Existing schema groundwork includes `BrokerOrder` child-order mappings and `BrokerTradeRecord` intake rows with a unique `(broker_connection_id, broker_trade_id)` key. The additive migrations `202610180005` and `202610180006` create trade intake and scope broker IDs to connections.
+- Existing `BrokerTradeIngestionService.ingest_trades` validates user/order/child-order/connection identity, side, instrument, positive quantity/price, replay consistency and total order quantity. It writes trade intake records idempotently and does not update Execution, local Order status, cash or positions.
+- Added `fetch_and_ingest`: calls only the read-only Upstox `get_order_trades` endpoint, parses each row against the expected broker child-order ID, revalidates connection/token after async I/O, then stages the trades through the existing transactional/idempotent intake path. It does not call place/modify/cancel endpoints.
+- New mocked tests cover successful repeated fetches, duplicate replay, broker error, mismatched order identity, token rotation and unmapped child-order rejection. Latest full CI is 331 passed; SQLite migrations passed.
 
 ### Remaining caveats
-- CI uses mocked broker responses only. Actual Upstox response schemas/API availability and market-calendar behavior remain unverified against a live account or staging.
-- Live order status/fill/cancel reconciliation, partial-fill accounting, connection-scoped trade-ID deduplication and live accounting remain incomplete. PostgreSQL migration, exact-head frontend build and staging remain unverified.
-- The existing PAPER-only execution guard remains unchanged. Live trading is not ready.
+- Broker responses were mocked; no real Upstox calls or real orders were used. Broker trade response fields and timestamp semantics still require official API-contract review and staging verification.
+- Trade intake is not yet promoted into accounted `Execution` rows. Child-order filled quantity/average price and normalized order-state transitions are not yet reconciled from the trade records and official order status. Cash, positions and P&L must remain unchanged until a separately tested atomic accounting path exists.
+- PostgreSQL migration, exact-head frontend build and staging remain unverified. PR #1 remains draft/open/unmerged.
 
 ### Next task
-Audit the existing `BrokerOrder`, execution/fill models, migrations and reconciliation services before changing them. Implement the smallest additive, transaction-safe foundation for broker trade/fill idempotency and partial-fill aggregation, with mocked tests. Preserve paper accounting, avoid double-counting and do not wire a live order route/worker or call any broker order endpoint.
+Implement a separate child-order reconciliation step that uses validated trade records plus a validated official broker status/details response to update only `BrokerOrder` fill aggregates and normalized child status (including partial fills). Do not update local `Order` terminal state, create `Execution` rows, or change cash/positions/P&L in this step. Add replay, contradictory status/fill, cancellation-with-partial-fill and multi-child quantity tests. Keep it unregistered and read-only with respect to order submission.
 
 ### Release status
-PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
+Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

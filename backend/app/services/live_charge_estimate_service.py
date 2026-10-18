@@ -5,6 +5,7 @@ does not prove final fees levied on an executed trade. This service returns an
 APPROVED_ESTIMATE provenance label and never writes accounting rows.
 """
 from dataclasses import dataclass
+import hmac
 from decimal import Decimal
 from uuid import UUID
 
@@ -112,9 +113,15 @@ class LiveChargeEstimateService:
             not connection.is_connected
             or connection.id != record.broker_connection_id
             or not isinstance(current_token, str)
-            or current_token != token
+            or not hmac.compare_digest(current_token, token)
         ):
             raise LiveExecutionBlocked("Broker connection or token changed during charge estimate; blocked.")
+
+        if parsed.dp_charges > 0:
+            raise LiveExecutionBlocked(
+                "Upstox reports a daily per-scrip DP minimum separately from the trade estimate; "
+                "it cannot safely be allocated to one fill. Use reviewed contract-note allocation."
+            )
 
         reference = (
             f"upstox:/v2/charges/brokerage;trade={record.broker_trade_id};"

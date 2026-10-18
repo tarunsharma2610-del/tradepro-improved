@@ -59,7 +59,7 @@ def change_safety_permission(
     request: Request,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
-    _recent_mfa: User = Depends(require_recent_safety_mfa),
+    _recent_mfa: User = Depends(require_recent_safety_mfa("safety.admin.permissions")),
     _origin: None = Depends(require_same_origin_for_cookie_mutation),
 ):
     """Explicitly grant/revoke one safety scope with fresh admin MFA.

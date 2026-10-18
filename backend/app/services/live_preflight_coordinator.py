@@ -24,6 +24,7 @@ from app.services.live_execution_service import (
     LiveOrderPreflight,
 )
 from app.services.live_pre_trade_risk_gate import AccountWideLiveRiskGate
+from app.services.instrument_validation import validate_instrument_segment
 from app.services.upstox_live_risk_snapshot_service import UpstoxLiveRiskSnapshotService
 
 
@@ -71,6 +72,9 @@ class LivePreflightCoordinator:
         if user_confirmed is not True:
             raise LiveExecutionBlocked("Explicit user confirmation is required for a live order.")
 
+        # Reject malformed requests before credentials or any broker snapshots.
+        LiveExecutionService._validate_intent(intent)
+
         portfolio = (
             self.db.query(Portfolio)
             .filter(Portfolio.id == intent.portfolio_id, Portfolio.user_id == user_id)
@@ -81,6 +85,15 @@ class LivePreflightCoordinator:
         instrument = self.db.get(Instrument, intent.instrument_id)
         if instrument is None or not instrument.is_active:
             raise LiveExecutionBlocked("Instrument not found or inactive.")
+        try:
+            validate_instrument_segment(instrument, intent.segment)
+        except ValueError as exc:
+            raise LiveExecutionBlocked(str(exc)) from exc
+        if intent.execution_reason == "STRATEGY":
+            if intent.strategy_id is None:
+                raise LiveExecutionBlocked("Strategy orders require a strategy_id.")
+            if not settings.AUTOMATED_ENTRIES_ENABLED:
+                raise LiveExecutionBlocked("Automated entries are disabled.")
 
         connection = self.connections.get_for_user(user_id, self.BROKER_NAME)
         if connection is None or not connection.is_connected:

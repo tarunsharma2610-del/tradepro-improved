@@ -175,3 +175,12 @@ Live trading is **NOT READY**. No live order placement should be enabled until c
 - Code commits: `3c4dd6ac0d7d88a18916c241d28a224fc5031d5d`; tests `6995f64429b44134edfa5985ad4f50c3b54cfcab`.
 - Safety classification unchanged: read-only estimate parsing only; no order approval, live submission, or account-risk decision consumes these values. Live trading remains not implemented.
 - Verification gap: available Actions results show successful backend/frontend runs for the earlier verified commit, but no run could be confirmed for the current PR head. Do not mark these new tests passed until CI for the current head is inspected.
+
+
+## Status correction — 18 October 2026 (supersedes stale next-step notes)
+
+The following are now present in the branch: `BrokerAdapter.get_margin_details`, the Upstox `POST /v2/charges/margin` implementation with local request validation, pure `parse_margin_details`, and unit tests for success/error/malformed response shapes. Older notes saying the adapter method or typed parser is still missing are historical snapshots, not current status. The parser is read-only and is not used to authorize orders.
+
+The current blocker is verification: the GitHub integration returned no workflow run and no commit status for the current PR head when checked. Earlier CI results (238 backend tests, one warning, migration/frontend checks green) belong to an older commit and do not verify the margin parser changes. No pass/fail conclusion is possible from the available evidence. Inspect or trigger the configured workflow from GitHub Actions and record actual results before advancing.
+
+`MASTER_ROADMAP.md` is now the current sequencing guide. After this verification gate, the next implementation phase is a separate, initially unregistered `LiveExecutionService` with mocked tests, while preserving the current PAPER-only execution guard. Do not merge the draft PR, place real orders, or enable live trading.

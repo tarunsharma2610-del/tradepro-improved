@@ -46,6 +46,7 @@ def test_live_broker_schema_migration_preserves_existing_paper_data(tmp_path):
     _run_alembic(database_url, "202610170003")
 
     user_id, portfolio_id, instrument_id = _id(), _id(), _id()
+    connection_id = _id()
     order_id, execution_id = _id(), _id()
     now = datetime.now(timezone.utc).isoformat()
 
@@ -54,6 +55,13 @@ def test_live_broker_schema_migration_preserves_existing_paper_data(tmp_path):
         connection.execute(
             text("INSERT INTO users (id, email, password_hash, full_name) VALUES (:id, :email, :password, :name)"),
             {"id": user_id, "email": "broker-schema@example.com", "password": "test-hash", "name": "Schema Test"},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO broker_connections (id, user_id, broker, api_key_encrypted, api_secret_encrypted, redirect_uri) "
+                "VALUES (:id, :user_id, 'upstox', 'encrypted-key', 'encrypted-secret', 'https://example.invalid/callback')"
+            ),
+            {"id": connection_id, "user_id": user_id},
         )
         connection.execute(
             text(
@@ -132,12 +140,12 @@ def test_live_broker_schema_migration_preserves_existing_paper_data(tmp_path):
             connection.execute(
                 text(
                     "INSERT INTO broker_orders "
-                    "(id, order_id, broker_name, broker_order_id, broker_tag, status, requested_quantity, filled_quantity) "
-                    "VALUES (:id, :order_id, 'upstox', :broker_order_id, :tag, 'open', 1, 0)"
+                    "(id, order_id, broker_connection_id, broker_name, broker_order_id, broker_tag, status, requested_quantity, filled_quantity) "
+                    "VALUES (:id, :order_id, :connection_id, 'upstox', :broker_order_id, :tag, 'open', 1, 0)"
                 ),
                 {
                     "id": child_id, "order_id": order_id,
-                    "broker_order_id": broker_id, "tag": broker_tag,
+                    "broker_order_id": broker_id, "tag": broker_tag, "connection_id": connection_id,
                 },
             )
 
@@ -150,13 +158,13 @@ def test_live_broker_schema_migration_preserves_existing_paper_data(tmp_path):
                 "INSERT INTO executions "
                 "(id, order_id, portfolio_id, instrument_id, side, quantity, price, gross_value, brokerage, stt, "
                 "exchange_charges, sebi_charges, stamp_duty, gst, total_charges, realized_pnl, executed_at, "
-                "broker_order_ref_id, broker_name, broker_trade_id) "
-                "VALUES (:id, :order_id, :portfolio_id, :instrument_id, 'BUY', 1, 101, 101, 0, 0, 0, 0, 0, 0, 0, 0, :executed_at, :broker_order_ref_id, 'upstox', 'trade-unique-1')"
+                "broker_order_ref_id, broker_name, broker_trade_id, broker_connection_id) "
+                "VALUES (:id, :order_id, :portfolio_id, :instrument_id, 'BUY', 1, 101, 101, 0, 0, 0, 0, 0, 0, 0, 0, :executed_at, :broker_order_ref_id, 'upstox', 'trade-unique-1', :connection_id)"
             ),
             {
                 "id": live_execution_id, "order_id": order_id, "portfolio_id": portfolio_id,
                 "instrument_id": instrument_id, "executed_at": now,
-                "broker_order_ref_id": child["id"],
+                "broker_order_ref_id": child["id"], "connection_id": connection_id,
             },
         )
 
@@ -169,13 +177,13 @@ def test_live_broker_schema_migration_preserves_existing_paper_data(tmp_path):
                         "INSERT INTO executions "
                         "(id, order_id, portfolio_id, instrument_id, side, quantity, price, gross_value, brokerage, stt, "
                         "exchange_charges, sebi_charges, stamp_duty, gst, total_charges, realized_pnl, executed_at, "
-                        "broker_order_ref_id, broker_name, broker_trade_id) "
-                        "VALUES (:id, :order_id, :portfolio_id, :instrument_id, 'BUY', 1, 101, 101, 0, 0, 0, 0, 0, 0, 0, 0, :executed_at, :broker_order_ref_id, 'upstox', 'trade-unique-1')"
+                        "broker_order_ref_id, broker_name, broker_trade_id, broker_connection_id) "
+                        "VALUES (:id, :order_id, :portfolio_id, :instrument_id, 'BUY', 1, 101, 101, 0, 0, 0, 0, 0, 0, 0, 0, :executed_at, :broker_order_ref_id, 'upstox', 'trade-unique-1', :connection_id)"
                     ),
                     {
                         "id": _id(), "order_id": order_id, "portfolio_id": portfolio_id,
                         "instrument_id": instrument_id, "executed_at": now,
-                        "broker_order_ref_id": child["id"],
+                        "broker_order_ref_id": child["id"], "connection_id": connection_id,
                     },
                 )
 
@@ -196,10 +204,10 @@ def test_live_broker_schema_migration_preserves_existing_paper_data(tmp_path):
                 connection.execute(
                     text(
                         "INSERT INTO broker_orders "
-                        "(id, order_id, broker_name, broker_order_id, broker_tag, status, requested_quantity, filled_quantity) "
-                        "VALUES (:id, :order_id, 'upstox', 'upstox-child-order-1', :tag, 'open', 1, 0)"
+                        "(id, order_id, broker_connection_id, broker_name, broker_order_id, broker_tag, status, requested_quantity, filled_quantity) "
+                        "VALUES (:id, :order_id, :connection_id, 'upstox', 'upstox-child-order-1', :tag, 'open', 1, 0)"
                     ),
-                    {"id": _id(), "order_id": order_id, "tag": broker_tag},
+                    {"id": _id(), "order_id": order_id, "tag": broker_tag, "connection_id": connection_id},
                 )
 
     engine.dispose()

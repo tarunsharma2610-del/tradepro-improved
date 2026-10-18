@@ -389,3 +389,18 @@ Latest test code SHA: `c97be866828bd47a23f22fc44fac2d3359e70f35`. The test now i
 - Regression tests prove missing state, a tripped latch, and an unexpected safety-check exception all block before any read-only broker call. Existing successful preflight tests explicitly establish a passing health check and manual reset in the test fixture.
 - This is read-only preflight composition only. LivePreflightCoordinator remains unregistered from order routes/workers, no broker order-write method is called, live trading remains disabled, PR #1 stays draft/open/unmerged, and the original Tradepro repository remains untouched.
 - **Next task:** audit authentication/authorization and operator audit visibility for any future safety-control endpoint. Do not create or wire a control route until that review is complete; keep live order submission disabled.
+
+
+## Security and operator-audit requirements — 18 October 2026
+
+New review: [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT.md), commit [10d87d9d9010b2c48ebcf25c832a2ea574100889](https://github.com/tarunsharma2610-del/tradepro-improved/commit/10d87d9d9010b2c48ebcf25c832a2ea574100889).
+
+- [x] Inspect existing auth/JWT dependency, admin guard, MFA routes, audit model/helper, API router and relevant route tests.
+- [x] Identify current protections and missing operator audit visibility.
+- [ ] Define least-privilege safety permissions and cross-account query boundaries.
+- [ ] Define step-up authentication and CSRF/origin controls for privileged mutations.
+- [ ] Define atomic safety-state + audit-event persistence, append-only enforcement and strict redacted event schema.
+- [ ] Add HTTP-level negative, replay, audit-failure and concurrent-reset tests after API design approval.
+- [ ] Audit all manual, strategy, worker, retry/recovery and broker-write entry points before live safety wiring.
+
+No endpoint or live execution wiring was added in this audit step. Production/security sign-off remains open.

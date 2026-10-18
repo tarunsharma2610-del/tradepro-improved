@@ -343,23 +343,23 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: staged-trade promotion coordinator
+## Authoritative checkpoint — 18 October 2026: enforce reconciled fill quantity before accounting
 
-### Verified code and test evidence
-- Latest verified code/test SHA: `39a362b547d2708857baf4feac0df0ebdfda6ef8`. GitHub Actions [run #39115357707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39115357707) succeeded: **360 passed, 1 warning in 28.07s**; SQLite Alembic migration verification passed.
-- Added `backend/app/services/live_fill_promotion_service.py` to orchestrate staged trade -> read-only charge estimate -> atomic accounting. It is not registered in routes or workers.
-- First promotion validates the staged trade through `LiveChargeEstimateService`, rechecks the complete trade identity after async I/O, then invokes `LiveFillAccountingService`. If the estimate fails, is malformed, has unsupported DP daily minimum charges, or connection/token identity changes, it writes no accounting rows.
-- Replays use persisted charge provenance and the accounting service's idempotency check, so a duplicate promotion does not require another estimator API request. Regression tests verify one estimator call for repeat promotion, estimate failure leaves no `Execution` or `LivePosition`, and paper position/cash are unchanged.
-- The migration `202610180008_execution_charge_provenance.py` persists charge source/reference and DP charges. Latest CI verified the complete SQLite migration chain.
+### Verified code and CI evidence
+- Verified code/test SHA: `54d7447958b335edba6cdf3953bfc932ea5567f3`. GitHub Actions [run #39115929813](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39115929813) succeeded: **363 passed, 1 warning in 31.66s**; SQLite Alembic migration verification passed.
+- `LiveFillAccountingService` now refuses promotion unless the child order has a successful reconciled fill state and `status_checked_at`, the confirmed fill quantity is valid, and the sum of staged trade quantities exactly matches the broker-confirmed child fill quantity.
+- Before applying a new fill, the service also ensures cumulative already-accounted quantity plus this trade cannot exceed the child order's confirmed fill quantity. Replays must match the existing trade/order/quantity/price and exact charge provenance.
+- A replay cannot silently replace `APPROVED_ESTIMATE` charges with `BROKER_REPORTED` charges or change the existing charge breakdown. This deliberately fails closed until a separately designed, append-only, idempotent charge-adjustment ledger exists.
+- Regression tests cover un-reconciled child rejection, staged-vs-confirmed quantity mismatch, and prevention of silent estimate-to-actual charge replacement. Existing atomicity, duplicate promotion, and paper-account isolation tests pass.
 
-### Charge-source limitations
-- [Upstox Brokerage Details](https://upstox.com/developer/api-documentation/get-brokerage/) is an estimate based on instrument, quantity, product, side and price, not a final contract note.
-- [Upstox Get Trade Charges](https://upstox.com/developer/api-documentation/get-trade-charges/) returns segment/date/financial-year aggregate charges; it does not provide a verified per-trade allocation. Do not split aggregate charges across fills without a reviewed reconciliation rule.
-- `BROKER_REPORTED` remains a caller-supplied provenance label and is not independently authenticated. The estimator uses `APPROVED_ESTIMATE`; non-zero daily per-scrip DP minimums fail closed rather than being double-counted across fills.
-- The promotion coordinator, estimator and accounting service are **unregistered**. No route, worker or live order submission invokes them. Tests use mocks/SQLite; real Upstox behavior, PostgreSQL concurrency/migrations, exact-head frontend checks and staging remain unverified.
+### Scope and remaining risks
+- Promotion/accounting services remain unregistered in API routes/workers and are not connected to order submission. No real broker orders were sent.
+- Child reconciliation currently compares official broker status fill quantity to the durable staged trade list before setting `status_checked_at`; the accounting service independently repeats the key reconciliation/quantity invariant.
+- The new guard is validated on SQLite CI. PostgreSQL row-lock/concurrency behavior, live Upstox contract-note behavior, exact-head frontend build and staging remain unverified.
+- No charge correction/reversal ledger exists yet. Do not overwrite accounted executions to update final charges; any future correction must be append-only and idempotent, with accounting/P&L effects explicitly reconciled.
 
 ### Next task
-Audit and test the accounting promotion's reconciliation invariants before considering any route/worker integration: ensure a broker trade is promoted only after successful child-order/trade reconciliation, validate cumulative accounted quantity against the broker child order's confirmed fill quantity, and define how broker-confirmed final charges/contract notes supersede estimates without double-posting. Keep the path unregistered; no real orders, PR merge, or live-mode enablement.
+Design and test an append-only **final-charge adjustment ledger** keyed by broker connection + trade ID + source document/reference, with unique idempotency, immutable original executions, and a documented policy for how adjustments affect net realized P&L without reapplying the fill or position quantity. Keep all promotion/adjustment paths unregistered; no route/worker wiring, broker POST, PR merge, or live-mode enablement.
 
 ### Release status
-PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
+PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled.

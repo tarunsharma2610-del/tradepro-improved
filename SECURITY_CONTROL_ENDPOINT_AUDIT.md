@@ -78,3 +78,7 @@ Complete a dedicated authentication/authorization and operator-audit design revi
 - Added a controlled 401 for malformed UUID sub claims and a reusable same-origin guard for cookie-authenticated mutation methods.
 - Added tests for the above primitives. This does not close the endpoint design gates: recent-MFA step-up, permission provisioning, tenant-scoped audit reads, atomic HTTP state+event handling, route-level CSRF/Origin enforcement, and full negative HTTP tests remain outstanding.
 - No safety route was added. Do not expose safety controls until these gates pass CI and receive review.
+
+### Follow-up correction — 18 October 2026
+
+The Origin guard now requires an exact Origin serialization match (including rejecting a trailing slash), and unused imports were removed from the user model. Follow-up commits: f7c08e2605fb7f7828792154570af79cf5ccf724 and 4337d0ce4ef645914f32c56db87c81699c04763e. CI/status lookup has returned no run/status for the authorization changes; do not claim tests or migration passed until a workflow result is tied to the code/test SHA. Recent-MFA step-up and route wiring remain outstanding.

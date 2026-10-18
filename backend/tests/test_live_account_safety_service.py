@@ -111,6 +111,10 @@ def test_manual_reset_requires_health_check_and_cleared_error_counter(safety_con
     service.record_broker_error(
         user.id, "TIMEOUT", "broker timeout", threshold=1, idempotency_key="error-1"
     )
+    service.record_health_check(
+        user.id, passed=True, reason="broker session responds but error counter remains",
+        actor_user_id=user.id, idempotency_key="health-pass-before-counter-clear",
+    )
     with pytest.raises(LiveExecutionBlocked, match="cleared broker-error counter"):
         service.manual_reset(
             user.id, "operator confirmed recovery", actor_user_id=user.id,

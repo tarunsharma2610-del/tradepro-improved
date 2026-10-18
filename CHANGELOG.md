@@ -202,3 +202,12 @@
 
 
 - Verification clarification: code/test target `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; subsequent documentation-only commits advanced the branch. PR head observed at the last check `1b0056d9739cd55d50cd5484cddf955aa8bf07db` had no workflow run/status returned. The new code and migrations remain unverified.
+
+
+### 18 October 2026 — Phase 2 broker intake validation hardening
+
+- Resolved the exact broker connection from the child-order mapping and required it to belong to the requesting user and expected broker; unbound/foreign connection mappings fail closed.
+- Required a non-empty instrument token that exactly matches the local instrument before staging a broker trade. Invalid non-text side input now produces a controlled validation error.
+- Added regression cases for a foreign user's broker connection, missing instrument identity, and malformed side data.
+- Commits: `2cdbbe290f8b661cb91110dbb4e165fcef36f800` (code), `b780c39f770a6839dab0af63fc424c341eff9d70` (tests).
+- Verification remains pending: no Actions run is associated with the current code through the available integration; no local pytest/migration run was possible. Do not infer success from historical CI.

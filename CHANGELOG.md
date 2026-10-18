@@ -339,3 +339,11 @@ Add a service-level integration test that composes the **real** `BrokerChildOrde
 
 ### Release status
 Live trading is **NOT READY** and disabled. No real orders have been submitted.
+
+
+## 18 October 2026 — Phase 2 verification coverage
+
+- Added service-composition integration tests for the existing reconcile-before-promote lifecycle (commit `b5783d421f64fcb8e7f1d75f1af5185fd9029f59`).
+- Exercises real child reconciliation, durable trade ingestion, fill promotion, and live accounting with mocked read-only broker responses and mocked charge estimates.
+- Adds assertions for repeated-run idempotency, sibling reconciliation failure blocking promotion, and paper/live accounting isolation.
+- CI for this commit was **not yet confirmed** when this entry was written; passing status must be recorded only after checking the exact commit's workflow result.

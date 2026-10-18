@@ -47,3 +47,15 @@ def test_adapter_definitions_are_excluded_but_other_references_are_not(tmp_path)
     assert len(violations) == 1
     assert "services/recovery.py:2" in violations[0]
     assert "cancel_order" in violations[0]
+
+
+def test_docstring_mentions_are_not_treated_as_adapter_calls(tmp_path):
+    app = tmp_path / "app"
+    (app / "services").mkdir(parents=True)
+    (app / "services" / "preflight.py").write_text(
+        '"""Never call adapter.place_order from preflight."""\n'
+        "def check():\n    return True\n",
+        encoding="utf-8",
+    )
+
+    assert find_violations(app) == []

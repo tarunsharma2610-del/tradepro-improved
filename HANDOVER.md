@@ -506,3 +506,11 @@ The first workflow run with the guard (#614) failed because its initial generic 
 ### Latest guard verification — 18 October 2026
 
 Run #615 failed at the guard because a docstring contained the literal method name. The scanner now uses AST rather than raw line matching and has a docstring regression test. Latest run #617 has passed the guard and is running pytest; remaining DB steps are pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Confirm the full result before proceeding.
+
+
+### Verified CI checkpoint — 18 October 2026
+
+- CI run #617 passed on code/test SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281.
+- Broker-write source guard: PASS. Backend suite: **402 passed, 4 skipped, 1 warning in 29.81s**. SQLite and PostgreSQL 16 Alembic upgrades: PASS. PostgreSQL concurrency tests: **4 passed in 0.39s**.
+- Earlier guard runs failed on scanner false positives and were corrected; the final AST-based scanner ignores docstrings/comments and passed CI.
+- Current resume point: review the design doc, then harden safety event transaction/version/idempotency and PostgreSQL append-only behavior before implementing scoped authorization/step-up/CSRF. No central writer or safety endpoint exists yet. Keep live submission disabled.

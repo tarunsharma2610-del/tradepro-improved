@@ -725,3 +725,10 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 - Added regression tests for disabled runtime submission flag, missing account-wide safety state, and disconnected original broker connection. The first CI attempt exposed a test-fixture reference error; that fixture was corrected and the latest run is green.
 - Verified GitHub Actions [run #39140514552](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39140514552), SHA `9085d9fbdcc8ee2dd8baac6f5e73f92bd76cfa8b`: broker-write source guard passed; backend **456 passed, 8 skipped, 1 warning**; SQLite and PostgreSQL 16 migrations passed; PostgreSQL integration tests **8 passed**.
 - Remaining: no actual broker order write is enabled. A future submitter must implement a race-safe final interlock protocol (e.g. coordinated safety-state lock/version and claim semantics), without holding unsafe database locks across network I/O, and must handle post-request crashes through read-only reconciliation. Keep PAPER mode mandatory, live submission disabled, PR #1 draft/open/unmerged, and original `Tradepro` untouched.
+
+
+## 2026-10-18 continuation — partial-fill regression
+- Added a focused mocked/database regression test for cumulative partial fills, replay idempotency, overfill rejection, and whole-batch rollback.
+- The test asserts staged trades still do not alter execution/position/cash/order accounting. It is coverage for the intake boundary, not proof of end-to-end broker reconciliation. Await CI for the new commit before treating it as verified.
+- Next: inspect exact-head CI, then implement the separately reviewed accounting promotion/reconciliation transaction only after validating actual charge-source rules and position math. Keep live broker writes blocked.
+

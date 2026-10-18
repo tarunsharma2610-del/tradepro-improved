@@ -4,6 +4,7 @@ This coordinator is deliberately not wired into API routes, background workers,
 or live order submission. It promotes only trades already staged by the
 read-only broker-trade intake service.
 """
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -71,7 +72,13 @@ class LiveFillPromotionService:
         estimate = await self.charge_estimator.estimate_for_trade(
             user_id, broker_trade_record_id
         )
-        if estimate.broker_trade_id != record.broker_trade_id:
+        if (
+            estimate.broker_trade_id != record.broker_trade_id
+            or estimate.broker_connection_id != record.broker_connection_id
+            or estimate.instrument_token != record.instrument_token
+            or estimate.quantity != record.quantity
+            or estimate.price != Decimal(str(record.price))
+        ):
             raise LiveExecutionBlocked(
                 "Charge estimate identity does not match the staged trade; promotion blocked."
             )

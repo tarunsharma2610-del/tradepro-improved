@@ -273,3 +273,8 @@ The current code/test target is `b780c39f770a6839dab0af63fc424c341eff9d70`. Dire
 ### Additional Phase 2 regression test — 18 October 2026
 
 Added `test_ingestion_rejects_legacy_child_order_without_connection_binding` in commit `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`. This covers legacy child-order rows whose connection ID remains NULL after migration backfill cannot safely identify an owner connection; ingestion must reject them without creating staging records. Latest code/test target is now `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`. Test/migration execution remains pending.
+
+
+## Branch divergence / PR safety note — 18 October 2026
+
+The latest repository comparison reports PR branch `safety/fail-closed-trading-mode` is **198 commits ahead and 349 commits behind** current `main` (main SHA observed: `a2767e646ec19248e9b2c4a3d8fc688195c91eb3`; merge base: `2cf83089070e064c61f3b75fcb6b663021cbf625`). PR #1 remains draft/open/unmerged. This comparison makes merge/rebase unsafe to do casually: before any merge or rebase, audit the new main changes and reconcile conflicts in a separate reviewed step. Do not merge PR #1 as part of this task; keep working isolated on the safety branch and do not modify `main` or the original `Tradepro` repository.

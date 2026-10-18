@@ -92,8 +92,8 @@ def test_known_paper_http_order_endpoints_are_allowed(tmp_path):
     app = tmp_path / "app"
     (app / "api" / "v1").mkdir(parents=True)
     (app / "api" / "v1" / "portfolios.py").write_text(
-        "async def place(ExecutionService, db):\\n    return await ExecutionService(db).place_order(token, payload)\\n"
-        "def cancel(ExecutionService, db):\\n    return ExecutionService(db).cancel_order(user, portfolio, order)\\n",
+        "async def place(ExecutionService, db):\n    return await ExecutionService(db).place_order(token, payload)\n"
+        "def cancel(ExecutionService, db):\n    return ExecutionService(db).cancel_order(user, portfolio, order)\n",
         encoding="utf-8",
     )
 

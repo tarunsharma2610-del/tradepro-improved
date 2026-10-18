@@ -17,6 +17,7 @@ from app.models.instrument import Instrument
 from app.models.portfolio import Portfolio
 from app.repositories.broker_connection_repository import BrokerConnectionRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
+from app.services.live_account_safety_service import LiveAccountSafetyService
 from app.services.live_execution_service import (
     LiveExecutionBlocked,
     LiveExecutionService,
@@ -47,10 +48,12 @@ class LivePreflightCoordinator:
         *,
         adapter: BrokerAdapter | None = None,
         clock: Clock | None = None,
+        account_safety_service: LiveAccountSafetyService | None = None,
     ):
         self.db = db
         self.adapter = adapter or get_broker_adapter(self.BROKER_NAME)
         self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.account_safety = account_safety_service or LiveAccountSafetyService(db, clock=self.clock)
         self.connections = BrokerConnectionRepository(db)
         self.credentials = BrokerCredentialsService(db)
 
@@ -74,6 +77,19 @@ class LivePreflightCoordinator:
 
         # Reject malformed requests before credentials or any broker snapshots.
         LiveExecutionService._validate_intent(intent)
+
+        # The persisted account-wide latch is an additional preflight interlock.
+        # It is read-only and must deny before credentials or broker snapshots.
+        try:
+            safety_decision = self.account_safety.check_allowed(user_id, self.BROKER_NAME)
+        except Exception as exc:
+            raise LiveExecutionBlocked(
+                "Persistent account safety check failed; live preflight blocked."
+            ) from exc
+        if not safety_decision.allowed:
+            raise LiveExecutionBlocked(
+                f"Persistent account safety check denied live preflight: {safety_decision.reason}"
+            )
 
         portfolio = (
             self.db.query(Portfolio)

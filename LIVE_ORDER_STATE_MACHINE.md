@@ -1,6 +1,6 @@
 # Live Broker Order State Machine — Design Before Implementation
 
-**Status:** design plus an unregistered preflight-only service; no live submission is enabled or wired.  
+**Status:** design plus an unregistered preflight and read-only Upstox risk-snapshot collector; no live submission is enabled or wired.  
 **Scope:** future Upstox live order lifecycle, using the existing Paper Trading code without routing live orders through the paper fill path.
 
 ## 1. Current implementation audit
@@ -12,7 +12,7 @@ The repository currently has:
 - A CI-tested `AccountWideLiveRiskGate` foundation. It checks weekday/session hours, quote and broker-position freshness, broker-snapshot exposure, absolute INR per-order/gross-exposure/daily-loss limits, daily live-order attempt count, unresolved order exposure, broker cash and estimated margin. Missing or malformed providers/data fail closed.
 - Default caps: ₹10,000 per order, ₹50,000 gross exposure, ₹1,000 daily realized loss, 10 live attempts per UTC day and 5-second data age.
 
-Important boundaries: market holiday/special sessions are not yet handled; snapshot providers are injected and not wired to real Upstox HTTP calls; the risk gate is not wired to any route/worker; there is no broker POST path. Full live order status/fill/cancel reconciliation and accounting remain incomplete. **Live trading is not ready and remains disabled.**
+Important boundaries: the read-only Upstox snapshot collector and official holiday/special-session parser are implemented and mocked-CI tested, but are not yet orchestrated into the synchronous preflight path or wired to any route/worker. No live order submission path is connected. Full broker-confirmed status/fill/cancel reconciliation and accounting remain incomplete. **Live trading is not ready and remains disabled.**
 
 ## 2. Upstox API facts used in this design
 

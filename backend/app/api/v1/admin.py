@@ -112,19 +112,29 @@ def read_own_safety_audit(
     db: Session = Depends(get_db),
     user: User = Depends(require_safety_permission("safety.audit.read")),
 ):
-    """Return only safety audit events attributed to the authenticated user.
+    """Return immutable safety-state events for the authenticated user's own account.
 
-    No user ID is accepted from the caller. Filtering happens in SQL before
-    pagination, so a permission grant cannot be used to enumerate another
-    tenant's audit trail.
+    The tenant owner predicate is applied in SQL before count/pagination. This
+    endpoint never accepts a caller-selected user or state ID and deliberately
+    does not expose idempotency keys, request fingerprints, or another tenant's
+    state/event history.
     """
-    scoped = db.query(AuditLog).filter(
-        AuditLog.user_id == user.id,
-        AuditLog.action.like("safety.%"),
+    from app.models.live_account_safety import LiveAccountSafetyEvent, LiveAccountSafetyState
+
+    scoped = (
+        db.query(LiveAccountSafetyEvent, LiveAccountSafetyState)
+        .join(
+            LiveAccountSafetyState,
+            LiveAccountSafetyEvent.state_id == LiveAccountSafetyState.id,
+        )
+        .filter(LiveAccountSafetyState.user_id == user.id)
     )
     total = scoped.count()
     rows = (
-        scoped.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        scoped.order_by(
+            LiveAccountSafetyEvent.created_at.desc(),
+            LiveAccountSafetyEvent.id.desc(),
+        )
         .offset(offset)
         .limit(limit)
         .all()
@@ -132,14 +142,23 @@ def read_own_safety_audit(
     return SafetyAuditPage(
         items=[
             SafetyAuditEntry(
-                id=row.id,
-                created_at=row.created_at,
-                action=row.action,
-                resource_type=row.resource_type,
-                resource_id=row.resource_id,
-                event_metadata=row.event_metadata or {},
+                id=event.id,
+                created_at=event.created_at,
+                action=event.event_type,
+                resource_type="live_account_safety_state",
+                resource_id=str(state.id),
+                event_metadata={
+                    "broker": state.broker,
+                    "reason": event.reason,
+                    "error_code": event.error_code,
+                    "circuit_state": event.circuit_state,
+                    "kill_switch_tripped": event.kill_switch_tripped,
+                    "consecutive_broker_errors": event.consecutive_broker_errors,
+                    "state_version": event.state_version,
+                    "actor_user_id": str(event.actor_user_id) if event.actor_user_id else None,
+                },
             )
-            for row in rows
+            for event, state in rows
         ],
         total=total,
         limit=limit,

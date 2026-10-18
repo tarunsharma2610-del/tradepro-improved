@@ -168,6 +168,39 @@ class LiveFillAccountingService:
                 raise LiveExecutionBlocked("Trade price is below the supported four-decimal precision.")
             gross_value = (price * Decimal(record.quantity)).quantize(CENT, rounding=ROUND_HALF_UP)
 
+            # A trade record is eligible for accounting only after the child
+            # order has been reconciled against the broker's official status
+            # and the full durable trade list. Staged trades alone are not
+            # sufficient evidence of the broker-confirmed cumulative fill.
+            if (
+                child.status_checked_at is None
+                or child.status not in {"PARTIALLY_FILLED", "FILLED", "CANCELLED_PARTIALLY_FILLED"}
+            ):
+                raise LiveExecutionBlocked(
+                    "Broker child order has not been successfully reconciled with confirmed fills."
+                )
+            if (
+                type(child.filled_quantity) is not int
+                or child.filled_quantity <= 0
+                or child.requested_quantity is None
+                or child.requested_quantity <= 0
+                or child.filled_quantity > child.requested_quantity
+            ):
+                raise LiveExecutionBlocked("Broker child-order confirmed fill quantity is invalid.")
+            staged_quantity = (
+                self.db.query(BrokerTradeRecord.quantity)
+                .filter(
+                    BrokerTradeRecord.broker_connection_id == record.broker_connection_id,
+                    BrokerTradeRecord.broker_order_ref_id == child.id,
+                )
+                .all()
+            )
+            durable_trade_quantity = sum(int(row[0]) for row in staged_quantity)
+            if durable_trade_quantity != child.filled_quantity:
+                raise LiveExecutionBlocked(
+                    "Staged trade quantity does not match the broker child order's confirmed fill quantity."
+                )
+
             existing = (
                 self.db.query(Execution)
                 .filter(
@@ -176,6 +209,23 @@ class LiveFillAccountingService:
                 )
                 .first()
             )
+            accounted_quantity = (
+                self.db.query(Execution.quantity)
+                .filter(
+                    Execution.broker_connection_id == record.broker_connection_id,
+                    Execution.broker_order_ref_id == child.id,
+                )
+                .all()
+            )
+            cumulative_accounted_quantity = sum(int(row[0]) for row in accounted_quantity)
+            if cumulative_accounted_quantity > child.filled_quantity:
+                raise LiveExecutionBlocked(
+                    "Already-accounted fill quantity exceeds the broker-confirmed child-order fill quantity."
+                )
+            if existing is None and cumulative_accounted_quantity + record.quantity > child.filled_quantity:
+                raise LiveExecutionBlocked(
+                    "Promoting this trade would exceed the broker-confirmed child-order fill quantity."
+                )
             if existing is not None:
                 if (
                     existing.broker_order_ref_id != child.id
@@ -184,6 +234,35 @@ class LiveFillAccountingService:
                     or Decimal(str(existing.price)) != Decimal(str(record.price))
                 ):
                     raise LiveExecutionBlocked("Conflicting execution already exists for this broker trade ID.")
+                # Do not silently treat a different charge source or amount as
+                # a replay. Final contract-note charges need a separate,
+                # append-only, idempotent adjustment workflow; mutating the
+                # original execution would hide the estimate-to-actual change.
+                persisted_charge_values = {
+                    "brokerage": existing.brokerage,
+                    "stt": existing.stt,
+                    "exchange_charges": existing.exchange_charges,
+                    "sebi_charges": existing.sebi_charges,
+                    "stamp_duty": existing.stamp_duty,
+                    "gst": existing.gst,
+                    "dp_charges": existing.dp_charges,
+                    "charge_source": existing.charge_source,
+                    "charge_reference": existing.charge_reference,
+                }
+                if any(
+                    Decimal(str(persisted_charge_values[name])) != Decimal(str(validated_charges[name]))
+                    for name in (
+                        "brokerage", "stt", "exchange_charges", "sebi_charges",
+                        "stamp_duty", "gst", "dp_charges",
+                    )
+                ) or (
+                    persisted_charge_values["charge_source"] != validated_charges["charge_source"]
+                    or persisted_charge_values["charge_reference"] != validated_charges["charge_reference"]
+                ):
+                    raise LiveExecutionBlocked(
+                        "Execution already has different charge provenance; final-charge adjustments require "
+                        "a separate idempotent adjustment workflow."
+                    )
                 position = (
                     self.db.query(LivePosition)
                     .filter(

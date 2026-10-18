@@ -22,24 +22,11 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 
 ## Current verified repository state
 
-- Latest previously verified code commit: `e6abb6704b67c54f35bb5d7c2c41acd96846147d` — “Restore Upstox response helper to adapter class”. The branch has since received additional documentation-only commits; always retrieve the current PR head from PR #1 before checking CI. The new margin parser/tests are committed but CI for the current head is not yet confirmed. Backend [run 39035755714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714): **238 passed, 1 warning**, clean SQLite Alembic upgrade; frontend [run 39035755707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707): TypeScript and Next.js build passed.
-- Main remains `2cf83089070e064c61f3b75fcb6b663021cbf625`; all code changes remain on the safety branch.
-- PR #1 was open, draft, and not merged.
-- Baseline CI before the migration regression test: backend [run 39031184000](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184000) — 189 passed, 1 warning, clean SQLite Alembic upgrade; frontend [run 39031184092](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031184092) — TypeScript and Next.js build passed.
-- Migration regression-test commit: `1fe681246cb88a9505302a1763128c51ab72802d` — [backend run 39031526388](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526388) 190 passed, 1 warning; clean SQLite Alembic upgrade; [frontend run 39031526360](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39031526360) passed.
-- Latest idempotency code commit: `044243476acce70dccc02fcc0e9d61b98bcd62ff`. Its first backend run failed because the test assumed a ₹30,000 quote exceeded the default cap, but the strategy test fixture has ₹500,000 virtual capital (25% cap = ₹125,000). This was a test-setup defect, not a strategy-idempotency failure. The test was made deterministic by explicitly setting a 1% cap.
-- Latest verified code commit before Upstox endpoint update: `e9f8b7bb56f3300d1016195a773a26845d94d717` — [backend run 39032153163](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032153163) 193 passed, 1 warning, clean SQLite migration; [frontend run 39032153157](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032153157) passed.
-- Latest verified code commit before V3 modify/cancel methods: `ded6138b93f8e18f96117f5bb4fce0ec8aeaeb1b` — [backend run 39032413141](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413141) 193 passed, 1 warning and clean migration; [frontend run 39032413150](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032413150) passed.
-- Latest verified code commit before status-response hardening: `2bc21c59dc4c9b8d1cd2e38d24a611433e07d82c` — [backend run 39032570839](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570839) 195 passed, 1 warning and clean migration; [frontend run 39032570823](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032570823) passed.
-- Latest verified code commit before per-order trade lookup: `9f1e1300acc15f85d8abf1e29e73de34f6ca14f3` — backend [run 39032760874](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032760874), 195 passed, 1 warning and clean migration; frontend [run 39032760872](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032760872) passed.
-- Latest verified code commit before order-history lookup: `ebda043d4537353529007b8f3aa1aacceb13d4c4` — backend [run 39032909906](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032909906), 197 passed, 1 warning and clean migration; frontend [run 39032909935](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39032909935) passed.
-- Latest verified code commit before broker schema foundation: `8b66df970d2dda91c060583ed6065c0101cd7837` — backend [run 39033094768](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033094768), 200 passed, 1 warning and clean migration; frontend [run 39033094833](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033094833) passed.
-- Latest verified code commit before pure response parsing: `dbd83c878753e7a0cb6e2a7935c55378ee56d7cb` — backend [run 39033460748](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033460748), 201 passed, 1 warning and clean migration; frontend [run 39033460785](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033460785) passed.
-- Latest verified code commit before funds adapter: `0d1ececff933e3271576096756192036963805ba` — backend [run 39033704367](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033704367), 223 passed, 1 warning and clean migration; frontend [run 39033704247](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033704247) passed.
-- Latest verified code commit before funds parser: `6f92a7f9ead0f9fe2da6222e122945a3f419bd1c` — backend [run 39033992221](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033992221), 225 passed, 1 warning and clean migration; frontend [run 39033992223](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39033992223) passed.
-- Latest verified code commit: `27e87cca48c03528f5fe5fee5816ff2aa4438caa` — [backend run 39034164505](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39034164505) **235 passed, 1 warning**, clean SQLite migration; [frontend run 39034164514](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39034164514) TypeScript and Next.js build passed.
-- The initial order-history commit run failed because the new test omitted its `AsyncMock` import. The failure was identified from CI logs, the import was added in the follow-up commit, and the latest full CI then passed.
-- These checks validate the listed commit only, not future changes. Re-check CI after each code commit.
+- Current branch: `safety/fail-closed-trading-mode`; PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched.
+- Latest verified code/test SHA: `de2e2b7524f09b1be2d4378a9b5ac29bdf26f9e7` — [Actions run #39110239225](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39110239225): **296 passed, 1 warning in 22.04s**; SQLite `alembic upgrade head` passed.
+- Latest feature: `LiveOrderRecoveryService` persists a stable opaque broker tag and idempotent local LIVE intent, marks submission unknown before any future request, and performs read-only tag recovery. No POST/route/worker is wired, and no accounting is changed.
+- The Actions run tests the code/test SHA above. Later commits in this continuation update project documentation only; they do not change the verified backend code.
+- The run does not establish PostgreSQL migration behavior, real Upstox behavior, frontend build, or production readiness. Live trading remains **NOT READY** and disabled.
 
 ## Completed and committed work (safety branch)
 
@@ -78,16 +65,13 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 
 ## Current phase and next task
 
-**Current focus:** trading safety and accounting correctness, before implementing live submission.
+**Current phase:** Phase 2 — broker order identity, fill intake and live-lifecycle safety foundations.
 
-**Completed task:** add a targeted migration regression test for `202610170003_strategy_position_attribution.py` that starts from revision `202610170002`, seeds realistic legacy strategy-tagged BUY/SELL executions and existing strategy/instrument/portfolio rows, upgrades to head, and verifies:
-- the new `strategy_realized_pnl` values on historical executions;
-- remaining open strategy quantity and average entry price;
-- realized P&L for a fully closed strategy position;
-- correct handling of legacy strategy-tagged sales that would create a negative position under the new long-only strategy allocation;
-- idempotent/clean upgrade behavior and no loss of aggregate portfolio records.
+**Just completed:** stable idempotency/tag persistence and read-only recovery by Upstox order history. Same key/same intent reuses one local row; same key/different intent is rejected. Recovery validates tag, side, instrument and total child quantity before storing broker IDs. Timeout, broker error and no-match remain unresolved and never cause automatic resubmission.
 
-Completed verification: the populated legacy migration test passed as part of the full CI suite (193 passed).
+**Verification:** [GitHub Actions #39110239225](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39110239225) — 296 passed, 1 warning; SQLite Alembic upgrade passed.
+
+**Next task:** implement the concrete account-wide live pre-trade risk gate with mocked tests: positions/exposure, order-value and order-frequency caps, market-session/stale-quote controls, and broker funds/margin. No broker POST, route/worker wiring, PR merge or live-mode enablement.
 
 ## Task state
 
@@ -323,3 +307,19 @@ This verifies the code present at that SHA in CI. It does not validate PostgreSQ
 ### Next implementation task
 
 **Stable idempotency/tag recovery for ambiguous submissions — design and mocked tests only.** Audit existing `Order.idempotency_key`, `broker_tag`, and adapter `get_order_history(tag=...)` behavior. Add a deterministic tag/intent persistence design and tests proving a retry never submits a second POST after a timeout. Do not implement or invoke real broker submission in this task; do not wire the service into routes/workers; do not merge PR #1 or enable live trading. After code/test commit, update progress, audit, requirements, roadmap, changelog, architecture, state-machine and handover files with exact CI evidence.
+
+## Authoritative checkpoint — 18 October 2026 (idempotent live intent and tag recovery)
+
+### Current verified implementation
+- Latest code/test SHA: `de2e2b7524f09b1be2d4378a9b5ac29bdf26f9e7`. GitHub Actions [run #39110239225](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39110239225) completed successfully: **296 passed, 1 warning in 22.04s**; SQLite `alembic upgrade head` passed.
+- Added `backend/app/services/live_order_recovery_service.py`: deterministic opaque 40-character broker tag, durable LIVE intent persistence, idempotency-key replay with exact-payload validation, submission-unknown state persistence, and read-only recovery through Upstox order-history-by-tag.
+- Added `backend/tests/test_live_order_recovery_service.py`: stable tag, repeated intent, key/payload mismatch, fail-closed preflight, timeout/no-match no-resubmit, mismatched tag/intent, sliced child-order quantity reconciliation and repeated recovery.
+- No `place_order` call is made by the new service. No API route or worker invokes it. Recovery stores broker child IDs only and does not infer order status/fills or change cash, positions, executions or P&L.
+- The CI warning is a dependency/runner deprecation warning; test and SQLite migration steps passed. This run does not verify PostgreSQL migration, real broker API behavior, frontend build, or production deployment.
+- Code and tests were committed separately: service `4990f28e7b8cfeadca85598abfac8111c8fe7130`; tests `de2e2b7524f09b1be2d4378a9b5ac29bdf26f9e7`.
+
+### Next task
+Implement a concrete, testable **account-wide live pre-trade risk gate** and inject it into the preflight path: current positions/exposure, order-value and order-frequency limits, market-session/stale-quote requirements, and broker funds/margin checks with fail-closed behavior. Mock all external calls. Do not add a broker POST, wire any route/worker, merge PR #1, or enable live trading in that task.
+
+### Release status
+PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading remains **NOT READY**; no real orders have been submitted.

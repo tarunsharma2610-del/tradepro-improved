@@ -18,6 +18,7 @@ from app.services.live_execution_service import (
     LiveExecutionBlocked,
     LiveExecutionService,
     LiveOrderIntent,
+    LiveOrderPreflight,
     LiveRiskDecision,
 )
 from app.services.live_order_recovery_service import (
@@ -314,3 +315,96 @@ async def test_tag_recovery_does_not_bind_child_quantities_that_do_not_sum_to_in
     assert result.state == "MISMATCH_REQUIRES_REVIEW"
     assert db_session.query(BrokerOrder).count() == 0
     adapter.place_order.assert_not_awaited()
+
+
+def test_persist_preflighted_intent_revalidates_plan_and_connection(
+    db_session, recovery_context, monkeypatch
+):
+    user, portfolio, instrument, connection = recovery_context
+    service = _service(db_session)
+    intent = _intent(portfolio, instrument)
+    plan = LiveOrderPreflight(
+        user_id=user.id,
+        portfolio_id=portfolio.id,
+        instrument_id=instrument.id,
+        broker_name="upstox",
+        broker_connection_id=connection.id,
+        instrument_key=instrument.instrument_key,
+        side=intent.side,
+        order_type=intent.order_type,
+        segment=intent.segment,
+        quantity=intent.quantity,
+        limit_price=intent.limit_price,
+    )
+
+    order = service.persist_preflighted_intent(
+        user.id, intent, plan, idempotency_key="safe-plan-key-001"
+    )
+    replay = service.persist_preflighted_intent(
+        user.id, intent, plan, idempotency_key="safe-plan-key-001"
+    )
+
+    assert order.id == replay.id
+    assert order.status == "PENDING_SUBMISSION"
+    assert order.trading_mode == "LIVE"
+    assert order.broker_tag == make_broker_tag(portfolio.id, "safe-plan-key-001")
+    assert db_session.query(Order).filter(Order.portfolio_id == portfolio.id).count() == 1
+    assert db_session.query(BrokerOrder).count() == 0
+
+
+def test_persist_preflighted_intent_rejects_plan_for_other_user_or_changed_intent(
+    db_session, recovery_context
+):
+    user, portfolio, instrument, connection = recovery_context
+    service = _service(db_session)
+    intent = _intent(portfolio, instrument)
+    plan = LiveOrderPreflight(
+        user_id=user.id,
+        portfolio_id=portfolio.id,
+        instrument_id=instrument.id,
+        broker_name="upstox",
+        broker_connection_id=connection.id,
+        instrument_key=instrument.instrument_key,
+        side="SELL",
+        order_type=intent.order_type,
+        segment=intent.segment,
+        quantity=intent.quantity,
+        limit_price=intent.limit_price,
+    )
+
+    with pytest.raises(LiveExecutionBlocked, match="does not match"):
+        service.persist_preflighted_intent(
+            user.id, intent, plan, idempotency_key="safe-plan-key-002"
+        )
+
+    assert db_session.query(Order).count() == 0
+
+
+def test_persist_preflighted_intent_rejects_changed_broker_connection(
+    db_session, recovery_context
+):
+    user, portfolio, instrument, connection = recovery_context
+    service = _service(db_session)
+    intent = _intent(portfolio, instrument)
+    plan = LiveOrderPreflight(
+        user_id=user.id,
+        portfolio_id=portfolio.id,
+        instrument_id=instrument.id,
+        broker_name="upstox",
+        broker_connection_id=connection.id,
+        instrument_key=instrument.instrument_key,
+        side=intent.side,
+        order_type=intent.order_type,
+        segment=intent.segment,
+        quantity=intent.quantity,
+        limit_price=intent.limit_price,
+    )
+    connection.is_connected = False
+    db_session.commit()
+
+    with pytest.raises(LiveExecutionBlocked, match="connection changed"):
+        service.persist_preflighted_intent(
+            user.id, intent, plan, idempotency_key="safe-plan-key-003"
+        )
+
+    assert db_session.query(Order).count() == 0

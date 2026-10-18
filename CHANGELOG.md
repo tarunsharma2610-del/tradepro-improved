@@ -465,3 +465,10 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Safety idempotency replays now reject payload mismatches; broker-error threshold and reset expected-version are fingerprinted.
 - Added tests for audit-write rollback, conflicting idempotency payloads, threshold mismatch, stale reset version, and PostgreSQL rejection of direct audit UPDATE/DELETE.
 - Exact-head CI run `39124312326` was pending at the checkpoint; earlier green run `39124213016` predates the last expected-version/threshold change.
+
+
+### 2026-10-18 — Stale-version test fix
+
+- Fixed a regression-test setup bug by capturing the expected state version before a later ORM mutation.
+- Commit: `6cd0ced108e35d715359d649a463d80709dd1fb1`.
+- Exact-head CI run #39124498280 is pending.

@@ -327,3 +327,8 @@ Live trading is **NOT READY** and disabled. No real orders have been submitted.
 - **Change:** commit `b5783d421f64fcb8e7f1d75f1af5185fd9029f59` adds service-level integration coverage against the real existing reconciliation, ingestion, promotion and accounting services. It does not add a second coordinator or change production runtime wiring.
 - **Classification:** tests added; verification **pending CI** at this checkpoint. Do not classify as verified until the workflow for the exact commit succeeds.
 - **Remaining caveat:** mocks verify application orchestration and response parsing, not live Upstox behavior or production deployment. No real order submission is tested or authorized.
+
+
+### Latest test evidence status
+
+The latest test commit is `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88`, superseding `b5783d421f64fcb8e7f1d75f1af5185fd9029f59`. The test now exercises fresh durable trade insertion through the real ingestion service. CI is still pending/unverified for this exact SHA.

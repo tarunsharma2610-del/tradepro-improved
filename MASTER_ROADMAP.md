@@ -96,3 +96,8 @@ Code/test target SHA: `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. The later bran
 ## Latest Phase 2 checkpoint — 18 October 2026
 
 The latest code hardening commit is `2cdbbe290f8b661cb91110dbb4e165fcef36f800`; targeted regression tests were committed at `b780c39f770a6839dab0af63fc424c341eff9d70`. Intake now binds to the exact broker connection, rejects foreign/unbound connection references, requires a matching instrument token, and validates malformed side values. Documentation commits after the code/test commit update the progress/audit/handover files only. The current-head Actions result is absent; these changes are not verified. The next task after this gate passes is the separate, initially unregistered `LiveExecutionService` foundation with mocked tests, then durable submission recovery and broker lifecycle reconciliation in the order above. The intake service remains staging-only; no real orders, no live wiring, no merge.
+
+
+### Latest regression coverage — 18 October 2026
+
+Commit `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` adds a test proving legacy child orders without a determinable broker connection are rejected by trade intake. This is added coverage, not a test pass. Current code/test target is `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`; the verification gate stays open.

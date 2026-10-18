@@ -46,6 +46,10 @@ class LiveAccountSafetyEvent(BaseModel):
             "state_id", "idempotency_key",
             name="uq_live_account_safety_event_idempotency",
         ),
+        UniqueConstraint(
+            "state_id", "state_version",
+            name="uq_live_account_safety_event_state_version",
+        ),
     )
 
     state_id: Mapped[uuid.UUID] = mapped_column(
@@ -56,6 +60,8 @@ class LiveAccountSafetyEvent(BaseModel):
         Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     idempotency_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Historical rows without a fingerprint are deliberately not replayable.
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     event_type: Mapped[str] = mapped_column(String(50), nullable=False)
     reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)

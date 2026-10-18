@@ -432,3 +432,9 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Added ORDER_ENTRY_PATH_INVENTORY.md documenting manual, strategy, worker, paper service, broker adapter, preflight, recovery and reconciliation paths.
 - Confirmed current order submission service is PAPER-only and refuses non-PAPER mode. Adapter broker-write primitives exist but no production call site was found in the reviewed paths. Recorded the uncomposed LiveOrderRecoveryService → LiveExecutionService path as a gap before any live exposure.
 - Documentation-only change; no route/worker wiring or live broker write was introduced.
+
+
+## 2026-10-18 — Central broker-write boundary design
+
+- Added `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md` defining the single approved broker-write boundary, atomic intent/event transaction contract, unknown-outcome recovery, least-privilege permissions, operator audit visibility, step-up MFA, CSRF/Origin, append-only event controls and source-call CI guard.
+- Documentation/design only: no endpoints or broker write integration added; live submission remains disabled.

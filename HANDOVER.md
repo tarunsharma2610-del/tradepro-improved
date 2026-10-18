@@ -272,3 +272,8 @@ Latest code/test target: `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` (test follow
 
 
 Latest test addition: `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` covers rejection of legacy child-order rows that have no connection binding. Latest code/test target is `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`; test and migration results are still pending.
+
+
+## Branch divergence / PR safety note — 18 October 2026
+
+The latest repository comparison reports PR branch `safety/fail-closed-trading-mode` is **198 commits ahead and 349 commits behind** current `main` (main SHA observed: `a2767e646ec19248e9b2c4a3d8fc688195c91eb3`; merge base: `2cf83089070e064c61f3b75fcb6b663021cbf625`). PR #1 remains draft/open/unmerged. This comparison makes merge/rebase unsafe to do casually: before any merge or rebase, audit the new main changes and reconcile conflicts in a separate reviewed step. Do not merge PR #1 as part of this task; keep working isolated on the safety branch and do not modify `main` or the original `Tradepro` repository.

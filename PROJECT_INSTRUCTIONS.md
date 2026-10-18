@@ -207,3 +207,8 @@ Live Trading must remain disabled until its broker integration, risk controls, o
 ## Continuation checkpoint — 18 October 2026
 
 Before starting any continuation, read the latest authoritative checkpoint at the end of `MASTER_ROADMAP.md`, `PROGRESS.md`, `AUDIT_REPORT.md`, and `HANDOVER.md`. Do not restart a task already marked completed. The latest roadmap task was a real-service integration test for the existing reconcile-before-promote coordinator—not creation of another coordinator. Continue by checking the latest code commit and CI result, fixing only demonstrated failures, then update the checkpoint files with verified evidence. Keep live trading disabled, do not call order-write endpoints, do not merge PR #1, and do not touch the original `Tradepro` repository.
+
+ 
+### Superseding checkpoint — integration tests now exercise fresh intake
+
+The integration test was refined in commit `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` so each scenario starts with no staged trade rows; the real ingestion service must insert broker-returned trades before status reconciliation/promotion. This supersedes the earlier test-only SHA `b5783d421f64fcb8e7f1d75f1af5185fd9029f59`. CI remains unverified; check the latest commit before claiming the task complete.

@@ -356,3 +356,58 @@ async def test_get_margin_details_preserves_broker_error_without_approving_order
 
     assert result.ok is False
     assert "invalid instrument" in result.error
+
+
+@pytest.mark.asyncio
+async def test_get_brokerage_details_uses_read_only_official_estimate_endpoint(monkeypatch):
+    adapter = UpstoxAdapter()
+    captured = {}
+
+    async def fake_get(url, access_token, params=None):
+        captured.update(url=url, access_token=access_token, params=params)
+        return BrokerCallResult(ok=True, data={"status": "success", "data": {"charges": {}}})
+
+    monkeypatch.setattr(adapter, "_get", fake_get)
+    result = await adapter.get_brokerage_details(
+        "test-token",
+        instrument_token="NSE_EQ|INE669E01016",
+        quantity=10,
+        product="D",
+        transaction_type="BUY",
+        price=123.45,
+    )
+
+    assert result.ok
+    assert captured["url"] == "https://api.upstox.com/v2/charges/brokerage"
+    assert captured["access_token"] == "test-token"
+    assert captured["params"] == {
+        "instrument_token": "NSE_EQ|INE669E01016",
+        "quantity": 10,
+        "product": "D",
+        "transaction_type": "BUY",
+        "price": 123.45,
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_brokerage_details_rejects_invalid_inputs_before_network(monkeypatch):
+    adapter = UpstoxAdapter()
+    fake_get = AsyncMock()
+    monkeypatch.setattr(adapter, "_get", fake_get)
+    valid = dict(
+        instrument_token="NSE_EQ|INE669E01016",
+        quantity=10,
+        product="D",
+        transaction_type="BUY",
+        price=123.45,
+    )
+    for invalid, message in [
+        (dict(instrument_token=" ",), "instrument_token"),
+        (dict(quantity=0), "positive integer"),
+        (dict(product="OPTIONS"), "product"),
+        (dict(transaction_type="SHORT"), "BUY or SELL"),
+        (dict(price=float("nan")), "finite positive number"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            await adapter.get_brokerage_details("test-token", **(valid | invalid))
+    fake_get.assert_not_awaited()

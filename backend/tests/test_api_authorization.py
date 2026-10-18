@@ -156,6 +156,50 @@ def test_cookie_mutation_accepts_configured_origin():
     require_same_origin_for_cookie_mutation(request)
 
 
+def test_step_up_http_requires_enabled_mfa_and_fresh_password_totp(client, db_session, monkeypatch):
+    _register_and_login(client)
+    from app.repositories.user_repository import UserRepository
+    from app.services.auth_service import AuthService
+
+    user = UserRepository(db_session).get_by_email("user@example.com")
+    user.mfa_enabled = True
+    user.mfa_secret_encrypted = "test-encrypted-secret"
+    db_session.commit()
+    monkeypatch.setattr(AuthService, "_verify_totp", staticmethod(lambda user, code: code == "123456"))
+
+    response = client.post(
+        "/api/v1/auth/mfa/step-up",
+        json={"password": "correct-horse-battery-staple", "code": "123456"},
+        headers={"Origin": settings.CORS_ORIGINS[0]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["expires_in"] == 300
+    token = body["step_up_token"]
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    assert payload["type"] == "step_up"
+    assert payload["scope"] == "safety.reset"
+    assert payload["sub"] == str(user.id)
+    assert "totp" in payload["amr"]
+
+    bad_password = client.post(
+        "/api/v1/auth/mfa/step-up",
+        json={"password": "wrong-password", "code": "123456"},
+        headers={"Origin": settings.CORS_ORIGINS[0]},
+    )
+    assert bad_password.status_code == 401
+
+
+def test_step_up_http_denies_accounts_without_mfa(client, db_session):
+    _register_and_login(client)
+    response = client.post(
+        "/api/v1/auth/mfa/step-up",
+        json={"password": "correct-horse-battery-staple", "code": "123456"},
+        headers={"Origin": settings.CORS_ORIGINS[0]},
+    )
+    assert response.status_code == 403
+
+
 def test_recent_mfa_step_up_rejects_missing_or_wrong_scope_token(make_user):
     user = make_user()
     with pytest.raises(HTTPException) as exc:

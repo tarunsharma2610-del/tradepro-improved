@@ -12,7 +12,11 @@ from app.models.position import Position
 from app.models.user import User
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.repositories.order_repository import OrderRepository
-from app.schemas.analytics import PortfolioAnalyticsOut, StrategyAnalyticsOut
+from app.schemas.analytics import (
+    LivePortfolioAnalyticsOut,
+    PortfolioAnalyticsOut,
+    StrategyAnalyticsOut,
+)
 from app.schemas.assistant import AssistantAskRequest, AssistantAskResponse
 from app.schemas.order import BrokerStatusOut, ExecutionOut, OrderOut, PlaceOrderRequest, PositionOut
 from app.schemas.portfolio import PortfolioCreate, PortfolioOut
@@ -160,6 +164,17 @@ async def ask_assistant(
 def get_portfolio_analytics(portfolio_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     portfolio = _get_owned_portfolio(db, user, portfolio_id)
     return analytics_service.portfolio_analytics(db, portfolio.id, Decimal(str(portfolio.virtual_capital)))
+
+
+@router.get("/{portfolio_id}/live-analytics", response_model=LivePortfolioAnalyticsOut)
+def get_live_portfolio_analytics(
+    portfolio_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Explicitly separate from virtual portfolio analytics/cash accounting.
+    _get_owned_portfolio(db, user, portfolio_id)
+    return analytics_service.live_portfolio_analytics(db, portfolio_id)
 
 
 @router.get("/{portfolio_id}/strategies/analytics", response_model=list[StrategyAnalyticsOut])

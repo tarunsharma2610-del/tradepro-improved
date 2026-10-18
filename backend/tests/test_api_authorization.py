@@ -358,6 +358,7 @@ def test_safety_audit_read_is_tenant_scoped_and_paginated(client, db_session):
     _register_and_login(client, email="operator@example.com")
     from app.repositories.user_repository import UserRepository
     from app.models.audit_log import AuditLog
+    from app.models.live_account_safety import LiveAccountSafetyEvent, LiveAccountSafetyState
     from app.models.user import User
 
     users = UserRepository(db_session)
@@ -370,34 +371,42 @@ def test_safety_audit_read_is_tenant_scoped_and_paginated(client, db_session):
     )
     db_session.add(other)
     db_session.flush()
+
+    own_state = LiveAccountSafetyState(
+        user_id=operator.id, broker="upstox", kill_switch_tripped=True,
+        circuit_state="CLOSED", consecutive_broker_errors=0, version=2,
+    )
+    other_state = LiveAccountSafetyState(
+        user_id=other.id, broker="upstox", kill_switch_tripped=True,
+        circuit_state="CLOSED", consecutive_broker_errors=0, version=1,
+    )
+    db_session.add_all([own_state, other_state])
+    db_session.flush()
     db_session.add_all([
-        AuditLog(
-            user_id=operator.id,
-            action="safety.permission.grant",
-            resource_type="user",
-            resource_id=str(other.id),
-            event_metadata={"permission": "safety.audit.read"},
+        LiveAccountSafetyEvent(
+            state_id=own_state.id, actor_user_id=operator.id,
+            idempotency_key="own-event-0001", request_fingerprint="a" * 64,
+            event_type="INITIALIZED", reason="own account initialized",
+            error_code=None, consecutive_broker_errors=0, circuit_state="CLOSED",
+            kill_switch_tripped=True, state_version=1,
+        ),
+        LiveAccountSafetyEvent(
+            state_id=own_state.id, actor_user_id=operator.id,
+            idempotency_key="own-event-0002", request_fingerprint="b" * 64,
+            event_type="KILL_SWITCH_TRIPPED", reason="own account trip",
+            error_code=None, consecutive_broker_errors=0, circuit_state="CLOSED",
+            kill_switch_tripped=True, state_version=2,
+        ),
+        LiveAccountSafetyEvent(
+            state_id=other_state.id, actor_user_id=other.id,
+            idempotency_key="other-event-0001", request_fingerprint="c" * 64,
+            event_type="KILL_SWITCH_TRIPPED", reason="other-account-secret",
+            error_code=None, consecutive_broker_errors=0, circuit_state="CLOSED",
+            kill_switch_tripped=True, state_version=1,
         ),
         AuditLog(
-            user_id=operator.id,
-            action="safety.kill_switch.trip",
-            resource_type="account",
-            resource_id="own-account",
-            event_metadata={},
-        ),
-        AuditLog(
-            user_id=other.id,
-            action="safety.kill_switch.trip",
-            resource_type="account",
-            resource_id="other-account-secret",
-            event_metadata={"secret": "must-not-leak"},
-        ),
-        AuditLog(
-            user_id=operator.id,
-            action="user.login",
-            resource_type="session",
-            resource_id="not-safety",
-            event_metadata={},
+            user_id=operator.id, action="user.login", resource_type="session",
+            resource_id="not-safety", event_metadata={},
         ),
     ])
     db_session.commit()
@@ -408,7 +417,8 @@ def test_safety_audit_read_is_tenant_scoped_and_paginated(client, db_session):
     assert body["total"] == 2
     assert len(body["items"]) == 1
     assert body["next_offset"] == 1
-    assert body["items"][0]["action"] in {"safety.permission.grant", "safety.kill_switch.trip"}
+    assert body["items"][0]["action"] in {"INITIALIZED", "KILL_SWITCH_TRIPPED"}
+    assert body["items"][0]["resource_type"] == "live_account_safety_state"
 
     second = client.get("/api/v1/admin/safety/audit?limit=1&offset=1")
     assert second.status_code == 200
@@ -417,9 +427,9 @@ def test_safety_audit_read_is_tenant_scoped_and_paginated(client, db_session):
 
     serialized = first.text + second.text
     assert "other-account-secret" not in serialized
-    assert "must-not-leak" not in serialized
     assert "user.login" not in serialized
-
+    assert "idempotency_key" not in serialized
+    assert "request_fingerprint" not in serialized
 
 def test_safety_audit_read_rejects_invalid_pagination(client, db_session):
     _register_and_login(client, email="operator@example.com")

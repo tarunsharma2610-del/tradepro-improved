@@ -19,7 +19,7 @@ class Execution(BaseModel):
 
     __tablename__ = "executions"
     __table_args__ = (
-        UniqueConstraint("broker_name", "broker_trade_id", name="uq_executions_broker_trade_id"),
+        UniqueConstraint("broker_connection_id", "broker_trade_id", name="uq_executions_connection_trade_id"),
     )
 
     order_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("orders.id", ondelete="CASCADE"), index=True)
@@ -55,6 +55,10 @@ class Execution(BaseModel):
         nullable=True, index=True,
     )
     broker_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    broker_connection_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("broker_connections.id", ondelete="SET NULL", name="fk_executions_broker_connection_id"),
+        nullable=True, index=True,
+    )
     broker_trade_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

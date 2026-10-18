@@ -17,6 +17,7 @@ from app.brokers.upstox.response_parsing import parse_brokerage_details
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
+from app.models.instrument import Instrument
 from app.models.order import Order
 from app.models.portfolio import Portfolio
 from app.repositories.broker_connection_repository import BrokerConnectionRepository
@@ -68,8 +69,16 @@ class LiveChargeEstimateService:
             raise LiveExecutionBlocked("Live order is not owned by this user.")
         if record.side not in {"BUY", "SELL"} or record.side != order.side:
             raise LiveExecutionBlocked("Staged trade side conflicts with its parent order.")
-        if not record.instrument_token or record.quantity <= 0 or Decimal(str(record.price)) <= 0:
-            raise LiveExecutionBlocked("Staged trade lacks valid instrument, quantity, or price data.")
+        instrument = self.db.get(Instrument, order.instrument_id)
+        if (
+            instrument is None
+            or record.instrument_token != instrument.instrument_key
+            or record.quantity <= 0
+            or Decimal(str(record.price)) <= 0
+        ):
+            raise LiveExecutionBlocked("Staged trade lacks valid instrument identity, quantity, or price data.")
+        if order.segment not in {"EQUITY_DELIVERY", "EQUITY_INTRADAY"}:
+            raise LiveExecutionBlocked("Charge estimates currently support verified equity segments only.")
 
         try:
             token = self.credentials.get_access_token(user_id, child.broker_name)

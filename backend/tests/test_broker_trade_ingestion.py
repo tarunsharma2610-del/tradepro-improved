@@ -49,6 +49,7 @@ def trade_context(db_session, make_user):
     db_session.flush()
     broker_order = BrokerOrder(
         order_id=order.id,
+        broker_connection_id=connection.id,
         broker_name="upstox",
         broker_order_id="broker-child-1",
         requested_quantity=5,

@@ -63,6 +63,8 @@ def test_parse_order_details_validates_identity_and_partial_fill_fields():
         ({"status": "success", "data": {"order_id": "child-1", "status": "open", "quantity": 0, "filled_quantity": 0, "average_price": 0}}, "child-1"),
         ({"status": "success", "data": {"order_id": "child-1", "status": "open", "quantity": 1, "filled_quantity": 2, "average_price": 0}}, "child-1"),
         ({"status": "success", "data": {"order_id": "child-1", "status": "open", "quantity": 1, "filled_quantity": 0, "average_price": "NaN"}}, "child-1"),
+        ({"status": "success", "data": {"order_id": "child-1", "status": "open", "quantity": 1, "filled_quantity": 0, "average_price": 12.5}}, "child-1"),
+        ({"status": "success", "data": {"order_id": "child-1", "status": "partially filled", "quantity": 2, "filled_quantity": 1, "average_price": 0}}, "child-1"),
     ],
 )
 def test_parse_order_details_rejects_invalid_identity_or_numbers(payload, expected_id):

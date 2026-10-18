@@ -208,3 +208,19 @@ def test_unknown_circuit_state_fails_closed(safety_context):
 
     assert not decision.allowed
     assert "circuit" in decision.reason.lower()
+
+def test_database_read_failure_fails_closed(safety_context, monkeypatch):
+    db, user, service, _now = safety_context
+
+    def fail_query(*_args, **_kwargs):
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(db, "query", fail_query)
+
+    decision = service.check_allowed(user.id)
+
+    assert not decision.allowed
+    assert "unavailable" in decision.reason.lower()
+    assert decision.kill_switch_tripped
+    assert decision.circuit_state == "UNKNOWN"
+

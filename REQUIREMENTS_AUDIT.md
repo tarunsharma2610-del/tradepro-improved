@@ -216,3 +216,6 @@ Final verification note: code/test target `a68c336e4a35ccc0bfe4d6539760ad03e4067
 | Current-head backend/migration verification | Blocked/pending | Code/test target `b780c39f770a6839dab0af63fc424c341eff9d70`; no Actions run returned for this branch/head. | Manually dispatch `.github/workflows/backend-tests.yml` on the safety branch and record actual results. |
 
 No live-order, execution-ledger, position, cash, order-status or P&L behavior was added by this continuation. The live-trading release gate remains closed.
+
+
+Additional regression: commit `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` adds coverage that legacy broker child orders left without a determinable connection are rejected by ingestion. This test has been added but not executed on current-head CI.

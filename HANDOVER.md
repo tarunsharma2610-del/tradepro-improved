@@ -425,3 +425,10 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Read current `PROJECT_INSTRUCTIONS.md`, `MASTER_ROADMAP.md`, `PROGRESS.md`, `AUDIT_REPORT.md` before the next edit. Do not recreate the safety models, preflight coordinator, risk gate or reconciliation coordinator.
 - First action: verify GitHub Actions for this exact head. Required evidence: pytest passes, SQLite Alembic upgrade passes, PostgreSQL 16 Alembic upgrade passes, existing PostgreSQL integration job passes. If failure, use job logs and fix only evidenced problems. No local run or CI success is claimed yet.
 - Next after green: PostgreSQL concurrency tests for idempotency and reset serialization, then read-only composition with existing preflight. Keep service unregistered from order submission, PR #1 draft/unmerged, live trading disabled, original `Tradepro` untouched.
+
+
+### Superseding latest code checkpoint
+
+- Latest code/test SHA: `c97be866828bd47a23f22fc44fac2d3359e70f35` (supersedes `57939799b7e8b436d5095924b86a89ce380a956e`).
+- Reset test now verifies the error-counter gate only after a fresh passing health check, then requires broker success plus another fresh passing health check before reset.
+- GitHub status and workflow queries for this exact SHA returned no results. First action remains obtaining backend Actions evidence; do not assume tests or migrations passed. Keep live order submission disabled and PR #1 draft/unmerged.

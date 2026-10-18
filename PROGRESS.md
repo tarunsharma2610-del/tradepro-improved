@@ -425,3 +425,13 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Regression tests prove missing state, a tripped latch, and an unexpected safety-check exception all block before any read-only broker call. Existing successful preflight tests explicitly establish a passing health check and manual reset in the test fixture.
 - This is read-only preflight composition only. LivePreflightCoordinator remains unregistered from order routes/workers, no broker order-write method is called, live trading remains disabled, PR #1 stays draft/open/unmerged, and the original Tradepro repository remains untouched.
 - **Next task:** audit authentication/authorization and operator audit visibility for any future safety-control endpoint. Do not create or wire a control route until that review is complete; keep live order submission disabled.
+
+
+## Security-control endpoint audit checkpoint — 18 October 2026
+
+- Added [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT.md) in commit [10d87d9d9010b2c48ebcf25c832a2ea574100889](https://github.com/tarunsharma2610-del/tradepro-improved/commit/10d87d9d9010b2c48ebcf25c832a2ea574100889).
+- Static review covered auth dependencies/JWT, MFA routes, admin guard, route registration, audit-log helper/model, safety-event service, manual order route, strategy evaluate route and worker entry points.
+- Positive controls: authenticated user dependency, server-side admin guard, tenant ownership checks in reviewed routes, MFA capability, audit persistence helper, and fail-closed preflight service.
+- Open gaps: no operator audit-read endpoint; no separate safety permissions; no step-up auth for reset; audit transaction/immutability and metadata policy need design; cookie-CSRF and malformed JWT subject handling need hardening; safety-control HTTP tests do not exist yet.
+- No API endpoint or live-order integration was added. This is a design-gate audit, not a penetration test. Keep PR #1 draft and live order submission disabled.
+- **Next:** approve permission model, atomic state+event persistence, event schema/redaction and operator audit read scopes; then map every broker-write/retry entry point before endpoint design or wiring.

@@ -593,3 +593,31 @@ def test_reset_step_up_token_cannot_authorize_permission_management(client, db_s
     with pytest.raises(HTTPException) as exc:
         dependency(step_up_token=token, user=user)
     assert exc.value.status_code == 403
+
+
+def test_permission_management_route_rejects_reset_scope_token(client, db_session):
+    _register_and_login(client, email="admin@example.com")
+    from app.repositories.user_repository import UserRepository
+    users = UserRepository(db_session)
+    admin = users.get_by_email("admin@example.com")
+    admin.is_admin = True
+    admin.mfa_enabled = True
+    target = users.create(
+        email="target@example.com",
+        password_hash=hash_password("correct-horse-battery-staple"),
+        full_name="Target",
+    )
+    db_session.commit()
+    token = create_token(admin.id, "step_up", extra_claims={
+        "scope": "safety.reset",
+        "amr": ["pwd", "totp"],
+        "mfa_verified_at": int(datetime.now(timezone.utc).timestamp()),
+    })
+    response = client.put(
+        f"/api/v1/admin/users/{target.id}/safety-permissions",
+        json={"permission": "safety.audit.read", "action": "grant"},
+        headers={"Origin": settings.CORS_ORIGINS[0], "X-Safety-Step-Up": token},
+    )
+    assert response.status_code == 403
+    db_session.refresh(target)
+    assert target.safety_permissions == []

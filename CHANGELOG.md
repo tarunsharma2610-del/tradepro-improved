@@ -154,3 +154,11 @@
 - Added input validation and normalization for batches up to 20 instruments, unique keys, quantity, transaction type, product, and optional price; invalid input is rejected before network calls.
 - CI regression was investigated from logs: fixed missing decimal imports and moved `_to_result` back to the adapter class after finding it nested under a module-level validator. Latest CI on `e6abb6704b67c54f35bb5d7c2c41acd96846147d`: **238 backend tests passed, 1 warning**, migration passed, frontend checks passed.
 - Response is still raw broker data; no order-approval/risk gate uses it. Next task is official response-schema audit and typed parsing if needed.
+
+
+### 18 October 2026 — typed Upstox Margin Details response parser
+
+- Added pure parse_margin_details and immutable typed MarginEstimate / MarginBreakdown results for the documented margin API response.
+- Validates required aggregate and per-row fields, non-empty margin rows, finite non-negative numeric amounts, and successful response envelopes.
+- Added tests for a documented response shape and malformed/error cases. This remains a read-only parser; no risk gate or order approval uses it.
+- Commits: parser 3c4dd6ac0d7d88a18916c241d28a224fc5031d5d; tests 6995f64429b44134edfa5985ad4f50c3b54cfcab. CI status must be checked before claiming verification.

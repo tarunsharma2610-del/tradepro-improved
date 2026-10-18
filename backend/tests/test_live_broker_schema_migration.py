@@ -287,12 +287,10 @@ def test_connection_scope_migration_backfills_existing_broker_links(tmp_path):
             },
         )
 
-    # An owner can have more than one Upstox connection. Legacy rows do not
-    # contain enough information to select one safely, so the migration must
-    # leave that mapping NULL rather than choosing an arbitrary connection.
-    ambiguous_user_id, connection_a_id, connection_b_id, ambiguous_portfolio_id, ambiguous_order_id = (
-        _id(), _id(), _id(), _id(), _id()
-    )
+    # A legacy row can also outlive or lack its owner's broker connection.
+    # With no matching connection, the migration must preserve the unresolved
+    # binding as NULL rather than attaching it to another account.
+    ambiguous_user_id, ambiguous_portfolio_id, ambiguous_order_id = _id(), _id(), _id()
     ambiguous_broker_order_id, ambiguous_execution_id = _id(), _id()
     with engine.begin() as connection:
         connection.execute(
@@ -304,22 +302,6 @@ def test_connection_scope_migration_backfills_existing_broker_links(tmp_path):
                 "name": "Ambiguous Scope",
             },
         )
-        for connection_id, suffix in [
-            (connection_a_id, "a"),
-            (connection_b_id, "b"),
-        ]:
-            connection.execute(
-                text(
-                    "INSERT INTO broker_connections "
-                    "(id, user_id, broker, api_key_encrypted, api_secret_encrypted, redirect_uri) "
-                    "VALUES (:id, :user_id, 'upstox', :api_key, 'encrypted-secret', 'https://example.invalid/callback')"
-                ),
-                {
-                    "id": connection_id,
-                    "user_id": ambiguous_user_id,
-                    "api_key": f"encrypted-key-{suffix}",
-                },
-            )
         connection.execute(
             text(
                 "INSERT INTO portfolios (id, user_id, name, virtual_capital, cash_balance) "

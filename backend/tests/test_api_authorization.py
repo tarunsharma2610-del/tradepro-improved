@@ -1,7 +1,7 @@
-"""
-HTTP authorization regression tests plus focused tests for the safety
-permission and cookie-Origin dependencies. Safety-control routes are not
-registered by this foundation change.
+"""HTTP authorization regression tests for safety permissions, MFA and Origin controls.
+
+The admin permission-provisioning route is covered here. Safety status, audit,
+kill-switch and reset routes are not yet registered.
 """
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace

@@ -465,3 +465,8 @@ No code paths were wired or enabled by this design checkpoint. This is not a pen
 ### Source-call guardrail status — 18 October 2026
 
 A static source guard now scans production app Python sources for references to adapter `place_order`, `modify_order`, and `cancel_order`, with only the exact future central service path allowlisted (commit `04583cd35ecf5360624bc0164c7b91231a058e5e`). Its unit tests and CI run #614 are pending verification: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569. This is a preventive CI guard, not proof against dynamic dispatch/reflection and not a substitute for a complete call-path audit.
+
+
+### Verified broker-write guard — 18 October 2026
+
+The AST-based source guard passed CI run #617 on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574` (402 passed, 4 skipped, 1 warning; SQLite/PostgreSQL migrations passed; four PostgreSQL concurrency tests passed): https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. This reduces accidental direct adapter-write regressions but does not establish end-to-end enforcement or protect against dynamic dispatch. All earlier security/control design gaps remain open until implemented and tested.

@@ -277,6 +277,10 @@ def parse_order_details(payload: Any, expected_order_id: str) -> BrokerOrderDeta
     if filled_quantity > quantity:
         raise ValueError("data.filled_quantity cannot exceed data.quantity.")
     average_price = _decimal(data.get("average_price"), "data.average_price", allow_zero=True)
+    if filled_quantity == 0 and average_price != 0:
+        raise ValueError("data.average_price must be zero when data.filled_quantity is zero.")
+    if filled_quantity > 0 and average_price <= 0:
+        raise ValueError("data.average_price must be positive when data.filled_quantity is positive.")
 
     return BrokerOrderDetails(
         order_id=order_id,

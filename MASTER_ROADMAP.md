@@ -308,3 +308,8 @@ Keep PR #1 draft/open, `TRADING_MODE=PAPER`, `LIVE_ORDER_SUBMISSION_ENABLED=fals
 ### Broker-write source guard added — 18 October 2026
 
 The CI source-call guard and scanner tests were added in commit `04583cd35ecf5360624bc0164c7b91231a058e5e`. Workflow run #614 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569. It rejects production references to adapter place/modify/cancel methods outside the future `app/services/live_broker_write_service.py` and the adapter definitions. This does not establish that the central service exists or that live submission is safe. Await CI result before proceeding; then implement storage/event transaction protections and authorization foundations.
+
+
+### Guard correction — 18 October 2026
+
+The first guard workflow run (#614) failed before tests because the scanner incorrectly treated paper `ExecutionService.place_order` as a broker adapter write. The scanner was narrowed to adapter-named receivers in commit `30599b1bd8d32293b856c88cdfb4e2facaa9ce0f`. New run #615 is pending at https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123199888. Do not mark the guard complete until this run passes.

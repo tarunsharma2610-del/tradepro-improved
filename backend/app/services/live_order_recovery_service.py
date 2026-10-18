@@ -101,6 +101,7 @@ class LiveOrderRecoveryService:
 
         order = Order(
             portfolio_id=portfolio.id,
+            broker_connection_id=plan.broker_connection_id,
             instrument_id=plan.instrument_id,
             side=plan.side,
             order_type=plan.order_type,
@@ -201,6 +202,7 @@ class LiveOrderRecoveryService:
 
         order = Order(
             portfolio_id=portfolio.id,
+            broker_connection_id=plan.broker_connection_id,
             instrument_id=plan.instrument_id,
             side=plan.side,
             order_type=plan.order_type,
@@ -321,6 +323,27 @@ class LiveOrderRecoveryService:
         if order.status not in {"PENDING_SUBMISSION", "SUBMISSION_CLAIMED", "SUBMISSION_UNKNOWN"}:
             raise LiveExecutionBlocked("Order is not in a submission-recovery eligible state.")
 
+        # The exact account used at intent creation is part of order identity.
+        # Never recover a legacy/unbound intent against whichever account happens
+        # to be connected now: that could bind an unrelated broker order.
+        if order.broker_connection_id is None:
+            return LiveOrderRecoveryResult(
+                state="UNKNOWN_REQUIRES_REVIEW",
+                order_id=order.id,
+                detail="Original broker connection is not recorded; reconcile the account manually and do not resubmit.",
+            )
+        connection = self.connections.get_for_user(user_id, self.BROKER_NAME)
+        if (
+            connection is None
+            or not connection.is_connected
+            or connection.id != order.broker_connection_id
+        ):
+            return LiveOrderRecoveryResult(
+                state="UNKNOWN_REQUIRES_REVIEW",
+                order_id=order.id,
+                detail="Original broker connection is unavailable or changed; do not bind IDs or resubmit.",
+            )
+
         existing_children = (
             self.db.query(BrokerOrder)
             .filter(BrokerOrder.order_id == order.id)
@@ -328,25 +351,28 @@ class LiveOrderRecoveryService:
             .all()
         )
         if existing_children:
+            if any(
+                row.broker_connection_id != order.broker_connection_id
+                or row.broker_tag != order.broker_tag
+                or row.broker_name != self.BROKER_NAME
+                for row in existing_children
+            ):
+                return LiveOrderRecoveryResult(
+                    state="MISMATCH_REQUIRES_REVIEW",
+                    order_id=order.id,
+                    detail="Existing broker-order mapping does not match the intent's bound connection/tag.",
+                )
             return LiveOrderRecoveryResult(
                 state="RECOVERED",
                 order_id=order.id,
                 broker_order_ids=tuple(row.broker_order_id for row in existing_children),
-                detail="Existing durable broker-order mapping reused; no broker call made.",
+                detail="Existing durable broker-order mapping reused for the original connection; no broker call made.",
             )
 
         portfolio = self.db.get(Portfolio, order.portfolio_id)
         instrument = self.db.get(Instrument, order.instrument_id)
         if portfolio is None or instrument is None or portfolio.user_id != user_id:
             raise LiveExecutionBlocked("Order ownership or instrument could not be verified.")
-
-        connection = self.connections.get_for_user(user_id, self.BROKER_NAME)
-        if connection is None or not connection.is_connected:
-            return LiveOrderRecoveryResult(
-                state="UNKNOWN_REQUIRES_REVIEW",
-                order_id=order.id,
-                detail="No verified Upstox connection; do not resubmit this intent.",
-            )
         try:
             token = self.credentials.get_access_token(user_id, self.BROKER_NAME)
         except Exception:

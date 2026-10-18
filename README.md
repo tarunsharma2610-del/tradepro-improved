@@ -42,3 +42,8 @@ See [AUDIT_REPORT.md](./AUDIT_REPORT.md) for findings, verification links and re
 
 
 - Live execution design and prerequisites: [`LIVE_ORDER_STATE_MACHINE.md`](LIVE_ORDER_STATE_MACHINE.md). Additive broker child-order/trade-ID schema exists, but is not wired into execution; this is not an enabled live-order feature.
+
+
+## Development status and roadmap
+
+See [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md) for the current implementation sequence, verification gate, safety constraints and release blockers. Live trading is not ready and remains disabled.

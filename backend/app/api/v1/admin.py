@@ -10,7 +10,7 @@ user's identity.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -27,7 +27,7 @@ from app.models.news_item import NewsItem
 from app.models.portfolio import Portfolio
 from app.models.strategy import Strategy
 from app.models.user import User
-from app.schemas.admin import PlatformStatsOut, SafetyPermissionChange, SafetyPermissionChangeOut
+from app.schemas.admin import (\n    PlatformStatsOut,\n    SafetyAuditEntry,\n    SafetyAuditPage,\n    SafetyPermissionChange,\n    SafetyPermissionChangeOut,\n)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -94,4 +94,48 @@ def change_safety_permission(
     return SafetyPermissionChangeOut(
         user_id=target.id,
         safety_permissions=target.safety_permissions or [],
+    )
+
+
+
+@router.get("/safety/audit", response_model=SafetyAuditPage)
+def read_own_safety_audit(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=100000),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_safety_permission("safety.audit.read")),
+):
+    """Return only safety audit events attributed to the authenticated user.
+
+    No user ID is accepted from the caller. Filtering happens in SQL before
+    pagination, so a permission grant cannot be used to enumerate another
+    tenant's audit trail.
+    """
+    scoped = db.query(AuditLog).filter(
+        AuditLog.user_id == user.id,
+        AuditLog.action.like("safety.%"),
+    )
+    total = scoped.count()
+    rows = (
+        scoped.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return SafetyAuditPage(
+        items=[
+            SafetyAuditEntry(
+                id=row.id,
+                created_at=row.created_at,
+                action=row.action,
+                resource_type=row.resource_type,
+                resource_id=row.resource_id,
+                event_metadata=row.event_metadata or {},
+            )
+            for row in rows
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+        next_offset=(offset + len(rows)) if offset + len(rows) < total else None,
     )

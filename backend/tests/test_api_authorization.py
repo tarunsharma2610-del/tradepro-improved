@@ -1,8 +1,4 @@
-"""HTTP authorization regression tests for safety permissions, MFA and Origin controls.
-
-The admin permission-provisioning route is covered here. Safety status, audit,
-kill-switch and reset routes are not yet registered.
-"""
+"""HTTP authorization regression tests for safety permissions, MFA, Origin and control routes."""
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 

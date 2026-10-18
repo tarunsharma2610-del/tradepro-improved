@@ -509,3 +509,13 @@ Run #39124312326 failed with 405 passed / 1 failed / 5 skipped because the test 
 - AST broker-write guard passed. Backend suite: **406 passed, 5 skipped, 1 warning in 29.76s**. SQLite Alembic upgrade passed. PostgreSQL 16 Alembic upgrade passed. PostgreSQL charge-adjustment/account-safety integration: **5 passed in 0.69s**, including direct audit UPDATE/DELETE rejection.
 - The stale-version test now captures the version integer before mutating the ORM row; exact-head verification is green. Subsequent documentation commits do not change the verified code/test/workflow files.
 - Storage hardening checkpoint verified. Authorization/MFA/CSRF, central writer, safety-control API and route/worker/recovery composition remain pending. Phase 2 remains incomplete; live submission remains disabled.
+
+
+## Authorization foundation checkpoint — 18 October 2026
+
+- Added explicit User.safety_permissions grants with an empty default and migration 202610180012 chained after safety-event immutability revision 202610180011. Allowlisted permissions: safety.status.read, safety.audit.read, safety.kill_switch.trip, safety.reset. is_admin grants none of them.
+- Added require_safety_permission() (default deny), normalized malformed signed JWT subject UUIDs to HTTP 401, and added require_same_origin_for_cookie_mutation() for future cookie-authenticated POST/PUT/PATCH/DELETE routes.
+- Added regression tests for admin-without-permission denial, explicit permission acceptance, unknown permission rejection, malformed JWT subject handling, and allowed/missing/untrusted Origin behavior.
+- Commits created by the GitHub API: c20aa41 (auth dependency), 87d151f (user model), a52d1ea / 1344ee6 (permission migration; portable SQLite/PostgreSQL version), 7ad2502 (tests), and c10a8e6 / 504c105 (Origin guard and tests). These commits have not yet been verified by CI.
+- Important incomplete controls: recent-MFA step-up is not implemented; Origin guard is reusable but not attached to any safety route; permission-grant administration/bootstrapping is not implemented; safety status/audit/trip/reset routes remain unregistered. No live-order path was wired.
+- Next: implement a dedicated recent-MFA step-up challenge and dependency with HTTP tests; then enforce tenant/account scope in safety route design and attach CSRF/Origin + permission dependencies before adding any safety-control endpoint. Keep live trading disabled and PR #1 draft/unmerged.

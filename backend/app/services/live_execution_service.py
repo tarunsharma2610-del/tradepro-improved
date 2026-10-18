@@ -99,7 +99,7 @@ class LiveExecutionService:
         if self.risk_gate is None:
             raise LiveExecutionBlocked("No reviewed account-wide live risk gate is configured.")
 
-        self._validate_intent(intent)
+        normalized_limit_price = self._validate_intent(intent)
 
         portfolio = (
             self.db.query(Portfolio)
@@ -163,19 +163,19 @@ class LiveExecutionService:
             order_type=intent.order_type,
             segment=intent.segment,
             quantity=intent.quantity,
-            limit_price=intent.limit_price,
+            limit_price=normalized_limit_price,
         )
 
     @staticmethod
-    def _validate_intent(intent: LiveOrderIntent) -> None:
+    def _validate_intent(intent: LiveOrderIntent) -> Decimal | None:
         if not isinstance(intent.side, str) or intent.side not in {"BUY", "SELL"}:
             raise LiveExecutionBlocked("Side must be BUY or SELL.")
         if not isinstance(intent.order_type, str) or intent.order_type not in {"MARKET", "LIMIT"}:
             raise LiveExecutionBlocked("Order type must be MARKET or LIMIT.")
         if type(intent.quantity) is not int or intent.quantity <= 0:
             raise LiveExecutionBlocked("Quantity must be a positive integer.")
-        if not isinstance(intent.segment, str) or not intent.segment:
-            raise LiveExecutionBlocked("A supported order segment is required.")
+        if intent.segment not in {"EQUITY_DELIVERY", "EQUITY_INTRADAY"}:
+            raise LiveExecutionBlocked("Only verified equity delivery/intraday segments are supported.")
         if intent.order_type == "LIMIT":
             if intent.limit_price is None:
                 raise LiveExecutionBlocked("LIMIT orders require a positive limit price.")
@@ -189,3 +189,4 @@ class LiveExecutionService:
             raise LiveExecutionBlocked("MARKET orders must not include a limit price.")
         if intent.execution_reason not in {"MANUAL", "STRATEGY"}:
             raise LiveExecutionBlocked("Unsupported execution reason.")
+        return limit_price if intent.order_type == "LIMIT" else None

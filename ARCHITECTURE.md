@@ -424,3 +424,8 @@ Commit `1a3475c69d3a93ece7bfad22ace4dce52231bfa1` adds test coverage around the 
 The existing `LiveAccountSafetyState` and `LiveAccountSafetyEvent` models now have a service implementation in `app/services/live_account_safety_service.py`. State is keyed by (user, broker), so all portfolios for that broker account share one safety latch. `check_allowed` is read-only and fails closed for missing state, a tripped kill switch, an open/unknown circuit, nonzero consecutive-error count, missing/stale health check, or a database exception. Mutation events are append-only and idempotency-keyed.
 
 Broker-error threshold trips the circuit and kill switch. A broker success resets the consecutive error count but does not automatically close an open circuit. Manual reset requires a recent passing health event, cleared error count, explicit actor and reason. Alembic revision `202610180009` adds persistence. This service is deliberately not registered in order submission; integration is a later, separately reviewed step. CI for head `57939799b7e8b436d5095924b86a89ce380a956e` remains unverified.
+
+
+### Latest safety reset test checkpoint
+
+The reset-gate regression was refined in code/test commit `c97be866828bd47a23f22fc44fac2d3359e70f35`: a fresh passing health check is recorded before testing the nonzero-error-counter denial, then a broker success and another fresh passing health check precede manual reset. Exact-head CI remains unverified; the service is still not wired into live order submission.

@@ -304,6 +304,9 @@ class FixedIntegrationChargeEstimator:
 @pytest.mark.asyncio
 async def test_real_services_reconcile_ingest_promote_and_replay_idempotently(order_context, monkeypatch):
     db, user, portfolio, instrument, order, children, records, now = order_context
+    # Start without staged rows so the real intake service must insert them.
+    db.query(BrokerTradeRecord).delete(synchronize_session=False)
+    db.commit()
     adapter = ReadOnlyUpstoxIntegrationAdapter(instrument.instrument_key)
     monkeypatch.setattr(BrokerCredentialsService, "get_access_token", lambda *_args: "test-access-token")
     promotion = LiveFillPromotionService(
@@ -343,6 +346,9 @@ async def test_real_services_reconcile_ingest_promote_and_replay_idempotently(or
 @pytest.mark.asyncio
 async def test_real_services_block_all_promotion_if_any_sibling_status_fails(order_context, monkeypatch):
     db, user, portfolio, _instrument, order, children, records, now = order_context
+    # Force the real intake service to stage broker rows before status fails.
+    db.query(BrokerTradeRecord).delete(synchronize_session=False)
+    db.commit()
     adapter = ReadOnlyUpstoxIntegrationAdapter(
         records[0].instrument_token, failing_status_order_id="child-2"
     )

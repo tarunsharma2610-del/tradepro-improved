@@ -249,3 +249,8 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - **No claim of test or migration success yet:** GitHub status/workflow query for latest head `57939799b7e8b436d5095924b86a89ce380a956e` returned no status checks/runs. The backend workflow is configured for pushes to `safety/**`; re-check exact-head Actions results and fix only evidenced failures.
 - Service remains intentionally unregistered from order submission. Missing/stale state blocks; new state starts kill-switch tripped; broker successes never auto-close an open circuit; manual reset requires a fresh passing health event, zero consecutive errors and an actor.
 - Next: verify pytest plus SQLite/PostgreSQL Alembic upgrade on exact head; then test PostgreSQL concurrency/idempotency for safety-state transitions. Only after review consider a read-only integration into preflight. Never enable order submission, merge PR #1, or modify original `Tradepro`.
+
+
+### Superseding code-test checkpoint — c97be866828bd47a23f22fc44fac2d3359e70f35
+
+The reset-gate test was corrected in commit `c97be866828bd47a23f22fc44fac2d3359e70f35` so it first records a passing health check while the error counter remains nonzero, then verifies reset is denied for that specific reason. After broker success clears the counter, the test records a new passing health check before successful manual reset. This supersedes the earlier test SHA `57939799b7e8b436d5095924b86a89ce380a956e`. GitHub still returns no status checks or workflow runs for this exact commit; do not claim verification. The next action is to obtain a real backend workflow result for this code SHA.

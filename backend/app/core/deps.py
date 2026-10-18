@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from datetime import datetime, timezone
 from uuid import UUID
 from urllib.parse import urlsplit
 
@@ -97,6 +98,36 @@ def require_safety_permission(permission: str) -> Callable:
         return user
 
     return _require_permission
+
+
+def require_recent_safety_mfa(
+    step_up_token: str | None = Header(default=None, alias="X-Safety-Step-Up"),
+    user: User = Depends(get_current_user),
+) -> User:
+    """Require a short-lived, user-bound token issued after password + TOTP."""
+    if not step_up_token:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
+    payload = decode_token(step_up_token)
+    if not payload or payload.get("type") != "step_up" or payload.get("scope") != "safety.reset":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
+    try:
+        subject = UUID(payload.get("sub", ""))
+        verified_at = int(payload.get("mfa_verified_at", 0))
+        issued_at = int(payload.get("iat", 0))
+    except (TypeError, ValueError, AttributeError, OverflowError):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required") from None
+    now = int(datetime.now(timezone.utc).timestamp())
+    if (
+        subject != user.id
+        or "totp" not in (payload.get("amr") or [])
+        or verified_at <= 0
+        or issued_at <= 0
+        or verified_at > now
+        or now - verified_at > 300
+        or abs(now - issued_at) > 300
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
+    return user
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:

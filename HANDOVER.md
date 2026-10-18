@@ -408,3 +408,11 @@ Use latest test commit `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` (supersedes `b
 Implement and test the **persisted account-level live kill switch and broker-error circuit breaker**: durable state, fail-closed read behavior, reason/timestamp/audit trail, threshold-triggered circuit trips, manual-reset policy and account-wide scope across portfolios. Keep it unregistered from order submission until separately reviewed; do not merge PR #1 or enable live trading.
 
 This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` was pending. The latest verified test SHA is `c779f2543ea1f20efbd8b7dca38a9c2aed201749`.
+
+
+## Handover — latest Phase 2 checkpoint
+
+- Latest test commit: `1a3475c69d3a93ece7bfad22ace4dce52231bfa1`.
+- Added an integration scenario for partial fill promotion followed by retry after a one-time charge-estimation failure. It composes the real child reconciler, trade ingestion, coordinator, promotion and accounting services; only read-only broker responses and the test estimator are mocked.
+- First action in the next continuation: check CI for this exact SHA. Fix only failures supported by test/log evidence; do not assume green. If green, assess PostgreSQL-backed integration coverage and update this checkpoint with actual evidence.
+- Existing `LivePreflightCoordinator` and `AccountWideLiveRiskGate` already exist—do not recreate them. Keep PR #1 unmerged, live trading disabled, and original `Tradepro` untouched.

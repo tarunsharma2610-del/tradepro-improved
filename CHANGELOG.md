@@ -178,3 +178,11 @@
 - Investigated workflow run `39028914012` (`Backend pytest`): it ran against the earlier PR merge checkout `d04dfa5` and reported `177 passed, 3 errors`; all three errors were fixture setup failures (`portfolio` not found) in that checkout. The current branch version of `backend/tests/test_broker_reconciliation.py` defines the fixture, but this alone is not proof the current branch passes.
 - The GitHub integration's commit-SHA workflow lookup and combined-status lookup returned no results for the current branch head. The old failed run is not a valid test of current head `2625191740554efe5a41f99eff15306ebd68ec5c`; current CI remains unverified.
 - Next: inspect the latest PR run in GitHub Actions (PR workflows check out the generated merge ref), confirm backend tests, migration and frontend results, and fix only current-head failures. Do not claim green CI or enable live trading.
+
+
+### 18 October 2026 — authoritative continuation checkpoint
+
+- Reconciled the next task with the actual current branch artifacts: trade parser and `BrokerTrade` type, broker child-order schema, nullable broker references on executions, and uniqueness by `(broker_name, broker_trade_id)` already exist.
+- The remaining concrete gap is transactional broker-confirmed trade ingestion, correct local parent/child order mapping, and tested idempotent persistence. First audit account/connection scoping; the existing uniqueness key does not itself include a broker connection/account ID.
+- Latest PR head observed: `540e1285d3de934b43829948a1b60c67658d1343`. The integration returned no workflow runs or combined statuses for this SHA; current-head CI remains unverified. Do not present older green runs as current verification.
+- No live order submission or accounting wiring is authorized by this checkpoint. Preserve paper/live isolation and do not merge the draft PR.

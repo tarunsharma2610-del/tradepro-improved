@@ -289,3 +289,15 @@ A further audit found that migration `202610180006` used an arbitrary `LIMIT 1` 
 - Latest code/test target: `669a3fb98cd47dccea7e75a1301c74c01c4a3ce3`.
 - Verification: still pending. Current-head Actions query returns no run/status; do not claim tests or migrations pass until the configured workflow runs against this target.
 - Next action remains the backend pytest + SQLite Alembic workflow gate. No live service wiring, production migration, PR merge, or live order is authorized by this checkpoint.
+
+
+## Verified CI checkpoint — 18 October 2026
+
+GitHub Actions run [#39109239829](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39109239829) completed successfully on commit `8a256828d202e25e3fba77b496f0da01899969b9` (safety branch). Evidence from the job log:
+
+- Backend pytest: **266 passed, 1 warning, in 16.08s**.
+- SQLite migration check: **`alembic upgrade head` succeeded**, including revisions `202610180005` and `202610180006`.
+- Warning: Starlette test-client deprecation for `anyio.abc.BlockingPortal`; no test failure.
+- Workflow job and overall run conclusion: **success**.
+
+This verifies the code present at that SHA in CI. It does not validate PostgreSQL migration behavior, live broker connectivity, real order submission, live accounting, frontend build, or production deployment. Keep those as separate gates.

@@ -186,3 +186,13 @@
 - The remaining concrete gap is transactional broker-confirmed trade ingestion, correct local parent/child order mapping, and tested idempotent persistence. First audit account/connection scoping; the existing uniqueness key does not itself include a broker connection/account ID.
 - Latest PR head observed: `540e1285d3de934b43829948a1b60c67658d1343`. The integration returned no workflow runs or combined statuses for this SHA; current-head CI remains unverified. Do not present older green runs as current verification.
 - No live order submission or accounting wiring is authorized by this checkpoint. Preserve paper/live isolation and do not merge the draft PR.
+
+
+### 18 October 2026 — idempotent broker trade intake foundation
+
+- Added a separate `broker_trade_records` staging table and `BrokerTradeIngestionService` to persist normalized broker trades once per broker connection, while rejecting conflicting trade-ID reuse.
+- Added validation for LIVE-only order scope, owner isolation, child-order mapping and connection binding, side, positive quantity/price, instrument token, and order-quantity bounds.
+- Added migrations 005/006 and changed broker child-order/execution identity constraints from global broker-name keys to connection-scoped keys; legacy links are backfilled only when the owning connection is identifiable.
+- Added/updated regression tests for idempotent replay, conflicting replay, cross-user isolation, malformed trades, paper accounting isolation, and migration compatibility.
+- Safety boundary: these rows are intake records, not accounted executions. The service does not mutate cash, positions, order status or P&L and is not wired to a live execution path.
+- Current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3`; current-head CI/status not returned and local clone failed because GitHub DNS was unavailable. Verification remains pending.

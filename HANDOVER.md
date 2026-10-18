@@ -16,12 +16,11 @@
 - The audit reports CI results of 167 backend tests passing and a successful frontend typecheck/build. These are historical CI results, not a fresh run during this continuation.
 
 ## Priority order
-1. **Current next task:** design an async preflight orchestration boundary for the read-only Upstox snapshot collector and account-wide risk gate.
-2. Ensure environment mode, default-off interlock, explicit confirmation, portfolio ownership, instrument validation and usable credentials are checked before any snapshot network calls; prove this ordering with mocks.
-3. Keep the orchestrator unregistered from any API route/worker. Keep `LIVE_ORDER_SUBMISSION_ENABLED=false`, `TRADING_MODE=PAPER`, and the existing `ExecutionService` PAPER-only.
-4. After orchestration tests, continue broker-confirmed status/fill/cancel reconciliation, partial-fill accounting, connection-scoped trade deduplication and operational recovery.
-5. Run backend tests, SQLite/PostgreSQL migration checks where available, frontend typecheck/build and staging checks; report exact evidence.
-6. Update progress, roadmap, audit, requirements, architecture, state-machine, changelog and handover after each coherent task. Do not merge PR #1 without explicit authorization.
+1. **Current next task:** audit/harden the async preflight coordinator's connection/token consistency and concurrency.
+2. Test expired/replaced credentials, wrong-user portfolio access, missing broker connection and stale/failing snapshots. Confirm all local safety gates run before broker snapshot calls.
+3. Keep the coordinator unregistered from API routes/workers. Keep `LIVE_ORDER_SUBMISSION_ENABLED=false`, `TRADING_MODE=PAPER`, and the existing `ExecutionService` PAPER-only.
+4. Then continue broker-confirmed status/fill/cancel reconciliation, partial-fill accounting and transactional connection-scoped trade-ID deduplication.
+5. Run backend tests, SQLite/PostgreSQL migration checks where available, frontend typecheck/build and staging checks. Update project records after each coherent task; do not merge PR #1 without explicit authorization.
 
 ## Additional risk guard — safety branch
 - `PORTFOLIO_DAILY_LOSS_LIMIT_PCT` defaults to 2.0. Once today's realized losses across all fills in a portfolio reach that percentage of starting virtual capital, the existing strategy risk engine blocks new automated entries for that portfolio.
@@ -360,18 +359,16 @@ PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live t
 ## Authoritative checkpoint — 18 October 2026: read-only snapshots composed into preflight
 
 ### Verified code and tests
-- Latest verified code/test SHA: `f08747bc92c9ce3cfc653f09bfac6f7fd129a812`. GitHub Actions [run #39111966952](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111966952) succeeded: **319 passed, 1 warning in 18.04s**; SQLite Alembic migration verification passed. An earlier run exposed a stale-quote assertion mismatch; the assertion was corrected to check the actual fail-closed reason and the latest run passed.
-- Added strict Upstox parsers and read-only adapter support for timestamped full quotes, positions, funds, margin estimates, official holidays/special sessions and NSE market timings.
-- Added `UpstoxLiveRiskSnapshotService`, which collects validated quotes for the requested instrument, open broker positions and unresolved live-order instruments, plus positions/funds/margin/calendar snapshots. It contains no order-placement call and enforces the 500-instrument quote cap.
-- Added `LivePreflightCoordinator` to compose credential validation, read-only snapshot collection, the account-wide risk gate and existing `LiveExecutionService.preflight`. Mocked tests cover success, provider failure, stale quote and the disabled submission interlock. The coordinator remains unregistered; no route/worker calls it.
-
-### Remaining caveats
-- CI uses mocked broker responses. Official Upstox response schemas, API availability and market-calendar behavior are not verified against a live account or staging.
-- The coordinator currently obtains a token for snapshot collection and the existing preflight independently validates credentials again; before any future submission integration, token/connection consistency across the entire preflight must be made atomic or explicitly checked.
-- The async coordinator and synchronous gate are not wired into API/worker execution. No broker order is submitted or persisted. Full live order status/fill/cancel reconciliation, connection-scoped fill idempotency and live accounting remain incomplete. PostgreSQL migration, exact-head frontend build and staging remain unverified.
+- Latest verified code/test SHA: `85aba3e54dde698a1266db5313d774317a814194`. GitHub Actions [run #39112112534](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112112534) succeeded: **323 passed, 1 warning in 24.71s**; SQLite Alembic migration verification passed.
+- Added strict Upstox parsers and read-only adapter support for exchange-timestamped full quotes, broker positions, funds, margin estimates, official holidays/special sessions and NSE market timings.
+- Added `UpstoxLiveRiskSnapshotService` to collect validated snapshots for the requested instrument, open broker positions and unresolved live-order instruments, with a 500-instrument quote cap.
+- Added `LivePreflightCoordinator` to compose environment interlocks, explicit confirmation, portfolio/instrument/credential validation, read-only snapshots, the account-wide risk gate and the existing preflight plan.
+- Follow-up regression coverage confirms malformed side/quantity/segment and disabled strategy entries are rejected **before any broker snapshot calls**. Stale quotes and provider failures fail closed.
+- The coordinator remains unregistered from routes/workers. It has no order-placement call, creates no order, and changes no accounting. The existing execution service remains PAPER-only; live mode is disabled.
+- One warning is the GitHub Actions Node.js 20 deprecation. Real broker account behavior, PostgreSQL migration behavior, frontend build against this exact SHA, staging and production remain unverified.
 
 ### Next task
-Audit and tighten the coordinator's token/connection consistency and concurrency behavior, keeping it preflight-only; add tests for expired/replaced credentials, wrong-user portfolio access, missing broker connection and stale/failing snapshots. Then proceed to broker status/fill reconciliation and transactional trade-ID deduplication. No route/worker wiring, broker POST, PR merge or live-mode enablement.
+Audit and harden the coordinator's connection/token consistency and concurrency behavior. Add tests for expired/replaced credentials, wrong-user portfolio access, missing broker connection and stale/failing snapshots. Ensure the connection used for snapshots is the same verified connection used by preflight and avoid unnecessary repeated credential reads. Then continue broker-confirmed status/fill/cancel reconciliation and transactional connection-scoped trade-ID deduplication. Keep the coordinator unregistered; no order-submission route/worker, PR merge or live-mode enablement.
 
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

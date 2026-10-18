@@ -237,3 +237,16 @@ def test_ingestion_rejects_broker_child_bound_to_another_users_connection(
         )
     assert db_session.query(BrokerTradeRecord).count() == 0
 
+def test_ingestion_rejects_legacy_child_order_without_connection_binding(
+    db_session, trade_context
+):
+    owner, _portfolio, _instrument, _connection, order, broker_order = trade_context
+    broker_order.broker_connection_id = None
+    db_session.commit()
+
+    with pytest.raises(ValueError, match="not bound to a broker connection"):
+        BrokerTradeIngestionService(db_session).ingest_trades(
+            owner.id, order.id, "broker-child-1", [_trade()]
+        )
+    assert db_session.query(BrokerTradeRecord).count() == 0
+

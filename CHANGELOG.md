@@ -438,3 +438,10 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 
 - Added `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md` defining the single approved broker-write boundary, atomic intent/event transaction contract, unknown-outcome recovery, least-privilege permissions, operator audit visibility, step-up MFA, CSRF/Origin, append-only event controls and source-call CI guard.
 - Documentation/design only: no endpoints or broker write integration added; live submission remains disabled.
+
+
+### 2026-10-18 — Broker-write source guard
+
+- Added a source scanner and tests to prevent unapproved production references to broker place/modify/cancel methods.
+- Added the scanner to backend CI. Run #614 is pending verification: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569.
+- No central writer, API endpoint, route/worker wiring, or live submission was added.

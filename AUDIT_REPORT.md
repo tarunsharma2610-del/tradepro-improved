@@ -482,3 +482,8 @@ Limitations: historical events have a NULL fingerprint and cannot be proven equi
 ### Expected-version regression-test status
 
 Latest run #39124312326 failed one test due to the test retaining a mutable ORM state reference, not due to a demonstrated safety bypass. The test was corrected to snapshot the pre-mutation version in commit `6cd0ced108e35d715359d649a463d80709dd1fb1`. Verification of this correction is pending in run #39124498280. Do not represent storage hardening as fully verified until that run passes.
+
+
+### Verified audit storage controls — 18 October 2026
+
+Run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Backend suite 406 passed / 5 skipped; migrations passed on SQLite and PostgreSQL 16; PostgreSQL integration 5 passed, including event UPDATE/DELETE rejection. This verifies tested migration/trigger behavior under CI but is not a production penetration test or protection against a privileged database owner. Endpoint enforcement and central writer remain absent.

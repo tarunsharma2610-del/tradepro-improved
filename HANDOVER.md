@@ -416,3 +416,12 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 - Added an integration scenario for partial fill promotion followed by retry after a one-time charge-estimation failure. It composes the real child reconciler, trade ingestion, coordinator, promotion and accounting services; only read-only broker responses and the test estimator are mocked.
 - First action in the next continuation: check CI for this exact SHA. Fix only failures supported by test/log evidence; do not assume green. If green, assess PostgreSQL-backed integration coverage and update this checkpoint with actual evidence.
 - Existing `LivePreflightCoordinator` and `AccountWideLiveRiskGate` already exist—do not recreate them. Keep PR #1 unmerged, live trading disabled, and original `Tradepro` untouched.
+
+
+## Latest handover — account safety service implementation (CI pending)
+
+- Latest code/test head: `57939799b7e8b436d5095924b86a89ce380a956e`.
+- Added `backend/app/services/live_account_safety_service.py`, migration revision `202610180009`, and `backend/tests/test_live_account_safety_service.py`.
+- Read current `PROJECT_INSTRUCTIONS.md`, `MASTER_ROADMAP.md`, `PROGRESS.md`, `AUDIT_REPORT.md` before the next edit. Do not recreate the safety models, preflight coordinator, risk gate or reconciliation coordinator.
+- First action: verify GitHub Actions for this exact head. Required evidence: pytest passes, SQLite Alembic upgrade passes, PostgreSQL 16 Alembic upgrade passes, existing PostgreSQL integration job passes. If failure, use job logs and fix only evidenced problems. No local run or CI success is claimed yet.
+- Next after green: PostgreSQL concurrency tests for idempotency and reset serialization, then read-only composition with existing preflight. Keep service unregistered from order submission, PR #1 draft/unmerged, live trading disabled, original `Tradepro` untouched.

@@ -77,7 +77,7 @@ def require_same_origin_for_cookie_mutation(request: Request) -> None:
         for item in settings.CORS_ORIGINS
         if urlsplit(item).scheme and urlsplit(item).netloc
     }
-    if not normalized_origin or normalized_origin != origin.rstrip("/") or normalized_origin not in allowed:
+    if not normalized_origin or normalized_origin != origin or normalized_origin not in allowed:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Origin validation failed")
 
 

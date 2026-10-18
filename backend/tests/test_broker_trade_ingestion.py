@@ -67,7 +67,7 @@ def _trade(order_id="broker-child-1", trade_id="trade-001", quantity=2, price="1
         quantity=quantity,
         price=Decimal(price),
         side=kwargs.get("side", "BUY"),
-        instrument_token=kwargs.get("instrument_token", "NSE_EQ|INE002A01018"),
+        instrument_token=kwargs["instrument_token"] if "instrument_token" in kwargs else "NSE_EQ|INE002A01018",
         exchange_timestamp=kwargs.get("exchange_timestamp", "2026-10-18T09:20:00+05:30"),
     )
 
@@ -117,6 +117,8 @@ def test_ingestion_rejects_paper_order_and_wrong_broker_child(db_session, trade_
         (_trade(order_id="other-child"), "does not match"),
         (_trade(side="SELL"), "side does not match"),
         (_trade(instrument_token="NSE_EQ|WRONG"), "instrument token"),
+        (_trade(instrument_token=None), "instrument token is required"),
+        (_trade(side=123), "Trade side must be BUY or SELL"),
         (_trade(quantity=6), "exceed the local order quantity"),
         (_trade(quantity=0), "positive integer"),
         (_trade(price="NaN"), "positive amount"),
@@ -210,4 +212,28 @@ def test_same_trade_id_is_scoped_to_each_users_broker_connection(db_session, tra
     assert result.inserted_count == 1
     assert result.duplicate_count == 0
     assert db_session.query(BrokerTradeRecord).count() == 2
+
+def test_ingestion_rejects_broker_child_bound_to_another_users_connection(
+    db_session, trade_context, make_user
+):
+    owner, _portfolio, _instrument, _connection, order, broker_order = trade_context
+    stranger = make_user(email="foreign-broker-owner@example.com")
+    foreign_connection = BrokerConnection(
+        user_id=stranger.id,
+        broker="upstox",
+        api_key_encrypted="foreign-key",
+        api_secret_encrypted="foreign-secret",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=True,
+    )
+    db_session.add(foreign_connection)
+    db_session.flush()
+    broker_order.broker_connection_id = foreign_connection.id
+    db_session.commit()
+
+    with pytest.raises(ValueError, match="not bound to this user"):
+        BrokerTradeIngestionService(db_session).ingest_trades(
+            owner.id, order.id, "broker-child-1", [_trade()]
+        )
+    assert db_session.query(BrokerTradeRecord).count() == 0
 

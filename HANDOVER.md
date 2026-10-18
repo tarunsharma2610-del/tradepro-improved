@@ -356,23 +356,24 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: atomic live-fill accounting foundation
+## Authoritative checkpoint — 18 October 2026: live-fill accounting and charge-estimate provider
 
 ### Verified code and test evidence
-- Latest verified code/test SHA: `9b094ccd1c7c9f476ced8018c0d32cabca20ef41`. GitHub Actions [run #39114616847](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39114616847) succeeded: **346 passed, 1 warning in 24.77s**; SQLite Alembic migration verification passed.
-- Added `backend/app/services/live_fill_accounting_service.py` and `backend/tests/test_live_fill_accounting_service.py`.
-- The service requires an explicit charge breakdown for brokerage, STT, exchange charges, SEBI charges, stamp duty and GST. It validates non-negative finite amounts, source label and non-empty provenance reference; stores `charge_source` and `charge_reference` on `Execution`.
-- In one database transaction, it validates user/connection/order/trade/instrument mapping, updates the connection-scoped `LivePosition` using the actual staged trade price and quantity, inserts the `Execution`, and rolls back both if a later operation fails. Unique broker-connection/trade-ID constraints provide replay protection. Four-decimal broker fill price precision is preserved.
-- Tests cover atomic update, duplicate replay, missing/invalid charge provenance, foreign-user rejection, explicit estimates, rollback, and no mutation to paper `Position`, `Order.status`, or `Portfolio.cash_balance`.
+- Latest verified code/test SHA: `c9a2f2599dab873619318ff0f4180c405c4ca30f`. GitHub Actions [run #39115142901](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39115142901) succeeded: **358 passed, 1 warning in 28.05s**; SQLite Alembic migration verification passed.
+- Added the isolated `LiveFillAccountingService`: one transaction validates staged broker-trade identity/ownership, writes `Execution` and updates connection-scoped `LivePosition`; duplicate broker-connection/trade IDs are idempotent. It does not touch paper `Position`, order status or `Portfolio.cash_balance`.
+- Added migration `202610180008_execution_charge_provenance.py` for `charge_source`, `charge_reference` and `dp_charges`; existing rows default to `PAPER_ESTIMATE`.
+- Added read-only Upstox `GET /v2/charges/brokerage` adapter support, strict `parse_brokerage_details`, and `LiveChargeEstimateService`. It returns explicitly labelled `APPROVED_ESTIMATE` provenance, not actual charges. The parser reconciles disclosed components against the estimate total.
+- The provider rejects a non-zero daily per-scrip DP minimum for per-fill accounting because the API documents it separately from the per-order estimate; allocating the full daily minimum to every fill could double-count it. Such cases need reviewed contract-note/daily allocation.
+- Tests cover estimate request validation, component/total consistency, missing or malformed fields, token/connection revalidation, DP-minimum refusal, atomic accounting, idempotent replay, rollback, provenance and paper/live isolation.
 
-### Critical limitations — not live-ready
-- The service is **not wired** into a route, worker, order-submission flow or automated reconciliation. No real orders or live broker calls were made.
-- No verified Upstox endpoint/contract-note pipeline currently supplies broker-confirmed fee components. `BROKER_REPORTED` is a caller-provided provenance label, not independently authenticated by this service. Use `APPROVED_ESTIMATE` only when an explicit, reviewed estimator/reference is supplied; never present it as actual broker fees.
-- For an unrecognized exchange timestamp, accounting currently uses ingestion time for `Execution.executed_at` while retaining the original timestamp on the staged broker record. Timestamp parsing/contract-note matching needs a separate audit.
-- Tests use mocked broker records and SQLite. PostgreSQL concurrency/migration behavior, real Upstox payloads, exact-head frontend checks and staging remain unverified.
+### Charge-source audit and limitations
+- Upstox documents [Brokerage Details](https://upstox.com/developer/api-documentation/get-brokerage/) as a calculation from instrument, quantity, product, side and price; this is an **estimate**, not proof of final charges.
+- Upstox also documents [Get Trade Charges](https://upstox.com/developer/api-documentation/get-trade-charges/), but it returns charges by segment and financial-year/date range, not a verified fee breakdown keyed to each staged trade. Do not allocate aggregate totals to fills without a reviewed reconciliation rule.
+- `BROKER_REPORTED` remains a caller-supplied label in the accounting service, not independently authenticated. The estimate service is read-only and is not automatically called by the accounting service.
+- Neither charge estimation nor atomic accounting is wired into routes/workers or live submission. No real broker calls/orders were used in CI. PostgreSQL concurrency/migration behavior, actual Upstox payloads, frontend checks at this exact head and staging remain unverified.
 
 ### Next task
-Audit the official Upstox APIs and available contract-note/charges data to establish a verifiable charge-source contract. Add a read-only parser/provider and mocked tests only if an authoritative supported source exists; otherwise keep an explicit approved-estimate path and document that actual fees require user-supplied contract-note data. Then separately test orchestration from staged trade intake into atomic accounting. Do not wire routes/workers, submit broker orders, merge PR #1, or enable live trading.
+Implement a separate unregistered **promotion coordinator** that reads a staged trade, requests an explicit estimate, and only then invokes atomic accounting. It must abort without writes if estimate validation/DP allocation/connection checks fail, preserve the `APPROVED_ESTIMATE` label, and be idempotent under repeated calls. Add tests for estimate failure, token rotation, duplicate replay, and paper-accounting isolation. Do not wire routes/workers, submit broker orders, merge PR #1, or enable live trading.
 
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

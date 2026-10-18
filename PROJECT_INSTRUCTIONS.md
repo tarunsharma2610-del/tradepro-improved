@@ -297,3 +297,8 @@ Added `backend/scripts/check_broker_write_boundary.py`, tests in `backend/tests/
 ### Latest guard verification note — 18 October 2026
 
 The AST-based source guard and docstring regression test are committed. Run #617 passed the guard step but the full test suite and database steps are still running: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Do not report this guard/CI task complete until the entire run succeeds.
+
+
+### Verified guard CI checkpoint — 18 October 2026
+
+CI run #617 passed on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Guard PASS; backend suite 402 passed / 4 skipped / 1 warning; SQLite and PostgreSQL migrations PASS; PostgreSQL concurrency tests 4 passed. The source guard is in CI, but the actual central writer, safety endpoints, authorization model, event immutability and route/worker wiring remain unfinished. Continue from the storage-hardening step in `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md`; do not enable live orders.

@@ -199,3 +199,6 @@
 
 
 - Follow-up test: added populated legacy-data coverage for migration 006 backfilling `broker_orders.broker_connection_id` and `executions.broker_connection_id`. Latest head `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; CI verification remains pending.
+
+
+- Verification clarification: code/test target `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; subsequent documentation-only commits advanced the branch. PR head observed at the last check `1b0056d9739cd55d50cd5484cddf955aa8bf07db` had no workflow run/status returned. The new code and migrations remain unverified.

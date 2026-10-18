@@ -38,6 +38,13 @@ class LiveQuoteSnapshot:
 
 
 @dataclass(frozen=True)
+class MarketSessionSnapshot:
+    is_open: bool
+    observed_at: datetime
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
 class BrokerPositionSnapshot:
     instrument_key: str
     quantity: int
@@ -58,6 +65,7 @@ class BrokerMarginSnapshot:
 
 
 QuoteProvider = Callable[[UUID, Instrument], LiveQuoteSnapshot]
+SessionProvider = Callable[[datetime], MarketSessionSnapshot]
 PositionsProvider = Callable[[UUID], tuple[BrokerPositionSnapshot, ...]]
 FundsProvider = Callable[[UUID], BrokerFundsSnapshot]
 MarginProvider = Callable[[UUID, Instrument, LiveOrderIntent, Decimal], BrokerMarginSnapshot]
@@ -77,6 +85,7 @@ class AccountWideLiveRiskGate:
         db: Session,
         *,
         quote_provider: QuoteProvider | None,
+        session_provider: SessionProvider | None,
         positions_provider: PositionsProvider | None,
         funds_provider: FundsProvider | None,
         margin_provider: MarginProvider | None,
@@ -84,6 +93,7 @@ class AccountWideLiveRiskGate:
     ):
         self.db = db
         self.quote_provider = quote_provider
+        self.session_provider = session_provider
         self.positions_provider = positions_provider
         self.funds_provider = funds_provider
         self.margin_provider = margin_provider
@@ -118,8 +128,17 @@ class AccountWideLiveRiskGate:
         if now_ist.weekday() >= 5 or not (time(9, 15) <= now_ist.time().replace(tzinfo=None) < time(15, 30)):
             raise LiveExecutionBlocked("Indian equity market session is closed; live order blocked.")
 
-        if not all((self.quote_provider, self.positions_provider, self.funds_provider, self.margin_provider)):
-            raise LiveExecutionBlocked("Fresh quote, broker positions, funds, and margin providers are all required.")
+        if not all((self.quote_provider, self.session_provider, self.positions_provider, self.funds_provider, self.margin_provider)):
+            raise LiveExecutionBlocked("Fresh quote, official market-session, broker positions, funds, and margin providers are all required.")
+        try:
+            session = self.session_provider(now)
+        except Exception as exc:
+            raise LiveExecutionBlocked("Official market calendar lookup failed; order blocked.") from exc
+        if not isinstance(session, MarketSessionSnapshot) or type(session.is_open) is not bool:
+            raise LiveExecutionBlocked("Official market-session snapshot is invalid.")
+        self._fresh_timestamp(session.observed_at, now, "Official market calendar")
+        if not session.is_open:
+            raise LiveExecutionBlocked(session.reason or "Official exchange calendar reports the market is closed.")
 
         quote = self._fresh_quote(user_id, instrument, now)
         proposed_value = quote.price * Decimal(intent.quantity)

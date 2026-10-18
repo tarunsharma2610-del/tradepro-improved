@@ -246,6 +246,55 @@ def test_admin_cannot_self_grant_safety_permission_even_with_recent_mfa(client, 
     assert response.status_code == 403
 
 
+def test_mfa_admin_can_grant_and_revoke_scoped_permission_with_audit(client, db_session, monkeypatch):
+    _register_and_login(client, email="admin@example.com")
+    from app.repositories.user_repository import UserRepository
+    from app.services.auth_service import AuthService
+    from app.models.audit_log import AuditLog
+
+    users = UserRepository(db_session)
+    admin = users.get_by_email("admin@example.com")
+    admin.is_admin = True
+    admin.mfa_enabled = True
+    admin.mfa_secret_encrypted = "test-encrypted-secret"
+    db_session.commit()
+    target = users.create(
+        email="target@example.com",
+        password_hash=__import__("app.core.security", fromlist=["hash_password"]).hash_password("correct-horse-battery-staple"),
+        full_name="Target",
+    )
+    monkeypatch.setattr(AuthService, "_verify_totp", staticmethod(lambda user, code: code == "123456"))
+    step_up = client.post(
+        "/api/v1/auth/mfa/step-up",
+        json={"password": "correct-horse-battery-staple", "code": "123456"},
+        headers={"Origin": settings.CORS_ORIGINS[0]},
+    )
+    assert step_up.status_code == 200
+    headers = {
+        "Origin": settings.CORS_ORIGINS[0],
+        "X-Safety-Step-Up": step_up.json()["step_up_token"],
+    }
+    granted = client.put(
+        f"/api/v1/admin/users/{target.id}/safety-permissions",
+        json={"permission": "safety.audit.read", "action": "grant"},
+        headers=headers,
+    )
+    assert granted.status_code == 200
+    assert granted.json()["safety_permissions"] == ["safety.audit.read"]
+    revoked = client.put(
+        f"/api/v1/admin/users/{target.id}/safety-permissions",
+        json={"permission": "safety.audit.read", "action": "revoke"},
+        headers=headers,
+    )
+    assert revoked.status_code == 200
+    assert revoked.json()["safety_permissions"] == []
+    events = db_session.query(AuditLog).filter(AuditLog.action.in_([
+        "safety.permission.grant", "safety.permission.revoke"
+    ])).all()
+    assert len(events) == 2
+    assert all(event.user_id == admin.id and event.resource_id == str(target.id) for event in events)
+
+
 def test_recent_mfa_step_up_rejects_missing_or_wrong_scope_token(make_user):
     user = make_user()
     with pytest.raises(HTTPException) as exc:

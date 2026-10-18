@@ -27,3 +27,14 @@ class MfaEnrollResponse(BaseModel):
 
 class MfaVerifyRequest(BaseModel):
     code: str = Field(min_length=6, max_length=6)
+
+
+class MfaStepUpRequest(BaseModel):
+    """Fresh credentials required before a privileged safety reset."""
+    password: str = Field(min_length=1, max_length=128)
+    code: str = Field(min_length=6, max_length=6)
+
+
+class MfaStepUpResponse(BaseModel):
+    step_up_token: str
+    expires_in: int = 300

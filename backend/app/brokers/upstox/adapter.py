@@ -102,6 +102,21 @@ class UpstoxAdapter(BrokerAdapter):
         path = f"{API_V3}/historical-candle/{instrument_key}/{unit}/{interval}/{to_date.isoformat()}/{from_date.isoformat()}"
         return await self._get(path, access_token)
 
+    async def get_full_market_quote(self, access_token: str, instrument_keys: list[str]) -> BrokerCallResult:
+        # Official Full Market Quotes V3 includes an exchange-provided timestamp.
+        if not instrument_keys or len(instrument_keys) > 500 or any(not isinstance(key, str) or not key.strip() for key in instrument_keys):
+            return BrokerCallResult(ok=False, error="Full quote requires 1 to 500 non-empty instrument keys.")
+        params = {"instrument_key": ",".join(instrument_keys)}
+        return await self._get_v3(f"{API_V3}/market-quote/quotes", access_token, params=params)
+
+    async def get_market_holidays(self, access_token: str) -> BrokerCallResult:
+        # Official market holiday API includes closed exchanges and special timings.
+        return await self._get(f"{API_V2}/market/holidays", access_token)
+
+    async def get_market_timings(self, access_token: str, market_date: date) -> BrokerCallResult:
+        # Official market timings for a specific date; timestamps are epoch milliseconds.
+        return await self._get(f"{API_V2}/market/timings/{market_date.isoformat()}", access_token)
+
     def get_market_data_stream_url(self, access_token: str) -> BrokerCallResult:
         return BrokerCallResult(
             ok=False,

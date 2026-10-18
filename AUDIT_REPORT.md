@@ -187,3 +187,8 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 - Added read-only Upstox margin-estimate support via `POST /v2/charges/margin`, with input validation and mocked endpoint/payload/error tests.
 - Latest verified CI: 238 backend tests passed, 1 warning; clean SQLite migration and frontend TypeScript/build passed. [Backend](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755714) · [Frontend](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39035755707).
 - This does not implement live risk preflight, does not use margin results to approve orders, and does not enable live trading. Next is a bounded audit of the official response schema and current parsers.
+
+
+## Margin-estimate response validation — 18 October 2026
+
+The official Upstox Margin Details documentation specifies aggregate required_margin / final_margin values and per-instrument margins[] components. Added a pure typed parser with validation for required fields, non-empty rows, successful response status, and finite non-negative amounts, with mocked unit tests. This closes the raw-response parsing gap only. It does not implement a live pre-trade risk check, confirm available funds, or authorize orders. Live execution remains disabled. Code/test commits: 3c4dd6ac0d7d88a18916c241d28a224fc5031d5d, 6995f64429b44134edfa5985ad4f50c3b54cfcab. CI verification pending.

@@ -200,6 +200,52 @@ def test_step_up_http_denies_accounts_without_mfa(client, db_session):
     assert response.status_code == 403
 
 
+def test_admin_cannot_grant_safety_permission_without_recent_mfa(client, db_session):
+    _register_and_login(client, email="admin@example.com")
+    from app.repositories.user_repository import UserRepository
+    user = UserRepository(db_session).get_by_email("admin@example.com")
+    user.is_admin = True
+    db_session.commit()
+    target = UserRepository(db_session).create(
+        email="target@example.com",
+        password_hash=__import__("app.core.security", fromlist=["hash_password"]).hash_password("correct-horse-battery-staple"),
+        full_name="Target",
+    )
+    response = client.put(
+        f"/api/v1/admin/users/{target.id}/safety-permissions",
+        json={"permission": "safety.audit.read", "action": "grant"},
+        headers={"Origin": settings.CORS_ORIGINS[0]},
+    )
+    assert response.status_code == 403
+    db_session.refresh(target)
+    assert target.safety_permissions == []
+
+
+def test_admin_cannot_self_grant_safety_permission_even_with_recent_mfa(client, db_session, monkeypatch):
+    _register_and_login(client, email="admin@example.com")
+    from app.repositories.user_repository import UserRepository
+    from app.services.auth_service import AuthService
+    from app.core.security import create_token
+    user = UserRepository(db_session).get_by_email("admin@example.com")
+    user.is_admin = True
+    user.mfa_enabled = True
+    user.mfa_secret_encrypted = "test-encrypted-secret"
+    db_session.commit()
+    monkeypatch.setattr(AuthService, "_verify_totp", staticmethod(lambda user, code: code == "123456"))
+    step_up = client.post(
+        "/api/v1/auth/mfa/step-up",
+        json={"password": "correct-horse-battery-staple", "code": "123456"},
+        headers={"Origin": settings.CORS_ORIGINS[0]},
+    )
+    assert step_up.status_code == 200
+    response = client.put(
+        f"/api/v1/admin/users/{user.id}/safety-permissions",
+        json={"permission": "safety.reset", "action": "grant"},
+        headers={"Origin": settings.CORS_ORIGINS[0], "X-Safety-Step-Up": step_up.json()["step_up_token"]},
+    )
+    assert response.status_code == 403
+
+
 def test_recent_mfa_step_up_rejects_missing_or_wrong_scope_token(make_user):
     user = make_user()
     with pytest.raises(HTTPException) as exc:

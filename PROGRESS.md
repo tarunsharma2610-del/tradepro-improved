@@ -247,3 +247,24 @@ The migration test suite now also includes `test_connection_scope_migration_back
 ### Final checkpoint clarification — 18 October 2026
 
 The last **code/test** commit for this task is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. The subsequent commits updating README/architecture/progress/audit/handover/roadmap/changelog/requirements audit are documentation-only. The PR head observed after those docs updates was `1b0056d9739cd55d50cd5484cddf955aa8bf07db`; no workflow run or combined status was returned for that observed head. Do not confuse an earlier green run on the previous code with verification of this ingestion/migration work.
+
+
+## Continuation checkpoint — 18 October 2026 (Phase 2 broker-trade intake hardening)
+
+Read before continuing: `PROJECT_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `MASTER_ROADMAP.md`, this progress log, `AUDIT_REPORT.md`, `REQUIREMENTS_AUDIT.md`, `HANDOVER.md`, and `LIVE_ORDER_STATE_MACHINE.md`. The instructions require audit-first changes, preservation of paper execution, targeted regression tests, honest verification reporting, and no live orders.
+
+### Code changes in this continuation
+
+- Code commit `2cdbbe290f8b661cb91110dbb4e165fcef36f800`: broker trade ingestion now resolves the exact connection recorded on the broker child order and verifies that connection belongs to the requesting user and expected broker. It no longer looks up a connection merely by user/broker and then compares afterward.
+- Test commit `b780c39f770a6839dab0af63fc424c341eff9d70`: regression tests now cover a child order linked to another user's connection, missing instrument identity, and invalid non-text side data. Intake now fails closed when the broker trade row has no instrument token to validate against the local instrument.
+- Accounting boundary unchanged: records are staged in `broker_trade_records`; no `Execution` is created, and no order state, child fill aggregate, cash, position, or P&L is modified. No broker call or live submission is wired.
+
+### Verification status
+
+The current code/test target is `b780c39f770a6839dab0af63fc424c341eff9d70`. Direct GitHub Actions lookup shows no workflow run for the safety branch/current SHA; the connected GitHub tools expose workflow inspection and reruns, but no workflow-dispatch action. The local runtime has no usable GitHub network path, so pytest and Alembic have not been run locally. **These new tests and migrations are not yet verified; no pass is claimed.** The old green baseline belongs to earlier commits only.
+
+### Required gate and next action
+
+1. Manually run `.github/workflows/backend-tests.yml` with `workflow_dispatch` from GitHub Actions on branch `safety/fail-closed-trading-mode`, or otherwise obtain a run tied to the current code. The workflow runs backend pytest and `alembic upgrade head` on SQLite.
+2. Inspect the actual logs; fix failures and rerun. Record exact SHA, test count, warning count, migration outcome, and frontend status if separately run.
+3. Only after this gate passes, continue Phase 2 with the next audited live-lifecycle foundation task. Do not register/wire the service, merge PR #1, deploy migrations to production, or enable/place live orders.

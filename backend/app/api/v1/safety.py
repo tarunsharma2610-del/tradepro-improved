@@ -6,7 +6,7 @@ broker orders and do not enable live trading.
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import (
@@ -20,6 +20,7 @@ from app.models.live_account_safety import LiveAccountSafetyState
 from app.models.user import User
 from app.schemas.live_safety import (
     SafetyControlRequest,
+    SafetyResetRequest,
     SafetyStatusOut,
 )
 from app.services.live_account_safety_service import (
@@ -116,7 +117,7 @@ def trip_kill_switch(
 
 @router.post("/kill-switch/reset", response_model=SafetyStatusOut)
 def reset_kill_switch(
-    payload: SafetyControlRequest,
+    payload: SafetyResetRequest,
     idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=200),
     db: Session = Depends(get_db),
     user: User = Depends(require_safety_permission("safety.reset")),

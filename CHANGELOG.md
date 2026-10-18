@@ -196,3 +196,6 @@
 - Added/updated regression tests for idempotent replay, conflicting replay, cross-user isolation, malformed trades, paper accounting isolation, and migration compatibility.
 - Safety boundary: these rows are intake records, not accounted executions. The service does not mutate cash, positions, order status or P&L and is not wired to a live execution path.
 - Current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3`; current-head CI/status not returned and local clone failed because GitHub DNS was unavailable. Verification remains pending.
+
+
+- Follow-up test: added populated legacy-data coverage for migration 006 backfilling `broker_orders.broker_connection_id` and `executions.broker_connection_id`. Latest head `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; CI verification remains pending.

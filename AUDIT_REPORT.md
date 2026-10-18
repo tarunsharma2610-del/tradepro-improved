@@ -682,3 +682,8 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 - Added a regression test for cumulative partial-fill staging, duplicate replay, quantity cap, and all-or-nothing rollback. It explicitly asserts no execution, position, cash, order-status, or child-order fill counter is updated by staging.
 - This narrows test coverage risk but does not close the live fill-accounting audit item. Exact-head CI is pending; accounting promotion, cancellation-after-partial-fill semantics, and full broker-confirmed reconciliation remain open.
 
+
+
+## 2026-10-18 status parser audit update
+- `parse_order_details` now rejects average-price snapshots inconsistent with filled quantity. Negative tests cover zero fills/positive average and positive fills/zero average.
+- This is a fail-closed parser validation improvement only. No broker order-write call was added and no accounting behavior was changed. Latest commit CI pending.

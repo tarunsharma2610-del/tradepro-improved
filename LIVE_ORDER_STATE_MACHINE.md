@@ -147,3 +147,14 @@ The staging-only `BrokerTradeIngestionService` was hardened to resolve the exact
 
 
 A further regression test now confirms intake rejects legacy child-order rows with no resolvable broker connection. Code/test target `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`; verification still pending.
+
+
+## Phase 2 migration audit continuation — 18 October 2026
+
+A further audit found that migration `202610180006` used an arbitrary `LIMIT 1` to infer a legacy broker connection. That is unsafe if data cannot establish a unique match. The migration now backfills `broker_orders` and linked `executions` only when exactly one owner/broker connection match exists; rows without a determinable connection stay NULL and the ingestion service rejects them. This preserves fail-closed behavior and avoids silently binding legacy records to an arbitrary account.
+
+- Migration hardening commit: `81faa9f0225a8b50f1036b5316e747517c3f02ed`.
+- Migration regression coverage commit: `203c7fcf47626ea85c4dce9762c165a2cd74ab26`, refined to model a legacy owner with no matching broker connection in `d2f7f87c82b286e54284da2a8c186be0ea28e852` and `669a3fb98cd47dccea7e75a1301c74c01c4a3ce3`.
+- Latest code/test target: `669a3fb98cd47dccea7e75a1301c74c01c4a3ce3`.
+- Verification: still pending. Current-head Actions query returns no run/status; do not claim tests or migrations pass until the configured workflow runs against this target.
+- Next action remains the backend pytest + SQLite Alembic workflow gate. No live service wiring, production migration, PR merge, or live order is authorized by this checkpoint.

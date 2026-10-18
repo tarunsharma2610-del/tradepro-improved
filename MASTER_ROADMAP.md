@@ -138,18 +138,22 @@ Implement a concrete, testable **account-wide live pre-trade risk gate** and inj
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading remains **NOT READY**; no real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: account-wide live risk gate foundation
+## Authoritative checkpoint — 18 October 2026: Upstox risk snapshots and official session calendar
 
-### Code and test evidence
-- Latest verified code/test SHA: `dd27afcecc64f5cafc91198e1cfc81b61616fff9` — GitHub Actions [run #39111061824](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111061824): **307 passed, 1 warning in 19.67s**; SQLite Alembic upgrade passed. Run conclusion: success.
-- Added `backend/app/services/live_pre_trade_risk_gate.py` and `backend/tests/test_live_pre_trade_risk_gate.py`.
-- The gate checks India equity market weekday/session hours (09:15–15:30 IST), fresh quote/position/funds/margin timestamps, account-wide exposure from broker position snapshots (not virtual paper positions), absolute INR order/exposure/daily-loss caps, daily live order frequency, unresolved live-order exposure, and broker estimated margin against broker cash availability. Provider failures and malformed/stale data fail closed.
-- Defaults are conservative absolute limits: ₹10,000 per order, ₹50,000 gross exposure, ₹1,000 daily realized loss, 10 live order attempts per UTC day, and 5-second market-data age. They are limits, not a promise of suitability; configure after reviewed testing.
-- Important limits: market calendar currently checks weekdays and session hours only; exchange holidays and special sessions are not yet handled. Broker quote/positions/funds/margin providers are injected dependencies and are **not yet wired to live Upstox calls**. The risk gate is not automatically injected into a production path, and no route/worker or broker POST uses it. Existing PAPER-only guard remains.
-- Test warning: GitHub runner reports Node.js 20 action deprecation; tests and SQLite migration succeeded. PostgreSQL migration behavior, real broker responses, front-end build against this exact head, and staging remain unverified.
+### Verified code and tests
+- Latest verified code/test SHA: `c683fbd16d114b2a41a80a646fc91ee2d4cf25eb`. GitHub Actions [run #39111682177](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111682177) succeeded: **315 passed, 1 warning in 25.97s**; SQLite Alembic migration verification passed.
+- Added strict read-only parsers in `backend/app/brokers/upstox/risk_snapshot_parsing.py` for full market quotes, open positions, official market holidays, special sessions and NSE timings.
+- Added adapter calls for full quote, positions, funds/margin, estimated margin and official calendar endpoints, plus `backend/app/services/upstox_live_risk_snapshot_service.py` to collect and validate snapshots. It includes quotes for broker positions and unresolved live-order instruments, respects Upstox's 500-key quote limit, and contains no order-placement call.
+- Added mocked regression coverage for malformed/naive quote timestamps, instrument identity mismatch, duplicate positions, holidays/special sessions, provider failure and the read-only collector. Current CI: 315 passed.
+- The collector is not wired into a route, worker or order submission. Live mode remains disabled; no real broker requests or real orders were used in these tests.
+
+### Remaining caveats
+- The adapter/parser contract has been verified against mocks, not live Upstox responses. Broker-specific response fields and official calendar behavior need documented API-contract review before staging.
+- Snapshot collection uses the currently supplied access token; safe orchestration from the user's encrypted connection into a fresh snapshot bundle and the synchronous risk gate is not yet implemented.
+- Full live order status/fill/cancel reconciliation, connection-scoped fill idempotency and live accounting remain incomplete. PostgreSQL migration, exact-head frontend build and staging remain unverified.
 
 ### Next task
-Implement a read-only **Upstox snapshot provider/collector** for quotes, positions, funds and estimated margin with strict parser validation and timestamps, plus an exchange holiday/special-session calendar contract. Keep it unconnected to any order-submission route. Test only with mocked HTTP responses; no real orders, no route/worker wiring, no PR merge, no live-mode enablement.
+Implement a separate asynchronous, **preflight-only coordinator** that obtains a valid per-user Upstox token through the existing credential service, collects read-only risk snapshots, injects the snapshot-backed providers into `AccountWideLiveRiskGate`, and then invokes the existing `LiveExecutionService.preflight` contract without submitting or persisting an order. Add mocked tests for wrong user/connection, token expiry/provider failures, stale snapshots and successful preflight. Keep it unregistered: no route/worker, no broker POST, no live-mode enablement.
 
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

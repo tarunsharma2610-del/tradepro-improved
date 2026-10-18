@@ -704,3 +704,9 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 - Added regression tests for disabled runtime submission flag, missing account-wide safety state, and disconnected original broker connection. The first CI attempt exposed a test-fixture reference error; that fixture was corrected and the latest run is green.
 - Verified GitHub Actions [run #39140514552](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39140514552), SHA `9085d9fbdcc8ee2dd8baac6f5e73f92bd76cfa8b`: broker-write source guard passed; backend **456 passed, 8 skipped, 1 warning**; SQLite and PostgreSQL 16 migrations passed; PostgreSQL integration tests **8 passed**.
 - Remaining: no actual broker order write is enabled. A future submitter must implement a race-safe final interlock protocol (e.g. coordinated safety-state lock/version and claim semantics), without holding unsafe database locks across network I/O, and must handle post-request crashes through read-only reconciliation. Keep PAPER mode mandatory, live submission disabled, PR #1 draft/open/unmerged, and original `Tradepro` untouched.
+## 2026-10-18 — partial-fill ingestion regression coverage
+
+- Added `test_multiple_partial_fills_aggregate_once_and_overfill_batch_rolls_back` to `backend/tests/test_broker_trade_ingestion.py`.
+- Covers two distinct partial-fill records across repeated broker snapshots, replay deduplication, cumulative quantity enforcement, whole-batch rollback when a later batch would overfill, and the invariant that staged broker trades do not change `Execution`, `Position`, portfolio cash, local order status, or `BrokerOrder.filled_quantity`.
+- Commit: `e9a69472e54b84333134568a559fa2592dcc12ce` (test-only change). CI has not yet been verified for this commit. This does not implement accounted live fills or enable broker writes.
+

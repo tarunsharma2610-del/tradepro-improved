@@ -6,6 +6,7 @@ Until a reviewed account-wide risk gate is supplied and the independent
 environment interlocks are enabled, preflight is rejected.
 """
 from dataclasses import dataclass
+import hmac
 from decimal import Decimal, InvalidOperation
 from typing import Callable
 from uuid import UUID
@@ -87,6 +88,38 @@ class LiveExecutionService:
         *,
         user_confirmed: bool = False,
     ) -> LiveOrderPreflight:
+        return self._preflight(
+            user_id, intent, user_confirmed=user_confirmed,
+            expected_access_token=None, expected_connection_id=None,
+        )
+
+    def _preflight_with_expected_snapshot_credentials(
+        self,
+        user_id: UUID,
+        intent: LiveOrderIntent,
+        *,
+        user_confirmed: bool,
+        expected_access_token: str,
+        expected_connection_id: UUID,
+    ) -> LiveOrderPreflight:
+        """Internal composition hook; refuse a plan if snapshot credentials changed."""
+        if not isinstance(expected_access_token, str) or not expected_access_token.strip():
+            raise LiveExecutionBlocked("Snapshot access token is invalid.")
+        return self._preflight(
+            user_id, intent, user_confirmed=user_confirmed,
+            expected_access_token=expected_access_token,
+            expected_connection_id=expected_connection_id,
+        )
+
+    def _preflight(
+        self,
+        user_id: UUID,
+        intent: LiveOrderIntent,
+        *,
+        user_confirmed: bool,
+        expected_access_token: str | None,
+        expected_connection_id: UUID | None,
+    ) -> LiveOrderPreflight:
         # These interlocks run before any database lookup or credential access.
         if settings.TRADING_MODE.strip().upper() != "LIVE":
             raise LiveExecutionBlocked("TRADING_MODE must be LIVE; no order was submitted.")
@@ -134,12 +167,20 @@ class LiveExecutionService:
         )
         if connection is None or not connection.is_connected:
             raise LiveExecutionBlocked("No verified Upstox connection is available.")
+        if expected_connection_id is not None and connection.id != expected_connection_id:
+            raise LiveExecutionBlocked("Upstox connection changed during snapshot collection; preflight blocked.")
         try:
             access_token = self.credentials.get_access_token(user_id, self.BROKER_NAME)
         except Exception as exc:
             raise LiveExecutionBlocked("Upstox access token could not be validated.") from exc
         if not isinstance(access_token, str) or not access_token.strip():
             raise LiveExecutionBlocked("Upstox access token is missing, expired, or unusable.")
+        if expected_access_token is not None and not hmac.compare_digest(
+            access_token, expected_access_token
+        ):
+            raise LiveExecutionBlocked(
+                "Upstox access token changed or expired during snapshot collection; preflight blocked."
+            )
 
         try:
             decision = self.risk_gate(user_id, portfolio, instrument, intent)

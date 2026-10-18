@@ -245,3 +245,8 @@ This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a
 2. Add PostgreSQL concurrency tests for duplicate error-event idempotency, concurrent threshold trips and manual-reset serialization.
 3. Add a read-only preflight integration test that composes persisted safety decision with existing `AccountWideLiveRiskGate`; keep actual submission unregistered.
 4. Review authentication/authorization API and operator audit visibility before any control endpoint exists.
+
+
+### Test correction checkpoint — c97be866828bd47a23f22fc44fac2d3359e70f35
+
+The manual-reset test was corrected in commit `c97be866828bd47a23f22fc44fac2d3359e70f35` to exercise the actual safety contract in order: missing health check blocks reset; a passing health check with a nonzero broker-error counter still blocks reset; broker success clears the counter but does not close the circuit; a fresh passing health check then permits explicit manual reset. This supersedes the previous test commit `57939799b7e8b436d5095924b86a89ce380a956e`. GitHub status/workflow results remain unavailable for this exact code SHA; test/migration verification is still pending.

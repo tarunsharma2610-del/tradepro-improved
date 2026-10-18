@@ -39,6 +39,10 @@ class Execution(BaseModel):
     stamp_duty: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     gst: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     total_charges: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
+    # Distinguish simulated paper estimates from a broker-reported live fee
+    # breakdown. Live promotion must never silently label estimates as actual.
+    charge_source: Mapped[str] = mapped_column(String(30), default="PAPER_ESTIMATE", nullable=False)
+    charge_reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # Realized P&L attributable to THIS fill specifically (0 for fills that
     # open/add to a position rather than close one) — see position_math.py.

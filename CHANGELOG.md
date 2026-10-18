@@ -320,24 +320,23 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: live-fill accounting and charge-estimate provider
+## Authoritative checkpoint — 18 October 2026: staged-trade promotion coordinator
 
 ### Verified code and test evidence
-- Latest verified code/test SHA: `c9a2f2599dab873619318ff0f4180c405c4ca30f`. GitHub Actions [run #39115142901](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39115142901) succeeded: **358 passed, 1 warning in 28.05s**; SQLite Alembic migration verification passed.
-- Added the isolated `LiveFillAccountingService`: one transaction validates staged broker-trade identity/ownership, writes `Execution` and updates connection-scoped `LivePosition`; duplicate broker-connection/trade IDs are idempotent. It does not touch paper `Position`, order status or `Portfolio.cash_balance`.
-- Added migration `202610180008_execution_charge_provenance.py` for `charge_source`, `charge_reference` and `dp_charges`; existing rows default to `PAPER_ESTIMATE`.
-- Added read-only Upstox `GET /v2/charges/brokerage` adapter support, strict `parse_brokerage_details`, and `LiveChargeEstimateService`. It returns explicitly labelled `APPROVED_ESTIMATE` provenance, not actual charges. The parser reconciles disclosed components against the estimate total.
-- The provider rejects a non-zero daily per-scrip DP minimum for per-fill accounting because the API documents it separately from the per-order estimate; allocating the full daily minimum to every fill could double-count it. Such cases need reviewed contract-note/daily allocation.
-- Tests cover estimate request validation, component/total consistency, missing or malformed fields, token/connection revalidation, DP-minimum refusal, atomic accounting, idempotent replay, rollback, provenance and paper/live isolation.
+- Latest verified code/test SHA: `39a362b547d2708857baf4feac0df0ebdfda6ef8`. GitHub Actions [run #39115357707](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39115357707) succeeded: **360 passed, 1 warning in 28.07s**; SQLite Alembic migration verification passed.
+- Added `backend/app/services/live_fill_promotion_service.py` to orchestrate staged trade -> read-only charge estimate -> atomic accounting. It is not registered in routes or workers.
+- First promotion validates the staged trade through `LiveChargeEstimateService`, rechecks the complete trade identity after async I/O, then invokes `LiveFillAccountingService`. If the estimate fails, is malformed, has unsupported DP daily minimum charges, or connection/token identity changes, it writes no accounting rows.
+- Replays use persisted charge provenance and the accounting service's idempotency check, so a duplicate promotion does not require another estimator API request. Regression tests verify one estimator call for repeat promotion, estimate failure leaves no `Execution` or `LivePosition`, and paper position/cash are unchanged.
+- The migration `202610180008_execution_charge_provenance.py` persists charge source/reference and DP charges. Latest CI verified the complete SQLite migration chain.
 
-### Charge-source audit and limitations
-- Upstox documents [Brokerage Details](https://upstox.com/developer/api-documentation/get-brokerage/) as a calculation from instrument, quantity, product, side and price; this is an **estimate**, not proof of final charges.
-- Upstox also documents [Get Trade Charges](https://upstox.com/developer/api-documentation/get-trade-charges/), but it returns charges by segment and financial-year/date range, not a verified fee breakdown keyed to each staged trade. Do not allocate aggregate totals to fills without a reviewed reconciliation rule.
-- `BROKER_REPORTED` remains a caller-supplied label in the accounting service, not independently authenticated. The estimate service is read-only and is not automatically called by the accounting service.
-- Neither charge estimation nor atomic accounting is wired into routes/workers or live submission. No real broker calls/orders were used in CI. PostgreSQL concurrency/migration behavior, actual Upstox payloads, frontend checks at this exact head and staging remain unverified.
+### Charge-source limitations
+- [Upstox Brokerage Details](https://upstox.com/developer/api-documentation/get-brokerage/) is an estimate based on instrument, quantity, product, side and price, not a final contract note.
+- [Upstox Get Trade Charges](https://upstox.com/developer/api-documentation/get-trade-charges/) returns segment/date/financial-year aggregate charges; it does not provide a verified per-trade allocation. Do not split aggregate charges across fills without a reviewed reconciliation rule.
+- `BROKER_REPORTED` remains a caller-supplied provenance label and is not independently authenticated. The estimator uses `APPROVED_ESTIMATE`; non-zero daily per-scrip DP minimums fail closed rather than being double-counted across fills.
+- The promotion coordinator, estimator and accounting service are **unregistered**. No route, worker or live order submission invokes them. Tests use mocks/SQLite; real Upstox behavior, PostgreSQL concurrency/migrations, exact-head frontend checks and staging remain unverified.
 
 ### Next task
-Implement a separate unregistered **promotion coordinator** that reads a staged trade, requests an explicit estimate, and only then invokes atomic accounting. It must abort without writes if estimate validation/DP allocation/connection checks fail, preserve the `APPROVED_ESTIMATE` label, and be idempotent under repeated calls. Add tests for estimate failure, token rotation, duplicate replay, and paper-accounting isolation. Do not wire routes/workers, submit broker orders, merge PR #1, or enable live trading.
+Audit and test the accounting promotion's reconciliation invariants before considering any route/worker integration: ensure a broker trade is promoted only after successful child-order/trade reconciliation, validate cumulative accounted quantity against the broker child order's confirmed fill quantity, and define how broker-confirmed final charges/contract notes supersede estimates without double-posting. Keep the path unregistered; no real orders, PR merge, or live-mode enablement.
 
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

@@ -237,3 +237,8 @@ This section supersedes older “current task/next task” paragraphs elsewhere 
 - Added `backend/tests/test_broker_trade_ingestion.py` for replay idempotency, paper-order rejection, child-order mismatch, malformed/overfilled trade data, conflicting replay, ownership, batch safety and same trade ID across separate user connections. Updated `test_live_broker_schema_migration.py` to exercise the connection-scoped schema.
 - **Verification is still pending.** The GitHub workflow/status lookup for current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3` returned no runs/statuses. Network access from the local execution environment was unavailable, so no local test run is claimed. Do not treat older CI as validation of these changes.
 - Next gate: obtain backend pytest + migration upgrade results for the current head. Fix any failures before calling the ingestion task verified. Do not wire this staging service into live execution or enable live trading.
+
+
+### Verification checkpoint correction — 18 October 2026
+
+The migration test suite now also includes `test_connection_scope_migration_backfills_existing_broker_links`, which seeds a pre-006 child order and execution and asserts migration 006 backfills both to the owning connection. Latest branch head is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. Current-head Actions/status still needs a fresh check; no test result is claimed until that SHA is actually tested.

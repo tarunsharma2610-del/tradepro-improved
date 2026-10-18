@@ -24,12 +24,14 @@ Pull request: #1 (draft; do not merge without explicit review)
 - Current PR head had no workflow runs or commit statuses returned by the connected GitHub integration at the last check. This is a verification gap, not a pass or failure.
 - Do not reuse the old baseline as evidence that new tests passed.
 
-## Immediate task — gate before further implementation
-1. Re-read the current PR #1 head SHA and check Actions/check status.
-2. If a run exists, inspect backend, migration and frontend jobs/logs. Fix only evidenced defects; rerun relevant checks.
-3. If no run is available through the current integration, document that limitation and use repository GitHub Actions UI to inspect or trigger the configured workflow. Do not claim success.
-4. Record exact run URL/SHA, test count, warning count, migration result and frontend result in `PROGRESS.md`, `AUDIT_REPORT.md`, `HANDOVER.md`, and `CHANGELOG.md`. Update this roadmap too.
-5. Do not advance to live-service wiring until the margin parser change is verified.
+## Immediate task — Phase 2 verification gate (current; supersedes older gate notes)
+
+1. Current code/test target: `b780c39f770a6839dab0af63fc424c341eff9d70`. The later documentation commits do not change code; use the latest PR head to start the workflow and record both SHAs.
+2. Verify the margin parser changes and broker-trade intake/migration changes together: run `.github/workflows/backend-tests.yml` on `safety/fail-closed-trading-mode` using `workflow_dispatch` from GitHub Actions, or obtain a workflow run tied to the current code. The workflow runs backend pytest and `alembic upgrade head` on SQLite.
+3. The connected GitHub integration has no workflow-dispatch action and current branch/head lookup returns no Actions run. Do not use an older `main` run as evidence. If the UI must be used, this is the explicit manual gate.
+4. Inspect actual logs; fix only evidenced defects; rerun after fixes. Record exact run URL/SHA, test count, warning count, migration result, and frontend result if run in `PROGRESS.md`, `AUDIT_REPORT.md`, `REQUIREMENTS_AUDIT.md`, `HANDOVER.md`, and `CHANGELOG.md`.
+5. Keep the PR draft/unmerged and Live Trading disabled. Do not begin the next live lifecycle task until the current code/migration gate passes.
+
 
 ## Next implementation phase after verification
 Follow `LIVE_ORDER_STATE_MACHINE.md` implementation order:
@@ -89,3 +91,8 @@ Added populated legacy-data coverage for migration 006: a child order and execut
 ### Final verification clarification — 18 October 2026
 
 Code/test target SHA: `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. The later branch commits only updated documentation; at the check, the PR head was `1b0056d9739cd55d50cd5484cddf955aa8bf07db`, with no workflow run/status returned. The verification gate is still open.
+
+
+## Latest Phase 2 checkpoint — 18 October 2026
+
+The latest code hardening commit is `2cdbbe290f8b661cb91110dbb4e165fcef36f800`; targeted regression tests were committed at `b780c39f770a6839dab0af63fc424c341eff9d70`. Intake now binds to the exact broker connection, rejects foreign/unbound connection references, requires a matching instrument token, and validates malformed side values. Documentation commits after the code/test commit update the progress/audit/handover files only. The current-head Actions result is absent; these changes are not verified. The next task after this gate passes is the separate, initially unregistered `LiveExecutionService` foundation with mocked tests, then durable submission recovery and broker lifecycle reconciliation in the order above. The intake service remains staging-only; no real orders, no live wiring, no merge.

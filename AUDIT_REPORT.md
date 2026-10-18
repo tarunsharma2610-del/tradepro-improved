@@ -192,3 +192,8 @@ Audit target: `main` in this repository. The original `Tradepro` repository is r
 ## Margin-estimate response validation — 18 October 2026
 
 The official Upstox Margin Details documentation specifies aggregate required_margin / final_margin values and per-instrument margins[] components. Added a pure typed parser with validation for required fields, non-empty rows, successful response status, and finite non-negative amounts, with mocked unit tests. This closes the raw-response parsing gap only. It does not implement a live pre-trade risk check, confirm available funds, or authorize orders. Live execution remains disabled. Code/test commits: 3c4dd6ac0d7d88a18916c241d28a224fc5031d5d, 6995f64429b44134edfa5985ad4f50c3b54cfcab. CI verification pending.
+
+
+## Current verification state — 18 October 2026
+
+The margin parser, tests, and follow-up documentation are committed on `safety/fail-closed-trading-mode`. The latest verified CI evidence still applies to the earlier code commit `e6abb6704b67c54f35bb5d7c2c41acd96846147d` (238 backend tests passed, one warning; SQLite migration and frontend checks passed). The GitHub integration did not return a workflow run for the new test commit/current documentation head, so the added parser tests are **not yet verified**. This is a verification gap, not evidence of failure or success. Next action is to inspect/trigger the current PR head's CI and record actual results. Live order submission remains unimplemented and disabled.

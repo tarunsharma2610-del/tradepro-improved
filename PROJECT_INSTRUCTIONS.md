@@ -319,3 +319,8 @@ Run #39124312326 failed one new stale-version test because the test retained a m
 ### Verified storage checkpoint — 18 October 2026
 
 The previous pending note is superseded by CI run #625, which passed on exact code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Guard PASS; backend tests 406 passed / 5 skipped / 1 warning; SQLite/PostgreSQL migrations PASS; PostgreSQL integration tests 5 passed including audit immutability. Continue with authorization/MFA/CSRF foundations; do not wire broker writes or enable live mode.
+
+
+## Authorization foundation continuation rule — 18 October 2026
+
+The current authorization work is partial until all of these are implemented and verified: explicit safety permission grants (is_admin is never a grant), recent-MFA step-up for reset, malformed authentication token normalization, cookie CSRF/Origin enforcement attached to mutations, tenant/account-scoped audit reads, trusted permission provisioning, and negative HTTP tests before registering safety-control routes. Keep the original Tradepro repository untouched, keep the PR draft, do not merge, and keep live order submission disabled. Never claim CI passed unless the exact code/test SHA has a successful run.

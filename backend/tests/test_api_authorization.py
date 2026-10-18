@@ -354,9 +354,6 @@ def test_bearer_only_mutation_does_not_depend_on_cookie_origin():
 
 def test_safety_audit_read_requires_explicit_permission(client, db_session):
     _register_and_login(client, email="operator@example.com")
-    from app.repositories.user_repository import UserRepository
-
-    user = UserRepository(db_session).get_by_email("operator@example.com")
     response = client.get("/api/v1/admin/safety/audit")
     assert response.status_code == 403
 

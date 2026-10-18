@@ -117,7 +117,7 @@ def reset_kill_switch(
     idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=200),
     db: Session = Depends(get_db),
     user: User = Depends(require_safety_permission("safety.reset")),
-    _recent_mfa: User = Depends(require_recent_safety_mfa),
+    _recent_mfa: User = Depends(require_recent_safety_mfa("safety.reset")),
     _origin: None = Depends(require_same_origin_for_cookie_mutation),
 ):
     """Reset only after fresh MFA and a recent explicit passing safety health check."""

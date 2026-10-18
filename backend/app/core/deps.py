@@ -101,14 +101,21 @@ def require_safety_permission(permission: str) -> Callable:
 
 
 def require_recent_safety_mfa(
-    step_up_token: str | None = Header(default=None, alias="X-Safety-Step-Up"),
-    user: User = Depends(get_current_user),
-) -> User:
-    """Require a short-lived, user-bound token issued after password + TOTP."""
+    scope: str = "safety.reset",
+) -> Callable:
+    """Build a dependency requiring a short-lived token for one exact action scope."""
+    if scope not in {"safety.reset", "safety.admin.permissions"}:
+        raise ValueError(f"Unknown safety MFA scope: {scope}")
+
+    def _require_recent_safety_mfa(
+        step_up_token: str | None = Header(default=None, alias="X-Safety-Step-Up"),
+        user: User = Depends(get_current_user),
+    ) -> User:
+        """Require a short-lived, user-bound token issued after password + TOTP."""
     if not step_up_token:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
     payload = decode_token(step_up_token)
-    if not payload or payload.get("type") != "step_up" or payload.get("scope") != "safety.reset":
+    if not payload or payload.get("type") != "step_up" or payload.get("scope") != scope:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
     try:
         subject = UUID(payload.get("sub", ""))
@@ -128,7 +135,9 @@ def require_recent_safety_mfa(
         or abs(now - issued_at) > 300
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required")
-    return user
+        return user
+
+    return _require_recent_safety_mfa
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:

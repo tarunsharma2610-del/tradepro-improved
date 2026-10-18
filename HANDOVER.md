@@ -16,10 +16,10 @@
 - The audit reports CI results of 167 backend tests passing and a successful frontend typecheck/build. These are historical CI results, not a fresh run during this continuation.
 
 ## Priority order
-1. **Current next task:** implement read-only Upstox snapshot collection for quotes, actual broker positions, funds and estimated margin; strict response/timestamp validation; and an exchange holiday/special-session calendar contract. Use mocked HTTP responses only.
-2. Review how asynchronous Upstox data collection can feed the synchronous preflight safely. Do not connect it to any order-submission route or worker yet.
-3. Keep `LIVE_ORDER_SUBMISSION_ENABLED=false`, `TRADING_MODE=PAPER`, and `ExecutionService` PAPER-only. No real orders for tests.
-4. After provider/calendar verification, complete broker status/fill/cancel reconciliation with partial-fill states and connection-scoped trade deduplication.
+1. **Current next task:** design an async preflight orchestration boundary for the read-only Upstox snapshot collector and account-wide risk gate.
+2. Ensure environment mode, default-off interlock, explicit confirmation, portfolio ownership, instrument validation and usable credentials are checked before any snapshot network calls; prove this ordering with mocks.
+3. Keep the orchestrator unregistered from any API route/worker. Keep `LIVE_ORDER_SUBMISSION_ENABLED=false`, `TRADING_MODE=PAPER`, and the existing `ExecutionService` PAPER-only.
+4. After orchestration tests, continue broker-confirmed status/fill/cancel reconciliation, partial-fill accounting, connection-scoped trade deduplication and operational recovery.
 5. Run backend tests, SQLite/PostgreSQL migration checks where available, frontend typecheck/build and staging checks; report exact evidence.
 6. Update progress, roadmap, audit, requirements, architecture, state-machine, changelog and handover after each coherent task. Do not merge PR #1 without explicit authorization.
 

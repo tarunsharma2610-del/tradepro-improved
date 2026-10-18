@@ -555,10 +555,12 @@ def test_claimed_submission_revalidation_denies_missing_account_safety_state(
 def test_claimed_submission_revalidation_denies_changed_connection(
     db_session, recovery_context, monkeypatch
 ):
-    service, user, _portfolio, connection, order = _prepared(
+    service, user, _portfolio, _instrument, order = _prepared(
         db_session, recovery_context, monkeypatch
     )
     service.claim_submission_attempt(user.id, order.id)
+    connection = db_session.get(BrokerConnection, order.broker_connection_id)
+    assert connection is not None
     connection.is_connected = False
     db_session.commit()
 

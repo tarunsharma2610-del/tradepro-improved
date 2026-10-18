@@ -452,3 +452,11 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - **Docs/design only:** no application code or endpoints changed; no routes/workers were wired; no broker writes were enabled.
 - Baseline remains: last verified backend CI #611 had 398 passed / 4 skipped; later documentation commits were not covered by a new backend run. PR #1 is open/draft. Keep `TRADING_MODE=PAPER` and `LIVE_ORDER_SUBMISSION_ENABLED=false`.
 - **Next engineering step:** review and implement storage transaction/append-only protections with PostgreSQL tests, then authorization/step-up/CSRF foundations and malformed JWT handling. Only then implement the typed broker-write boundary, source-call CI guard, safety API and end-to-end path wiring. Phase 2 is not complete.
+
+
+### Broker-write source guard checkpoint — 18 October 2026
+
+- Added `backend/scripts/check_broker_write_boundary.py`, three scanner behavior tests, and a required workflow step. Commit: `04583cd35ecf5360624bc0164c7b91231a058e5e`.
+- The scanner flags attribute references to `place_order`, `modify_order`, and `cancel_order` under production `backend/app` sources except the low-level adapter definitions and the exact future boundary file `app/services/live_broker_write_service.py`. The test suite covers unapproved call rejection, the exact allowlist, and method-reference alias detection.
+- CI run #614 is in progress at the time of this checkpoint: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569. Do not mark it passed until the run concludes.
+- This is guardrail work only. Central writer, permissions, safety API, audit storage hardening and route/worker composition remain pending; Phase 2 remains incomplete.

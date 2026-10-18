@@ -230,3 +230,12 @@ The current blocker is verification: the GitHub integration returned no workflow
 - Investigated workflow run `39028914012` (`Backend pytest`): it ran against the earlier PR merge checkout `d04dfa5` and reported `177 passed, 3 errors`; all three errors were fixture setup failures (`portfolio` not found) in that checkout. The current branch version of `backend/tests/test_broker_reconciliation.py` defines the fixture, but this alone is not proof the current branch passes.
 - The GitHub integration's commit-SHA workflow lookup and combined-status lookup returned no results for the current branch head. The old failed run is not a valid test of current head `2625191740554efe5a41f99eff15306ebd68ec5c`; current CI remains unverified.
 - Next: inspect the latest PR run in GitHub Actions (PR workflows check out the generated merge ref), confirm backend tests, migration and frontend results, and fix only current-head failures. Do not claim green CI or enable live trading.
+
+
+## Authoritative handover checkpoint — 18 October 2026
+
+Resume with **broker-confirmed fill ingestion**, not live submission. Re-read `PROJECT_INSTRUCTIONS.md`, `PROGRESS.md`, `README.md`, `REQUIREMENTS_AUDIT.md`, and this handover before edits.
+
+Already present: Upstox order-trade read method, `parse_order_trades` and typed `BrokerTrade`; `BrokerOrder` child rows; nullable broker-order/trade fields on `Execution`; unique constraint `(broker_name, broker_trade_id)`. The parser is tested in source, but the ingestion/accounting path is not wired or proven. Do not create a duplicate parser/service without auditing the current repositories first.
+
+First inspect model/migration/repository/service/test files. Verify user and broker-connection scoping, child-order mapping, and whether broker-trade uniqueness must include connection/account ID. Then implement only the missing transactional idempotent persistence, with regression tests. Never treat order status as a fill, never let broker fills mutate paper balances/positions, and preserve the PAPER-only execution guard. Current PR #1 head last observed: `540e1285d3de934b43829948a1b60c67658d1343`; no current-head workflow run/status was returned by the integration. CI is unverified. Do not merge PR #1 or enable live trading.

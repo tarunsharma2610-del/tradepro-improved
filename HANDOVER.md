@@ -514,3 +514,12 @@ Run #615 failed at the guard because a docstring contained the literal method na
 - Broker-write source guard: PASS. Backend suite: **402 passed, 4 skipped, 1 warning in 29.81s**. SQLite and PostgreSQL 16 Alembic upgrades: PASS. PostgreSQL concurrency tests: **4 passed in 0.39s**.
 - Earlier guard runs failed on scanner false positives and were corrected; the final AST-based scanner ignores docstrings/comments and passed CI.
 - Current resume point: review the design doc, then harden safety event transaction/version/idempotency and PostgreSQL append-only behavior before implementing scoped authorization/step-up/CSRF. No central writer or safety endpoint exists yet. Keep live submission disabled.
+
+
+## Current resume point — safety-event transaction/immutability hardening (18 October 2026)
+
+Code now includes migration `202610180011_safety_event_immutability.py`, request-fingerprint replay checks, a unique (state_id, state_version) audit constraint, SQLite/PostgreSQL UPDATE/DELETE rejection triggers, audit-write rollback coverage, and stale reset-version checks. PostgreSQL tests attempt UPDATE/DELETE against the migrated audit table and assert the original event remains intact.
+
+CI run `39124213016` passed on SHA `2b38a0f0ba4dd167419ec116a630ebe63fabac92`, including the new rollback/fingerprint tests and both migrations. That run predates the newest expected-version/threshold-context change. Current latest-head run `39124312326` is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124312326. Verify exact-head CI before marking this step done.
+
+Next: after CI is green, review trigger behavior and migration rollback, then implement explicit scoped authorization/step-up MFA/CSRF. Keep live disabled and PR #1 draft/unmerged.

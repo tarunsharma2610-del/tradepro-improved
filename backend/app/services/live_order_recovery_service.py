@@ -318,7 +318,7 @@ class LiveOrderRecoveryService:
         order = self._get_owned_order(user_id, order_id)
         if order.trading_mode != "LIVE" or not order.broker_tag:
             raise LiveExecutionBlocked("Only tagged LIVE orders can be recovered.")
-        if order.status not in {"PENDING_SUBMISSION", "SUBMISSION_UNKNOWN"}:
+        if order.status not in {"PENDING_SUBMISSION", "SUBMISSION_CLAIMED", "SUBMISSION_UNKNOWN"}:
             raise LiveExecutionBlocked("Order is not in a submission-recovery eligible state.")
 
         existing_children = (

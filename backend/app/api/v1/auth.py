@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_user, get_db, require_same_origin_for_cookie_mutation
 from app.core.security import create_token, decode_token, verify_password
 from app.middleware.audit import write_audit_log
 from app.middleware.rate_limit import login_rate_limit, register_rate_limit
@@ -122,6 +122,7 @@ def mfa_step_up(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     _rl=Depends(login_rate_limit),
+    _origin=Depends(require_same_origin_for_cookie_mutation),
 ):
     """Issue a five-minute safety-reset token only after fresh password + TOTP."""
     if not user.mfa_enabled:

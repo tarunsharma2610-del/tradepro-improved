@@ -17,12 +17,14 @@ from sqlalchemy.orm import Session
 from app.brokers.base import BrokerAdapter
 from app.brokers.registry import get_broker_adapter
 from app.brokers.upstox.response_parsing import parse_order_history
+from app.core.config import settings
 from app.models.broker_order import BrokerOrder
 from app.models.instrument import Instrument
 from app.models.order import Order
 from app.models.portfolio import Portfolio
 from app.repositories.broker_connection_repository import BrokerConnectionRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
+from app.services.live_account_safety_service import LiveAccountSafetyService
 from app.services.live_execution_service import (
     LiveExecutionBlocked,
     LiveExecutionService,
@@ -267,6 +269,46 @@ class LiveOrderRecoveryService:
                 "Submission claim was already taken or order state changed; reconcile before any broker write."
             )
         return current
+
+    def validate_claimed_submission(self, user_id: UUID, order_id: UUID) -> Order:
+        """Recheck submission interlocks for a claimed intent; never performs I/O.
+
+        This is a final validation primitive for a future separately reviewed
+        submitter, not authorization to call the broker. No broker-write method
+        calls this today. The future submitter must still design the interlock
+        against races between this read and network I/O.
+        """
+        if settings.TRADING_MODE.strip().upper() != "LIVE":
+            raise LiveExecutionBlocked("TRADING_MODE is not LIVE; submission blocked.")
+        if not settings.LIVE_ORDER_SUBMISSION_ENABLED:
+            raise LiveExecutionBlocked("Live order submission is disabled.")
+        order = self._get_owned_order(user_id, order_id)
+        if (
+            order.trading_mode != "LIVE"
+            or order.status != "SUBMISSION_CLAIMED"
+            or not order.broker_tag
+            or order.broker_connection_id is None
+        ):
+            raise LiveExecutionBlocked(
+                "A tagged LIVE intent with a durable submission claim and bound connection is required."
+            )
+        if order.execution_reason == "STRATEGY" and not settings.AUTOMATED_ENTRIES_ENABLED:
+            raise LiveExecutionBlocked("Automated entries are disabled.")
+        connection = self.connections.get_for_user(user_id, self.BROKER_NAME)
+        if (
+            connection is None
+            or not connection.is_connected
+            or connection.id != order.broker_connection_id
+        ):
+            raise LiveExecutionBlocked(
+                "Original broker connection is unavailable or changed; submission blocked."
+            )
+        decision = LiveAccountSafetyService(self.db).check_allowed(user_id, self.BROKER_NAME)
+        if not decision.allowed:
+            raise LiveExecutionBlocked(
+                f"Persistent account safety check denied submission: {decision.reason}"
+            )
+        return order
 
     def mark_submission_unknown(self, user_id: UUID, order_id: UUID) -> Order:
         """Durably mark the point immediately before a future broker POST.

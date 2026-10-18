@@ -486,3 +486,8 @@ The first stale-reset-version regression test failed because it read `version` f
 ### Verified safety event storage checkpoint — 18 October 2026
 
 CI run #625 passed on SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: guard passed, backend tests 406 passed / 5 skipped, SQLite and PostgreSQL migrations passed, and 5 PostgreSQL integration tests passed including direct audit event mutation rejection. No API endpoint or live order path has been wired.
+
+
+## Safety-control authorization foundation — 18 October 2026
+
+Safety scopes are explicit per-user grants, not synonyms for the broad platform is_admin flag. The initial allowlist is safety.status.read, safety.audit.read, safety.kill_switch.trip, and safety.reset; existing users receive an empty list from migration 202610180012. The require_safety_permission dependency is default-deny. Cookie-authenticated mutation routes should attach the Origin guard, but it is not yet wired to any safety endpoint. Recent-MFA step-up and trusted permission provisioning are still required. These primitives alone do not authorize or enable live trading.

@@ -213,3 +213,12 @@ Live trading is **NOT READY** and disabled. No real orders have been submitted.
 Implement and test the **persisted account-level live kill switch and broker-error circuit breaker**: durable state, fail-closed read behavior, reason/timestamp/audit trail, threshold-triggered circuit trips, manual-reset policy and account-wide scope across portfolios. Keep it unregistered from order submission until separately reviewed; do not merge PR #1 or enable live trading.
 
 This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` was pending. The latest verified test SHA is `c779f2543ea1f20efbd8b7dca38a9c2aed201749`.
+
+
+## Latest Phase 2 continuation — partial-promotion failure and retry coverage
+
+- Test commit: `1a3475c69d3a93ece7bfad22ace4dce52231bfa1` ([GitHub](https://github.com/tarunsharma2610-del/tradepro-improved/commit/1a3475c69d3a93ece7bfad22ace4dce52231bfa1)).
+- Extended `backend/tests/test_live_order_fill_reconciliation_coordinator.py` with a third service-level integration scenario. The real services ingest fresh broker-trade rows; the charge estimator fails once on the second chronological fill. The test checks partial progress is reported, promotion stops, and a retry recognizes the first fill as a duplicate while accounting only the remaining fill.
+- Safety assertions include no broker write calls, unchanged paper cash/positions, and exactly two executions after successful retry.
+- **Verification status:** CI for this exact SHA is not yet confirmed; no pass is claimed. Do not treat the task as complete until the exact commit's workflow result is checked.
+- Next: check CI for this SHA; diagnose only demonstrated failures. If green, review whether the real-service reconciliation and promotion path needs PostgreSQL-backed integration coverage and update the audit with the exact verified evidence. No live wiring, order submission, merge, or live-mode enablement.

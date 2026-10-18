@@ -88,7 +88,6 @@ def read_safety_status(
 @router.post("/kill-switch/trip", response_model=SafetyStatusOut)
 def trip_kill_switch(
     payload: SafetyControlRequest,
-    request: Request,
     idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=200),
     db: Session = Depends(get_db),
     user: User = Depends(require_safety_permission("safety.kill_switch.trip")),

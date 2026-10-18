@@ -194,6 +194,26 @@ class UpstoxAdapter(BrokerAdapter):
             json_body={"instruments": normalized},
         )
 
+    async def get_brokerage_details(
+        self,
+        access_token: str,
+        *,
+        instrument_token: str,
+        quantity: int,
+        product: str,
+        transaction_type: str,
+        price: float,
+    ) -> BrokerCallResult:
+        """Fetch Upstox's estimate for one trade; this is not a final contract note."""
+        params = _validate_brokerage_request(
+            instrument_token=instrument_token,
+            quantity=quantity,
+            product=product,
+            transaction_type=transaction_type,
+            price=price,
+        )
+        return await self._get(f"{API_V2}/charges/brokerage", access_token, params=params)
+
     async def get_positions(self, access_token: str) -> BrokerCallResult:
         # VERIFIED: upstox.com/developer/api-documentation/get-positions
         return await self._get(f"{API_V2}/portfolio/short-term-positions", access_token)
@@ -277,6 +297,36 @@ class UpstoxAdapter(BrokerAdapter):
             return BrokerCallResult(ok=True, data=resp.json())
         except ValueError:
             return BrokerCallResult(ok=False, error="Upstox returned a non-JSON response")
+
+
+
+def _validate_brokerage_request(
+    *, instrument_token: Any, quantity: Any, product: Any,
+    transaction_type: Any, price: Any,
+) -> dict[str, Any]:
+    if not isinstance(instrument_token, str) or not instrument_token.strip():
+        raise ValueError("instrument_token must be a non-empty string.")
+    if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
+        raise ValueError("quantity must be a positive integer.")
+    if not isinstance(product, str) or product.upper() not in {"I", "D"}:
+        raise ValueError("product must be I or D for the currently supported equity segments.")
+    if not isinstance(transaction_type, str) or transaction_type.upper() not in {"BUY", "SELL"}:
+        raise ValueError("transaction_type must be BUY or SELL.")
+    if isinstance(price, bool):
+        raise ValueError("price must be a finite positive number.")
+    try:
+        normalized_price = Decimal(str(price))
+    except (InvalidOperation, ValueError):
+        raise ValueError("price must be a finite positive number.") from None
+    if not normalized_price.is_finite() or normalized_price <= 0:
+        raise ValueError("price must be a finite positive number.")
+    return {
+        "instrument_token": instrument_token.strip(),
+        "quantity": quantity,
+        "product": product.upper(),
+        "transaction_type": transaction_type.upper(),
+        "price": float(normalized_price),
+    }
 
 
 def _validate_margin_instruments(instruments: Any) -> list[dict[str, Any]]:

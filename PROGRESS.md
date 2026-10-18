@@ -23,9 +23,9 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 ## Current verified repository state
 
 - Branch `safety/fail-closed-trading-mode`; PR #1 draft/open/unmerged; original `Tradepro` untouched.
-- Latest verified code/test SHA `85aba3e54dde698a1266db5313d774317a814194`: [Actions #39112112534](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112112534) — **323 passed, 1 warning in 24.71s**; SQLite Alembic upgrade passed.
-- Implemented account-wide fail-closed risk checks, read-only Upstox snapshot collection and an async preflight coordinator. The coordinator validates mode/interlock/confirmation, portfolio/instrument, intent shape and strategy-entry interlock before making broker snapshot calls.
-- Tests use mocked broker responses. The coordinator is not wired to routes/workers, submits no order and changes no accounting; live mode remains disabled.
+- Latest verified code/test SHA `e7a2ca8d473f9536839b02e0538bf6768343a627`: [Actions #39112247035](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112247035) — **326 passed, 1 warning in 26.85s**; SQLite Alembic upgrade passed.
+- Implemented the fail-closed account-wide risk gate, strict read-only Upstox snapshots and credential-bound async preflight coordinator. Token/connection changes during asynchronous snapshot collection are detected.
+- Tests use mocked broker responses only. The coordinator is not wired to routes/workers, submits no order and changes no accounting; live mode remains disabled.
 - Real broker behavior, PostgreSQL migration behavior, exact-head frontend build, staging and production readiness remain unverified.
 
 ## Completed and committed work (safety branch)
@@ -324,7 +324,7 @@ PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live t
 
 ### Verified code and tests
 - Latest verified code/test SHA: `e7a2ca8d473f9536839b02e0538bf6768343a627`. GitHub Actions [run #39112247035](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112247035) succeeded: **326 passed, 1 warning in 26.85s**; SQLite Alembic migration verification passed.
-- Read-only Upstox adapter and strict parsers now cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
+- Read-only Upstox adapter and strict parsers cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
 - `UpstoxLiveRiskSnapshotService` gathers the snapshots required by the account-wide risk gate and has no order-placement call.
 - `LivePreflightCoordinator` composes the per-user credential service, read-only snapshots and `AccountWideLiveRiskGate` into the existing `LiveExecutionService.preflight` contract. It validates intent and portfolio ownership before broker calls, checks connection status, refreshes the connection after asynchronous collection, and rejects a changed/expired token or changed connection identity. Mocked tests cover successful preflight, disabled interlock, malformed/stale/provider-failure paths, token rotation, missing connection and cross-user portfolio access.
 - The coordinator remains unregistered. No API route or worker calls it; no order is submitted, persisted, modified or cancelled.

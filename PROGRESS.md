@@ -519,3 +519,7 @@ Run #39124312326 failed with 405 passed / 1 failed / 5 skipped because the test 
 - Commits created by the GitHub API: c20aa41 (auth dependency), 87d151f (user model), a52d1ea / 1344ee6 (permission migration; portable SQLite/PostgreSQL version), 7ad2502 (tests), and c10a8e6 / 504c105 (Origin guard and tests). These commits have not yet been verified by CI.
 - Important incomplete controls: recent-MFA step-up is not implemented; Origin guard is reusable but not attached to any safety route; permission-grant administration/bootstrapping is not implemented; safety status/audit/trip/reset routes remain unregistered. No live-order path was wired.
 - Next: implement a dedicated recent-MFA step-up challenge and dependency with HTTP tests; then enforce tenant/account scope in safety route design and attach CSRF/Origin + permission dependencies before adding any safety-control endpoint. Keep live trading disabled and PR #1 draft/unmerged.
+
+### Follow-up correction — 18 October 2026
+
+The Origin guard now requires an exact Origin serialization match (including rejecting a trailing slash), and unused imports were removed from the user model. Follow-up commits: f7c08e2605fb7f7828792154570af79cf5ccf724 and 4337d0ce4ef645914f32c56db87c81699c04763e. CI/status lookup has returned no run/status for the authorization changes; do not claim tests or migration passed until a workflow result is tied to the code/test SHA. Recent-MFA step-up and route wiring remain outstanding.

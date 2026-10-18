@@ -404,3 +404,16 @@ New review: [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT
 - [ ] Audit all manual, strategy, worker, retry/recovery and broker-write entry points before live safety wiring.
 
 No endpoint or live execution wiring was added in this audit step. Production/security sign-off remains open.
+
+
+## Order-entry path inventory requirements — 18 October 2026
+
+See [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a477489c7e2d5b6883c299c1e9a8aee1cbef055f](https://github.com/tarunsharma2610-del/tradepro-improved/commit/a477489c7e2d5b6883c299c1e9a8aee1cbef055f).
+
+- [x] Inventory manual order/cancel route, strategy immediate-evaluation route, scheduled worker, paper execution service and adapter write primitives.
+- [x] Record that current order service rejects LIVE/unknown modes and is PAPER-only.
+- [x] Record the LiveOrderRecoveryService composition gap: it uses LiveExecutionService, not LivePreflightCoordinator.
+- [ ] Implement one reviewed central broker-write service as the only caller of adapter place/modify/cancel methods.
+- [ ] Add source-call guardrails and fail-closed tests for every route/worker/strategy entry point.
+- [ ] Resolve auth/operator-audit design findings and atomic state/audit persistence before creating safety-control routes.
+- [ ] Verify all order paths in CI and explicit broker sandbox tests before any live-enable decision.

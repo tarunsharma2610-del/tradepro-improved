@@ -172,3 +172,16 @@ Added `FundsAndMarginV3` and `parse_funds_and_margin_v3`. It validates the neste
 3. Add a small typed parser only if the current response is raw/unvalidated and a typed result materially improves correctness. Validate required fields, numeric finiteness/non-negativity where appropriate, and error envelopes.
 4. Add mocked tests for valid response, missing/malformed fields and broker errors. Do not connect it to order approval or enable live trading.
 5. Run targeted tests, full backend suite/migration check and frontend checks if shared interfaces change. Then update `PROGRESS.md`, `HANDOVER.md`, and `CHANGELOG.md` and commit the progress update.
+
+
+## Completed code task: typed Upstox margin-estimate parser — 18 October 2026
+
+- Cross-checked the official [Upstox Margin Details API](https://upstox.com/developer/api-documentation/margin/). The documented success payload has data.margins[] plus data.required_margin and data.final_margin; each row has seven numeric margin components.
+- Added immutable typed MarginEstimate and MarginBreakdown results plus pure parse_margin_details. It rejects unsuccessful envelopes, missing/empty margin rows, missing fields, malformed/non-finite amounts and negative margin values.
+- Added tests for the documented futures-style response and malformed/error cases. The parser remains read-only and is not connected to order approval.
+- Code commits: parser 3c4dd6ac0d7d88a18916c241d28a224fc5031d5d; tests 6995f64429b44134edfa5985ad4f50c3b54cfcab.
+- **Verification pending:** do not mark this task verified until GitHub Actions completes for the test commit and any failure is inspected. No live broker request or order was made.
+
+## Next task
+
+Check CI for the margin parser/test commits. If green, record the exact test/migration/frontend results and commit final documentation updates. If red, inspect failing job logs, correct the specific defect, rerun CI, and update this file before moving on. Keep live trading disabled.

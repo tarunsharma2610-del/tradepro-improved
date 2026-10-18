@@ -271,3 +271,54 @@ def test_parse_margin_details_rejects_error_or_malformed_response(mutate):
     mutate(payload)
     with pytest.raises(ValueError):
         parse_margin_details(payload)
+
+
+from app.brokers.upstox.response_parsing import parse_brokerage_details
+
+
+def _brokerage_payload():
+    return {
+        "status": "success",
+        "data": {
+            "charges": {
+                "total": 208.27,
+                "brokerage": 0,
+                "taxes": {"gst": 1.02, "stt": 175.0, "stamp_duty": 26.23},
+                "other_charges": {
+                    "transaction": 5.68,
+                    "clearing": 0,
+                    "ipft": 0.17,
+                    "sebi_turnover": 0.17,
+                },
+                "dp_plan": {"name": "DP3A", "min_expense": 18.5},
+            }
+        },
+    }
+
+
+def test_parse_brokerage_details_preserves_estimate_components_and_dp_charge():
+    result = parse_brokerage_details(_brokerage_payload())
+    assert result.reported_estimate_total == Decimal("208.27")
+    assert result.brokerage == Decimal("0")
+    assert result.exchange_charges == Decimal("5.85")
+    assert result.sebi_turnover_charges == Decimal("0.17")
+    assert result.dp_charges == Decimal("18.5")
+    assert result.accounting_total == Decimal("226.77")
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda p: p.update(status="error"),
+        lambda p: p["data"]["charges"].update(total=999),
+        lambda p: p["data"]["charges"]["taxes"].update(gst="NaN"),
+        lambda p: p["data"]["charges"]["other_charges"].update(transaction=-1),
+        lambda p: p["data"]["charges"]["other_charges"].pop("sebi_turnover"),
+        lambda p: p["data"]["charges"]["dp_plan"].update(min_expense="Infinity"),
+    ],
+)
+def test_parse_brokerage_details_rejects_malformed_or_inconsistent_response(mutate):
+    payload = _brokerage_payload()
+    mutate(payload)
+    with pytest.raises(ValueError):
+        parse_brokerage_details(payload)

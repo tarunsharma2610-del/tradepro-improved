@@ -251,3 +251,8 @@ The last code/test commit is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; subsequ
 A focused review of `BrokerTradeIngestionService` found two fail-closed gaps: connection resolution was performed by user/broker and checked against the child row afterward, rather than resolving the exact child-order connection directly; and an absent trade instrument token was accepted, preventing exact instrument identity validation. Corrected in `2cdbbe290f8b661cb91110dbb4e165fcef36f800`: resolve by `broker_connection_id + user_id + broker`, reject unbound child orders, and require the trade token to match the local instrument. Non-text side data now raises a controlled validation error. Regression coverage was added in `b780c39f770a6839dab0af63fc424c341eff9d70` for foreign-connection binding, absent instrument identity and malformed side data.
 
 The service remains a staging-only intake ledger and is not connected to a route/worker/live order path. It does not mutate execution/accounting records. Current code/test target `b780c39f770a6839dab0af63fc424c341eff9d70` has no associated Actions run visible through the connected GitHub integration. Local pytest/migration execution was unavailable; these changes remain unverified until the workflow runs on this code.
+
+
+### Legacy unbound child-order regression — 18 October 2026
+
+Added a test for a legacy `BrokerOrder` with no `broker_connection_id`; intake must reject it without writing a trade record. Test commit: `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`. Latest code/test target is this SHA; Actions/test verification remains pending.

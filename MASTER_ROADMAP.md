@@ -318,3 +318,8 @@ The first guard workflow run (#614) failed before tests because the scanner inco
 ### Latest source-guard status — 18 October 2026
 
 The AST-based scanner now ignores comments/docstrings and flags adapter-named write references. Latest CI run #617 passed the guard but is still running pytest; SQLite/PostgreSQL migration and concurrency steps have not yet completed: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Full guardrail acceptance remains pending until all workflow steps pass.
+
+
+### Verified broker-write guard CI — 18 October 2026
+
+CI run #617 passed on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. The source guard passed; backend suite reported **402 passed, 4 skipped, 1 warning**; SQLite/PostgreSQL migrations passed; PostgreSQL concurrency tests reported **4 passed**. The guard is verified as a CI control but remains a static source check, not a substitute for central-service implementation and end-to-end tests. Next implement event transaction/version/idempotency and PostgreSQL append-only protections, then scoped permissions/MFA/CSRF. Live remains disabled.

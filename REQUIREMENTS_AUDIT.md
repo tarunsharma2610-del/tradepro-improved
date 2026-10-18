@@ -446,3 +446,10 @@ The exact-head CI run #39124312326 failed one stale-version test due to a mutabl
 ### Storage verification superseding pending status — 18 October 2026
 
 The storage hardening changes passed CI run #625 on SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Backend tests 406 passed / 5 skipped; SQLite and PostgreSQL migrations passed; five PostgreSQL integration tests passed including append-only enforcement. Mark only these storage/transaction controls verified. Authorization, MFA, CSRF, safety endpoints, central writer and end-to-end composition remain open.
+
+
+## 18 October 2026 — safety authorization foundation (partial; CI pending)
+
+- Implemented the safety_permissions user grant field with default-empty migration, allowlisted permission dependency, malformed JWT subject 401 normalization, and a reusable cookie-Origin mutation dependency.
+- Added tests for explicit grant enforcement, no implicit is_admin grant, invalid permission names, malformed signed subject, and Origin policy.
+- Open: recent-MFA step-up, trusted grant management, wiring guards into safety endpoints, tenant-scoped safety/audit queries, endpoint-level negative HTTP matrix, and CI verification for these commits. No safety route was registered.

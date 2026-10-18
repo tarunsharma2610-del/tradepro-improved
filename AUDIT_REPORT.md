@@ -234,3 +234,8 @@ The audit also identified that broker order IDs and execution trade IDs must be 
 **Accounting boundary:** this is durable intake only. It intentionally does not change local order status, broker child fill aggregates, positions, cash, or P&L, and it does not write into `executions`. That prevents estimated fees or an incomplete live-accounting flow from corrupting paper accounting. A later step must reconcile actual costs and promote staged fills into live accounting atomically.
 
 Tests added/updated: `backend/tests/test_broker_trade_ingestion.py` and `backend/tests/test_live_broker_schema_migration.py`. Current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3`; workflow/status lookup returned no results for that SHA. Local clone/test execution was unavailable due network DNS failure. **No test pass is claimed for this implementation yet.**
+
+
+### Migration backfill coverage added — 18 October 2026
+
+Added a regression test that seeds a legacy broker child order and execution at revision 005, upgrades to head, and asserts migration 006 backfills both broker connection IDs from the owning user's connection. Latest head: `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. Current-head CI remains unverified.

@@ -425,3 +425,10 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Added SECURITY_CONTROL_ENDPOINT_AUDIT.md documenting existing authentication, authorization and audit visibility controls plus required gaps before any safety-control endpoint can be designed.
 - Confirmed from source review that no audit-history API or dedicated safety permission model is registered. Identified step-up authentication, CSRF/origin policy, atomic state/event persistence, database-level append-only enforcement, metadata redaction and HTTP negative-test gaps.
 - Documentation-only checkpoint; no runtime code, safety routes or live order submission paths changed. Review is not a penetration test or production sign-off.
+
+
+## 2026-10-18 — Order-entry path inventory
+
+- Added ORDER_ENTRY_PATH_INVENTORY.md documenting manual, strategy, worker, paper service, broker adapter, preflight, recovery and reconciliation paths.
+- Confirmed current order submission service is PAPER-only and refuses non-PAPER mode. Adapter broker-write primitives exist but no production call site was found in the reviewed paths. Recorded the uncomposed LiveOrderRecoveryService → LiveExecutionService path as a gap before any live exposure.
+- Documentation-only change; no route/worker wiring or live broker write was introduced.

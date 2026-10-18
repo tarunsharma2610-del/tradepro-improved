@@ -194,7 +194,7 @@ class LiveAccountSafetyService:
             latest = (
                 self.db.query(LiveAccountSafetyEvent)
                 .filter(LiveAccountSafetyEvent.state_id == state.id)
-                .order_by(LiveAccountSafetyEvent.created_at.desc(), LiveAccountSafetyEvent.id.desc())
+                .order_by(LiveAccountSafetyEvent.state_version.desc())
                 .first()
             )
             if latest is None or latest.event_type != "HEALTH_CHECK_PASSED":
@@ -233,6 +233,22 @@ class LiveAccountSafetyService:
             self.db.commit()
             self.db.refresh(state)
             return state
+        except IntegrityError as exc:
+            self.db.rollback()
+            # Concurrent delivery of the same idempotency key is a replay,
+            # not a second state transition. Re-read only after rollback.
+            try:
+                state = self._get_state(user_id, broker, lock=False)
+                if state is not None:
+                    replay = self.db.query(LiveAccountSafetyEvent).filter(
+                        LiveAccountSafetyEvent.state_id == state.id,
+                        LiveAccountSafetyEvent.idempotency_key == key,
+                    ).one_or_none()
+                    if replay is not None:
+                        return state
+            except Exception:
+                self.db.rollback()
+            raise LiveExecutionBlocked("Concurrent safety-state update; reload state and retry.") from exc
         except Exception:
             self.db.rollback()
             raise

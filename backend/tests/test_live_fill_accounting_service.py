@@ -283,3 +283,54 @@ async def test_charge_estimate_refuses_to_allocate_daily_dp_minimum_per_fill(
         ).estimate_for_trade(user.id, record.id)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
+
+
+from app.services.live_fill_promotion_service import LiveFillPromotionService
+
+
+@pytest.mark.asyncio
+async def test_promotion_coordinator_estimates_then_accounts_once_and_replays_offline(
+    accounting_context, monkeypatch
+):
+    db, user, portfolio, _instrument, _connection, _order, _child, record = accounting_context
+    before_cash = Decimal(str(portfolio.cash_balance))
+    monkeypatch.setattr(
+        BrokerCredentialsService, "get_access_token", lambda *_: "mock-access-token"
+    )
+    adapter = FakeBrokerageAdapter()
+    estimator = LiveChargeEstimateService(db, adapter)
+    coordinator = LiveFillPromotionService(db, charge_estimator=estimator)
+
+    first = await coordinator.promote_trade(user.id, record.id)
+    second = await coordinator.promote_trade(user.id, record.id)
+
+    assert not first.duplicate
+    assert second.duplicate
+    assert first.execution_id == second.execution_id
+    assert len(adapter.calls) == 1  # replay uses persisted fee provenance; no second API call
+    execution = db.query(Execution).one()
+    assert execution.charge_source == "APPROVED_ESTIMATE"
+    assert execution.charge_reference.startswith("upstox:/v2/charges/brokerage")
+    assert db.query(LivePosition).one().quantity == 2
+    assert db.query(Position).count() == 0
+    db.refresh(portfolio)
+    assert Decimal(str(portfolio.cash_balance)) == before_cash
+
+
+@pytest.mark.asyncio
+async def test_promotion_coordinator_writes_nothing_when_estimate_fails(
+    accounting_context, monkeypatch
+):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record = accounting_context
+    monkeypatch.setattr(
+        BrokerCredentialsService, "get_access_token", lambda *_: "mock-access-token"
+    )
+    coordinator = LiveFillPromotionService(
+        db, charge_estimator=LiveChargeEstimateService(db, FakeBrokerageAdapter(fail=True))
+    )
+
+    with pytest.raises(LiveExecutionBlocked, match="estimate failed"):
+        await coordinator.promote_trade(user.id, record.id)
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0

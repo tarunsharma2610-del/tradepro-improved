@@ -170,3 +170,11 @@
 - Clarified that read-only `get_margin_details` adapter support and `parse_margin_details` are present; earlier statements describing these as missing are historical notes.
 - Current CI for the parser/test commit remains unverified: no workflow run or commit status was returned by the connected GitHub integration. Earlier green checks do not cover this change.
 - Next gate is inspect/trigger CI and record actual results; do not merge or enable live trading.
+
+
+### 18 October 2026 — broker-reconciliation CI investigation
+
+- Added regression coverage for an Upstox status-check failure response; commit `2625191740554efe5a41f99eff15306ebd68ec5c`.
+- Investigated workflow run `39028914012` (`Backend pytest`): it ran against the earlier PR merge checkout `d04dfa5` and reported `177 passed, 3 errors`; all three errors were fixture setup failures (`portfolio` not found) in that checkout. The current branch version of `backend/tests/test_broker_reconciliation.py` defines the fixture, but this alone is not proof the current branch passes.
+- The GitHub integration's commit-SHA workflow lookup and combined-status lookup returned no results for the current branch head. The old failed run is not a valid test of current head `2625191740554efe5a41f99eff15306ebd68ec5c`; current CI remains unverified.
+- Next: inspect the latest PR run in GitHub Actions (PR workflows check out the generated merge ref), confirm backend tests, migration and frontend results, and fix only current-head failures. Do not claim green CI or enable live trading.

@@ -228,23 +228,22 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: enforce reconciled fill quantity before accounting
+## Authoritative checkpoint — 18 October 2026: append-only final-charge adjustment ledger
 
 ### Verified code and CI evidence
-- Verified code/test SHA: `54d7447958b335edba6cdf3953bfc932ea5567f3`. GitHub Actions [run #39115929813](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39115929813) succeeded: **363 passed, 1 warning in 31.66s**; SQLite Alembic migration verification passed.
-- `LiveFillAccountingService` now refuses promotion unless the child order has a successful reconciled fill state and `status_checked_at`, the confirmed fill quantity is valid, and the sum of staged trade quantities exactly matches the broker-confirmed child fill quantity.
-- Before applying a new fill, the service also ensures cumulative already-accounted quantity plus this trade cannot exceed the child order's confirmed fill quantity. Replays must match the existing trade/order/quantity/price and exact charge provenance.
-- A replay cannot silently replace `APPROVED_ESTIMATE` charges with `BROKER_REPORTED` charges or change the existing charge breakdown. This deliberately fails closed until a separately designed, append-only, idempotent charge-adjustment ledger exists.
-- Regression tests cover un-reconciled child rejection, staged-vs-confirmed quantity mismatch, and prevention of silent estimate-to-actual charge replacement. Existing atomicity, duplicate promotion, and paper-account isolation tests pass.
+- Latest verified code/test SHA: `fe22008b6fafa11b8040569b53a0dc6efd5e64e6`. GitHub Actions [run #39116546204](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39116546204) succeeded: **370 passed, 1 warning in 30.99s**; SQLite Alembic migration verification passed.
+- Live fill accounting now requires a successfully reconciled broker child order, a valid confirmed filled quantity, and exact equality between staged trade quantity and broker-confirmed child filled quantity. Cumulative accounted quantity plus a new fill cannot exceed the confirmed total.
+- Added migration `202610180009_live_charge_adjustment_ledger.py`, model `LiveChargeAdjustment`, and `LiveChargeAdjustmentService`. Contract-note adjustments are append-only, keyed idempotently by broker connection + trade ID + source reference. They record previous/new effective charges, charge delta, and the corresponding net realized-P&L delta.
+- Original `Execution` and `LivePosition` rows are not rewritten; adjustments never replay fill quantity or change positions. Same-reference replay must match exactly. Older reference replays report both the historical adjustment and latest effective charge total.
+- Promotion/accounting and charge-adjustment services remain unregistered in API routes/workers. Caller-supplied `BROKER_REPORTED` provenance is not independently authenticated; contract-note authenticity still needs a verified ingestion/source process.
 
-### Scope and remaining risks
-- Promotion/accounting services remain unregistered in API routes/workers and are not connected to order submission. No real broker orders were sent.
-- Child reconciliation currently compares official broker status fill quantity to the durable staged trade list before setting `status_checked_at`; the accounting service independently repeats the key reconciliation/quantity invariant.
-- The new guard is validated on SQLite CI. PostgreSQL row-lock/concurrency behavior, live Upstox contract-note behavior, exact-head frontend build and staging remain unverified.
-- No charge correction/reversal ledger exists yet. Do not overwrite accounted executions to update final charges; any future correction must be append-only and idempotent, with accounting/P&L effects explicitly reconciled.
+### Important limitations
+- The ledger provides the auditable charge delta and per-execution effective net P&L result, but portfolio analytics and the account-wide daily-loss gate have **not yet been updated to consume the adjustment ledger**. Until that integration is verified, charge-corrected net P&L should not be treated as reflected in all dashboards/risk checks.
+- No PostgreSQL concurrency/migration verification, real Upstox contract-note behavior, exact-head frontend build, or staging verification has been completed.
+- No live order route/worker is wired, no real broker order has been submitted, and live mode remains disabled.
 
 ### Next task
-Design and test an append-only **final-charge adjustment ledger** keyed by broker connection + trade ID + source document/reference, with unique idempotency, immutable original executions, and a documented policy for how adjustments affect net realized P&L without reapplying the fill or position quantity. Keep all promotion/adjustment paths unregistered; no route/worker wiring, broker POST, PR merge, or live-mode enablement.
+Update **read-only live P&L/risk consumers** to compute effective net realized P&L from each live execution's gross realized P&L minus its original charges and all append-only charge deltas. Apply this to the account-wide daily-loss gate and explicitly scoped analytics without mixing live fills into paper cash accounting. Add tests for upward/downward charge revisions and leave routes, workers, and order submission unregistered.
 
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled.

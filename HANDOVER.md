@@ -255,3 +255,8 @@ The service stages normalized trade records with connection-scoped uniqueness an
 ### Latest change — 18 October 2026
 
 Added a populated migration-backfill regression test for connection-scoped broker IDs. It starts from revision 003, upgrades to 005, seeds legacy broker child-order/execution rows without connection IDs, then upgrades to head and checks that migration 006 resolves both links. Latest head: `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. Run/inspect CI for this exact SHA before proceeding.
+
+
+### Final verification clarification — 18 October 2026
+
+Last code/test SHA: `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; later commits are documentation-only. PR head observed after those docs updates: `1b0056d9739cd55d50cd5484cddf955aa8bf07db`; no workflow run/status returned. Continue by obtaining test/migration evidence for the code, not by assuming the historical green CI applies.

@@ -323,3 +323,18 @@ The AST-based scanner now ignores comments/docstrings and flags adapter-named wr
 ### Verified broker-write guard CI — 18 October 2026
 
 CI run #617 passed on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. The source guard passed; backend suite reported **402 passed, 4 skipped, 1 warning**; SQLite/PostgreSQL migrations passed; PostgreSQL concurrency tests reported **4 passed**. The guard is verified as a CI control but remains a static source check, not a substitute for central-service implementation and end-to-end tests. Next implement event transaction/version/idempotency and PostgreSQL append-only protections, then scoped permissions/MFA/CSRF. Live remains disabled.
+
+
+## Safety-event storage hardening — implementation checkpoint (18 October 2026)
+
+Implemented in code:
+1. Migration `202610180011` adds a SHA-256 request fingerprint and unique per-state event-version constraint.
+2. PostgreSQL and SQLite triggers reject audit event UPDATE/DELETE.
+3. The safety service rejects reuse of an idempotency key with a different/unverifiable request; threshold and reset expected-version are fingerprinted.
+4. Manual reset can compare expected state version under row lock; the future HTTP reset endpoint must require the version.
+5. State mutation and event insert share one DB transaction; a simulated audit-insert failure test verifies state rollback.
+6. PostgreSQL test attempts direct UPDATE/DELETE and checks the row is preserved.
+
+Run `39124213016` passed on earlier SHA `2b38a0f0ba4dd167419ec116a630ebe63fabac92`; current latest-head run `39124312326` is pending and covers subsequent threshold/version changes: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124312326. Do not treat the checkpoint as fully verified until exact-head CI passes.
+
+Next gates: finish exact-head CI; review migration rollback/immutability constraints; implement explicit least-privilege permissions, recent MFA step-up and CSRF/Origin controls; then central typed broker-write service. No safety API or live route wiring yet. Keep live disabled.

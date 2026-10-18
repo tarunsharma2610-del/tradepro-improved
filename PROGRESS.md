@@ -475,3 +475,13 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Replaced line regex with AST inspection so comments/docstrings are ignored and adapter-named attribute references are checked; added a regression test for docstring mentions. Commits: `a5d0acd58d582e53263965cb17f05a9cc89035eb`, `bdf208efcc32b44a6367157dd2ab0aab946e6574`.
 - Latest run #617 has passed the broker-write guard and is currently running the full test suite; migration and PostgreSQL integration steps are pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281.
 - **Not yet verified:** the complete CI workflow. Do not proceed on the assumption that the whole suite passed until the run completes.
+
+
+### Verified source guard and backend CI checkpoint — 18 October 2026
+
+- **PASS — CI run #617:** https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281
+- Verified code/test SHA: `bdf208efcc32b44a6367157dd2ab0aab946e6574`.
+- Broker-write source guard passed. Full backend suite: **402 passed, 4 skipped, 1 warning in 29.81s**. SQLite Alembic upgrade passed. PostgreSQL 16 Alembic upgrade passed. PostgreSQL concurrency integration tests: **4 passed in 0.39s**.
+- The two preceding guard runs failed before pytest due scanner false positives (PAPER service method matching, then a docstring mention); both were corrected. The successful AST-based scanner is covered by regression tests and ignores comments/docstrings.
+- Later commits to progress/handover/roadmap/instructions are documentation-only and are not part of SHA `bdf208e`; the verified code files and workflow configuration are unchanged by those doc updates.
+- Guardrail is now verified on the exact code SHA above. It is a static guard and cannot prove safety against dynamic dispatch/reflection. Central writer, transaction/append-only hardening, scoped permissions, safety API, route/worker composition and end-to-end negative tests remain pending. Phase 2 remains incomplete.

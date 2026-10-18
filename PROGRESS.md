@@ -444,3 +444,11 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Current manual and strategy order callers use a shared PAPER-only service that rejects non-PAPER mode. Adapter place/modify/cancel write methods exist, but no production caller was found in reviewed service paths. Live intent recovery still uses LiveExecutionService directly rather than the account-safety-aware LivePreflightCoordinator; it does not submit orders, but this composition gap must be resolved before exposure.
 - No runtime code changed. No order route or worker was wired to live preflight. Keep TRADING_MODE=PAPER and LIVE_ORDER_SUBMISSION_ENABLED=false. Static review is not production sign-off.
 - **Next:** design the single allowed broker-write service, state/audit atomicity, permission model and source-call guardrails; then add tests before wiring any entry path.
+
+
+## Central broker-write boundary design checkpoint — 18 October 2026
+
+- Added `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md` (commit `40f9ca652cf4bf5e86ed51a9c5f21a3071ce7e06`) defining the sole approved broker-write service, operation policies, account-wide safety composition, atomic intent/event transaction, unknown submission recovery, scoped permissions, operator audit visibility, MFA step-up, CSRF/Origin controls, database append-only enforcement, CI source guard and test matrix.
+- **Docs/design only:** no application code or endpoints changed; no routes/workers were wired; no broker writes were enabled.
+- Baseline remains: last verified backend CI #611 had 398 passed / 4 skipped; later documentation commits were not covered by a new backend run. PR #1 is open/draft. Keep `TRADING_MODE=PAPER` and `LIVE_ORDER_SUBMISSION_ENABLED=false`.
+- **Next engineering step:** review and implement storage transaction/append-only protections with PostgreSQL tests, then authorization/step-up/CSRF foundations and malformed JWT handling. Only then implement the typed broker-write boundary, source-call CI guard, safety API and end-to-end path wiring. Phase 2 is not complete.

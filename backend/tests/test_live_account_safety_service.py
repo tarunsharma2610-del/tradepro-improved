@@ -4,6 +4,7 @@ import pytest
 
 from app.models.live_account_safety import LiveAccountSafetyEvent, LiveAccountSafetyState
 from app.services.live_account_safety_service import LiveAccountSafetyService
+from app.services.live_execution_service import LiveExecutionBlocked
 
 
 @pytest.fixture()
@@ -101,7 +102,7 @@ def test_manual_reset_requires_health_check_and_cleared_error_counter(safety_con
     _db, user, service, _now = safety_context
     _initialize(user, service)
 
-    with pytest.raises(Exception, match="successful health check"):
+    with pytest.raises(LiveExecutionBlocked, match="successful health check"):
         service.manual_reset(
             user.id, "operator confirmed recovery", actor_user_id=user.id,
             idempotency_key="reset-too-early",
@@ -110,7 +111,7 @@ def test_manual_reset_requires_health_check_and_cleared_error_counter(safety_con
     service.record_broker_error(
         user.id, "TIMEOUT", "broker timeout", threshold=1, idempotency_key="error-1"
     )
-    with pytest.raises(Exception, match="cleared broker-error counter"):
+    with pytest.raises(LiveExecutionBlocked, match="cleared broker-error counter"):
         service.manual_reset(
             user.id, "operator confirmed recovery", actor_user_id=user.id,
             idempotency_key="reset-counter-not-clear",

@@ -230,7 +230,7 @@ def test_admin_cannot_self_grant_safety_permission_even_with_recent_mfa(client, 
     monkeypatch.setattr(AuthService, "_verify_totp", staticmethod(lambda user, code: code == "123456"))
     step_up = client.post(
         "/api/v1/auth/mfa/step-up",
-        json={"password": "correct-horse-battery-staple", "code": "123456"},
+        json={"password": "correct-horse-battery-staple", "code": "123456", "purpose": "safety.admin.permissions"},
         headers={"Origin": settings.CORS_ORIGINS[0]},
     )
     assert step_up.status_code == 200
@@ -262,7 +262,7 @@ def test_mfa_admin_can_grant_and_revoke_scoped_permission_with_audit(client, db_
     monkeypatch.setattr(AuthService, "_verify_totp", staticmethod(lambda user, code: code == "123456"))
     step_up = client.post(
         "/api/v1/auth/mfa/step-up",
-        json={"password": "correct-horse-battery-staple", "code": "123456"},
+        json={"password": "correct-horse-battery-staple", "code": "123456", "purpose": "safety.admin.permissions"},
         headers={"Origin": settings.CORS_ORIGINS[0]},
     )
     assert step_up.status_code == 200
@@ -557,5 +557,20 @@ def test_cookie_authenticated_safety_trip_rejects_missing_origin(client, db_sess
         "/api/v1/safety/kill-switch/trip",
         json={"reason": "operator requested emergency stop"},
         headers={"Idempotency-Key": "operator-trip-0002"},
+    )
+    assert response.status_code == 403
+
+
+def test_non_admin_cannot_request_permission_management_step_up(client, db_session):
+    _register_and_login(client, email="ordinary@example.com")
+    from app.repositories.user_repository import UserRepository
+    user = UserRepository(db_session).get_by_email("ordinary@example.com")
+    user.mfa_enabled = True
+    user.mfa_secret_encrypted = "test-encrypted-secret"
+    db_session.commit()
+    response = client.post(
+        "/api/v1/auth/mfa/step-up",
+        json={"password": "correct-horse-battery-staple", "code": "123456", "purpose": "safety.admin.permissions"},
+        headers={"Origin": settings.CORS_ORIGINS[0]},
     )
     assert response.status_code == 403

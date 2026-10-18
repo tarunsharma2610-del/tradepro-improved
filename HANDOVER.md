@@ -16,11 +16,11 @@
 - The audit reports CI results of 167 backend tests passing and a successful frontend typecheck/build. These are historical CI results, not a fresh run during this continuation.
 
 ## Priority order
-1. **Current next task:** audit/harden the async preflight coordinator's connection/token consistency and concurrency.
-2. Test expired/replaced credentials, wrong-user portfolio access, missing broker connection and stale/failing snapshots. Confirm all local safety gates run before broker snapshot calls.
-3. Keep the coordinator unregistered from API routes/workers. Keep `LIVE_ORDER_SUBMISSION_ENABLED=false`, `TRADING_MODE=PAPER`, and the existing `ExecutionService` PAPER-only.
-4. Then continue broker-confirmed status/fill/cancel reconciliation, partial-fill accounting and transactional connection-scoped trade-ID deduplication.
-5. Run backend tests, SQLite/PostgreSQL migration checks where available, frontend typecheck/build and staging checks. Update project records after each coherent task; do not merge PR #1 without explicit authorization.
+1. **Current next task:** audit `BrokerOrder`, execution/fill models, migrations and reconciliation services before implementing transaction-safe broker trade/fill idempotency and partial-fill aggregation.
+2. Add mocked tests for repeated trade IDs, concurrent/replayed intake, quantity aggregation and transaction rollback. Preserve PAPER accounting and prevent duplicate fills.
+3. Keep the async preflight coordinator unregistered from API routes/workers. Keep `LIVE_ORDER_SUBMISSION_ENABLED=false`, `TRADING_MODE=PAPER`, and the existing `ExecutionService` PAPER-only.
+4. After fill-intake foundations, complete broker-confirmed status/fill/cancel reconciliation, account-level kill switch and broker-error circuit breaker.
+5. Run backend tests, SQLite/PostgreSQL migration checks where available, frontend typecheck/build and staging checks. Do not merge PR #1 without explicit authorization.
 
 ## Additional risk guard — safety branch
 - `PORTFOLIO_DAILY_LOSS_LIMIT_PCT` defaults to 2.0. Once today's realized losses across all fills in a portfolio reach that percentage of starting virtual capital, the existing strategy risk engine blocks new automated entries for that portfolio.
@@ -360,7 +360,7 @@ PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live t
 
 ### Verified code and tests
 - Latest verified code/test SHA: `e7a2ca8d473f9536839b02e0538bf6768343a627`. GitHub Actions [run #39112247035](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112247035) succeeded: **326 passed, 1 warning in 26.85s**; SQLite Alembic migration verification passed.
-- Read-only Upstox adapter and strict parsers now cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
+- Read-only Upstox adapter and strict parsers cover full quotes, positions, funds, margin estimates, official market holidays/special sessions and NSE timings.
 - `UpstoxLiveRiskSnapshotService` gathers the snapshots required by the account-wide risk gate and has no order-placement call.
 - `LivePreflightCoordinator` composes the per-user credential service, read-only snapshots and `AccountWideLiveRiskGate` into the existing `LiveExecutionService.preflight` contract. It validates intent and portfolio ownership before broker calls, checks connection status, refreshes the connection after asynchronous collection, and rejects a changed/expired token or changed connection identity. Mocked tests cover successful preflight, disabled interlock, malformed/stale/provider-failure paths, token rotation, missing connection and cross-user portfolio access.
 - The coordinator remains unregistered. No API route or worker calls it; no order is submitted, persisted, modified or cancelled.

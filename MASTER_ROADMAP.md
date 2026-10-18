@@ -348,3 +348,10 @@ CI #39124312326 reported 405 passed / 1 failed / 5 skipped because the stale-ver
 ### Safety storage hardening verified — 18 October 2026
 
 CI run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Guard PASS; **406 passed, 5 skipped, 1 warning**; SQLite/PostgreSQL migrations PASS; PostgreSQL integration **5 passed** including audit UPDATE/DELETE rejection. This supersedes the earlier pending/failed notes for the stale-version regression test. Next gate: authorization, step-up MFA and CSRF/Origin before central broker writer and endpoint implementation. Live stays disabled.
+
+
+## Authorization foundation — 18 October 2026
+
+Implementation started; CI verification pending. Added per-user explicit safety permission grants and a default-deny dependency, malformed JWT subject normalization, a reusable Origin guard for cookie-authenticated mutations, and targeted tests. The migration is revision 202610180012 after 202610180011. is_admin is not treated as a safety grant.
+
+Remaining in this task sequence: implement recent-MFA step-up; establish trusted permission provisioning; wire Origin and permissions to safety endpoints only after negative HTTP tests exist; enforce account/tenant scope at query boundaries; normalize all malformed auth-token errors. No safety-control routes have been registered. The new code/test commits need CI verification before the checkpoint is considered complete.

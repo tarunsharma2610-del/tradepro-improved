@@ -140,6 +140,14 @@ class BrokerAdapter(ABC):
         ...
 
     @abstractmethod
+    async def get_brokerage_details(
+        self, access_token: str, *, instrument_token: str, quantity: int,
+        product: str, transaction_type: str, price: float
+    ) -> BrokerCallResult:
+        """Return an explicitly estimated charge breakdown for one trade."""
+        ...
+
+    @abstractmethod
     async def get_positions(self, access_token: str) -> BrokerCallResult:
         ...
 

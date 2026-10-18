@@ -710,3 +710,10 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 - Covers two distinct partial-fill records across repeated broker snapshots, replay deduplication, cumulative quantity enforcement, whole-batch rollback when a later batch would overfill, and the invariant that staged broker trades do not change `Execution`, `Position`, portfolio cash, local order status, or `BrokerOrder.filled_quantity`.
 - Commit: `e9a69472e54b84333134568a559fa2592dcc12ce` (test-only change). CI has not yet been verified for this commit. This does not implement accounted live fills or enable broker writes.
 
+## 2026-10-18 — broker status snapshot consistency
+
+- Tightened `parse_order_details`: a zero filled quantity must have a zero average price; a positive filled quantity must have a positive average price. Inconsistent broker snapshots now fail closed before child-order reconciliation can mutate status metadata.
+- Added malformed-payload regression cases for both contradictions in `backend/tests/test_upstox_response_parsing.py`.
+- Code commits: `c2e881103e961aaa999e94ff2436fd1f91c80140`, `e6a69138e2fd132da0b7a526c35f40aea4630432`. CI for the prior partial-fill intake test passed at `e9a69472e54b84333134568a559fa2592dcc12ce`; CI for these new commits is pending.
+- This validates snapshot consistency only; it does not account fills or enable broker writes.
+

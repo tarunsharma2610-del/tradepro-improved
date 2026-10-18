@@ -523,3 +523,8 @@ Code now includes migration `202610180011_safety_event_immutability.py`, request
 CI run `39124213016` passed on SHA `2b38a0f0ba4dd167419ec116a630ebe63fabac92`, including the new rollback/fingerprint tests and both migrations. That run predates the newest expected-version/threshold-context change. Current latest-head run `39124312326` is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124312326. Verify exact-head CI before marking this step done.
 
 Next: after CI is green, review trigger behavior and migration rollback, then implement explicit scoped authorization/step-up MFA/CSRF. Keep live disabled and PR #1 draft/unmerged.
+
+
+### CI failure and correction — 18 October 2026
+
+Run #39124312326 failed only `test_manual_reset_rejects_stale_expected_state_version`: the test passed `health.version` from a mutable ORM instance, which reflected the later mutation. The test now captures `health_version = health.version` before tripping the switch (commit `6cd0ced108e35d715359d649a463d80709dd1fb1`). New exact-head run #39124498280 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39124498280. Check the complete run before proceeding.

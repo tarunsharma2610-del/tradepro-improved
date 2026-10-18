@@ -1,3 +1,13 @@
+## 2026-10-18 — current branch verification checkpoint
+
+- Current PR-reported head at documentation review: `15ff31122ba2f7e2f9f2ac1c1a7e80d6b77c80d1`. PR #1 remains draft/open/unmerged.
+- Workflow #722 passed on `e6a69138e2fd132da0b7a526c35f40aea4630432`, which is not the current PR head. Exact-head CI remains unverified.
+- Partial-fill staging tests cover replay, quantity caps, overfill rejection/rollback and the no-accounting-mutation invariant. Parser validation rejects inconsistent average price versus filled quantity.
+- These changes do not implement exactly-once fill promotion or atomic execution/cash/position/P&L accounting. Parent/child terminal state and cancellation-after-partial-fill remain open.
+- PAPER mode mandatory; live place/modify/cancel remain blocked; no real orders sent; original `Tradepro` untouched.
+
+---
+
 ## 2026-10-18 — authoritative verification and reconciliation checkpoint
 
 - Current PR-reported branch head: `15ff31122ba2f7e2f9f2ac1c1a7e80d6b77c80d1`. Workflow #722 passed on `e6a69138e2fd132da0b7a526c35f40aea4630432`, not the current head; exact-head CI remains unverified.

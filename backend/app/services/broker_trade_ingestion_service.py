@@ -146,7 +146,7 @@ class BrokerTradeIngestionService:
                 self.db.query(Order, Portfolio.user_id)
                 .join(Portfolio, Portfolio.id == Order.portfolio_id)
                 .filter(Order.id == local_order_id, Portfolio.user_id == user_id)
-                .with_for_update()
+                .with_for_update(of=Order)
                 .first()
             )
             if row is None:

@@ -355,3 +355,7 @@ CI run #625 passed on code/test SHA `6cd0ced108e35d715359d649a463d80709dd1fb1`: 
 Implementation started; CI verification pending. Added per-user explicit safety permission grants and a default-deny dependency, malformed JWT subject normalization, a reusable Origin guard for cookie-authenticated mutations, and targeted tests. The migration is revision 202610180012 after 202610180011. is_admin is not treated as a safety grant.
 
 Remaining in this task sequence: implement recent-MFA step-up; establish trusted permission provisioning; wire Origin and permissions to safety endpoints only after negative HTTP tests exist; enforce account/tenant scope at query boundaries; normalize all malformed auth-token errors. No safety-control routes have been registered. The new code/test commits need CI verification before the checkpoint is considered complete.
+
+### Follow-up correction — 18 October 2026
+
+The Origin guard now requires an exact Origin serialization match (including rejecting a trailing slash), and unused imports were removed from the user model. Follow-up commits: f7c08e2605fb7f7828792154570af79cf5ccf724 and 4337d0ce4ef645914f32c56db87c81699c04763e. CI/status lookup has returned no run/status for the authorization changes; do not claim tests or migration passed until a workflow result is tied to the code/test SHA. Recent-MFA step-up and route wiring remain outstanding.

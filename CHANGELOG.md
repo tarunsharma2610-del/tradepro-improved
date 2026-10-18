@@ -211,3 +211,6 @@
 - Added regression cases for a foreign user's broker connection, missing instrument identity, and malformed side data.
 - Commits: `2cdbbe290f8b661cb91110dbb4e165fcef36f800` (code), `b780c39f770a6839dab0af63fc424c341eff9d70` (tests).
 - Verification remains pending: no Actions run is associated with the current code through the available integration; no local pytest/migration run was possible. Do not infer success from historical CI.
+
+
+- Added regression coverage for rejecting a legacy broker child order without a resolvable connection binding (commit `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`). Latest code/test target: `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`; verification remains pending.

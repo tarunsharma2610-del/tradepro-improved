@@ -470,3 +470,10 @@ A static source guard now scans production app Python sources for references to 
 ### Verified broker-write guard — 18 October 2026
 
 The AST-based source guard passed CI run #617 on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574` (402 passed, 4 skipped, 1 warning; SQLite/PostgreSQL migrations passed; four PostgreSQL concurrency tests passed): https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. This reduces accidental direct adapter-write regressions but does not establish end-to-end enforcement or protect against dynamic dispatch. All earlier security/control design gaps remain open until implemented and tested.
+
+
+## Safety-event storage hardening audit addendum — 18 October 2026
+
+Implemented: request fingerprints for new safety events; idempotency mismatch denial; unique per-state state-version constraint; SQLite/PostgreSQL triggers rejecting UPDATE/DELETE; rollback regression coverage proving safety state is unchanged when event persistence fails; PostgreSQL direct-mutation rejection test; and optional expected-version validation on manual reset.
+
+Limitations: historical events have a NULL fingerprint and cannot be proven equivalent on replay, so the service rejects such replays rather than assuming equivalence. The service accepts an omitted reset expected-version for compatibility; any future safety-control endpoint must require it. Triggers prevent ordinary row UPDATE/DELETE but do not protect against a privileged database owner disabling/dropping them. Exact-head CI run `39124312326` was pending at this checkpoint; the preceding successful run does not include all final changes. This is not production security sign-off.

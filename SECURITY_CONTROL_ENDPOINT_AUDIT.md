@@ -70,3 +70,11 @@ Before creating any safety-control API, document and approve:
 ## Next action
 
 Complete a dedicated authentication/authorization and operator-audit design review against the findings above. Then review every manual route, strategy-triggered route, worker, retry/recovery and broker write method before choosing endpoint shape. Keep the PR draft, keep live order submission disabled, and do not modify the original `Tradepro` repository.
+
+
+## Follow-up implementation checkpoint — 18 October 2026 (partial; CI pending)
+
+- Added explicit User.safety_permissions grants and require_safety_permission(); platform admin status is not a safety grant.
+- Added a controlled 401 for malformed UUID sub claims and a reusable same-origin guard for cookie-authenticated mutation methods.
+- Added tests for the above primitives. This does not close the endpoint design gates: recent-MFA step-up, permission provisioning, tenant-scoped audit reads, atomic HTTP state+event handling, route-level CSRF/Origin enforcement, and full negative HTTP tests remain outstanding.
+- No safety route was added. Do not expose safety controls until these gates pass CI and receive review.

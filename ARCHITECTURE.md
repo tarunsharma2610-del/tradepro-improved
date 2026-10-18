@@ -364,22 +364,22 @@ Implement a separate asynchronous, **preflight-only coordinator** that obtains a
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
 
-## Authoritative checkpoint — 18 October 2026: broker trade intake and child-order reconciliation
+## Authoritative checkpoint — 18 October 2026: child-order reconciliation and live-position isolation
 
 ### Verified code and tests
-- Latest verified code/test SHA: `10836331eaf3eedc1c1a0717f55a12371c3f6a99`. GitHub Actions [run #39112965869](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39112965869) succeeded: **337 passed, 1 warning in 26.56s**; SQLite Alembic migration verification passed.
-- Broker trades can now be fetched through the read-only Upstox `get_order_trades` endpoint, parsed against the exact child-order ID, checked against the per-user broker connection/token, and staged idempotently using the connection-scoped trade ID constraint.
-- Added `BrokerChildOrderReconciliationService`: fetches trade intake and official order details, validates requested/filled quantity, instrument, side, average price and recognized broker status, then updates only `BrokerOrder` status/fill aggregate. It uses a child-order row lock and refuses status regressions or contradictory terminal states.
-- Normalized child states include `PENDING`, `OPEN`, `PARTIALLY_FILLED`, `FILLED`, `CANCELLED`, `CANCELLED_PARTIALLY_FILLED`, and `REJECTED`. Unknown/contradictory status or mismatch between reported filled quantity and durable trade records fails closed.
-- Tests cover idempotent replay, partial fills, cancellation after partial fills, full fills, unknown status, fill/status mismatch and terminal-state regression. Latest CI is 337 passed; SQLite migrations passed.
+- Latest verified code/test SHA: `c43f3534e2572db54d7b014edc4e914b5c196305`. GitHub Actions [run #39113287231](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39113287231) succeeded: **339 passed, 1 warning in 26.79s**; SQLite Alembic migration verification passed.
+- Read-only Upstox trade fetch plus connection-scoped idempotent trade intake is implemented and tested. Child-order reconciliation checks official status/details against persisted trade quantity/weighted average price and updates only child-order fill metadata, with locking and monotonic terminal-state checks.
+- Audit of paper accounting found that existing `Position` rows and `Portfolio.cash_balance` are shared by paper workflows. Updating them for live fills would mix real and virtual trading state.
+- Added `LivePosition`, keyed by broker connection and instrument, with additive migration `202610180007_live_positions.py`. It tracks app-attributed live fills separately from paper `Position` rows; actual account-wide exposure must still come from broker position snapshots. Isolation tests verify the same instrument can have separate paper and live positions and separate live positions per broker account.
+- Latest verified suite: 339 passed, 1 warning; SQLite migration verification passed.
 
-### Explicit boundaries / remaining gaps
-- This is mock-verified, not validated against live Upstox responses or staging. No broker order write was used.
-- Reconciliation deliberately does **not** change conceptual `Order.status`, create `Execution` rows, or mutate cash, positions, realized P&L or transaction costs. A separate atomic live-accounting promotion path is still required.
-- PostgreSQL migration, exact-head frontend build and staging remain unverified. PR #1 remains draft/open/unmerged; live trading remains disabled.
+### Remaining caveats
+- No live accounting promotion exists yet. Do not write live fills into paper `Position` or `Portfolio.cash_balance`. The new `LivePosition` table is schema groundwork only.
+- `Execution` currently requires cost components, but trade rows do not include actual fees. The paper `calculate_costs` function produces estimates and must not be presented as broker-confirmed live charges. Before promoting live fills, define and verify charge provenance (broker-reported values or explicitly labeled estimates) and transaction boundaries for `Execution` + `LivePosition` updates.
+- CI uses mocks; real Upstox behavior, PostgreSQL migrations, exact-head frontend build and staging remain unverified. Live trading remains disabled.
 
 ### Next task
-Audit the existing paper `ExecutionService`, position math, cost/charge calculation and portfolio cash/position updates. Design and implement a separate live-fill accounting service that atomically promotes broker-confirmed `BrokerTradeRecord` rows into `Execution` rows and updates positions/cash using actual fill prices, with connection-scoped idempotency and rollback tests. Do not alter paper behavior or wire live submission/routes/workers.
+Design and implement an isolated atomic live-fill accounting contract that requires an explicit validated charge breakdown and records its provenance. It must promote each broker trade at most once, update `LivePosition` using actual trade price/quantity, write the corresponding `Execution`, and roll back both on any failure. It must not mutate paper positions or portfolio virtual cash. Do not wire routes/workers or enable live submission until the actual broker-charge source and end-to-end reconciliation are verified.
 
 ### Release status
-Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.
+PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

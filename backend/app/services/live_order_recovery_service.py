@@ -27,6 +27,7 @@ from app.services.live_execution_service import (
     LiveExecutionBlocked,
     LiveExecutionService,
     LiveOrderIntent,
+    LiveOrderPreflight,
 )
 
 
@@ -119,6 +120,97 @@ class LiveOrderRecoveryService:
             self.db.commit()
         except IntegrityError:
             # Handles concurrent retries racing on the DB uniqueness constraint.
+            self.db.rollback()
+            existing = (
+                self.db.query(Order)
+                .filter(Order.portfolio_id == portfolio.id, Order.idempotency_key == key)
+                .first()
+            )
+            if existing is None:
+                raise LiveExecutionBlocked(
+                    "Intent identity collided with another persisted record; inspect before retrying."
+                ) from None
+            self._ensure_same_intent(existing, intent, tag)
+            return existing
+        self.db.refresh(order)
+        return order
+
+    def persist_preflighted_intent(
+        self,
+        user_id: UUID,
+        intent: LiveOrderIntent,
+        plan: LiveOrderPreflight,
+        *,
+        idempotency_key: str,
+    ) -> Order:
+        """Persist a plan produced by the safety-aware async coordinator.
+
+        This method does no preflight and no network I/O itself. Callers must
+        obtain the plan from LivePreflightCoordinator immediately beforehand.
+        It rechecks owner, broker connection identity and all intent fields
+        before committing the durable idempotent intent.
+        """
+        key = _validate_idempotency_key(idempotency_key)
+        if not isinstance(plan, LiveOrderPreflight):
+            raise LiveExecutionBlocked("A validated live preflight plan is required.")
+        if (
+            plan.user_id != user_id
+            or plan.portfolio_id != intent.portfolio_id
+            or plan.instrument_id != intent.instrument_id
+            or plan.broker_name != self.BROKER_NAME
+            or plan.side != intent.side
+            or plan.order_type != intent.order_type
+            or plan.segment != intent.segment
+            or plan.quantity != intent.quantity
+            or plan.limit_price != intent.limit_price
+        ):
+            raise LiveExecutionBlocked("Preflight plan does not match the requested user and intent.")
+
+        portfolio = (
+            self.db.query(Portfolio)
+            .filter(Portfolio.id == intent.portfolio_id, Portfolio.user_id == user_id)
+            .first()
+        )
+        if portfolio is None or not portfolio.is_active:
+            raise LiveExecutionBlocked("An active portfolio owned by this user is required.")
+        connection = self.connections.get_for_user(user_id, self.BROKER_NAME)
+        if (
+            connection is None
+            or not connection.is_connected
+            or connection.id != plan.broker_connection_id
+        ):
+            raise LiveExecutionBlocked("Broker connection changed after preflight; intent persistence blocked.")
+
+        tag = make_broker_tag(portfolio.id, key)
+        existing = (
+            self.db.query(Order)
+            .filter(Order.portfolio_id == portfolio.id, Order.idempotency_key == key)
+            .first()
+        )
+        if existing is not None:
+            self._ensure_same_intent(existing, intent, tag)
+            return existing
+
+        order = Order(
+            portfolio_id=portfolio.id,
+            instrument_id=plan.instrument_id,
+            side=plan.side,
+            order_type=plan.order_type,
+            segment=plan.segment,
+            quantity=plan.quantity,
+            limit_price=plan.limit_price,
+            status="PENDING_SUBMISSION",
+            trading_mode="LIVE",
+            execution_reason=intent.execution_reason,
+            strategy_id=intent.strategy_id,
+            idempotency_key=key,
+            broker_tag=tag,
+            placed_at=datetime.now(timezone.utc),
+        )
+        self.db.add(order)
+        try:
+            self.db.commit()
+        except IntegrityError:
             self.db.rollback()
             existing = (
                 self.db.query(Order)

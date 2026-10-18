@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PlatformStatsOut(BaseModel):
@@ -28,17 +29,13 @@ class SafetyPermissionChangeOut(BaseModel):
     safety_permissions: list[str]
 
 
-from datetime import datetime
-from uuid import UUID
-
-
 class SafetyAuditEntry(BaseModel):
     id: UUID
     created_at: datetime
     action: str
     resource_type: str | None = None
     resource_id: str | None = None
-    event_metadata: dict = {}
+    event_metadata: dict = Field(default_factory=dict)
 
 
 class SafetyAuditPage(BaseModel):

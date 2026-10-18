@@ -351,3 +351,10 @@ The latest test commit is `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88`, supersedin
 Implement and test the **persisted account-level live kill switch and broker-error circuit breaker**: durable state, fail-closed read behavior, reason/timestamp/audit trail, threshold-triggered circuit trips, manual-reset policy and account-wide scope across portfolios. Keep it unregistered from order submission until separately reviewed; do not merge PR #1 or enable live trading.
 
 This checkpoint supersedes prior notes saying CI for `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88` was pending. The latest verified test SHA is `c779f2543ea1f20efbd8b7dca38a9c2aed201749`.
+
+
+## Requirement update — partial promotion recovery
+
+- Requirement: a charge/accounting failure after earlier fills have been promoted must stop subsequent processing and allow safe retries without duplicating earlier executions.
+- Added test coverage in commit `1a3475c69d3a93ece7bfad22ace4dce52231bfa1`, using the real reconciliation, ingestion, promotion and accounting services with broker reads/charge estimates mocked.
+- Status: **pending exact-SHA CI**. Do not mark verified until the workflow for this SHA passes. No production wiring or real broker order was introduced.

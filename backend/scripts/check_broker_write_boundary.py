@@ -28,14 +28,19 @@ def _is_approved_paper_execution_call(relative: Path, node: ast.Attribute, chain
 
     # Existing HTTP order endpoints delegate to ExecutionService, which rejects
     # non-PAPER mode and never calls broker order-write methods.
-    if (
-        relative == Path("api/v1/portfolios.py")
-        and node.attr.lower() in {"place_order", "cancel_order"}
-        and isinstance(node.value, ast.Call)
-        and isinstance(node.value.func, ast.Name)
-        and node.value.func.id == "ExecutionService"
-    ):
-        return True
+    if relative == Path("api/v1/portfolios.py"):
+        if (
+            node.attr.lower() == "place_order"
+            and chain == ["service"]
+        ):
+            return True
+        if (
+            node.attr.lower() == "cancel_order"
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Name)
+            and node.value.func.id == "ExecutionService"
+        ):
+            return True
     return False
 
 

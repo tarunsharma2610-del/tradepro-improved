@@ -424,3 +424,8 @@ See [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a477
 Design requirements are consolidated in `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md`. New explicit gates: only one production broker-write service; no unapproved direct adapter calls (CI-enforced); account-wide safety/risk/freshness checks for submit/modify; narrowly defined risk-reducing cancellation semantics; durable intent+event before external I/O; no blind retry on ambiguous broker outcomes; least-privilege scopes; server-derived actor; recent MFA step-up for reset; CSRF/Origin controls; tenant-scoped paginated audit reads; strict redaction; PostgreSQL append-only protection; and service/API/worker/PostgreSQL concurrency tests.
 
 Status is **design specified, implementation pending**. Do not treat the requirements as satisfied. Live submission stays disabled.
+
+
+### CI guard verification — 18 October 2026
+
+The source-call guard requirement now has a CI implementation and a passing verification on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`, run #617: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Backend suite 402 passed / 4 skipped; migrations and PostgreSQL concurrency checks passed. Mark only the guardrail requirement as verified; central writer, safety permissions/API, atomic event semantics, DB-enforced immutability and end-to-end enforcement remain pending.

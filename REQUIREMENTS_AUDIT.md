@@ -37,12 +37,12 @@ Status meanings: **Complete in current scope** means existing implementation and
 - No real broker orders were placed.
 
 ## Prioritized change plan
-1. **Next:** implement a concrete account-wide live pre-trade risk gate (current positions/exposure, order value/frequency, market session/stale quotes and broker funds/margin) with fail-closed tests and mocked external dependencies.
-2. Complete broker status and fill reconciliation: partial fills, cancellation/modification confirmation, connection-scoped fill idempotency and transactional accounting; do not infer fills from order history.
-3. Verify derivative instrument mapping, tick/lot sizes and margin treatment before enabling any non-equity segments.
-4. Implement instrument master sync and streaming using current official Upstox documentation; keep paper mode on real market data and never synthesize broker values.
+1. **Next:** implement a read-only Upstox snapshot collector for quotes, actual broker positions, funds and margin; validate response shapes and timestamps; add exchange holiday/special-session calendar handling. Mock all HTTP calls.
+2. Inject the validated snapshots into the existing risk-gate contract only after asynchronous/network boundaries and stale-data behavior are reviewed. Keep it out of any order-submission route/worker for now.
+3. Complete broker status/fill reconciliation: partial fills, cancellation/modification confirmation, connection-scoped fill idempotency and transactional accounting; do not infer fills from order history.
+4. Verify derivative instrument mapping, tick/lot sizes and margin treatment before enabling non-equity segments.
 5. Add a broker-error circuit breaker, account-level kill switch and operational monitoring/recovery runbooks.
-6. Run full backend, SQLite/PostgreSQL migration, frontend and staging checks. Keep live trading disabled until all release gates and explicit review are complete.
+6. Run backend tests, SQLite/PostgreSQL migration checks, frontend typecheck/build and staging verification. Keep live trading disabled until all release gates and explicit review are complete.
 
 ## Retained unchanged after review
 - Existing paper order/accounting engine, order and position models, cost engine, strategy scoring, backtest engine, notification integrations, OAuth/credential encryption, existing pages, and current migration history.
@@ -279,3 +279,19 @@ Implement a concrete, testable **account-wide live pre-trade risk gate** and inj
 
 ### Release status
 PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading remains **NOT READY**; no real orders have been submitted.
+
+## Authoritative checkpoint — 18 October 2026: account-wide live risk gate foundation
+
+### Code and test evidence
+- Latest verified code/test SHA: `dd27afcecc64f5cafc91198e1cfc81b61616fff9` — GitHub Actions [run #39111061824](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111061824): **307 passed, 1 warning in 19.67s**; SQLite Alembic upgrade passed. Run conclusion: success.
+- Added `backend/app/services/live_pre_trade_risk_gate.py` and `backend/tests/test_live_pre_trade_risk_gate.py`.
+- The gate checks India equity market weekday/session hours (09:15–15:30 IST), fresh quote/position/funds/margin timestamps, account-wide exposure from broker position snapshots (not virtual paper positions), absolute INR order/exposure/daily-loss caps, daily live order frequency, unresolved live-order exposure, and broker estimated margin against broker cash availability. Provider failures and malformed/stale data fail closed.
+- Defaults are conservative absolute limits: ₹10,000 per order, ₹50,000 gross exposure, ₹1,000 daily realized loss, 10 live order attempts per UTC day, and 5-second market-data age. They are limits, not a promise of suitability; configure after reviewed testing.
+- Important limits: market calendar currently checks weekdays and session hours only; exchange holidays and special sessions are not yet handled. Broker quote/positions/funds/margin providers are injected dependencies and are **not yet wired to live Upstox calls**. The risk gate is not automatically injected into a production path, and no route/worker or broker POST uses it. Existing PAPER-only guard remains.
+- Test warning: GitHub runner reports Node.js 20 action deprecation; tests and SQLite migration succeeded. PostgreSQL migration behavior, real broker responses, front-end build against this exact head, and staging remain unverified.
+
+### Next task
+Implement a read-only **Upstox snapshot provider/collector** for quotes, positions, funds and estimated margin with strict parser validation and timestamps, plus an exchange holiday/special-session calendar contract. Keep it unconnected to any order-submission route. Test only with mocked HTTP responses; no real orders, no route/worker wiring, no PR merge, no live-mode enablement.
+
+### Release status
+PR #1 remains draft/open/unmerged. Original `Tradepro` remains untouched. Live trading is **NOT READY** and disabled. No real orders have been submitted.

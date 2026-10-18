@@ -250,3 +250,8 @@ Files added/changed: `backend/app/models/broker_trade_record.py`, `backend/app/s
 The service stages normalized trade records with connection-scoped uniqueness and exact mapping/ownership validation. It deliberately does not create `Execution` rows or change cash, positions, order status, broker-child fill aggregates or P&L. This is the safety boundary until actual fees and atomic live accounting are designed.
 
 **Immediate next action:** obtain current-head backend pytest and Alembic migration results, then fix failures. Workflow/status lookups returned no results for this SHA; the local environment could not reach GitHub to run tests. Do not claim green CI, do not wire the service into live execution, do not merge PR #1, and do not enable live trading.
+
+
+### Latest change — 18 October 2026
+
+Added a populated migration-backfill regression test for connection-scoped broker IDs. It starts from revision 003, upgrades to 005, seeds legacy broker child-order/execution rows without connection IDs, then upgrades to head and checks that migration 006 resolves both links. Latest head: `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. Run/inspect CI for this exact SHA before proceeding.

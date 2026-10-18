@@ -287,6 +287,87 @@ def test_connection_scope_migration_backfills_existing_broker_links(tmp_path):
             },
         )
 
+    # An owner can have more than one Upstox connection. Legacy rows do not
+    # contain enough information to select one safely, so the migration must
+    # leave that mapping NULL rather than choosing an arbitrary connection.
+    ambiguous_user_id, connection_a_id, connection_b_id, ambiguous_portfolio_id, ambiguous_order_id = (
+        _id(), _id(), _id(), _id(), _id()
+    )
+    ambiguous_broker_order_id, ambiguous_execution_id = _id(), _id()
+    with engine.begin() as connection:
+        connection.execute(
+            text("INSERT INTO users (id, email, password_hash, full_name) VALUES (:id, :email, :password, :name)"),
+            {
+                "id": ambiguous_user_id,
+                "email": "ambiguous-scope@example.com",
+                "password": "test-hash",
+                "name": "Ambiguous Scope",
+            },
+        )
+        for connection_id, suffix in [
+            (connection_a_id, "a"),
+            (connection_b_id, "b"),
+        ]:
+            connection.execute(
+                text(
+                    "INSERT INTO broker_connections "
+                    "(id, user_id, broker, api_key_encrypted, api_secret_encrypted, redirect_uri) "
+                    "VALUES (:id, :user_id, 'upstox', :api_key, 'encrypted-secret', 'https://example.invalid/callback')"
+                ),
+                {
+                    "id": connection_id,
+                    "user_id": ambiguous_user_id,
+                    "api_key": f"encrypted-key-{suffix}",
+                },
+            )
+        connection.execute(
+            text(
+                "INSERT INTO portfolios (id, user_id, name, virtual_capital, cash_balance) "
+                "VALUES (:id, :user_id, 'Ambiguous portfolio', 100000, 100000)"
+            ),
+            {"id": ambiguous_portfolio_id, "user_id": ambiguous_user_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO orders (id, portfolio_id, instrument_id, side, order_type, segment, quantity, status, "
+                "trading_mode, execution_reason, placed_at) "
+                "VALUES (:id, :portfolio_id, :instrument_id, 'BUY', 'MARKET', 'EQUITY_DELIVERY', 1, 'PENDING', "
+                "'LIVE', 'MANUAL', :placed_at)"
+            ),
+            {
+                "id": ambiguous_order_id,
+                "portfolio_id": ambiguous_portfolio_id,
+                "instrument_id": instrument_id,
+                "placed_at": now,
+            },
+        )
+        connection.execute(
+            text(
+                "INSERT INTO broker_orders "
+                "(id, order_id, broker_name, broker_order_id, status, requested_quantity, filled_quantity) "
+                "VALUES (:id, :order_id, 'upstox', 'ambiguous-child-id', 'complete', 1, 1)"
+            ),
+            {"id": ambiguous_broker_order_id, "order_id": ambiguous_order_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO executions "
+                "(id, order_id, portfolio_id, instrument_id, side, quantity, price, gross_value, brokerage, stt, "
+                "exchange_charges, sebi_charges, stamp_duty, gst, total_charges, realized_pnl, strategy_realized_pnl, "
+                "executed_at, broker_order_ref_id, broker_name, broker_trade_id) "
+                "VALUES (:id, :order_id, :portfolio_id, :instrument_id, 'BUY', 1, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0, NULL, "
+                ":executed_at, :broker_order_ref_id, 'upstox', 'ambiguous-legacy-trade')"
+            ),
+            {
+                "id": ambiguous_execution_id,
+                "order_id": ambiguous_order_id,
+                "portfolio_id": ambiguous_portfolio_id,
+                "instrument_id": instrument_id,
+                "executed_at": now,
+                "broker_order_ref_id": ambiguous_broker_order_id,
+            },
+        )
+
     _run_alembic(database_url, "head")
     with engine.connect() as connection:
         child = connection.execute(
@@ -299,5 +380,15 @@ def test_connection_scope_migration_backfills_existing_broker_links(tmp_path):
         ).scalar_one()
         assert child == connection_id
         assert execution_connection == connection_id
+        ambiguous_child_connection = connection.execute(
+            text("SELECT broker_connection_id FROM broker_orders WHERE id = :id"),
+            {"id": ambiguous_broker_order_id},
+        ).scalar_one()
+        ambiguous_execution_connection = connection.execute(
+            text("SELECT broker_connection_id FROM executions WHERE id = :id"),
+            {"id": ambiguous_execution_id},
+        ).scalar_one()
+        assert ambiguous_child_connection is None
+        assert ambiguous_execution_connection is None
     engine.dispose()
 

@@ -266,3 +266,8 @@ operator falls into "providing an algo to other traders," which needs
 broker-mediated exchange registration regardless of how low any one
 user's order frequency is. Nothing in the codebase currently acts on
 `LIVE` even when set.
+
+
+## Broker trade intake and accounting boundary
+
+The `BrokerTradeIngestionService` stages validated broker-confirmed trade rows in `broker_trade_records`, uniquely scoped by broker connection and broker trade ID. It requires a LIVE local order, tenant ownership, a mapped broker child order bound to the owner's broker connection, and consistent side/instrument/quantity/price fields. This is an ingestion ledger only: it does not create `Execution` rows, update order status or child fill aggregates, or change cash, positions or P&L. Live accounting must be a separate atomic reconciliation step that handles actual costs and partial fills; the paper `ExecutionService` must never be reused for broker fills. Migration verification for this addition remains pending.

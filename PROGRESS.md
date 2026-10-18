@@ -467,3 +467,11 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - CI run #614 exposed a real scanner-design false positive: generic `.place_order()` matches included PAPER `ExecutionService` methods and docstring text, not just broker-adapter writes. Run #614 failed at the guard step before the suite ran: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123034569.
 - Corrected the guard to inspect adapter-named receivers (e.g. `adapter.place_order`, `self.adapter.cancel_order`) rather than generic service method names. This keeps normal paper execution calls outside the broker-adapter scan while preserving explicit adapter naming as a source convention. Commit: `30599b1bd8d32293b856c88cdfb4e2facaa9ce0f`.
 - New CI run #615 is pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123199888. Await its result before treating the guard as verified. The scanner cannot detect dynamic dispatch/reflection and is one layer of defense, not proof of safety.
+
+
+### AST scanner correction / latest verification — 18 October 2026
+
+- Guard run #615 then exposed a second false positive from a `.place_order` mention in a docstring; it failed before pytest, not because an order path wrote to the broker: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123199888.
+- Replaced line regex with AST inspection so comments/docstrings are ignored and adapter-named attribute references are checked; added a regression test for docstring mentions. Commits: `a5d0acd58d582e53263965cb17f05a9cc89035eb`, `bdf208efcc32b44a6367157dd2ab0aab946e6574`.
+- Latest run #617 has passed the broker-write guard and is currently running the full test suite; migration and PostgreSQL integration steps are pending: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281.
+- **Not yet verified:** the complete CI workflow. Do not proceed on the assumption that the whole suite passed until the run completes.

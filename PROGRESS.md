@@ -348,3 +348,8 @@ Live trading is **NOT READY** and disabled. No real orders have been submitted.
 - Intended assertions: successful chronological promotion and duplicate-safe replay; a sibling broker-status failure prevents any promotion; paper cash and paper positions stay unchanged; no order-write calls.
 - Status: **committed; CI pending/unverified at time of this note**. No test result is claimed here. Check CI for this exact SHA before marking complete.
 - Next: inspect CI, fix only observed failures, and then update this file plus roadmap/audit/handover with exact final evidence. Do not recreate the already-existing coordinator.
+
+
+### Superseding code checkpoint
+
+Latest test code commit is `4d8941f436bed1f61b46c4123a4a7c6d5c6b6f88`. It strengthens the earlier `b5783d421f64fcb8e7f1d75f1af5185fd9029f59` test commit by removing pre-seeded staged trades, forcing real ingestion to insert the mocked broker trades. CI is still unverified for this exact SHA; do not mark the tests passing until confirmed.

@@ -378,3 +378,52 @@ async def test_fetch_and_ingest_rejects_unmapped_order_before_broker_call(
 
     assert adapter.calls == []
     assert db_session.query(BrokerTradeRecord).count() == 0
+
+
+def test_multiple_partial_fills_aggregate_once_and_overfill_batch_rolls_back(db_session, trade_context):
+    """Repeated broker snapshots may add distinct fills, but never exceed order quantity."""
+    user, portfolio, _instrument, _connection, order, broker_order = trade_context
+    service = BrokerTradeIngestionService(db_session)
+    before_cash = Decimal(str(portfolio.cash_balance))
+
+    first = service.ingest_trades(
+        user.id, order.id, "broker-child-1",
+        [_trade(trade_id="partial-1", quantity=2, price="100.25")],
+    )
+    second = service.ingest_trades(
+        user.id, order.id, "broker-child-1",
+        [
+            _trade(trade_id="partial-1", quantity=2, price="100.25"),
+            _trade(trade_id="partial-2", quantity=2, price="101.00"),
+        ],
+    )
+
+    assert first.inserted_count == 1
+    assert second.inserted_count == 1
+    assert second.duplicate_count == 1
+    records = db_session.query(BrokerTradeRecord).order_by(BrokerTradeRecord.broker_trade_id).all()
+    assert [(row.broker_trade_id, row.quantity, row.price) for row in records] == [
+        ("partial-1", 2, Decimal("100.2500")),
+        ("partial-2", 2, Decimal("101.0000")),
+    ]
+
+    # The final two units would exceed the five-unit order after prior fills;
+    # reject the whole batch, including its otherwise-valid new trade.
+    with pytest.raises(ValueError, match="exceed the local order quantity"):
+        service.ingest_trades(
+            user.id, order.id, "broker-child-1",
+            [
+                _trade(trade_id="partial-3", quantity=2, price="102.00"),
+                _trade(trade_id="partial-4", quantity=1, price="103.00"),
+            ],
+        )
+
+    assert db_session.query(BrokerTradeRecord).count() == 2
+    assert db_session.query(Execution).count() == 0
+    assert db_session.query(Position).count() == 0
+    db_session.refresh(portfolio)
+    db_session.refresh(order)
+    db_session.refresh(broker_order)
+    assert Decimal(str(portfolio.cash_balance)) == before_cash
+    assert order.status == "PENDING"
+    assert broker_order.filled_quantity == 0

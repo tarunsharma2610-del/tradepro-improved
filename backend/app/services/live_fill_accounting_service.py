@@ -287,7 +287,7 @@ class LiveFillAccountingService:
                     LivePosition.broker_connection_id == record.broker_connection_id,
                     LivePosition.instrument_id == instrument.id,
                 )
-                .with_for_update()
+                .with_for_update(of=LivePosition)
                 .first()
             )
             if position is None:

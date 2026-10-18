@@ -4,7 +4,11 @@ from pydantic import BaseModel, Field
 
 class SafetyControlRequest(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
-    expected_version: int | None = Field(default=None, ge=1)
+
+
+class SafetyResetRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+    expected_version: int = Field(ge=1)
 
 
 class SafetyStatusOut(BaseModel):

@@ -302,3 +302,10 @@ The AST-based source guard and docstring regression test are committed. Run #617
 ### Verified guard CI checkpoint — 18 October 2026
 
 CI run #617 passed on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. Guard PASS; backend suite 402 passed / 4 skipped / 1 warning; SQLite and PostgreSQL migrations PASS; PostgreSQL concurrency tests 4 passed. The source guard is in CI, but the actual central writer, safety endpoints, authorization model, event immutability and route/worker wiring remain unfinished. Continue from the storage-hardening step in `CENTRAL_BROKER_WRITE_BOUNDARY_DESIGN.md`; do not enable live orders.
+
+
+### Current checkpoint — safety-event storage hardening
+
+Read the latest `PROGRESS.md` and `HANDOVER.md` before resuming. Code adds revision `202610180011` for safety-event request fingerprints, unique per-state event versions and SQLite/PostgreSQL triggers that reject audit event updates/deletes. The service now rejects idempotency-key payload mismatches and can reject stale manual-reset expected versions. Regression tests cover audit-write rollback; PostgreSQL integration attempts direct update/delete.
+
+Exact-head CI is not yet verified: run `39124312326` for SHA `2ece7b2f5b85faf4b0bbef55b97d5d0fe4c1e9b3` was pending at this checkpoint. Wait for its final result and inspect every workflow step. Do not claim success from earlier run `39124213016`, which predates the final changes. Next after green CI: review migration/trigger behavior, then implement scoped authorization/MFA/CSRF. Do not wire live orders, enable live mode, merge PR #1, or touch original `Tradepro`.

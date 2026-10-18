@@ -23,10 +23,11 @@ Pull request: [#1 — draft, open, not merged](https://github.com/tarunsharma261
 ## Current verified repository state
 
 - Branch `safety/fail-closed-trading-mode`; PR #1 draft/open/unmerged; original `Tradepro` untouched.
-- Latest verified code/test SHA `dd27afcecc64f5cafc91198e1cfc81b61616fff9`: [Actions #39111061824](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111061824) — **307 passed, 1 warning in 19.67s**; SQLite Alembic upgrade passed.
-- Current feature: a fail-closed, account-wide live risk-gate foundation with mocked snapshot providers. It uses broker-position snapshots (not virtual paper positions), fresh timestamps, market hours, absolute INR order/exposure/daily-loss limits, order-frequency caps, unresolved-order exposure, and broker cash/margin checks.
-- The gate's quote/positions/funds/margin providers are not wired to real Upstox calls; the gate is not production-injected; no order route/worker or broker POST is wired. Weekday/session check does not yet account for exchange holidays/special sessions.
-- Test evidence does not establish real broker behavior, PostgreSQL migration behavior, exact-head frontend build, staging or production readiness. Live trading remains disabled.
+- Latest verified code/test SHA `c683fbd16d114b2a41a80a646fc91ee2d4cf25eb`: [Actions #39111682177](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39111682177) — **315 passed, 1 warning in 25.97s**; SQLite Alembic upgrade passed.
+- Implemented account-wide fail-closed live risk checks and a read-only Upstox snapshot collector for full quotes, broker positions, funds, margin estimates, market holidays and session timings. Strict parsers validate source timestamps, instrument identity and numeric values.
+- The official calendar now governs market open/closed state, including special sessions; the gate does not override it with hardcoded regular hours. Tests use mocked broker responses only.
+- Collector/gate are not wired to order routes or workers. No order submission or accounting changes; live mode remains disabled.
+- Not verified: real broker account responses, PostgreSQL migration behavior, full frontend build against this exact SHA, staging or production readiness.
 
 ## Completed and committed work (safety branch)
 

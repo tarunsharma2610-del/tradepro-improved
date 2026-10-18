@@ -462,3 +462,20 @@ def test_mark_submission_unknown_is_idempotent_and_refuses_terminal_states(
 
     db_session.refresh(second)
     assert second.status == "FILLED"
+
+
+def test_submission_claim_is_one_time_and_does_not_submit(
+    db_session, recovery_context, monkeypatch
+):
+    service, user, _portfolio, _instrument, order = _prepared(
+        db_session, recovery_context, monkeypatch
+    )
+
+    claimed = service.claim_submission_attempt(user.id, order.id)
+
+    assert claimed.status == "SUBMISSION_CLAIMED"
+    with pytest.raises(LiveExecutionBlocked, match="already taken"):
+        service.claim_submission_attempt(user.id, order.id)
+    db_session.refresh(order)
+    assert order.status == "SUBMISSION_CLAIMED"
+    assert db_session.query(BrokerOrder).filter(BrokerOrder.order_id == order.id).count() == 0

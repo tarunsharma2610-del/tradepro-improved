@@ -319,3 +319,11 @@ Add a service-level integration test that composes the **real** `BrokerChildOrde
 
 ### Release status
 Live trading is **NOT READY** and disabled. No real orders have been submitted.
+
+
+## Requirements audit update — 18 October 2026
+
+- **Requirement:** broker-confirmed fills must be reconciled before live accounting, retries must not duplicate executions, and paper/live accounting must remain isolated.
+- **Change:** commit `b5783d421f64fcb8e7f1d75f1af5185fd9029f59` adds service-level integration coverage against the real existing reconciliation, ingestion, promotion and accounting services. It does not add a second coordinator or change production runtime wiring.
+- **Classification:** tests added; verification **pending CI** at this checkpoint. Do not classify as verified until the workflow for the exact commit succeeds.
+- **Remaining caveat:** mocks verify application orchestration and response parsing, not live Upstox behavior or production deployment. No real order submission is tested or authorized.

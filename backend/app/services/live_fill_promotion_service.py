@@ -72,6 +72,14 @@ class LiveFillPromotionService:
         estimate = await self.charge_estimator.estimate_for_trade(
             user_id, broker_trade_record_id
         )
+        # Re-fetch after network I/O, then compare the complete charge-input
+        # fingerprint rather than only the broker trade ID.
+        try:
+            self.db.refresh(record)
+        except Exception as exc:
+            raise LiveExecutionBlocked(
+                "Staged trade could not be revalidated after charge estimation."
+            ) from exc
         if (
             estimate.broker_trade_id != record.broker_trade_id
             or estimate.broker_connection_id != record.broker_connection_id
@@ -79,13 +87,6 @@ class LiveFillPromotionService:
             or estimate.quantity != record.quantity
             or estimate.price != Decimal(str(record.price))
         ):
-            raise LiveExecutionBlocked(
-                "Charge estimate identity does not match the staged trade; promotion blocked."
-            )
-        # Re-fetch after the asynchronous network boundary. The staged trade
-        # is immutable through the intake service; still reject a changed row.
-        self.db.refresh(record)
-        if estimate.broker_trade_id != record.broker_trade_id:
             raise LiveExecutionBlocked(
                 "Staged trade changed during charge estimation; promotion blocked."
             )

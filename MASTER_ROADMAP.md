@@ -84,3 +84,8 @@ Next sequence: (1) verify/fix current implementation, (2) add populated migratio
 ### Latest test-scope update — 18 October 2026
 
 Added populated legacy-data coverage for migration 006: a child order and execution created before the connection-scope migration must be backfilled to the owner's broker connection. Current head is `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`; the verification gate remains open until CI proves the new test and full migration chain pass.
+
+
+### Final verification clarification — 18 October 2026
+
+Code/test target SHA: `a68c336e4a35ccc0bfe4d6539760ad03e40672f1`. The later branch commits only updated documentation; at the check, the PR head was `1b0056d9739cd55d50cd5484cddf955aa8bf07db`, with no workflow run/status returned. The verification gate is still open.

@@ -22,9 +22,10 @@ Pull request: #1 (draft; do not merge without explicit review)
 Implement and test a concrete account-wide live pre-trade risk gate (positions/exposure, notional and frequency limits, market session/stale quote, broker funds/margin), fail-closed and with mocked external dependencies. Do not add live submission, wire routes/workers, merge PR #1, or enable live trading.
 
 ## Release blockers
-- Current PR CI for the new margin parser/tests is not confirmed.
-- A complete live order lifecycle and broker reconciliation are not verified end-to-end.
-- Live risk controls, account-level kill switch, OAuth/token operational recovery and production prerequisites require further verification.
+- Latest backend CI passed on code/test SHA `de2e2b7524f09b1be2d4378a9b5ac29bdf26f9e7` (296 tests and SQLite migration). Documentation-only commits followed; no backend code changed after that verified SHA.
+- PostgreSQL migration behavior, real Upstox behavior, full frontend CI against the latest branch, and deployment/staging remain unverified in this checkpoint.
+- A complete live order lifecycle and broker-confirmed fill/accounting reconciliation are not verified end-to-end.
+- Concrete account-wide live risk controls, account-level kill switch, broker-error circuit breaker, OAuth/token operational recovery and production prerequisites remain incomplete.
 - Live trading is **NOT READY**. Keep it disabled.
 
 

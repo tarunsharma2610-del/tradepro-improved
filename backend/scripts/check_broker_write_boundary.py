@@ -17,12 +17,26 @@ WRITE_METHODS = {"place_order", "modify_order", "cancel_order"}
 PAPER_EXECUTION_CALLER = Path("services/strategy_execution_service.py")
 
 
-def _is_approved_paper_execution_call(relative: Path, method: str, chain: list[str]) -> bool:
-    return (
+def _is_approved_paper_execution_call(relative: Path, node: ast.Attribute, chain: list[str]) -> bool:
+    # Strategy entry/exit orchestration delegates to the PAPER execution service.
+    if (
         relative == PAPER_EXECUTION_CALLER
-        and method.lower() == "place_order"
+        and node.attr.lower() == "place_order"
         and chain == ["execution", "self"]
-    )
+    ):
+        return True
+
+    # Existing HTTP order endpoints delegate to ExecutionService, which rejects
+    # non-PAPER mode and never calls broker order-write methods.
+    if (
+        relative == Path("api/v1/portfolios.py")
+        and node.attr.lower() in {"place_order", "cancel_order"}
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "ExecutionService"
+    ):
+        return True
+    return False
 
 
 def _attribute_chain(node: ast.AST) -> list[str]:
@@ -54,7 +68,7 @@ def find_violations(app_root: Path) -> list[str]:
             if not isinstance(node, ast.Attribute) or node.attr.lower() not in WRITE_METHODS:
                 continue
             chain = _attribute_chain(node.value)
-            if _is_approved_paper_execution_call(relative, node.attr, chain):
+            if _is_approved_paper_execution_call(relative, node, chain):
                 continue
             violations.append(
                 f"{relative}:{node.lineno}: unapproved broker-write reference: {node.attr}"

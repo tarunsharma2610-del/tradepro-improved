@@ -209,7 +209,7 @@
 - Resolved the exact broker connection from the child-order mapping and required it to belong to the requesting user and expected broker; unbound/foreign connection mappings fail closed.
 - Required a non-empty instrument token that exactly matches the local instrument before staging a broker trade. Invalid non-text side input now produces a controlled validation error.
 - Added regression cases for a foreign user's broker connection, missing instrument identity, and malformed side data.
-- Commits: `2cdbbe290f8b661cb91110dbb4e165fcef36f800` (code), `b780c39f770a6839dab0af63fc424c341eff9d70` (tests).
+- Commits: `2cdbbe290f8b661cb91110dbb4e165fcef36f800` (code), `b780c39f770a6839dab0af63fc424c341eff9d70` (initial tests), `264aa4c609d522cd01d07e8213bfee6f14c7a2bf` (legacy unbound-child test). Latest code/test target: `264aa4c609d522cd01d07e8213bfee6f14c7a2bf`.
 - Verification remains pending: no Actions run is associated with the current code through the available integration; no local pytest/migration run was possible. Do not infer success from historical CI.
 
 

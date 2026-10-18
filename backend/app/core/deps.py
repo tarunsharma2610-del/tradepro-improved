@@ -118,7 +118,8 @@ def require_recent_safety_mfa(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Recent MFA verification required") from None
     now = int(datetime.now(timezone.utc).timestamp())
     if (
-        subject != user.id
+        not user.mfa_enabled
+        or subject != user.id
         or "totp" not in (payload.get("amr") or [])
         or verified_at <= 0
         or issued_at <= 0

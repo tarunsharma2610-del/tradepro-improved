@@ -105,6 +105,23 @@ class BrokerChildOrderReconciliationService:
         if details.transaction_type is not None and details.transaction_type != order.side:
             raise ValueError("Broker order side conflicts with the persisted local order.")
 
+        # Serialize reconciliation with concurrent trade intake for this
+        # child order. Refresh identity-map fields while acquiring the row lock.
+        locked_child = (
+            self.db.query(BrokerOrder)
+            .filter(BrokerOrder.id == child.id, BrokerOrder.order_id == order.id)
+            .with_for_update()
+            .populate_existing()
+            .first()
+        )
+        if (
+            locked_child is None
+            or locked_child.broker_connection_id != connection.id
+            or locked_child.broker_order_id != details.order_id
+        ):
+            raise ValueError("Broker child-order mapping changed during reconciliation.")
+        child = locked_child
+
         normalized_status = self._normalize_status(details.status, details.filled_quantity, details.quantity)
         records = (
             self.db.query(BrokerTradeRecord)

@@ -224,3 +224,48 @@ def test_database_read_failure_fails_closed(safety_context, monkeypatch):
     assert decision.kill_switch_tripped
     assert decision.circuit_state == "UNKNOWN"
 
+
+def test_same_idempotency_key_with_different_request_is_rejected(safety_context):
+    _db, user, service, _now = safety_context
+    _initialize(user, service)
+    service.trip_kill_switch(
+        user.id, "operator emergency stop", actor_user_id=user.id,
+        idempotency_key="reused-key",
+    )
+
+    with pytest.raises(LiveExecutionBlocked, match="different or unverifiable"):
+        service.trip_kill_switch(
+            user.id, "different reason", actor_user_id=user.id,
+            idempotency_key="reused-key",
+        )
+
+
+def test_audit_insert_failure_rolls_back_safety_state_mutation(safety_context):
+    from sqlalchemy import event
+
+    db, user, service, _now = safety_context
+    initial = _initialize(user, service)
+    original_version = initial.version
+    original_reason = initial.kill_switch_reason
+
+    def reject_audit_insert(_mapper, _connection, _target):
+        raise RuntimeError("synthetic audit storage outage")
+
+    event.listen(LiveAccountSafetyEvent, "before_insert", reject_audit_insert)
+    try:
+        with pytest.raises(RuntimeError, match="audit storage outage"):
+            service.trip_kill_switch(
+                user.id, "operator emergency stop", actor_user_id=user.id,
+                idempotency_key="audit-write-fails",
+            )
+    finally:
+        event.remove(LiveAccountSafetyEvent, "before_insert", reject_audit_insert)
+
+    db.expire_all()
+    state = db.query(LiveAccountSafetyState).filter_by(user_id=user.id, broker="upstox").one()
+    assert state.version == original_version
+    assert state.kill_switch_reason == original_reason
+    assert state.kill_switch_tripped
+    assert db.query(LiveAccountSafetyEvent).filter_by(
+        state_id=state.id, idempotency_key="audit-write-fails"
+    ).count() == 0

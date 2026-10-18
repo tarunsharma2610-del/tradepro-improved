@@ -22,6 +22,10 @@ class Order(BaseModel):
     )
 
     portfolio_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
+    # Connection captured by live preflight; nullable only for legacy/paper orders.
+    broker_connection_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("broker_connections.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     instrument_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("instruments.id"), index=True)
     instrument: Mapped["Instrument"] = relationship(lazy="joined")
 

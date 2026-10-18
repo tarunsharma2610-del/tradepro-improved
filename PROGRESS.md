@@ -435,3 +435,12 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Open gaps: no operator audit-read endpoint; no separate safety permissions; no step-up auth for reset; audit transaction/immutability and metadata policy need design; cookie-CSRF and malformed JWT subject handling need hardening; safety-control HTTP tests do not exist yet.
 - No API endpoint or live-order integration was added. This is a design-gate audit, not a penetration test. Keep PR #1 draft and live order submission disabled.
 - **Next:** approve permission model, atomic state+event persistence, event schema/redaction and operator audit read scopes; then map every broker-write/retry entry point before endpoint design or wiring.
+
+
+## Order-entry path inventory checkpoint — 18 October 2026
+
+- Added [ORDER_ENTRY_PATH_INVENTORY.md](ORDER_ENTRY_PATH_INVENTORY.md), commit [a477489c7e2d5b6883c299c1e9a8aee1cbef055f](https://github.com/tarunsharma2610-del/tradepro-improved/commit/a477489c7e2d5b6883c299c1e9a8aee1cbef055f).
+- Static inventory covered manual portfolio order/cancel routes, manual strategy evaluation, scheduled worker, shared PAPER execution service, strategy enter/exit, Upstox adapter write primitives, live preflight, intent recovery, and fill reconciliation.
+- Current manual and strategy order callers use a shared PAPER-only service that rejects non-PAPER mode. Adapter place/modify/cancel write methods exist, but no production caller was found in reviewed service paths. Live intent recovery still uses LiveExecutionService directly rather than the account-safety-aware LivePreflightCoordinator; it does not submit orders, but this composition gap must be resolved before exposure.
+- No runtime code changed. No order route or worker was wired to live preflight. Keep TRADING_MODE=PAPER and LIVE_ORDER_SUBMISSION_ENABLED=false. Static review is not production sign-off.
+- **Next:** design the single allowed broker-write service, state/audit atomicity, permission model and source-call guardrails; then add tests before wiring any entry path.

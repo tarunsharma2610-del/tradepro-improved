@@ -13,7 +13,9 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.security import create_token
 from app.core.deps import (
+    require_recent_safety_mfa,
     require_same_origin_for_cookie_mutation,
     require_safety_permission,
 )
@@ -152,6 +154,45 @@ def test_cookie_mutation_accepts_configured_origin():
     origin = settings.CORS_ORIGINS[0].encode()
     request = _request("POST", [(b"origin", origin)])
     require_same_origin_for_cookie_mutation(request)
+
+
+def test_recent_mfa_step_up_rejects_missing_or_wrong_scope_token(make_user):
+    user = make_user()
+    with pytest.raises(HTTPException) as exc:
+        require_recent_safety_mfa(step_up_token=None, user=user)
+    assert exc.value.status_code == 403
+
+    wrong_scope = create_token(user.id, "step_up", extra_claims={
+        "scope": "other", "amr": ["pwd", "totp"],
+        "mfa_verified_at": int(datetime.now(timezone.utc).timestamp()),
+    })
+    with pytest.raises(HTTPException) as exc:
+        require_recent_safety_mfa(step_up_token=wrong_scope, user=user)
+    assert exc.value.status_code == 403
+
+
+def test_recent_mfa_step_up_is_user_bound_and_accepts_fresh_token(make_user):
+    user = make_user()
+    token = create_token(user.id, "step_up", extra_claims={
+        "scope": "safety.reset", "amr": ["pwd", "totp"],
+        "mfa_verified_at": int(datetime.now(timezone.utc).timestamp()),
+    })
+    assert require_recent_safety_mfa(step_up_token=token, user=user) is user
+    another_user = make_user(email="another@example.com")
+    with pytest.raises(HTTPException) as exc:
+        require_recent_safety_mfa(step_up_token=token, user=another_user)
+    assert exc.value.status_code == 403
+
+
+def test_recent_mfa_step_up_rejects_stale_verification(make_user):
+    user = make_user()
+    old = int((datetime.now(timezone.utc) - timedelta(minutes=6)).timestamp())
+    token = create_token(user.id, "step_up", extra_claims={
+        "scope": "safety.reset", "amr": ["pwd", "totp"], "mfa_verified_at": old,
+    })
+    with pytest.raises(HTTPException) as exc:
+        require_recent_safety_mfa(step_up_token=token, user=user)
+    assert exc.value.status_code == 403
 
 
 def test_bearer_only_mutation_does_not_depend_on_cookie_origin():

@@ -246,11 +246,34 @@ class LiveOrderRecoveryService:
             raise LiveExecutionBlocked("Only a tagged LIVE intent can enter submission recovery.")
         if order.status not in {"PENDING_SUBMISSION", "SUBMISSION_UNKNOWN"}:
             raise LiveExecutionBlocked("Order is not in a submission-recovery eligible state.")
-        order.status = "SUBMISSION_UNKNOWN"
-        self.db.add(order)
+
+        # Compare-and-set the state in SQL. A stale ORM object must never
+        # overwrite a terminal/reconciled state written by another worker.
+        changed = (
+            self.db.query(Order)
+            .filter(
+                Order.id == order.id,
+                Order.trading_mode == "LIVE",
+                Order.broker_tag.isnot(None),
+                Order.status.in_({"PENDING_SUBMISSION", "SUBMISSION_UNKNOWN"}),
+            )
+            .update(
+                {Order.status: "SUBMISSION_UNKNOWN"},
+                synchronize_session=False,
+            )
+        )
         self.db.commit()
-        self.db.refresh(order)
-        return order
+        self.db.expire_all()
+        current = self._get_owned_order(user_id, order_id)
+        if changed == 0 and current.status != "SUBMISSION_UNKNOWN":
+            raise LiveExecutionBlocked(
+                "Order state changed concurrently; recovery requires reconciliation."
+            )
+        if current.trading_mode != "LIVE" or not current.broker_tag:
+            raise LiveExecutionBlocked("Order no longer qualifies for submission recovery.")
+        if current.status != "SUBMISSION_UNKNOWN":
+            raise LiveExecutionBlocked("Submission recovery state was not durably recorded.")
+        return current
 
     async def recover_by_tag(
         self,

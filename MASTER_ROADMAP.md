@@ -278,3 +278,8 @@ Next distinct task: add PostgreSQL concurrency coverage for account-safety idemp
 - Regression tests prove missing state, a tripped latch, and an unexpected safety-check exception all block before any read-only broker call. Existing successful preflight tests explicitly establish a passing health check and manual reset in the test fixture.
 - This is read-only preflight composition only. LivePreflightCoordinator remains unregistered from order routes/workers, no broker order-write method is called, live trading remains disabled, PR #1 stays draft/open/unmerged, and the original Tradepro repository remains untouched.
 - **Next task:** audit authentication/authorization and operator audit visibility for any future safety-control endpoint. Do not create or wire a control route until that review is complete; keep live order submission disabled.
+
+
+## Next gate: security and operator-audit design review — 18 October 2026
+
+The static review is committed in [SECURITY_CONTROL_ENDPOINT_AUDIT.md](SECURITY_CONTROL_ENDPOINT_AUDIT.md), commit [10d87d9d9010b2c48ebcf25c832a2ea574100889](https://github.com/tarunsharma2610-del/tradepro-improved/commit/10d87d9d9010b2c48ebcf25c832a2ea574100889). Do not design or implement safety-control routes until the permission model, step-up auth, CSRF/origin policy, event redaction, atomic audit persistence, audit-read scoping and HTTP negative-test matrix are approved. After that design review, audit every order-entry/retry/recovery/broker-write path before wiring the preflight coordinator. Live order submission stays disabled; PR #1 stays draft/open; original Tradepro remains untouched.

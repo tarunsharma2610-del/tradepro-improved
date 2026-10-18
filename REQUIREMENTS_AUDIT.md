@@ -184,3 +184,15 @@ The following are now present in the branch: `BrokerAdapter.get_margin_details`,
 The current blocker is verification: the GitHub integration returned no workflow run and no commit status for the current PR head when checked. Earlier CI results (238 backend tests, one warning, migration/frontend checks green) belong to an older commit and do not verify the margin parser changes. No pass/fail conclusion is possible from the available evidence. Inspect or trigger the configured workflow from GitHub Actions and record actual results before advancing.
 
 `MASTER_ROADMAP.md` is now the current sequencing guide. After this verification gate, the next implementation phase is a separate, initially unregistered `LiveExecutionService` with mocked tests, while preserving the current PAPER-only execution guard. Do not merge the draft PR, place real orders, or enable live trading.
+
+
+## Status update — broker trade ingestion (18 October 2026)
+
+| Requirement | Status | Evidence / limitation | Next action |
+|---|---|---|---|
+| Normalize broker trade-book rows | Implemented in parser; validation pending on current head | `parse_order_trades` returns typed `BrokerTrade` values and validates broker order ID, trade ID, quantity, price and side. | Verify parser tests on current head. |
+| Persist broker trade rows idempotently | Implemented; verification pending | `BrokerTradeRecord` and `BrokerTradeIngestionService` stage rows with a unique `(broker_connection_id, broker_trade_id)` key. Exact replay is skipped; conflicting reuse is rejected. | Run test suite and migration check. |
+| Tenant isolation and parent/child broker mapping | Implemented in intake service; verification pending | Service requires the authenticated owner, a LIVE local order, a mapped child broker order, and a child-order connection matching that owner's broker connection. | Verify negative-path tests. |
+| Account-scoped broker identifiers | Schema change implemented; migration verification pending | Migration 006 changes broker child-order and execution uniqueness to include broker connection; legacy child rows are backfilled when identifiable. | Test populated legacy rows and current migration chain on SQLite; verify PostgreSQL separately. |
+| Promote staged broker trades into accounted executions | Missing | Intake intentionally does not mutate cash, positions, order status, execution ledger or P&L. Actual fee handling and atomic live accounting are not complete. | Design and test a separate reconciliation/accounting step only after current intake CI is green. |
+| Current branch CI | Requires verification | Current head `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3` returned no workflow runs/statuses through the connected integration; local network could not clone GitHub. | Obtain exact-SHA backend and migration results; do not infer success. |

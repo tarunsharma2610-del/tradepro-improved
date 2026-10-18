@@ -239,3 +239,14 @@ Resume with **broker-confirmed fill ingestion**, not live submission. Re-read `P
 Already present: Upstox order-trade read method, `parse_order_trades` and typed `BrokerTrade`; `BrokerOrder` child rows; nullable broker-order/trade fields on `Execution`; unique constraint `(broker_name, broker_trade_id)`. The parser is tested in source, but the ingestion/accounting path is not wired or proven. Do not create a duplicate parser/service without auditing the current repositories first.
 
 First inspect model/migration/repository/service/test files. Verify user and broker-connection scoping, child-order mapping, and whether broker-trade uniqueness must include connection/account ID. Then implement only the missing transactional idempotent persistence, with regression tests. Never treat order status as a fill, never let broker fills mutate paper balances/positions, and preserve the PAPER-only execution guard. Current PR #1 head last observed: `540e1285d3de934b43829948a1b60c67658d1343`; no current-head workflow run/status was returned by the integration. CI is unverified. Do not merge PR #1 or enable live trading.
+
+
+## Latest handover — broker trade intake committed, tests pending (18 October 2026)
+
+Current head: `32eea17c141d4cfbc727eed2ff2a1b40d21dbba3` on `safety/fail-closed-trading-mode`; PR #1 remains draft/open/unmerged.
+
+Files added/changed: `backend/app/models/broker_trade_record.py`, `backend/app/services/broker_trade_ingestion_service.py`, `backend/alembic/versions/202610180005_broker_trade_ingestion.py`, `backend/alembic/versions/202610180006_broker_connection_scoped_trade_ids.py`, `backend/app/models/broker_order.py`, `backend/app/models/execution.py`, `backend/app/models/__init__.py`, `backend/tests/test_broker_trade_ingestion.py`, and `backend/tests/test_live_broker_schema_migration.py`.
+
+The service stages normalized trade records with connection-scoped uniqueness and exact mapping/ownership validation. It deliberately does not create `Execution` rows or change cash, positions, order status, broker-child fill aggregates or P&L. This is the safety boundary until actual fees and atomic live accounting are designed.
+
+**Immediate next action:** obtain current-head backend pytest and Alembic migration results, then fix failures. Workflow/status lookups returned no results for this SHA; the local environment could not reach GitHub to run tests. Do not claim green CI, do not wire the service into live execution, do not merge PR #1, and do not enable live trading.

@@ -162,3 +162,11 @@
 - Validates required aggregate and per-row fields, non-empty margin rows, finite non-negative numeric amounts, and successful response envelopes.
 - Added tests for a documented response shape and malformed/error cases. This remains a read-only parser; no risk gate or order approval uses it.
 - Commits: parser 3c4dd6ac0d7d88a18916c241d28a224fc5031d5d; tests 6995f64429b44134edfa5985ad4f50c3b54cfcab. CI status for the current PR head must be checked before claiming verification; the older green workflow does not validate these added tests.
+
+
+### 18 October 2026 — roadmap and status reconciliation
+
+- Added `MASTER_ROADMAP.md` to centralize sequencing, verified baseline, release blockers and continuation rules.
+- Clarified that read-only `get_margin_details` adapter support and `parse_margin_details` are present; earlier statements describing these as missing are historical notes.
+- Current CI for the parser/test commit remains unverified: no workflow run or commit status was returned by the connected GitHub integration. Earlier green checks do not cover this change.
+- Next gate is inspect/trigger CI and record actual results; do not merge or enable live trading.

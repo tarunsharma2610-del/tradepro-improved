@@ -138,7 +138,7 @@ class LiveFillAccountingService:
             order = (
                 self.db.query(Order)
                 .filter(Order.id == child.order_id)
-                .with_for_update()
+                .with_for_update(of=Order)
                 .first()
             )
             if order is None or order.trading_mode != "LIVE":

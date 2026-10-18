@@ -29,7 +29,8 @@ from app.services.broker_child_order_reconciliation_service import (
 class FakeReadOnlyUpstoxAdapter:
     """Only implements read endpoints needed for mocked reconciliation/promotion."""
 
-    def __init__(self, *, fail_status=False, fail_estimate=False):
+    def __init__(self, instrument_key, *, fail_status=False, fail_estimate=False):
+        self.instrument_key = instrument_key
         self.fail_status = fail_status
         self.fail_estimate = fail_estimate
         self.calls = []
@@ -46,7 +47,7 @@ class FakeReadOnlyUpstoxAdapter:
                     "quantity": 1,
                     "average_price": 100.0,
                     "transaction_type": "BUY",
-                    "instrument_token": "NSE_EQ|INE002A01018",
+                    "instrument_token": self.instrument_key,
                     "exchange_timestamp": "2026-10-19T10:30:00+05:30",
                 },
                 {
@@ -55,7 +56,7 @@ class FakeReadOnlyUpstoxAdapter:
                     "quantity": 1,
                     "average_price": 101.0,
                     "transaction_type": "BUY",
-                    "instrument_token": "NSE_EQ|INE002A01018",
+                    "instrument_token": self.instrument_key,
                     "exchange_timestamp": "2026-10-19T10:30:01+05:30",
                 },
             ],
@@ -73,7 +74,7 @@ class FakeReadOnlyUpstoxAdapter:
                 "quantity": 2,
                 "filled_quantity": 2,
                 "average_price": 100.5,
-                "instrument_token": "NSE_EQ|INE002A01018",
+                "instrument_token": self.instrument_key,
                 "transaction_type": "BUY",
             },
         })
@@ -169,7 +170,7 @@ async def test_real_service_chain_reconciles_then_promotes_idempotently_without_
 ):
     db, user, portfolio, instrument, connection, order, child, now = live_order_context
     before_cash = Decimal(str(portfolio.cash_balance))
-    adapter = FakeReadOnlyUpstoxAdapter()
+    adapter = FakeReadOnlyUpstoxAdapter(instrument.instrument_key)
     coordinator = _coordinator(db, adapter)
 
     first = await coordinator.reconcile_and_promote(user.id, order.id)
@@ -212,7 +213,7 @@ async def test_real_service_chain_reconciles_then_promotes_idempotently_without_
 async def test_status_failure_leaves_staged_trades_unaccounted(live_order_context):
     db, user, portfolio, instrument, connection, order, child, now = live_order_context
     before_cash = Decimal(str(portfolio.cash_balance))
-    adapter = FakeReadOnlyUpstoxAdapter(fail_status=True)
+    adapter = FakeReadOnlyUpstoxAdapter(instrument.instrument_key, fail_status=True)
     result = await _coordinator(db, adapter).reconcile_and_promote(user.id, order.id)
 
     assert not result.reconciliation_complete
@@ -236,7 +237,7 @@ async def test_status_failure_leaves_staged_trades_unaccounted(live_order_contex
 async def test_estimate_failure_after_reconciliation_writes_no_accounting_rows(live_order_context):
     db, user, portfolio, instrument, connection, order, child, now = live_order_context
     before_cash = Decimal(str(portfolio.cash_balance))
-    adapter = FakeReadOnlyUpstoxAdapter(fail_estimate=True)
+    adapter = FakeReadOnlyUpstoxAdapter(instrument.instrument_key, fail_estimate=True)
     result = await _coordinator(db, adapter).reconcile_and_promote(user.id, order.id)
 
     assert result.reconciliation_complete

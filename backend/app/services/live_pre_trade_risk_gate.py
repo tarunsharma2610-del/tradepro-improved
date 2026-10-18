@@ -38,6 +38,14 @@ class LiveQuoteSnapshot:
 
 
 @dataclass(frozen=True)
+class BrokerPositionSnapshot:
+    instrument_key: str
+    quantity: int
+    market_price: Decimal
+    observed_at: datetime
+
+
+@dataclass(frozen=True)
 class BrokerFundsSnapshot:
     cash_available: Decimal
     observed_at: datetime
@@ -50,6 +58,7 @@ class BrokerMarginSnapshot:
 
 
 QuoteProvider = Callable[[UUID, Instrument], LiveQuoteSnapshot]
+PositionsProvider = Callable[[UUID], tuple[BrokerPositionSnapshot, ...]]
 FundsProvider = Callable[[UUID], BrokerFundsSnapshot]
 MarginProvider = Callable[[UUID, Instrument, LiveOrderIntent, Decimal], BrokerMarginSnapshot]
 Clock = Callable[[], datetime]
@@ -68,12 +77,14 @@ class AccountWideLiveRiskGate:
         db: Session,
         *,
         quote_provider: QuoteProvider | None,
+        positions_provider: PositionsProvider | None,
         funds_provider: FundsProvider | None,
         margin_provider: MarginProvider | None,
         clock: Clock | None = None,
     ):
         self.db = db
         self.quote_provider = quote_provider
+        self.positions_provider = positions_provider
         self.funds_provider = funds_provider
         self.margin_provider = margin_provider
         self.clock = clock or (lambda: datetime.now(timezone.utc))
@@ -107,8 +118,8 @@ class AccountWideLiveRiskGate:
         if now_ist.weekday() >= 5 or not (time(9, 15) <= now_ist.time().replace(tzinfo=None) < time(15, 30)):
             raise LiveExecutionBlocked("Indian equity market session is closed; live order blocked.")
 
-        if not all((self.quote_provider, self.funds_provider, self.margin_provider)):
-            raise LiveExecutionBlocked("Fresh quote, broker funds, and broker margin providers are all required.")
+        if not all((self.quote_provider, self.positions_provider, self.funds_provider, self.margin_provider)):
+            raise LiveExecutionBlocked("Fresh quote, broker positions, funds, and margin providers are all required.")
 
         quote = self._fresh_quote(user_id, instrument, now)
         proposed_value = quote.price * Decimal(intent.quantity)
@@ -128,22 +139,26 @@ class AccountWideLiveRiskGate:
         if not portfolio_ids:
             raise LiveExecutionBlocked("No owned portfolios are available for account-wide risk checks.")
 
-        # Account-wide position exposure, marked using fresh broker prices.
-        positions = (
-            self.db.query(Position)
-            .filter(Position.portfolio_id.in_(portfolio_ids), Position.quantity != 0)
-            .all()
-        )
+        # Account-wide exposure comes from the connected broker's actual
+        # positions, never the app's paper Position table (which is virtual).
+        try:
+            broker_positions = self.positions_provider(user_id) if self.positions_provider else None
+        except Exception as exc:
+            raise LiveExecutionBlocked("Broker position lookup failed; order blocked.") from exc
+        if not isinstance(broker_positions, (tuple, list)):
+            raise LiveExecutionBlocked("Broker positions snapshot is missing or invalid.")
         exposure = Decimal("0")
-        for position in positions:
-            position_instrument = position.instrument
-            if position_instrument is None or not position_instrument.is_active:
-                raise LiveExecutionBlocked("An existing position cannot be safely valued.")
-            position_quote = (
-                quote if position.instrument_id == instrument.id
-                else self._fresh_quote(user_id, position_instrument, now)
-            )
-            exposure += abs(Decimal(position.quantity)) * position_quote.price
+        for broker_position in broker_positions:
+            if not isinstance(broker_position, BrokerPositionSnapshot):
+                raise LiveExecutionBlocked("Broker position row is invalid.")
+            if not isinstance(broker_position.instrument_key, str) or not broker_position.instrument_key.strip():
+                raise LiveExecutionBlocked("Broker position instrument identity is invalid.")
+            if type(broker_position.quantity) is not int:
+                raise LiveExecutionBlocked("Broker position quantity is invalid.")
+            if not isinstance(broker_position.market_price, Decimal) or not broker_position.market_price.is_finite() or broker_position.market_price <= 0:
+                raise LiveExecutionBlocked("Broker position mark price is invalid.")
+            self._fresh_timestamp(broker_position.observed_at, now, "Broker position")
+            exposure += abs(Decimal(broker_position.quantity)) * broker_position.market_price
 
         # Existing unresolved orders are included, so a retry or timeout cannot
         # create risk budget by disappearing from local status.
@@ -193,6 +208,7 @@ class AccountWideLiveRiskGate:
             .filter(
                 Execution.portfolio_id.in_(portfolio_ids),
                 Execution.executed_at >= day_start,
+                Execution.broker_connection_id.isnot(None),
             )
             .scalar()
         )

@@ -114,6 +114,19 @@ class LivePreflightCoordinator:
                 "Upstox risk snapshots could not be validated; live preflight blocked."
             ) from exc
 
+        # Refresh the same connection row after async network calls so a
+        # credential rotation/disconnect committed during collection is visible.
+        try:
+            self.db.refresh(connection)
+        except Exception as exc:
+            raise LiveExecutionBlocked(
+                "Upstox connection could not be revalidated after snapshot collection."
+            ) from exc
+        if not connection.is_connected:
+            raise LiveExecutionBlocked(
+                "Upstox connection was disconnected during snapshot collection."
+            )
+
         gate = AccountWideLiveRiskGate(
             self.db,
             quote_provider=snapshots.quote_provider,

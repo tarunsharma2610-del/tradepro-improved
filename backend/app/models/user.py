@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, String
+import uuid
+
+from sqlalchemy import Boolean, JSON, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -16,9 +18,14 @@ class User(BaseModel):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # Platform admin: the only role that can read/write platform_settings
-    # (WhatsApp/Telegram/AI/News keys). Regular users never see these.
+    # Platform admin: the only role that can read/write platform_settings.
+    # This flag deliberately grants no live-safety permission.
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Explicit least-privilege grants for safety APIs. Empty by default;
+    # never derive these from is_admin or accept them from a request payload.
+    safety_permissions: Mapped[list[str]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
 
     # MFA (TOTP). The secret is stored encrypted (see core/encryption.py) —
     # it's as sensitive as a password, so it gets the same treatment as

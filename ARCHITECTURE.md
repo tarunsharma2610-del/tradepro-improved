@@ -469,3 +469,10 @@ This is a target design, not current wiring. Safety-control permissions, step-up
 ### Broker-write guard verification — 18 October 2026
 
 The source-call guard is implemented and passed CI run #617 on code SHA `bdf208efcc32b44a6367157dd2ab0aab946e6574` (full workflow: 402 passed, 4 skipped; SQLite/PostgreSQL migrations and PostgreSQL concurrency tests passed): https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39123311281. It enforces the future single-writer convention for adapter-named references but is not itself the central writer. No production broker-write service or live route wiring exists yet.
+
+
+## Safety event storage controls — 18 October 2026
+
+Migration `202610180011` adds SHA-256 request fingerprints and uniqueness of `(state_id, state_version)`; the safety service validates request fingerprints on idempotency replay and rejects stale manual-reset expected versions when supplied. A state transition and its audit event are committed in one DB transaction. SQLite and PostgreSQL triggers reject event UPDATE/DELETE, with PostgreSQL integration tests for both operations and unit coverage for state rollback on event insert failure.
+
+This improves database-level immutability but does not protect against privileged database owners. Legacy rows with no request fingerprint are deliberately non-replayable. Future reset endpoints must require expected version. Exact-head CI remains pending at run `39124312326`; no endpoints or live broker paths have been added.

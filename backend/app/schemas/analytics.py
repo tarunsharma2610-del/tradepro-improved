@@ -34,3 +34,20 @@ class StrategyAnalyticsOut(BaseModel):
     win_count: int
     loss_count: int
     total_realized_pnl: Decimal
+
+
+class LivePortfolioAnalyticsOut(BaseModel):
+    total_gross_realized_pnl: Decimal
+    total_net_realized_pnl: Decimal
+    total_fills: int
+    profitable_fills: int
+    unprofitable_fills: int
+    win_rate_pct: Decimal | None
+    best_fill_net_pnl: Decimal | None
+    worst_fill_net_pnl: Decimal | None
+    total_effective_costs: Decimal
+    accounting_note: str = (
+        "Live-only metrics from broker-confirmed fills. Net P&L subtracts original "
+        "execution charges and append-only charge adjustments. This is not broker cash "
+        "or a mark-to-market equity curve; broker account balances remain authoritative."
+    )

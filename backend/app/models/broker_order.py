@@ -17,9 +17,13 @@ class BrokerOrder(BaseModel):
 
     __tablename__ = "broker_orders"
     __table_args__ = (
-        UniqueConstraint("broker_name", "broker_order_id", name="uq_broker_orders_broker_order_id"),
+        UniqueConstraint("broker_connection_id", "broker_order_id", name="uq_broker_orders_connection_order_id"),
     )
 
+    broker_connection_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("broker_connections.id", ondelete="SET NULL", name="fk_broker_orders_broker_connection_id"),
+        nullable=True, index=True,
+    )
     order_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True
     )

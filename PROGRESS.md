@@ -186,9 +186,9 @@ Added `FundsAndMarginV3` and `parse_funds_and_margin_v3`. It validates the neste
 Check CI for the margin parser/test commits. If green, record the exact test/migration/frontend results and commit final documentation updates. If red, inspect failing job logs, correct the specific defect, rerun CI, and update this file before moving on. Keep live trading disabled.
 
 
-## Immediate next action — CI verification
+## Immediate next action — Phase 2 CI verification gate
 
-Inspect GitHub Actions for the current PR head returned by PR #1 at the time of verification. If no workflow is associated with that head, use the repository's supported workflow trigger or wait for CI; do not claim success from the older run. Inspect failures and fix only evidenced defects. Then record the exact backend test count, migration result, frontend result and final verification commit in this file and the audit/changelog/handover. Do not merge PR #1 or enable live trading.
+Verify the current broker-trade intake hardening and the earlier margin parser using `.github/workflows/backend-tests.yml` on `safety/fail-closed-trading-mode`. Current code/test target: `b780c39f770a6839dab0af63fc424c341eff9d70`; subsequent documentation commits do not alter code. The connected GitHub integration exposes no workflow-dispatch action and returned no run for this branch/head, so manually dispatch the workflow from GitHub Actions or obtain a run tied to this code. The workflow runs backend pytest and SQLite `alembic upgrade head`. Record the actual run URL/SHA, test count, warning count, migration outcome and any frontend result; do not claim success based on historical CI. Fix failures before the next Phase 2 task. Keep PR #1 draft/unmerged and live trading disabled.
 
 
 ## Status correction — 18 October 2026 (supersedes stale next-step notes)

@@ -134,3 +134,11 @@ See [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md) for the sourc
 3. This does not make live-fill accounting end-to-end complete: service is deliberately unregistered; ingestion, worker integration, shared live order/status accounting and real-account reconciliation remain outstanding.
 4. Next: continue Phase 2 reconciliation release gates and crash/recovery/fill-linkage checks. Integrate the service only through a separately reviewed and tested path.
 5. Live order submission remains disabled; no real orders for testing. All work stays in `tradepro-improved`; original `Tradepro` remains untouched. Do not delete the recovered files without explicit user approval.
+
+
+## Safety-branch port checkpoint — 2026-10-21
+
+- Main code/test checkpoint `3f210e592c8aa2e643e536a04f186da8187bc06b`; [CI run 39480002328](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480002328) passed **431 tests, 1 warning**, with SQLite/PostgreSQL 16 reversible migration checks passing.
+- Ported pure Upstox response parsing and isolated broker trade staging with tests. Staging rejects missing exchange timestamps and does not update executions, positions, portfolio cash, or local order status.
+- See [`SAFETY_BRANCH_PORT_MATRIX.md`](SAFETY_BRANCH_PORT_MATRIX.md) for 21 safety-only test modules and dependency/port decisions. Branch test counts are not directly comparable because source and test trees differ.
+- Next: audit and test child-order reconciliation/partial-fill aggregation; keep fill promotion and broker writes disabled until transaction, idempotency, recovery, and account-isolation gates pass.

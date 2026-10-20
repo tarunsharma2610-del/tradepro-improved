@@ -149,3 +149,10 @@ See [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md) for the sourc
 - Added aggregate per-child cap in `LiveFillAccountingService`: previously accounted executions plus the new trade cannot exceed the broker-confirmed child filled quantity.
 - Added regression test for two distinct trade IDs attempting to overrun the same child fill total. Exact-head [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799) passed **432 tests, 1 warning**, with SQLite/PostgreSQL 16 migration checks passing.
 - Next architecture gate: reconcile the worker's `BrokerFillIdentity` intake with the staging/accounting path's `BrokerTradeRecord`; do not dual-write or connect them until idempotency and transaction boundaries are explicit.
+
+
+## Child-order reconciliation port — 2026-10-21
+
+- Ported child-order status/fill reconciliation with current-main schema compatibility. It validates the broker snapshot against durable staged trade quantities and weighted average price, locks the child row, rejects fill regressions/terminal-state conflicts, and updates only child status/fill quantity.
+- Exact-head [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed **438 tests, 1 warning**, including SQLite/PostgreSQL 16 reversible migration checks.
+- Remaining architecture gate: distinguish the intent-based `BrokerFillIdentity` workflow from the manual Order `BrokerTradeRecord`/`BrokerOrder` workflow, or design an explicit transaction-safe bridge. No live order submission or automatic accounting promotion is enabled.

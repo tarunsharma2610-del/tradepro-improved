@@ -589,3 +589,12 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Exact code/test checkpoint `5ad579f60e78dcb5fdee14dcdb17dc4c9d8956a1`, GitHub Actions [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799): **432 passed, 1 warning**. SQLite and PostgreSQL 16 reversible migration checks passed.
 - This is defensive accounting-service validation only. `LiveFillAccountingService` remains deliberately unregistered; staged trades are not automatically promoted and live broker submission remains disabled.
 - Architecture issue for next step: the read-only reconciliation worker currently stores trade identity in `BrokerFillIdentity`, while the staging/accounting path uses `BrokerTradeRecord`. Before wiring either path into the other, choose and document one authoritative flow (or a deliberate, transactional bridge) to prevent split-brain fill state and duplicate processing.
+
+
+## Broker child-order reconciliation port — verified checkpoint (2026-10-21)
+
+- Ported `BrokerChildOrderReconciliationService` and its regression suite from the safety branch, adapting it to current main's stricter `BrokerOrder` schema. Main's child row persists status and filled quantity; weighted average fill price is computed from validated staged trades and checked against the broker snapshot, not persisted to a nonexistent column.
+- Reconciliation validates owner/order/connection mapping, rechecks the broker token after asynchronous reads, locks and refreshes the child row, requires staged trade quantity to equal broker-reported filled quantity, checks weighted average price, rejects quantity regressions and terminal-state conflicts, and changes only child-order metadata. It does not mutate parent `Order`, `Execution`, `Position`, or portfolio cash.
+- Exact code/test checkpoint `0b1224b3df446a1fcfd1725adcde29a35f722631`, GitHub Actions [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581): **438 passed, 1 warning**. SQLite and PostgreSQL 16 reversible migration checks passed.
+- The service is not wired to an API route or automatic worker. It uses mocked broker responses in tests; no real broker call/order was made by CI.
+- Next: resolve the architecture boundary between the intent-based worker's `BrokerFillIdentity` and the legacy/manual-order staging/accounting path's `BrokerTradeRecord`. Decide whether these are intentionally separate workflows or require a transaction-safe bridge before connecting reconciliation to live accounting.

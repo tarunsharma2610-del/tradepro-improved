@@ -12,10 +12,10 @@ Working branch: `main`
 5. Record exact commit SHAs and CI run URLs; don't label a checkpoint green until the run corresponds to the exact code HEAD.
 
 ## Current verified baseline
-- Latest verified code/test checkpoint: `5ad579f60e78dcb5fdee14dcdb17dc4c9d8956a1`.
-- [GitHub Actions run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799): **432 passed, 1 warning**; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade passed.
+- Latest verified code/test checkpoint: `0b1224b3df446a1fcfd1725adcde29a35f722631`.
+- [GitHub Actions run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581): **438 passed, 1 warning**; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade passed.
 - 18 October safety checkpoint: [run 39140514552](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39140514552), SHA `9085d9fbdcc8ee2dd8baac6f5e73f92bd76cfa8b`, 456 passed, 8 skipped, 1 warning. It belongs to a materially different, diverged branch.
-- Tree audit: `main` has 37 test modules; the safety branch has 48. Twenty-one safety-branch test modules remain absent from main; see `SAFETY_BRANCH_PORT_MATRIX.md` for the dependency map. This explains why the test suites differ, but doesn't mean 101 tests were removed from an identical code line.
+- Tree audit: `main` has 38 test modules; the safety branch has 48. Twenty safety-branch test modules remain absent from main; see `SAFETY_BRANCH_PORT_MATRIX.md` for the dependency map. This explains why the test suites differ, but doesn't mean 101 tests were removed from an identical code line.
 - Migration graph: 14 files, one linear path from `202608170001` to `202610180008`; no missing parents. The live-fill service is present but unregistered.
 
 ## Roadmap and gates
@@ -31,8 +31,9 @@ Working branch: `main`
 - [ ] Build a file-by-file dependency matrix for missing tests and required models, services, API routes, migrations, and configuration.
 - [x] Port pure Upstox response parsing and regression tests as an isolated, read-only validation slice; exact-head CI passed 406 tests.
 - [x] Port broker trade staging with current-main schema adaptations and fail-closed timestamp validation; exact-head CI passed 431 tests.
-- [x] Add cumulative live-fill accounting guard so already-accounted trades plus a new trade cannot exceed the broker-confirmed child fill quantity; exact-head CI passed 432 tests.
-- [ ] Resolve the dual intake representation (`BrokerFillIdentity` in the read-only worker versus `BrokerTradeRecord` in the staging/accounting service) and document a single authoritative path or transactional bridge before integration.
+- [x] Add cumulative live-fill accounting guard so already-accounted trades plus a new trade cannot exceed the broker-confirmed child fill quantity.
+- [x] Port child-order status/fill reconciliation with strict current-main schema adaptation; exact-head CI passed 438 tests.
+- [ ] Resolve the workflow boundary between intent-based `BrokerFillIdentity` and manual Order `BrokerTradeRecord`/`BrokerOrder` before connecting either flow to accounting promotion.
 - [ ] Add focused regression coverage for idempotent trade identity, partial-fill aggregation, overfill rejection, batch rollback, malformed snapshots, and paper-accounting isolation as applicable to the chosen slice.
 - [ ] Run focused tests, full backend pytest, PostgreSQL concurrency/integration tests, and reversible migrations on SQLite/PostgreSQL 16.
 - [ ] Commit the slice and update progress/audit with exact-head CI evidence.

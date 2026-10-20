@@ -149,3 +149,11 @@ The 20 October blocker note above is historical and is superseded by subsequent 
 - Current main now includes a cumulative per-child accounting guard in `LiveFillAccountingService`; a new staged trade is rejected if its quantity plus already-accounted executions would exceed the broker-confirmed child fill total. Regression test included.
 - Exact code/test checkpoint `5ad579f60e78dcb5fdee14dcdb17dc4c9d8956a1`, [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799): **432 passed, 1 warning**, including SQLite and PostgreSQL 16 reversible migration checks.
 - Important unresolved architecture split: `LiveOrderReconciliationWorker` writes trade identities to `BrokerFillIdentity`, while `BrokerTradeIngestionService` stages `BrokerTradeRecord` and `LiveFillAccountingService` promotes that second model. These must not be treated as one source of truth without an explicit migration/bridge plan. Keep the accounting service unregistered and live writes disabled.
+
+
+## Child-order reconciliation port — 2026-10-21
+
+- Added the child-order reconciliation service and tests with current-main schema adaptations; broker-reported filled quantity must equal the sum of durable staged trades, weighted average price must match, and terminal state/fill quantity cannot regress. Only `BrokerOrder.status` and `filled_quantity` are updated.
+- Exact-head [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed **438 tests, 1 warning**, including SQLite and PostgreSQL 16 reversible migration checks.
+- Main has 38 test modules; the safety branch has 48, with 20 safety-only modules remaining. See `SAFETY_BRANCH_PORT_MATRIX.md`.
+- Next gate is to document whether the intent-based `BrokerFillIdentity` path and manual Order `BrokerTradeRecord` path are distinct by design or need a safe bridge. Do not merge their records implicitly; keep live writes and automatic promotion disabled.

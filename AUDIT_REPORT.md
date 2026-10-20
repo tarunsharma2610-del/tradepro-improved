@@ -312,3 +312,12 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Added a sum of prior `Execution.quantity` for the same child order and broker connection, after locking the child row and after the idempotent replay check. Promotion now rejects when prior accounted quantity plus the new trade exceeds broker-confirmed `filled_quantity`.
 - Added regression test `test_cumulative_promoted_trades_cannot_exceed_child_fill_quantity`. Exact-head [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799) passed **432 tests, 1 warning**, plus SQLite/PostgreSQL 16 reversible migrations.
 - This service remains unregistered. The reconciliation worker persists `BrokerFillIdentity`, whereas the staged accounting path reads `BrokerTradeRecord`; resolve this architecture split before integration or automatic promotion. No real broker request/order occurred.
+
+
+## Broker child-order reconciliation — audit result (2026-10-21)
+
+- Ported `backend/app/services/broker_child_order_reconciliation_service.py` and `backend/tests/test_broker_child_order_reconciliation.py` in commits `baf480dc6858cb6d0c8bedc4a0fae4aa2f608d48` and `0b1224b3df446a1fcfd1725adcde29a35f722631`.
+- Adapted away historical `Order.broker_order_id` and branch-only `BrokerOrder.average_fill_price/status_checked_at/error` columns. Mainline child-order identity stays in `BrokerOrder`; status and filled quantity are persisted, while weighted average fill price is computed from trade records and compared with broker details.
+- The service verifies ownership, connection/token stability, requested quantity, instrument/side, trade-quantity equality, weighted average price, non-regressing fill quantity and terminal-state monotonicity. It never updates parent Order/accounting.
+- Exact-head [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed **438 tests, 1 warning**, plus SQLite and PostgreSQL 16 reversible migrations.
+- Remaining architecture gate: `LiveOrderReconciliationWorker` stores intent-linked `BrokerFillIdentity`; the manual Order staging/accounting flow uses `BrokerTradeRecord` and `BrokerOrder`. Keep these isolated until the intended workflow boundary and any bridge are explicitly designed. Live writes and automatic promotion remain disabled.

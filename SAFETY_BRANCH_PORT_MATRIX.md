@@ -8,21 +8,22 @@ Comparison: `main` versus `safety/fail-closed-trading-mode`
 
 The 18 October safety-branch run [39140514552](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39140514552) reported 456 passed, 8 skipped. The 20 October mainline parser checkpoint [39477976464](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39477976464) reported 406 passed. These runs are from different source/test trees. The difference of 50 passing tests is not evidence of 50 deleted tests or 50 missing features.
 
-At the latest tree comparison before this matrix, main contained 37 `backend/tests/test_*.py` modules and the safety branch contained 48. There were 21 safety-only test modules and 10 main-only modules. Counts change as slices are ported; re-count before future decisions.
+After the child-order reconciliation port, main contains 38 `backend/tests/test_*.py` modules and the safety branch contains 48. There are 20 safety-only test modules and 10 main-only modules. Counts change as slices are ported; re-count before future decisions.
 
 ## Completed compatible slices on main
 
 | Slice | Current status | Guardrail |
 |---|---|---|
 | Upstox response parsing | Ported as `backend/app/brokers/upstox/response_parsing.py` with `test_upstox_response_parsing.py`; 406-test checkpoint passed | Pure validation only; not wired to write paths |
-| Broker trade staging | Ported `BrokerTradeIngestionService` and its regression tests; adapting tests to main's stricter schema and making exchange timestamp mandatory | Stages evidence only; must not mutate Execution, Position, portfolio cash, or Order state |
+| Broker trade staging | Ported `BrokerTradeIngestionService` and regression tests; adapted to main's stricter schema and mandatory exchange timestamp | Stages evidence only; must not mutate Execution, Position, portfolio cash, or Order state |
+| Broker child-order reconciliation | Ported `BrokerChildOrderReconciliationService` and tests with current-main schema; validates staged quantity, weighted average price, monotonic fill quantity and terminal states | Updates only child status/fill quantity; does not mutate parent Order/accounting |
 
 ## Safety-only test modules and port decisions
 
 | Test module | Required behavior/dependencies to audit | Decision |
 |---|---|---|
 | `test_api_live_analytics.py` | API routes, owner scoping, current analytics schema | Defer until route and schema dependencies are mapped |
-| `test_broker_child_order_reconciliation.py` | Child-order model, partial fills, order state aggregation | Candidate after broker-trade staging passes CI |
+| `test_broker_child_order_reconciliation.py` | Child-order model, partial fills, order state aggregation | Ported to main; exact-head CI run 39481385581 passed 438 tests |
 | `test_broker_reconciliation.py` | Broker reconciliation service, current-main read-only worker and issue model | Compare semantics before porting; avoid duplicate competing reconciler |
 | `test_broker_write_boundary_guard.py` | Source guard patterns and approved broker-write boundary | Port/adapt guard after checking current main module names |
 | `test_live_account_safety_postgres.py` | Account safety model/service, PostgreSQL locking and schema migration | Defer until full account-safety slice is ported |
@@ -60,4 +61,4 @@ Main also contains test modules not present in the safety branch, including API 
 ## Follow-up safety finding — cumulative promotion and canonical intake
 
 - Added aggregate per-child promotion cap to `LiveFillAccountingService`, backed by regression test `test_cumulative_promoted_trades_cannot_exceed_child_fill_quantity`; exact-head [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799) passed 432 tests.
-- Before wiring the staging service into the worker, resolve the two current representations: worker-side `BrokerFillIdentity` versus accounting-side `BrokerTradeRecord`. Decide a single authoritative intake or specify an idempotent transactional bridge with replay, conflict, and rollback semantics. Do not dual-write by default.
+- Before wiring the staging service into the worker, determine whether the intent-based worker-side `BrokerFillIdentity` and manual Order accounting-side `BrokerTradeRecord` are separate workflows by design. If they need to interact, specify an idempotent transactional bridge with replay, conflict, and rollback semantics. Do not dual-write by default.

@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.brokers.base import BrokerCallResult
 from app.brokers.upstox.response_parsing import BrokerTrade
@@ -239,17 +240,18 @@ def test_ingestion_rejects_broker_child_bound_to_another_users_connection(
         )
     assert db_session.query(BrokerTradeRecord).count() == 0
 
-def test_ingestion_rejects_legacy_child_order_without_connection_binding(
+def test_database_rejects_child_order_without_connection_binding(
     db_session, trade_context
 ):
-    owner, _portfolio, _instrument, _connection, order, broker_order = trade_context
+    # Current main schema is stricter than the historical safety branch:
+    # an unbound child order cannot be persisted in the first place.
+    _owner, _portfolio, _instrument, _connection, _order, broker_order = trade_context
     broker_order.broker_connection_id = None
-    db_session.commit()
-
-    with pytest.raises(ValueError, match="not bound to a broker connection"):
-        BrokerTradeIngestionService(db_session).ingest_trades(
-            owner.id, order.id, "broker-child-1", [_trade()]
-        )
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+    db_session.refresh(broker_order)
+    assert broker_order.broker_connection_id is not None
     assert db_session.query(BrokerTradeRecord).count() == 0
 
 

@@ -579,3 +579,13 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Service scope is staging only: it does not update `Execution`, `Position`, portfolio cash, or local `Order` status. It is not wired into the reconciliation worker or registered as an automatic/live submission path. No broker network call or real order was made by CI.
 - Added [`SAFETY_BRANCH_PORT_MATRIX.md`](SAFETY_BRANCH_PORT_MATRIX.md), listing the 21 safety-only test modules and dependencies/port decisions. The historical 456-pass and newer 406-pass runs are different branch/test trees; do not interpret the 50-pass difference as 50 deleted tests.
 - Next: review child-order reconciliation against current main's worker and repository; port only the required partial-fill/parent-order behavior with explicit idempotency, transaction rollback, and accounting-isolation tests. Keep live-write and fill-promotion paths disabled.
+
+
+## Cumulative live-fill quantity guard — verified checkpoint (2026-10-21)
+
+- Found a correctness gap in the unregistered `LiveFillAccountingService`: each staged trade was compared individually with the child order's filled quantity, so two distinct trade records could each pass even when their combined accounted quantity exceeded that child fill total.
+- Added a per-child aggregate check that sums already-accounted `Execution.quantity` rows for the same broker connection/child order before promotion. The child order is locked first to serialize competing promotions on PostgreSQL. Replays of an already-accounted identical trade remain idempotent.
+- Added regression coverage that promotes one trade, then proves a second distinct trade cannot overrun the same child's aggregate fill cap; the live position and paper position remain unchanged after rejection.
+- Exact code/test checkpoint `5ad579f60e78dcb5fdee14dcdb17dc4c9d8956a1`, GitHub Actions [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799): **432 passed, 1 warning**. SQLite and PostgreSQL 16 reversible migration checks passed.
+- This is defensive accounting-service validation only. `LiveFillAccountingService` remains deliberately unregistered; staged trades are not automatically promoted and live broker submission remains disabled.
+- Architecture issue for next step: the read-only reconciliation worker currently stores trade identity in `BrokerFillIdentity`, while the staging/accounting path uses `BrokerTradeRecord`. Before wiring either path into the other, choose and document one authoritative flow (or a deliberate, transactional bridge) to prevent split-brain fill state and duplicate processing.

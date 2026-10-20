@@ -55,3 +55,9 @@ Main also contains test modules not present in the safety branch, including API 
 4. Test both success and failure behavior: idempotency, duplicate/conflicting identities, cross-account access, malformed data, rollback and accounting isolation.
 5. Require focused tests, full backend pytest, PostgreSQL concurrency/integration and SQLite/PostgreSQL reversible migration checks.
 6. Record exact commit SHA and GitHub Actions run URL. Keep broker-write service disabled and never place real orders in CI.
+
+
+## Follow-up safety finding — cumulative promotion and canonical intake
+
+- Added aggregate per-child promotion cap to `LiveFillAccountingService`, backed by regression test `test_cumulative_promoted_trades_cannot_exceed_child_fill_quantity`; exact-head [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799) passed 432 tests.
+- Before wiring the staging service into the worker, resolve the two current representations: worker-side `BrokerFillIdentity` versus accounting-side `BrokerTradeRecord`. Decide a single authoritative intake or specify an idempotent transactional bridge with replay, conflict, and rollback semantics. Do not dual-write by default.

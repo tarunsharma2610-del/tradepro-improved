@@ -142,3 +142,10 @@ See [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md) for the sourc
 - Ported pure Upstox response parsing and isolated broker trade staging with tests. Staging rejects missing exchange timestamps and does not update executions, positions, portfolio cash, or local order status.
 - See [`SAFETY_BRANCH_PORT_MATRIX.md`](SAFETY_BRANCH_PORT_MATRIX.md) for 21 safety-only test modules and dependency/port decisions. Branch test counts are not directly comparable because source and test trees differ.
 - Next: audit and test child-order reconciliation/partial-fill aggregation; keep fill promotion and broker writes disabled until transaction, idempotency, recovery, and account-isolation gates pass.
+
+
+## Cumulative fill-accounting guard — 2026-10-21
+
+- Added aggregate per-child cap in `LiveFillAccountingService`: previously accounted executions plus the new trade cannot exceed the broker-confirmed child filled quantity.
+- Added regression test for two distinct trade IDs attempting to overrun the same child fill total. Exact-head [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799) passed **432 tests, 1 warning**, with SQLite/PostgreSQL 16 migration checks passing.
+- Next architecture gate: reconcile the worker's `BrokerFillIdentity` intake with the staging/accounting path's `BrokerTradeRecord`; do not dual-write or connect them until idempotency and transaction boundaries are explicit.

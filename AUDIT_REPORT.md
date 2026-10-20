@@ -304,3 +304,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Porting surfaced real schema drift: current main requires broker connection binding and status on `BrokerOrder`, uses `BrokerOrder` as the child-order ID mapping, and requires `BrokerTradeRecord.exchange_timestamp`. Tests were adapted to those constraints instead of loosening production schema.
 - Trade ingestion remains isolated staging only and must not mutate Execution, Position, portfolio cash or Order status. It is not yet integrated with the current reconciliation worker/fill coordinator. Live submission remains disabled.
 - Test-tree audit matrix: [`SAFETY_BRANCH_PORT_MATRIX.md`](SAFETY_BRANCH_PORT_MATRIX.md). Do not merge the divergent safety branch wholesale or infer deleted functionality from raw test counts.
+
+
+## Cumulative child-fill cap — audit result (2026-10-21)
+
+- `LiveFillAccountingService.promote_trade` previously enforced `record.quantity <= child.filled_quantity` per record, but did not enforce the cumulative quantity already accounted against that child order. Distinct trade IDs could therefore individually pass a cap that the aggregate would exceed.
+- Added a sum of prior `Execution.quantity` for the same child order and broker connection, after locking the child row and after the idempotent replay check. Promotion now rejects when prior accounted quantity plus the new trade exceeds broker-confirmed `filled_quantity`.
+- Added regression test `test_cumulative_promoted_trades_cannot_exceed_child_fill_quantity`. Exact-head [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799) passed **432 tests, 1 warning**, plus SQLite/PostgreSQL 16 reversible migrations.
+- This service remains unregistered. The reconciliation worker persists `BrokerFillIdentity`, whereas the staged accounting path reads `BrokerTradeRecord`; resolve this architecture split before integration or automatic promotion. No real broker request/order occurred.

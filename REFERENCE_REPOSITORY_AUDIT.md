@@ -142,3 +142,10 @@ The 20 October blocker note above is historical and is superseded by subsequent 
 - Broker trade staging and adapted tests were ported with mainline schema constraints; [run 39480002328](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480002328) passed **431 tests, 1 warning**, including SQLite and PostgreSQL 16 reversible migrations.
 - The 18 October safety branch's 456-pass result and the mainline 406/431-pass results belong to different source/test trees. The dependency map in `SAFETY_BRANCH_PORT_MATRIX.md` identifies 21 remaining safety-only test modules; this is not evidence of 50 deleted tests.
 - Broker trade staging remains isolated and is not connected to accounting promotion or automatic live execution. No real broker order was submitted. Next step is child-order/parent-fill reconciliation with replay, rollback and isolation tests; live writes stay disabled.
+
+
+## Cumulative live-fill guard and intake-architecture finding — 2026-10-21
+
+- Current main now includes a cumulative per-child accounting guard in `LiveFillAccountingService`; a new staged trade is rejected if its quantity plus already-accounted executions would exceed the broker-confirmed child fill total. Regression test included.
+- Exact code/test checkpoint `5ad579f60e78dcb5fdee14dcdb17dc4c9d8956a1`, [run 39480669799](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480669799): **432 passed, 1 warning**, including SQLite and PostgreSQL 16 reversible migration checks.
+- Important unresolved architecture split: `LiveOrderReconciliationWorker` writes trade identities to `BrokerFillIdentity`, while `BrokerTradeIngestionService` stages `BrokerTradeRecord` and `LiveFillAccountingService` promotes that second model. These must not be treated as one source of truth without an explicit migration/bridge plan. Keep the accounting service unregistered and live writes disabled.

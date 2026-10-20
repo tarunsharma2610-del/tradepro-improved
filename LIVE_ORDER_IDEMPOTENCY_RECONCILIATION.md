@@ -281,3 +281,8 @@ The codebase now has two isolated models of broker trade evidence that require a
 - **Accounting foundation:** `LiveFillAccountingService` promotes a `BrokerTradeRecord` only with explicit broker-reported charge provenance. It is unregistered and guarded by per-child cumulative fill limits; no worker currently promotes fills automatically.
 
 Do not dual-write the same fill to both intake tables by assumption. First decide whether these represent distinct workflows or whether a future central lifecycle should bridge them transactionally. Any bridge needs stable broker identity, ownership/account checks, conflict handling, idempotent replay, rollback and crash-recovery tests. Exact code/test checkpoint [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed 438 tests, 1 warning, with SQLite/PostgreSQL 16 reversible migration checks. No real broker order or production migration occurred.
+
+
+## Parent-order lock guard — 2026-10-21
+
+After broker status I/O, child reconciliation locks/revalidates the owned parent Order, verifies LIVE mode and the pre-network instrument/side/quantity snapshot, then locks the BrokerOrder child before reading staged trade totals. This matches ingestion's parent→child lock order and blocks stale responses after a local order mode/economic change. A regression test switches the order to PAPER during the status read and confirms child state remains unchanged. Exact-head [run 39482592808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39482592808) passed **439 tests, 1 warning**, with SQLite/PostgreSQL 16 reversible migrations. No parent accounting or live submission is enabled.

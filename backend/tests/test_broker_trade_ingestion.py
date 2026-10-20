@@ -195,7 +195,6 @@ def test_same_trade_id_is_scoped_to_each_users_broker_connection(db_session, tra
         status="PENDING",
         trading_mode="LIVE",
         execution_reason="MANUAL",
-        broker_order_id="broker-child-1",
         placed_at=datetime.now(timezone.utc),
     )
     db_session.add_all([other_connection, other_order])
@@ -207,6 +206,7 @@ def test_same_trade_id_is_scoped_to_each_users_broker_connection(db_session, tra
         broker_order_id="broker-child-1",
         requested_quantity=5,
         filled_quantity=0,
+        status="UNKNOWN",
     ))
     db_session.commit()
 

@@ -21,13 +21,14 @@ from app.services.instrument_service import InstrumentService
 
 class FakeChildOrderAdapter:
     def __init__(self, *, trade_quantity=2, status="open", filled_quantity=2, order_quantity=5,
-                 average_price="100.25", fail_status=False):
+                 average_price="100.25", fail_status=False, after_status=None):
         self.trade_quantity = trade_quantity
         self.status = status
         self.filled_quantity = filled_quantity
         self.order_quantity = order_quantity
         self.average_price = average_price
         self.fail_status = fail_status
+        self.after_status = after_status
         self.calls = []
 
     async def get_order_trades(self, access_token, order_id):
@@ -46,6 +47,8 @@ class FakeChildOrderAdapter:
         self.calls.append(("status", access_token, order_id))
         if self.fail_status:
             return BrokerCallResult(ok=False, error="status endpoint unavailable")
+        if self.after_status is not None:
+            self.after_status()
         return BrokerCallResult(ok=True, data={"status": "success", "data": {
             "order_id": order_id,
             "status": self.status,
@@ -215,3 +218,28 @@ async def test_cancelled_partial_child_cannot_regress_to_open(child_context):
 
     db.refresh(child)
     assert child.status == "CANCELLED_PARTIALLY_FILLED"
+
+
+@pytest.mark.asyncio
+async def test_local_order_switch_to_paper_during_status_read_blocks_child_update(child_context):
+    db, user, portfolio, instrument, connection, order, child = child_context
+
+    def switch_to_paper():
+        order.trading_mode = "PAPER"
+        db.commit()
+
+    service = BrokerChildOrderReconciliationService(
+        db, adapter=FakeChildOrderAdapter(after_status=switch_to_paper)
+    )
+
+    with pytest.raises(ValueError, match="no longer LIVE"):
+        await service.reconcile(user.id, order.id, child.id)
+
+    db.refresh(order)
+    db.refresh(child)
+    assert order.trading_mode == "PAPER"
+    assert child.status == "UNKNOWN"
+    assert child.filled_quantity == 0
+    assert db.query(BrokerTradeRecord).count() == 1  # staged evidence is retained
+    assert db.query(Execution).count() == 0
+    assert db.query(Position).count() == 0

@@ -226,3 +226,36 @@ def test_trade_quantity_cannot_exceed_broker_confirmed_child_fill(accounting_con
     db.refresh(paper_position)
     assert paper_position.quantity == 7
 
+
+
+
+def test_cumulative_promoted_trades_cannot_exceed_child_fill_quantity(accounting_context):
+    db, user, portfolio, instrument, connection, order, child, first_record, paper_position = accounting_context
+    service = LiveFillAccountingService(db)
+
+    first = service.promote_trade(user.id, first_record.id, _charges())
+    assert first.inserted is True
+
+    second_record = BrokerTradeRecord(
+        broker_connection_id=connection.id,
+        broker_order_ref_id=child.id,
+        broker_trade_id="trade-live-002",
+        quantity=1,
+        price=Decimal("100.25"),
+        side="BUY",
+        instrument_token=instrument.instrument_key,
+        exchange_timestamp="2026-10-18T09:20:01+05:30",
+    )
+    db.add(second_record)
+    db.commit()
+
+    with pytest.raises(ValueError, match="Cumulative accounted trade quantity exceeds"):
+        service.promote_trade(user.id, second_record.id, _charges(reference="contract-note-2026-10-18-002"))
+
+    assert db.query(Execution).count() == 1
+    live_position = db.query(LivePosition).filter_by(
+        broker_connection_id=connection.id, instrument_id=instrument.id
+    ).one()
+    assert live_position.quantity == 2
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7

@@ -209,3 +209,18 @@ def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position
     assert live_position.avg_price == Decimal("90.0000")
     assert live_position.realized_pnl == Decimal("10.25")
     assert paper_position.quantity == 7
+
+
+def test_trade_quantity_cannot_exceed_broker_confirmed_child_fill(accounting_context):
+    db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
+    record.quantity = 3
+    db.commit()
+
+    with pytest.raises(ValueError, match="exceeds the broker-confirmed child-order fill quantity"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+

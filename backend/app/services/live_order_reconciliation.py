@@ -117,6 +117,10 @@ def normalize_upstox_order(record: Mapping[str, Any]) -> NormalizedBrokerOrder:
         raise BrokerOrderDataError("quantity must be greater than zero")
     if filled > quantity:
         raise BrokerOrderDataError("filled_quantity exceeds requested quantity")
+    if filled == 0 and average_price != 0:
+        raise BrokerOrderDataError("average_price must be zero when filled_quantity is zero")
+    if filled > 0 and average_price <= 0:
+        raise BrokerOrderDataError("average_price must be positive when filled_quantity is positive")
 
     normalized_status = " ".join(raw_status.casefold().split())
     state = _STATUS_MAP.get(normalized_status)

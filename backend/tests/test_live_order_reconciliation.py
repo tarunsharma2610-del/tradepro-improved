@@ -71,13 +71,13 @@ def test_unknown_status_is_never_guessed_to_terminal_state():
 
 
 def test_full_fill_quantity_overrides_stale_open_but_flags_review():
-    result = normalize_upstox_order(_order(status="open", filled_quantity=10))
+    result = normalize_upstox_order(_order(status="open", filled_quantity=10, average_price=99.5))
     assert result.state == "FILLED"
     assert result.needs_review is True
 
 
 def test_complete_without_full_fill_is_quarantined_for_review():
-    result = normalize_upstox_order(_order(status="complete", filled_quantity=2))
+    result = normalize_upstox_order(_order(status="complete", filled_quantity=2, average_price=99.5))
     assert result.state == "RECONCILIATION_REQUIRED"
     assert result.needs_review is True
 
@@ -94,6 +94,8 @@ def test_complete_without_full_fill_is_quarantined_for_review():
         {"quantity": -1},
         {"quantity": 1.5},
         {"filled_quantity": 11},
+        {"filled_quantity": 0, "average_price": 12.5},
+        {"filled_quantity": 1, "average_price": 0},
         {"average_price": float("nan")},
         {"average_price": -1},
     ],

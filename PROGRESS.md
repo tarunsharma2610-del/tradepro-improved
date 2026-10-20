@@ -1,6 +1,6 @@
 # Tradepro Improved — Progress Tracker
 
-Last updated: 2026-10-20
+Last updated: 2026-10-21
 Repository: https://github.com/tarunsharma2610-del/tradepro-improved
 Branch: `main`
 Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b663021cbf625`
@@ -548,3 +548,14 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Exact code/test checkpoint `a906274b98f3f7e0c913f376128f4996b996c52b` passed GitHub Actions [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511): **355 passed, 1 warning**; Alembic upgrade → downgrade → re-upgrade passed on SQLite and PostgreSQL 16.
 - Scope limitation: this is a tested accounting service/storage foundation, not a complete live-fill pipeline. The service remains unregistered; broker trade ingestion, invoking the service from reconciliation, shared live order/status accounting, production staging verification and real-account reconciliation remain outstanding. No real broker orders or production migrations were run. Live order submission remains disabled.
 - Next action: continue the existing Phase 2 reconciliation release gates, inspect crash/recovery and broker-confirmed fill linkage, and only integrate live accounting through a separately reviewed, tested path. Do not delete the recovered files without explicit user approval.
+
+
+## Test-baseline and branch reconciliation — 2026-10-21
+
+- Verified the exact 18 October safety checkpoint from GitHub Actions run [39140514552](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39140514552), commit `9085d9fbdcc8ee2dd8baac6f5e73f92bd76cfa8b`: **456 passed, 8 skipped, 1 warning**. This was the submission-gate checkpoint before later partial-fill and response-parser commits; CI for those later safety-branch commits was not established by that run.
+- Verified current `main` HEAD `074dd533bb84ac8102a6602f50cf9d0f57323a3d` and GitHub Actions run [39476051343](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39476051343): **355 passed, 1 warning**. This is a real difference in the checked-out code/test suite, not just an unsupported estimate.
+- Compared the recursive Git trees: current `main` contains 35 `backend/tests/test_*.py` files; `safety/fail-closed-trading-mode` contains 48. Twenty-three safety-branch test modules are absent from `main`, including broker trade ingestion, live account safety, broker-write boundary, live execution/recovery, fill-reconciliation coordinator/integration, Upstox response parsing, and live pre-trade/preflight coverage. The branches also differ in application code: 19 safety-branch API/model/service paths related to those tests are absent from `main`. The current `main` also has reconciliation-worker and live-fill accounting implementation that is not a drop-in match for the safety branch.
+- GitHub compare reports the refs as diverged (389 commits ahead and 1,029 behind for the selected comparison). Therefore **do not merge or cherry-pick the safety branch wholesale** and do not copy tests without first porting/validating their required production code. The 101-test count difference is explained by materially different test trees; it is not yet evidence that exactly 101 tests were deleted from the same code line.
+- Audited the 14 migration files on `main`: the chain is linear from `202608170001` through `202610180008`, with no missing parent revision and one terminal head `202610180008`. Current CI confirms SQLite and PostgreSQL 16 upgrade → downgrade → re-upgrade checks pass.
+- Live-fill accounting remains a foundation only: `LiveFillAccountingService` is present but intentionally unregistered; broker-trade intake/reconciliation integration, shared parent-order state accounting, and end-to-end crash/replay verification remain outstanding. Live broker submission remains disabled; no live broker request or production migration was performed.
+- Next safe step: create a controlled porting plan from the safety branch by grouping its missing tests with their required source/migration dependencies; port one coherent unit at a time onto `main`, run focused tests plus the complete backend/PostgreSQL migration suite, and update this log only with exact-head CI evidence. Keep the original `Tradepro` repository untouched.

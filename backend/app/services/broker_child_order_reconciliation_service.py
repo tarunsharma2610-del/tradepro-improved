@@ -95,17 +95,32 @@ class BrokerChildOrderReconciliationService:
         ):
             raise ValueError("Upstox connection or token changed during status lookup; reconciliation blocked.")
 
-        if details.quantity <= 0 or (
-            child.requested_quantity is not None and details.quantity != child.requested_quantity
+        # Trade intake locks the parent Order row. Re-acquire that same lock
+        # after network I/O before reading staged trades so a concurrent intake
+        # cannot commit between the trade-sum check and child-state update.
+        locked_order_row = (
+            self.db.query(Order, Portfolio.user_id)
+            .join(Portfolio, Portfolio.id == Order.portfolio_id)
+            .filter(Order.id == order.id, Portfolio.user_id == user_id)
+            .with_for_update(of=Order)
+            .populate_existing()
+            .first()
+        )
+        if locked_order_row is None:
+            raise ValueError("Order ownership changed during broker status lookup; child status was not updated.")
+        locked_order, owner_id = locked_order_row
+        if owner_id != user_id or locked_order.trading_mode != "LIVE":
+            raise ValueError("Local order is no longer LIVE; child status was not updated.")
+        if (
+            locked_order.instrument_id != order.instrument_id
+            or locked_order.side != order.side
+            or locked_order.quantity != order.quantity
         ):
-            raise ValueError("Broker order quantity conflicts with the persisted child-order mapping.")
-        if details.instrument_token is not None and details.instrument_token != order.instrument.instrument_key:
-            raise ValueError("Broker order instrument conflicts with the persisted local order.")
-        if details.transaction_type is not None and details.transaction_type != order.side:
-            raise ValueError("Broker order side conflicts with the persisted local order.")
+            raise ValueError("Local order economics changed during broker status lookup; reconciliation blocked.")
+        order = locked_order
 
-        # Serialize reconciliation with concurrent trade intake for this
-        # child order. Refresh identity-map fields while acquiring the row lock.
+        # Lock/refresh the child row after the parent row, using the same lock
+        # order as trade intake, and revalidate all mapping/economic fields.
         locked_child = (
             self.db.query(BrokerOrder)
             .filter(BrokerOrder.id == child.id, BrokerOrder.order_id == order.id)
@@ -120,6 +135,12 @@ class BrokerChildOrderReconciliationService:
         ):
             raise ValueError("Broker child-order mapping changed during reconciliation.")
         child = locked_child
+        if details.quantity <= 0 or details.quantity != child.requested_quantity:
+            raise ValueError("Broker order quantity conflicts with the persisted child-order mapping.")
+        if details.instrument_token is not None and details.instrument_token != order.instrument.instrument_key:
+            raise ValueError("Broker order instrument conflicts with the persisted local order.")
+        if details.transaction_type is not None and details.transaction_type != order.side:
+            raise ValueError("Broker order side conflicts with the persisted local order.")
 
         normalized_status = self._normalize_status(details.status, details.filled_quantity, details.quantity)
         records = (

@@ -43,6 +43,12 @@ class Execution(BaseModel):
     gst: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     total_charges: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
 
+    # Paper fills default to estimated charges; live promotion requires audited broker-reported charges.
+    charge_source: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="PAPER_ESTIMATE", server_default="PAPER_ESTIMATE"
+    )
+    charge_reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
     # Optional strategy-attributed component, separate from position realized P&L.
     strategy_realized_pnl: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
 

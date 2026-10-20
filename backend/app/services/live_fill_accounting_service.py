@@ -82,6 +82,8 @@ class LiveFillAccountingService:
             )
             if child is None or child.broker_connection_id != record.broker_connection_id:
                 raise ValueError("Broker trade is not bound to a valid child-order/connection mapping.")
+            if record.quantity > child.filled_quantity or record.quantity > child.requested_quantity:
+                raise ValueError("Broker trade quantity exceeds the broker-confirmed child-order fill quantity.")
             row = (
                 self.db.query(Order, Portfolio.user_id)
                 .join(Portfolio, Portfolio.id == Order.portfolio_id)

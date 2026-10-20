@@ -59,6 +59,7 @@ class BrokerChildOrderReconciliationService:
         broker_order_ref_id: UUID,
     ) -> BrokerChildReconciliationResult:
         order, child, connection = self._owned_context(user_id, local_order_id, broker_order_ref_id)
+        original_order_economics = (order.instrument_id, order.side, order.quantity)
         trade_result = await self.ingestion.fetch_and_ingest(
             user_id, local_order_id, child.broker_order_id
         )
@@ -112,9 +113,8 @@ class BrokerChildOrderReconciliationService:
         if owner_id != user_id or locked_order.trading_mode != "LIVE":
             raise ValueError("Local order is no longer LIVE; child status was not updated.")
         if (
-            locked_order.instrument_id != order.instrument_id
-            or locked_order.side != order.side
-            or locked_order.quantity != order.quantity
+            (locked_order.instrument_id, locked_order.side, locked_order.quantity)
+            != original_order_economics
         ):
             raise ValueError("Local order economics changed during broker status lookup; reconciliation blocked.")
         order = locked_order

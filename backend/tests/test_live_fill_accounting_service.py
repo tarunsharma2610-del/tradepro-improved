@@ -61,7 +61,6 @@ def accounting_context(db_session, make_user):
         status="PENDING",
         trading_mode="LIVE",
         execution_reason="MANUAL",
-        broker_order_id="broker-child-1",
         placed_at=datetime.now(timezone.utc),
     )
     db_session.add_all([connection, order])

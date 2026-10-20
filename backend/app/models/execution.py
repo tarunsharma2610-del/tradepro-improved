@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -18,6 +18,12 @@ class Execution(BaseModel):
     distinct, auditable numbers, not a single collapsed figure."""
 
     __tablename__ = "executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "broker_connection_id", "broker_trade_id",
+            name="uq_execution_connection_broker_trade",
+        ),
+    )
 
     order_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("orders.id", ondelete="CASCADE"), index=True)
     portfolio_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
@@ -37,7 +43,20 @@ class Execution(BaseModel):
     gst: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     total_charges: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
 
-    # Realized P&L attributable to THIS fill specifically (0 for fills that
+    # Optional strategy-attributed component, separate from position realized P&L.
+    strategy_realized_pnl: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+
+    # Broker provenance is null for paper executions and populated only for confirmed broker fills.
+    broker_order_ref_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("broker_orders.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    broker_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    broker_connection_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("broker_connections.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    broker_trade_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    # Realized P&L attributable to THIS fill specifically (0 for fills
     # open/add to a position rather than close one) — see position_math.py.
     realized_pnl: Mapped[float] = mapped_column(Numeric(18, 2), default=0, nullable=False)
 

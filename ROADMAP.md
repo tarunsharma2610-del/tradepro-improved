@@ -134,3 +134,7 @@ See [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md) for the sourc
 3. Next: resume the existing reconciliation release gates; later design live-fill accounting as a separate reviewed feature with complete model/schema migrations and tests.
 4. After CI is green, continue the existing reconciliation release gates; selectively adapt the MIT reference patterns from the audit only where a documented gap remains. OpenAlgo source is excluded from copying absent an explicit AGPL compliance decision.
 5. Live order submission stays disabled; no real orders for testing. All work stays in `tradepro-improved`; original `Tradepro` remains untouched.
+
+
+## Recovery update — 2026-10-20
+The three files removed during the earlier CI-blocker investigation have been restored exactly from their original Git blobs to their previous paths. Restoration is a preservation step only; it does not resolve missing model/migration dependencies or establish green CI. The next step is dependency recovery and test/migration validation.

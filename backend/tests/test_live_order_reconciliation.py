@@ -51,7 +51,7 @@ def _order(**overrides):
 )
 def test_documented_upstox_statuses_are_normalized(raw_status, expected):
     filled = 10 if raw_status == "complete" else 0
-    result = normalize_upstox_order(_order(status=raw_status, filled_quantity=filled))
+    result = normalize_upstox_order(_order(status=raw_status, filled_quantity=filled, average_price=99.5 if filled > 0 else 0))
     assert result.state == expected
     assert result.raw_status == raw_status
     assert result.needs_review is False

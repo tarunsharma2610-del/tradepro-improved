@@ -220,10 +220,8 @@ class BrokerTradeIngestionService:
                     raise ValueError("Trade instrument token is required for safe live reconciliation.")
                 if token.strip() != instrument.instrument_key:
                     raise ValueError("Trade instrument token does not match the local order instrument.")
-                if trade.exchange_timestamp is not None and (
-                    not isinstance(trade.exchange_timestamp, str) or not trade.exchange_timestamp.strip()
-                ):
-                    raise ValueError("Trade exchange timestamp must be non-empty text when supplied.")
+                if not isinstance(trade.exchange_timestamp, str) or not trade.exchange_timestamp.strip():
+                    raise ValueError("Trade exchange timestamp is required for safe live reconciliation.")
                 normalized.append((trade, trade_id, price))
 
             if not normalized:

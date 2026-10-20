@@ -74,6 +74,8 @@ def accounting_context(db_session, make_user):
         filled_quantity=2,
         status="PARTIALLY_FILLED",
     )
+    db_session.add(child)
+    db_session.flush()
     record = BrokerTradeRecord(
         broker_connection_id=connection.id,
         broker_order_ref_id=child.id,
@@ -91,7 +93,7 @@ def accounting_context(db_session, make_user):
         avg_price=Decimal("80"),
         realized_pnl=Decimal("12.00"),
     )
-    db_session.add_all([child, record, paper_position])
+    db_session.add_all([record, paper_position])
     db_session.commit()
     return db_session, user, portfolio, instrument, connection, order, child, record, paper_position
 

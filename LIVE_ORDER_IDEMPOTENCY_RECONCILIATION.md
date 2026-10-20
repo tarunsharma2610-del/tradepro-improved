@@ -1,6 +1,6 @@
 # Durable Live-Order Idempotency and Broker Reconciliation
 
-Status: user-approved design; Phase 1 durable records/repository safeguards are CI-tested. Phase 2 has pure order/trade normalization, strict intent matching, versioned status persistence and individual broker-fill identity persistence. Broker reads/worker, fill aggregation/accounting and broker submission remain NOT implemented. Live order placement stays disabled.
+Status: user-approved design; Phase 1 durable records/repository safeguards are CI-tested. Phase 2 has pure order/trade normalization, strict intent matching, versioned status persistence, idempotent `BrokerFillIdentity` persistence, and an explicit on-demand GET-only reconciliation worker with lease/run/issue records and owner-scoped read API/UI; CI uses mocks and no real-account read has been verified. A separate manual-Order path now stages `BrokerTradeRecord` rows and reconciles `BrokerOrder` child status/fill quantity; `LiveFillAccountingService` is still unregistered. The intent-based `BrokerFillIdentity` path and manual `BrokerTradeRecord` path are not connected and must not be treated as interchangeable. Resolve their workflow boundary before integration. No live order placement or cancellation is enabled.
 Date: 2026-10-17
 Scope: tradepro-improved only. Do not modify the original Tradepro repository.
 
@@ -270,3 +270,14 @@ A dashboard-linked `/reconciliation` page now displays safe run counters and man
 The original live-fill accounting service, tests and migration 0008 were restored; supporting broker-order/trade/live-position models and migration revisions 0006/0007 were added. GitHub Actions [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511) passed **355 tests, 1 warning**, and SQLite/PostgreSQL 16 reversible migration checks at code/test checkpoint `a906274b98f3f7e0c913f376128f4996b996c52b`.
 
 Important boundary: the accounting service remains unregistered; no broker trade intake or worker-to-accounting path invokes it yet. It is not proof of live accounting end-to-end or real-account reconciliation. Keep live submission disabled and continue Phase 2 recovery/fill-linkage gates before any integration.
+
+
+## Current intake/accounting boundary — 2026-10-21
+
+The codebase now has two isolated models of broker trade evidence that require an explicit architecture decision before further wiring:
+
+- **Intent-based reconciliation:** `LiveOrderReconciliationWorker` reads order book and daily trades through the narrow GET-only client, stores `BrokerFillIdentity` rows, matches fills to `LiveOrderIntent`, and records status/audit evidence. It does not update shared `Order`/accounting models and is not scheduled or API-triggered.
+- **Manual Order staging:** `BrokerTradeIngestionService` stages validated `BrokerTradeRecord` rows against `BrokerOrder` child mappings. `BrokerChildOrderReconciliationService` validates broker-reported filled quantity and weighted average price against staged trade records, then updates only child status/filled quantity. It does not mutate parent `Order`, `Execution`, `Position`, or cash.
+- **Accounting foundation:** `LiveFillAccountingService` promotes a `BrokerTradeRecord` only with explicit broker-reported charge provenance. It is unregistered and guarded by per-child cumulative fill limits; no worker currently promotes fills automatically.
+
+Do not dual-write the same fill to both intake tables by assumption. First decide whether these represent distinct workflows or whether a future central lifecycle should bridge them transactionally. Any bridge needs stable broker identity, ownership/account checks, conflict handling, idempotent replay, rollback and crash-recovery tests. Exact code/test checkpoint [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed 438 tests, 1 warning, with SQLite/PostgreSQL 16 reversible migration checks. No real broker order or production migration occurred.

@@ -296,3 +296,12 @@ A `/reconciliation` frontend page displays owner-scoped run summaries and saniti
 The original live-fill accounting service, tests and migration 0008 were restored; supporting broker-order/trade/live-position models and migration revisions 0006/0007 were added. GitHub Actions [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511) passed **355 tests, 1 warning**, and SQLite/PostgreSQL 16 reversible migration checks at code/test checkpoint `a906274b98f3f7e0c913f376128f4996b996c52b`.
 
 Important boundary: the accounting service remains unregistered; no broker trade intake or worker-to-accounting path invokes it yet. It is not proof of live accounting end-to-end or real-account reconciliation. Keep live submission disabled and continue Phase 2 recovery/fill-linkage gates before any integration.
+
+
+## Current reconciliation and fill-staging boundary — 2026-10-21
+
+- The intent-based read-only reconciliation worker exists and is on-demand only; it uses a GET-only client and writes `BrokerFillIdentity`/intent audit evidence. It is not scheduled or triggered by an API route.
+- The separate manual-Order staging path validates and stores broker trades in `BrokerTradeRecord`, then checks broker child-order status/filled quantity against durable trade quantity and weighted average price. It changes only `BrokerOrder.status` and `filled_quantity`; parent Order/accounting is unchanged.
+- `LiveFillAccountingService` remains unregistered. A cumulative guard rejects promotions that would exceed the broker-confirmed child fill quantity. Explicit broker-reported charges are still required.
+- Do not connect the worker's `BrokerFillIdentity` records to `BrokerTradeRecord` accounting without an explicit reviewed bridge or a clear statement that these are separate workflows. Keep live writes and automatic promotion disabled.
+- Exact code/test checkpoint [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed 438 tests, 1 warning; SQLite/PostgreSQL 16 reversible migration checks passed. All broker calls in CI are mocked.

@@ -325,3 +325,14 @@ The dashboard links to `/reconciliation`, which reads only the owner-scoped `/ap
 The deleted service, original tests and migration 0008 are restored to their original paths. Supporting models `BrokerOrder`, `BrokerTradeRecord`, `LivePosition` and migrations `202610180006` / `202610180007` were added to complete the chain. GitHub Actions [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511) passed **355 tests, 1 warning**, plus SQLite and PostgreSQL 16 migration upgrade → downgrade → re-upgrade checks at code/test checkpoint `a906274b98f3f7e0c913f376128f4996b996c52b`.
 
 This is not a complete live-fill pipeline: the service remains unregistered, ingestion and reconciliation integration remain outstanding, and no real-account or production migration was performed. Keep live order submission disabled. Continue Phase 2 reconciliation release gates and crash/recovery/fill-linkage checks. Do not delete the recovered files without explicit user approval.
+
+
+## Current live-order reconciliation versus manual-fill staging boundary — 2026-10-21
+
+The codebase currently has two isolated models of broker trade evidence; do not conflate them:
+
+1. The intent-based workflow uses `LiveOrderIntent` and `BrokerFillIdentity`. `LiveOrderReconciliationWorker` reads through the fixed GET-only Upstox client, links validated fills to intents, and records safe status/audit evidence. It does not mutate the shared `Order`, `Execution`, `Position`, `LivePosition`, or portfolio cash accounting path.
+2. The manual Order-based staging workflow uses `BrokerOrder` and `BrokerTradeRecord`. `BrokerTradeIngestionService` stages broker-confirmed trades, and `BrokerChildOrderReconciliationService` validates aggregate staged trade quantity/weighted average price against broker order details before updating only child status and filled quantity. The parent `Order` and accounting are deliberately unchanged.
+3. `LiveFillAccountingService` promotes a `BrokerTradeRecord` only with explicit broker-reported charges. It remains unregistered; its per-child aggregate guard prevents already-accounted plus new fill quantity from exceeding the broker-confirmed child fill total.
+
+Before integrating these paths, decide whether they are separate supported workflows or require a common lifecycle. Do not dual-write or translate records without transaction-safe idempotency, account/intent linkage, conflict semantics, and replay/rollback tests. Current code/test checkpoint [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed 438 tests, 1 warning, with SQLite/PostgreSQL 16 reversible migration checks. The worker and staging services are not scheduled or wired to automatic live execution; no real broker order was placed.

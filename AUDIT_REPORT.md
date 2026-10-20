@@ -274,3 +274,14 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Exact code/test checkpoint `a906274b98f3f7e0c913f376128f4996b996c52b` passed GitHub Actions [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511): **355 passed, 1 warning**; Alembic upgrade → downgrade → re-upgrade passed on SQLite and PostgreSQL 16.
 - Scope limitation: this is a tested accounting service/storage foundation, not a complete live-fill pipeline. The service remains unregistered; broker trade ingestion, invoking the service from reconciliation, shared live order/status accounting, production staging verification and real-account reconciliation remain outstanding. No real broker orders or production migrations were run. Live order submission remains disabled.
 - Next action: continue the existing Phase 2 reconciliation release gates, inspect crash/recovery and broker-confirmed fill linkage, and only integrate live accounting through a separately reviewed, tested path. Do not delete the recovered files without explicit user approval.
+
+
+
+## Test-baseline and branch divergence audit — 2026-10-21
+
+- Confirmed GitHub Actions run [39140514552](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39140514552) at safety-branch SHA `9085d9fbdcc8ee2dd8baac6f5e73f92bd76cfa8b`: 456 passed, 8 skipped, 1 warning.
+- Confirmed current `main` HEAD `074dd533bb84ac8102a6602f50cf9d0f57323a3d`, run [39476051343](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39476051343): 355 passed, 1 warning.
+- Test-tree comparison: 35 test modules on `main`, 48 on `safety/fail-closed-trading-mode`; 23 test modules and 19 related API/model/service paths present on the safety branch are absent from `main`. The branches have materially different implementations and GitHub reports substantial divergence (389 commits ahead / 1,029 behind in the selected comparison). Do not treat the count difference as a same-branch deletion count, merge the branch wholesale, or transplant test files without their source dependencies.
+- Migration graph on `main`: 14 revisions, one linear chain from `202608170001` to terminal head `202610180008`; no missing parent references. The current exact-head CI passes SQLite and PostgreSQL 16 upgrade/downgrade/re-upgrade checks.
+- Current live-fill accounting is not end-to-end: its service is intentionally unregistered and reconciliation invocation, parent-order state integration, and full crash/replay verification remain outstanding. Live broker submission remains disabled.
+- Next: port missing safety behavior in dependency-complete slices; add/port tests with the implementation, then require focused tests, full pytest, PostgreSQL concurrency/integration, and migration CI before marking each slice complete. No production broker orders or migrations were run.

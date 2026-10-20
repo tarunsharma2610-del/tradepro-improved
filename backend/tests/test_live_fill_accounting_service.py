@@ -186,6 +186,7 @@ def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position
     db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
     order.side = "SELL"
     child.requested_quantity = 1
+    child.filled_quantity = 1
     record.quantity = 1
     record.side = "SELL"
     record.price = Decimal("100.25")

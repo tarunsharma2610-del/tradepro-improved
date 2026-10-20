@@ -129,8 +129,8 @@ See [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md) for the sourc
 
 ### Current priority gate — supersedes stale next-action notes
 
-1. Resolve the current CI failure before new integrations. Backend pytest run [39113589752](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39113589752/job/117634693349) failed collecting `tests/test_live_fill_accounting_service.py` because `app.models.broker_order` is missing.
-2. The current tree also lacks `broker_trade_record.py`, `live_position.py`, and migration revisions `202610180006` / `202610180007`; migration `202610180008` references revision 0007. Complete the live-accounting models/migration chain or safely revert the incomplete feature, with tests, before further integration.
-3. Reconcile the docs' 2026-10-17 checkpoint with the 2026-10-18 code commits and the exact current CI result.
+1. **Resolved by safe rollback on 2026-10-20:** removed the incomplete `live_fill_accounting_service.py`, its test, and migration `202610180008_execution_charge_provenance.py`. The code referenced missing `broker_order`, `broker_trade_record`, and `live_position` models and missing migration parents 0006/0007. The accounting feature is deferred, not considered complete.
+2. Await GitHub Actions for the repaired HEAD. A green workflow and migration checks are required before resuming feature work; the latest CI result must be verified rather than assumed.
+3. Next: resume the existing reconciliation release gates; later design live-fill accounting as a separate reviewed feature with complete model/schema migrations and tests.
 4. After CI is green, continue the existing reconciliation release gates; selectively adapt the MIT reference patterns from the audit only where a documented gap remains. OpenAlgo source is excluded from copying absent an explicit AGPL compliance decision.
 5. Live order submission stays disabled; no real orders for testing. All work stays in `tradepro-improved`; original `Tradepro` remains untouched.

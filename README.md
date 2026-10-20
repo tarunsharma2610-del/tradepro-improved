@@ -112,3 +112,10 @@ Authenticated users can list their own safe run summaries at `GET /api/v1/reconc
 
 ### Reconciliation review screen
 The dashboard now links to `/reconciliation`, a read-only screen showing recent reconciliation run summaries and manual-review issues. It supports filtering by issue status and refreshing the list. It does not trigger broker reads or resolve issues. Frontend TypeScript/Next.js checks and backend CI passed for [commit e4343dcb](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e4343dcb225c1f332b6c89399694d0a29a5df739): 345 backend tests passed, 1 warning; SQLite/PostgreSQL 16 migrations passed. Issue resolution, stale-run recovery and historical trade windows remain unimplemented.
+
+
+## Live-fill accounting recovery and verification — 2026-10-20
+
+The deleted service, original tests and migration 0008 are restored to their original paths. Supporting models `BrokerOrder`, `BrokerTradeRecord`, `LivePosition` and migrations `202610180006` / `202610180007` were added to complete the chain. GitHub Actions [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511) passed **355 tests, 1 warning**, plus SQLite and PostgreSQL 16 migration upgrade → downgrade → re-upgrade checks at code/test checkpoint `a906274b98f3f7e0c913f376128f4996b996c52b`.
+
+This is not a complete live-fill pipeline: the service remains unregistered, ingestion and reconciliation integration remain outstanding, and no real-account or production migration was performed. Keep live order submission disabled. Continue Phase 2 reconciliation release gates and crash/recovery/fill-linkage checks. Do not delete the recovered files without explicit user approval.

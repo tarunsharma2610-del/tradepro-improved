@@ -568,3 +568,14 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Exact-head GitHub Actions [run 39477976464](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39477976464) passed: **406 passed, 1 warning**. SQLite and PostgreSQL 16 Alembic upgrade → downgrade → re-upgrade steps also passed.
 - This is a pure parser/validation slice only. It makes no network requests, does not call a broker, does not alter accounting, and does not enable order submission. The parser is not yet wired into the current main reconciliation client/worker.
 - Next: inspect how the current main reconciliation client consumes order/trade payloads; map the missing broker-trade-ingestion tests to current-main models and migrations before adapting a staging service. Preserve current stricter DB constraints and keep the service unregistered until the end-to-end path is reviewed.
+
+
+## Broker trade staging port — verified checkpoint (2026-10-21)
+
+- Ported `backend/app/services/broker_trade_ingestion_service.py` and `backend/tests/test_broker_trade_ingestion.py` from the safety branch as a dependency-complete first slice, then adapted the tests to current `main` schema constraints.
+- Current-main `BrokerOrder` requires a non-null broker connection and status; tests now supply those fields. A historical test expecting an unbound child order to persist was replaced with a database-invariant test proving the stricter main schema rejects that state. A stale `Order.broker_order_id` fixture was removed because current main maps broker child IDs in `BrokerOrder` instead.
+- Staging now rejects trades with missing/blank exchange timestamps because current-main `BrokerTradeRecord.exchange_timestamp` is non-null. A regression case covers this fail-closed behavior.
+- Exact code/test checkpoint `3f210e592c8aa2e643e536a04f186da8187bc06b`, GitHub Actions [run 39480002328](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480002328): **431 passed, 1 warning**. SQLite and PostgreSQL 16 Alembic upgrade → downgrade → re-upgrade checks passed.
+- Service scope is staging only: it does not update `Execution`, `Position`, portfolio cash, or local `Order` status. It is not wired into the reconciliation worker or registered as an automatic/live submission path. No broker network call or real order was made by CI.
+- Added [`SAFETY_BRANCH_PORT_MATRIX.md`](SAFETY_BRANCH_PORT_MATRIX.md), listing the 21 safety-only test modules and dependencies/port decisions. The historical 456-pass and newer 406-pass runs are different branch/test trees; do not interpret the 50-pass difference as 50 deleted tests.
+- Next: review child-order reconciliation against current main's worker and repository; port only the required partial-fill/parent-order behavior with explicit idempotency, transaction rollback, and accounting-isolation tests. Keep live-write and fill-promotion paths disabled.

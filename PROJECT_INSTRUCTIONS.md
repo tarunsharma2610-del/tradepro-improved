@@ -86,7 +86,7 @@ This is not a complete live-fill pipeline: the service remains unregistered, ing
 
 ## Current safety checkpoint — 2026-10-21
 
-- Current code/test checkpoint: `0b1224b3df446a1fcfd1725adcde29a35f722631`; GitHub Actions [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed **438 tests, 1 warning**, including SQLite/PostgreSQL 16 reversible migration checks.
+- Current code/test checkpoint: `84f3a3e48a64b6e1d764a87a2b337b2a8f052741`; GitHub Actions [run 39482592808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed **439 tests, 1 warning**, including SQLite/PostgreSQL 16 reversible migration checks.
 - The safety branch's 18 October run passed 456 tests, while main's earlier parser checkpoint passed 406. These runs used different test trees. Main now has 38 test modules; the safety branch has 48, with 20 safety-only modules remaining. See `SAFETY_BRANCH_PORT_MATRIX.md`; do not infer deleted functionality from raw counts.
 - Broker trade staging and child-order reconciliation are implemented as an isolated manual-Order path. They update staged records and child metadata, not parent-order accounting. The live accounting service remains unregistered.
 - Before further integration, inspect the intent-based `BrokerFillIdentity` worker path versus the manual `BrokerTradeRecord` path and explicitly document whether they are distinct by design or need a safe bridge. Keep live writes and automatic accounting promotion disabled.

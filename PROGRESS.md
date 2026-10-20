@@ -598,3 +598,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Exact code/test checkpoint `0b1224b3df446a1fcfd1725adcde29a35f722631`, GitHub Actions [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581): **438 passed, 1 warning**. SQLite and PostgreSQL 16 reversible migration checks passed.
 - The service is not wired to an API route or automatic worker. It uses mocked broker responses in tests; no real broker call/order was made by CI.
 - Next: resolve the architecture boundary between the intent-based worker's `BrokerFillIdentity` and the legacy/manual-order staging/accounting path's `BrokerTradeRecord`. Decide whether these are intentionally separate workflows or require a transaction-safe bridge before connecting reconciliation to live accounting.
+
+
+## Parent-order reconciliation lock guard — 2026-10-21
+
+- Child reconciliation now locks/revalidates the owned parent Order after broker status I/O, checks LIVE mode and the pre-network instrument/side/quantity snapshot, then locks the BrokerOrder child before reading staged trade totals. This matches ingestion's parent→child lock order.
+- Added a regression test that switches the local order to PAPER during the status read and confirms child status/fill quantity remain unchanged. Staged evidence remains available; no accounting rows are created.
+- Exact code/test checkpoint `84f3a3e48a64b6e1d764a87a2b337b2a8f052741`, [CI run 39482592808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39482592808): **439 passed, 1 warning**, with SQLite/PostgreSQL 16 reversible migrations passing.
+- This does not enable parent Order accounting or live submission. Keep `BrokerFillIdentity` and `BrokerTradeRecord` workflows isolated until their intended boundary is decided.

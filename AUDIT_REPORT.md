@@ -295,3 +295,12 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - The parser rejects malformed/failed payloads, mismatched order/trade identities, duplicate trade IDs, invalid quantities/prices, and inconsistent filled-quantity/average-price snapshots. Funds/pledged collateral remain distinct; brokerage estimate values are not treated as final executed charges.
 - The parser is pure and currently not connected to broker network calls, reconciliation or accounting. Live submission remains disabled.
 - Next review: adapt broker trade staging only after mapping the safety branch service/tests to current main's stricter `BrokerOrder`/`BrokerTradeRecord` schema and existing reconciliation worker. Do not copy incompatible service/model code wholesale.
+
+
+## Broker trade staging port — audit result (2026-10-21)
+
+- Added isolated broker trade staging service and tests: service commit `2d90405dfd785e3b71ec8cfc1e648458ff9c3289`; final tested service behavior includes mandatory exchange timestamp validation in commit `1d72eb1ad7621d5de74adcdfe1b637f6c7703639`, with final regression suite at `3f210e592c8aa2e643e536a04f186da8187bc06b`.
+- Exact-head [run 39480002328](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39480002328) passed **431 tests, 1 warning**, plus SQLite and PostgreSQL 16 reversible migration checks.
+- Porting surfaced real schema drift: current main requires broker connection binding and status on `BrokerOrder`, uses `BrokerOrder` as the child-order ID mapping, and requires `BrokerTradeRecord.exchange_timestamp`. Tests were adapted to those constraints instead of loosening production schema.
+- Trade ingestion remains isolated staging only and must not mutate Execution, Position, portfolio cash or Order status. It is not yet integrated with the current reconciliation worker/fill coordinator. Live submission remains disabled.
+- Test-tree audit matrix: [`SAFETY_BRANCH_PORT_MATRIX.md`](SAFETY_BRANCH_PORT_MATRIX.md). Do not merge the divergent safety branch wholesale or infer deleted functionality from raw test counts.

@@ -127,14 +127,10 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 
 See [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md) for the source-level comparison and integration priorities.
 
-### Current priority gate — supersedes stale next-action notes
+### Current priority gate — updated 2026-10-20
 
-1. **Resolved by safe rollback on 2026-10-20:** removed the incomplete `live_fill_accounting_service.py`, its test, and migration `202610180008_execution_charge_provenance.py`. The code referenced missing `broker_order`, `broker_trade_record`, and `live_position` models and missing migration parents 0006/0007. The accounting feature is deferred, not considered complete.
-2. Await GitHub Actions for the repaired HEAD. A green workflow and migration checks are required before resuming feature work; the latest CI result must be verified rather than assumed.
-3. Next: resume the existing reconciliation release gates; later design live-fill accounting as a separate reviewed feature with complete model/schema migrations and tests.
-4. After CI is green, continue the existing reconciliation release gates; selectively adapt the MIT reference patterns from the audit only where a documented gap remains. OpenAlgo source is excluded from copying absent an explicit AGPL compliance decision.
-5. Live order submission stays disabled; no real orders for testing. All work stays in `tradepro-improved`; original `Tradepro` remains untouched.
-
-
-## Recovery update — 2026-10-20
-The three files removed during the earlier CI-blocker investigation have been restored exactly from their original Git blobs to their previous paths. Restoration is a preservation step only; it does not resolve missing model/migration dependencies or establish green CI. The next step is dependency recovery and test/migration validation.
+1. The recovered live-fill accounting files and supporting model/schema dependencies are present again. Revisions `202610180006` → `202610180007` → `202610180008` now form a valid chain after `202610170005`.
+2. Code/test checkpoint [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511) passed **355 tests, 1 warning**, including SQLite and PostgreSQL 16 upgrade → downgrade → re-upgrade checks.
+3. This does not make live-fill accounting end-to-end complete: service is deliberately unregistered; ingestion, worker integration, shared live order/status accounting and real-account reconciliation remain outstanding.
+4. Next: continue Phase 2 reconciliation release gates and crash/recovery/fill-linkage checks. Integrate the service only through a separately reviewed and tested path.
+5. Live order submission remains disabled; no real orders for testing. All work stays in `tradepro-improved`; original `Tradepro` remains untouched. Do not delete the recovered files without explicit user approval.

@@ -263,3 +263,10 @@ The platform now has authenticated read-only endpoints for reconciliation runs a
 
 ## Reconciliation review UI checkpoint — 2026-10-17
 A dashboard-linked `/reconciliation` page now displays safe run counters and manual-review issues from owner-scoped read-only endpoints. It exposes no worker trigger or issue-resolution mutation. Exact UI commit `e4343dcb225c1f332b6c89399694d0a29a5df739` passed frontend checks and backend CI (345 passed, 1 warning). Live submission and accounting integration remain disabled.
+
+
+## Live-fill accounting recovery and verification — 2026-10-20
+
+The original live-fill accounting service, tests and migration 0008 were restored; supporting broker-order/trade/live-position models and migration revisions 0006/0007 were added. GitHub Actions [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511) passed **355 tests, 1 warning**, and SQLite/PostgreSQL 16 reversible migration checks at code/test checkpoint `a906274b98f3f7e0c913f376128f4996b996c52b`.
+
+Important boundary: the accounting service remains unregistered; no broker trade intake or worker-to-accounting path invokes it yet. It is not proof of live accounting end-to-end or real-account reconciliation. Keep live submission disabled and continue Phase 2 recovery/fill-linkage gates before any integration.

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -139,6 +140,22 @@ class LiveFillAccountingService:
                     raise ValueError("Accounted execution exists but its live position row is missing.")
                 self.db.rollback()
                 return self._result(existing, record, position, inserted=False)
+
+            # A child order's filled_quantity is an aggregate cap, not a per-trade
+            # cap. The child row is locked above so concurrent promotions for the
+            # same child are serialized on PostgreSQL.
+            accounted_quantity = (
+                self.db.query(func.coalesce(func.sum(Execution.quantity), 0))
+                .filter(
+                    Execution.broker_order_ref_id == child.id,
+                    Execution.broker_connection_id == connection.id,
+                )
+                .scalar()
+            )
+            if int(accounted_quantity or 0) + record.quantity > child.filled_quantity:
+                raise ValueError(
+                    "Cumulative accounted trade quantity exceeds the broker-confirmed child-order fill quantity."
+                )
 
             portfolio = (
                 self.db.query(Portfolio)

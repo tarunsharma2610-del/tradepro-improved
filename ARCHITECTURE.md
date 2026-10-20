@@ -318,3 +318,10 @@ The ordered delivery sequence and evidence requirements are maintained in [ROADM
 
 ## Reconciliation review UI — 2026-10-17
 The dashboard links to `/reconciliation`, which reads only the owner-scoped `/api/v1/reconciliation/runs` and `/api/v1/reconciliation/issues` endpoints. It displays recent run counters, sanitized issue details and OPEN/RESOLVED filtering. It has no worker-trigger, issue-resolution or order-write controls. Exact commit `e4343dcb225c1f332b6c89399694d0a29a5df739` passed the frontend TypeScript/Next.js build and backend CI (345 passed, 1 warning). The page is UI-only and does not prove broker reconciliation has been run against a real account.
+
+
+## Live-fill accounting recovery and verification — 2026-10-20
+
+The deleted service, original tests and migration 0008 are restored to their original paths. Supporting models `BrokerOrder`, `BrokerTradeRecord`, `LivePosition` and migrations `202610180006` / `202610180007` were added to complete the chain. GitHub Actions [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511) passed **355 tests, 1 warning**, plus SQLite and PostgreSQL 16 migration upgrade → downgrade → re-upgrade checks at code/test checkpoint `a906274b98f3f7e0c913f376128f4996b996c52b`.
+
+This is not a complete live-fill pipeline: the service remains unregistered, ingestion and reconciliation integration remain outstanding, and no real-account or production migration was performed. Keep live order submission disabled. Continue Phase 2 reconciliation release gates and crash/recovery/fill-linkage checks. Do not delete the recovered files without explicit user approval.

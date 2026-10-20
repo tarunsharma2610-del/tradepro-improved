@@ -121,6 +121,7 @@ def test_ingestion_rejects_paper_order_and_wrong_broker_child(db_session, trade_
         (_trade(side="SELL"), "side does not match"),
         (_trade(instrument_token="NSE_EQ|WRONG"), "instrument token"),
         (_trade(instrument_token=None), "instrument token is required"),
+        (_trade(exchange_timestamp=None), "exchange timestamp is required"),
         (_trade(side=123), "Trade side must be BUY or SELL"),
         (_trade(quantity=6), "exceed the local order quantity"),
         (_trade(quantity=0), "positive integer"),

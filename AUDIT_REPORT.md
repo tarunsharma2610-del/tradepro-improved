@@ -285,3 +285,13 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Migration graph on `main`: 14 revisions, one linear chain from `202608170001` to terminal head `202610180008`; no missing parent references. The current exact-head CI passes SQLite and PostgreSQL 16 upgrade/downgrade/re-upgrade checks.
 - Current live-fill accounting is not end-to-end: its service is intentionally unregistered and reconciliation invocation, parent-order state integration, and full crash/replay verification remain outstanding. Live broker submission remains disabled.
 - Next: port missing safety behavior in dependency-complete slices; add/port tests with the implementation, then require focused tests, full pytest, PostgreSQL concurrency/integration, and migration CI before marking each slice complete. No production broker orders or migrations were run.
+
+
+
+## Upstox response-validation slice — 2026-10-21
+
+- Added pure parser helpers at `backend/app/brokers/upstox/response_parsing.py` (commit `6a338820c37ec44632023327cf8e6fa671682ed0`) and regression coverage at `backend/tests/test_upstox_response_parsing.py` (commit `03d2607792e46272566b6871a452e612b1d6ca7a`).
+- Exact-head [GitHub Actions run 39477976464](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39477976464) passed **406 tests, 1 warning**, including SQLite and PostgreSQL 16 reversible migration checks.
+- The parser rejects malformed/failed payloads, mismatched order/trade identities, duplicate trade IDs, invalid quantities/prices, and inconsistent filled-quantity/average-price snapshots. Funds/pledged collateral remain distinct; brokerage estimate values are not treated as final executed charges.
+- The parser is pure and currently not connected to broker network calls, reconciliation or accounting. Live submission remains disabled.
+- Next review: adapt broker trade staging only after mapping the safety branch service/tests to current main's stricter `BrokerOrder`/`BrokerTradeRecord` schema and existing reconciliation worker. Do not copy incompatible service/model code wholesale.

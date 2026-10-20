@@ -56,6 +56,7 @@ def trade_context(db_session, make_user):
         broker_order_id="broker-child-1",
         requested_quantity=5,
         filled_quantity=0,
+        status="UNKNOWN",
     )
     db_session.add(broker_order)
     db_session.commit()

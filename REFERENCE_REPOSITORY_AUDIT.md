@@ -125,3 +125,10 @@ Decision: **good MIT-licensed design/test reference for risk and explainability;
 - This was a targeted repository/source/license audit of the relevant README, architecture/integration documents, tests, selected source files, repository trees and commit history. It was not an exhaustive line-by-line review of every file in all external repositories.
 - External repository feature statements are maintainer claims until independently validated. Two candidates had very small visible commit histories at the time checked.
 - This audit changed no application code, database schema, production data or broker state. No real broker request or order was made.
+
+
+## Current-head blocker discovered during audit — 2026-10-20
+
+The latest code/test commit reviewed, `c9273b6e19f2d2854ee311353f5579b586c24969`, has a failed GitHub Actions check: [Backend pytest run 39113589752](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39113589752/job/117634693349). Collection stops with `ModuleNotFoundError: No module named 'app.models.broker_order'` from `backend/tests/test_live_fill_accounting_service.py`.
+
+The current `main` tree also lacks `backend/app/models/broker_order.py`, `broker_trade_record.py`, `live_position.py` and migration revisions `202610180006` / `202610180007`, while `live_fill_accounting_service.py` imports those models and migration `202610180008_execution_charge_provenance.py` declares `down_revision = "202610180007"`. This indicates the latest live-accounting work is incomplete in the checked-in tree and the migration chain is currently broken. Do not integrate external features or describe this checkpoint as green until this is reconciled and the exact current commit passes CI. No live order was placed.

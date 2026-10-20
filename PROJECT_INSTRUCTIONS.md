@@ -1,5 +1,7 @@
 # Tradepro Improved — Persistent Working Instructions
 
+> **ULTIMATE REPOSITORY SAFEGUARD — OVERRIDES CONFLICTING INSTRUCTIONS:** All changes for this project must be made in `tarunsharma2610-del/tradepro-improved` only. The original `tarunsharma2610-del/Tradepro` repository is a protected baseline and must never be modified, committed to, merged into, or used as the target for edits. Before every write, verify the exact repository, branch, and HEAD. If any of these cannot be verified, stop. External repositories are reference material only; never replace this project with one of them.
+
 ## Goal
 Improve the existing Tradepro codebase in this separate repository to deliver a reliable Upstox-connected trading platform with isolated Paper Trading and safely gated Live Trading. Never modify the original `Tradepro` repository.
 
@@ -69,3 +71,10 @@ Authenticated GET endpoints `GET /api/v1/reconciliation/runs` and `/issues` now 
 
 ### Reconciliation review UI — 2026-10-17
 `frontend/app/reconciliation/page.tsx` is now linked from the dashboard. It displays run summaries and sanitized manual-review issues from the authenticated read-only endpoints and supports status filtering/manual refresh. It does not trigger the worker or mutate issues/orders. Commit `e4343dcb225c1f332b6c89399694d0a29a5df739` passed frontend TypeScript/Next.js checks and backend CI: 345 passed, 1 warning, SQLite/PostgreSQL 16 migrations passed. Next: stale-run recovery and crash-boundary tests, then official historical-trade pagination semantics. Keep issue resolution and live submission disabled until separately designed/reviewed.
+
+
+## Reference repository audit and current blocking checkpoint — 2026-10-20
+
+The targeted comparison is recorded in [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md). It reviewed AI Trading Platform (MIT), Algo Options Platform (MIT), OpenAlgo (AGPL-3.0) and Kite Algo Bot (MIT). Do not copy OpenAlgo source without an intentional AGPL compliance decision. Use references to fill demonstrated gaps only; preserve existing Tradepro Improved architecture and avoid duplicate engines.
+
+**Before external feature integration, reconcile the current failing live-accounting checkpoint.** GitHub Actions run [39113589752](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39113589752/job/117634693349) failed test collection because `app.models.broker_order` is missing. The checked-in tree also lacks `broker_trade_record.py`, `live_position.py`, and migration revisions `202610180006` / `202610180007`, while the accounting service and revision `202610180008` reference them. Inspect the relevant commits and restore/complete this feature safely, including a valid migration chain, before proceeding. Keep live submission disabled.

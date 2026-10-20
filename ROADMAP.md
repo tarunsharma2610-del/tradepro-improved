@@ -1,6 +1,6 @@
 # Tradepro Improved — Roadmap and Release Gates
 
-Last reviewed: 2026-10-17
+Last reviewed: 2026-10-20
 Scope: this repository only. The original `Tradepro` repository must remain untouched.
 
 ## Current verified checkpoint
@@ -121,3 +121,16 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - Added `frontend/app/reconciliation/page.tsx` and dashboard navigation link. The page lists recent safe run summaries and issues from the authenticated read API, supports issue-status filtering and manual refresh, and exposes no action to trigger reconciliation or resolve an issue.
 - Exact commit [`e4343dc`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e4343dcb225c1f332b6c89399694d0a29a5df739) passed [frontend checks](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060564743) and [backend CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39060564787): TypeScript/Next.js build succeeded; **345 backend tests passed, 1 warning**, and SQLite/PostgreSQL 16 migration checks passed.
 - Remaining: issue-resolution workflow, stale-run recovery, crash-boundary tests and historical trade window/pagination support. No live broker request or order action occurred.
+
+
+## Reference-repository audit — 2026-10-20
+
+See [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md) for the source-level comparison and integration priorities.
+
+### Current priority gate — supersedes stale next-action notes
+
+1. Resolve the current CI failure before new integrations. Backend pytest run [39113589752](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39113589752/job/117634693349) failed collecting `tests/test_live_fill_accounting_service.py` because `app.models.broker_order` is missing.
+2. The current tree also lacks `broker_trade_record.py`, `live_position.py`, and migration revisions `202610180006` / `202610180007`; migration `202610180008` references revision 0007. Complete the live-accounting models/migration chain or safely revert the incomplete feature, with tests, before further integration.
+3. Reconcile the docs' 2026-10-17 checkpoint with the 2026-10-18 code commits and the exact current CI result.
+4. After CI is green, continue the existing reconciliation release gates; selectively adapt the MIT reference patterns from the audit only where a documented gap remains. OpenAlgo source is excluded from copying absent an explicit AGPL compliance decision.
+5. Live order submission stays disabled; no real orders for testing. All work stays in `tradepro-improved`; original `Tradepro` remains untouched.

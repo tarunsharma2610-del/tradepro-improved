@@ -20,7 +20,7 @@ The original source tree has been imported into this repository. Recent improvem
 - Automated backend and frontend checks in GitHub Actions.
 - An environment-controlled emergency kill switch blocks new strategy entries when `AUTOMATED_ENTRIES_ENABLED=false`; strategy exits remain enabled.
 
-See [AUDIT_REPORT.md](./AUDIT_REPORT.md) for findings, verification links and remaining work.
+See [AUDIT_REPORT.md](./AUDIT_REPORT.md) for findings, verification links and remaining work. See [REFERENCE_REPOSITORY_AUDIT.md](./REFERENCE_REPOSITORY_AUDIT.md) for the external repository comparison and safe integration plan.
 
 ## Important trading behavior
 

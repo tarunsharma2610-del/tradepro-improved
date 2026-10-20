@@ -1,6 +1,6 @@
 # Tradepro Improved — Progress Tracker
 
-Last updated: 2026-10-17
+Last updated: 2026-10-20
 Repository: https://github.com/tarunsharma2610-del/tradepro-improved
 Branch: `main`
 Starting HEAD before this documentation step: `2cf83089070e064c61f3b75fcb6b663021cbf625`
@@ -522,3 +522,13 @@ The eight-file documentation bundle commit [`091eab31cbc93b29b88118b61693c5fc4f7
 - Documentation commit [`81b27463ca3709e8669a1f7c233128bf439646f0`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/81b27463ca3709e8669a1f7c233128bf439646f0) updated roadmap, architecture, audit and README. Documentation commit [`4a0c64294714a5ea951c195ca9878838d28b5e3d`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/4a0c64294714a5ea951c195ca9878838d28b5e3d) updated project instructions, safeguards, worker design and live-order design. Exact docs CI is being checked.
 - Remaining: frontend review UI; separately authorized issue-resolution workflow; stale `RUNNING` recovery and crash/restart tests; official historical trade retrieval/pagination; no real read-only sandbox test yet. No live order action, production migration or accounting update occurred.
 - Next single action: verify the latest documentation CI, then add frontend screens to view run history/open review issues without exposing secrets or enabling issue mutations.
+
+
+## Reference-repository audit checkpoint — 2026-10-20
+
+- Audited the current `tradepro-improved` tree and recent commits, plus relevant source/docs/tests/licences for four references: [AI Trading Platform](https://github.com/afnanadil2007-design/AI-Trading-Platform), [Algo Options Platform](https://github.com/iamadarsha/algo-options-platform), [OpenAlgo](https://github.com/marketcalls/openalgo), and [Kite Algo Bot](https://github.com/KoshIndia/kite-algo-bot).
+- Added [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md) with overlap, useful patterns, licence constraints, prioritized integration ideas and verification limitations. No external code was copied and no application code/schema was changed by the audit.
+- **Current blocking issue:** exact code commit `c9273b6e19f2d2854ee311353f5579b586c24969` failed backend pytest collection in [run 39113589752](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39113589752/job/117634693349): missing `app.models.broker_order`. Current tree also lacks `broker_trade_record.py`, `live_position.py`, and migration revisions `202610180006` / `202610180007`, while the live-fill accounting service and migration 0008 reference them. This makes the new accounting feature and Alembic chain incomplete; do not claim current CI is green.
+- The protected original repository `tarunsharma2610-del/Tradepro` was read only; no write action was made against it. All audit documentation changes are confined to `tradepro-improved`.
+- No live broker request/order, production migration, or production-data write was performed.
+- **Next single action:** inspect the live-fill accounting commit history and complete/repair the missing model + migration dependencies in `tradepro-improved`; run the exact CI suite and migration checks before integrating any external feature.

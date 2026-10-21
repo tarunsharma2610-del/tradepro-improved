@@ -229,6 +229,14 @@ class LiveOrderReconciliationWorker:
         ):
             raise _WorkerFailure("LEASE_LOST")
 
+    def _fence_write(self, user_id: UUID, connection_id: UUID, lease_token: UUID) -> None:
+        """Fail closed unless this worker can lock its live lease for this write."""
+        if not self.lease_repository.fence_for_write(
+            user_id=user_id,
+            broker_connection_id=connection_id,
+            lease_token=lease_token,
+        ):
+            raise _WorkerFailure("LEASE_LOST")
     async def _run_claimed(
         self, user_id: UUID, connection_id: UUID, lease_token: UUID, *, run_id: UUID
     ) -> ReconciliationRunResult:

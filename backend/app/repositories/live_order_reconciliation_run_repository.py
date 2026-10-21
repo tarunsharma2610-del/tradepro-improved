@@ -122,6 +122,12 @@ class LiveReconciliationRunRepository:
             # SQLite drops timezone metadata for DateTime(timezone=True); persisted
             # lease timestamps are UTC, so normalize before Python comparison.
             lease_expiry = lease_expiry.replace(tzinfo=timezone.utc)
+        if lease is not None and ((lease.lease_token is None) != (lease_expiry is None)):
+            # A token and expiry are a single ownership record. Recovering or
+            # claiming through a half-populated lease could steal work whose
+            # ownership cannot be established safely.
+            self.db.rollback()
+            raise RuntimeError("inconsistent reconciliation lease state")
         if lease is not None and lease.lease_token is not None and lease_expiry is not None and lease_expiry > now:
             self.db.rollback()
             return 0

@@ -551,6 +551,55 @@ async def test_worker_recovers_expired_orphan_run_before_claiming_new_lease(db_s
 
 
 @pytest.mark.asyncio
+async def test_worker_recovers_run_left_running_after_lease_release_before_summary_finish(
+    db_session, make_user
+):
+    user, _portfolio, connection = _setup(db_session, make_user)
+    client = _FakeReadClient()
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+
+    def fail_finish(**_kwargs):
+        raise RuntimeError("simulated crash during summary persistence")
+
+    worker.run_repository.finish = fail_finish
+    first = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    assert first.status == "FAILED"
+    assert first.error_code == "RUN_SUMMARY_PERSISTENCE_FAILED"
+    assert first.run_id is not None
+    interrupted = db_session.query(LiveReconciliationRun).filter_by(id=first.run_id).one()
+    lease = db_session.query(LiveReconciliationLease).filter_by(
+        broker_connection_id=connection.id
+    ).one()
+    assert interrupted.status == "RUNNING"
+    assert lease.lease_token is None
+    assert lease.claimed_until is None
+
+    # Simulate time passing beyond the orphan cutoff after the worker crashed.
+    interrupted.started_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    db_session.commit()
+
+    recovery_client = _FakeReadClient()
+    recovery_worker = LiveOrderReconciliationWorker(
+        db_session, client=recovery_client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+    recovered = await recovery_worker.run_for_connection(
+        user_id=user.id, broker_connection_id=connection.id
+    )
+
+    db_session.refresh(interrupted)
+    assert interrupted.status == "FAILED"
+    assert interrupted.error_code == "WORKER_INTERRUPTED"
+    assert recovered.status == "COMPLETED"
+    assert recovered.run_id is not None and recovered.run_id != interrupted.id
+    assert recovery_client.calls == [("orders", "test-token"), ("trades", "test-token")]
+
+
+@pytest.mark.asyncio
 async def test_worker_fails_closed_if_stale_run_recovery_errors(db_session, make_user):
     user, _portfolio, connection = _setup(db_session, make_user)
     client = _FakeReadClient()

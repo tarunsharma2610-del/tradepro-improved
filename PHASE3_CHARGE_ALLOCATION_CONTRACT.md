@@ -55,3 +55,30 @@ Do not bridge `BrokerFillIdentity` to `BrokerTradeRecord`, add automatic contrac
 ## Current safety state
 
 Live broker submission, automatic accounting promotion, and automatic scheduling remain disabled. Phase 2 remains closed. This document defines requirements; it is not evidence that allocation is implemented.
+
+
+## Phase 3 model and CI audit — 2026-10-21
+
+### Repository evidence reviewed
+
+- `BrokerTradeRecord` currently stores broker connection ID, broker order reference ID, broker trade ID, quantity, price, side, instrument token, and exchange timestamp. It has a uniqueness constraint on `(broker_connection_id, broker_trade_id)`, plus positive quantity/price and valid-side checks.
+- The reviewed `BrokerTradeRecord` model does not itself store contract-note reference, source charge totals, per-component charge evidence, allocation basis/version, or reconciliation state.
+- `LiveFillChargeBreakdown` in `backend/app/services/live_fill_accounting_service.py` accepts per-promotion amounts for brokerage, STT, exchange, SEBI, stamp duty, GST, total, source, and reference. The service validates the supplied total against the six supplied components and persists charges as part of the fill promotion. This does not establish how a multi-fill contract-note total was apportioned or independently reconcile a source-note total.
+- The path `backend/app/models/broker_fill_identity.py` was not found at the repository path checked. Do not assume the identity model name/path; locate it from the repository tree before designing any bridge. The same applies to `backend/app/schemas/live_fill_accounting.py`, which was also not found at that exact path.
+
+### CI gap — distinguish missing coverage from missing execution
+
+- Last verified code CI baseline remains [run 39609474410](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39609474410): 485 passed, 1 warning; broker-write boundary guard and SQLite/PostgreSQL 16 migration cycle passed.
+- Actions history shows a successful run for progress commit `4b600863e6280de201d4637610a78ae4cd7a8828` ([run 39615363395](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39615363395)). This is not the current HEAD.
+- Current HEAD before this audit update was `f52873b2ebe71b1dea96186acaee9a3117f9fe42`, which adds the charge-allocation design document. No run matching that exact SHA was visible. Thus the observed gap is exact-HEAD CI verification for docs commits, not evidence that the backend workflow itself is absent.
+- Required regression coverage not yet evidenced in current code: source-note-to-multiple-fill allocations, source-total reconciliation, deterministic paise residual, duplicate source-charge prevention, concurrent allocation races, retry/recovery, and fail-closed behavior for missing/ambiguous allocation basis.
+
+### Next safe implementation sequence
+
+1. Inspect the repository tree and existing charge/contract-note ingestion before naming or adding models.
+2. Identify the broker-specific source fields and evidence format; do not guess allocation basis.
+3. Add source-note and allocation persistence with unique source-component and source-fill constraints only after the schema and migration are reviewed.
+4. Add the listed regression tests and extend the existing backend CI workflow to execute them and migration checks.
+5. Verify CI against the exact resulting code SHA, then update the nine core docs and this contract.
+
+No allocation algorithm, schema migration, or identity bridge is implemented by this audit. Live broker submission, automatic accounting promotion, and automatic scheduling remain disabled. Phase 2 remains closed.

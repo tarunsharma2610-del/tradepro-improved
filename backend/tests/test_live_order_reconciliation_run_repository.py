@@ -199,3 +199,46 @@ def test_finish_with_lease_rolls_back_lease_release_if_run_is_not_running(db_ses
     assert lease.lease_token == token
     assert lease.claimed_until is not None
     assert lease.last_completed_at is None
+
+
+def test_finish_with_lease_marks_lease_lost_without_releasing_new_owner(
+    db_session, make_user
+):
+    user = make_user()
+    connection = _connection(db_session, user)
+    now = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+    run = _run(db_session, user, connection, now - timedelta(minutes=1))
+    leases = LiveReconciliationLeaseRepository(db_session)
+    old_token = leases.claim(
+        user_id=user.id, broker_connection_id=connection.id,
+        now=now, lease_seconds=30,
+    )
+    new_token = leases.claim(
+        user_id=user.id, broker_connection_id=connection.id,
+        now=now + timedelta(seconds=31), lease_seconds=300,
+    )
+    assert old_token is not None and new_token is not None and old_token != new_token
+
+    final_status = LiveReconciliationRunRepository(db_session).finish_with_lease(
+        run_id=run.id,
+        user_id=user.id,
+        broker_connection_id=connection.id,
+        lease_token=old_token,
+        status="COMPLETED",
+        summary={
+            "orders_seen": 0, "orders_matched": 0, "orders_unmatched": 0,
+            "trades_seen": 0, "fills_inserted": 0, "duplicate_fills": 0,
+            "conflicts": 0,
+        },
+        now=now + timedelta(seconds=32),
+    )
+
+    db_session.refresh(run)
+    lease = db_session.query(LiveReconciliationLease).filter_by(
+        broker_connection_id=connection.id
+    ).one()
+    assert final_status == "LEASE_LOST"
+    assert run.status == "LEASE_LOST"
+    assert run.error_code == "LEASE_LOST"
+    assert lease.lease_token == new_token
+    assert lease.claimed_until is not None

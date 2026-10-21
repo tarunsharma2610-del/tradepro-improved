@@ -1,13 +1,3 @@
-## Phase 2 completeness audit sign-off — 2026-10-21
-
-- **Audit boundary:** current main through code/test commit `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`, plus documentation-only commit `ee3a3889e32b90b105ee2c2ca4fe6ca7c958d84e`.
-- **Exact-head backend verification:** [GitHub Actions run 39554560001](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554560001) passed **466 tests, 1 warning**, the broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles. The latest frontend run for the code HEAD, [39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474), passed TypeScript and Next.js build.
-- **Audited as present through this checkpoint:** owner/connection-scoped stale-run recovery; fail-closed inconsistent lease handling; recovery-versus-lease-claim concurrency coverage; incomplete-summary warnings; atomic run-summary/lease finalization and rollback; stale-owner `LEASE_LOST` handling; cancellation-to-expiry recovery; renewal every five batch records; and renewal-boundary lease-loss regression coverage. These paths are in the current main source and test tree.
-- **Finding:** no missing implementation was identified inside the current read-only reconciliation crash-recovery slice up to the renewal-boundary checkpoint. No code rewrite is required to recreate that checkpoint. The only open next Phase 2 task is the explicitly recorded audit of a single slow persistence operation and high-volume lease-expiry races; it has **not** been marked complete.
-- **Scope boundary, not silently treated as complete:** the safety branch still has 19 source files and 19 test modules absent from main (main has 40 backend test modules; safety branch has 48). The port matrix records these as deferred/blocked slices for live account safety, broker-write/preflight, order recovery, live execution/accounting coordination, and related migrations. They are not part of the current read-only worker recovery checkpoint; do not merge them wholesale. Keep live submission and automatic accounting promotion disabled.
-- Historical unchecked checklist entries superseded by later verified checkpoint sections have been reconciled below; future live-trading gates and the single-slow-operation audit remain open.
-
----
 
 > **AUTHORITATIVE MAIN-BRANCH STATUS — 21 October 2026**
 >

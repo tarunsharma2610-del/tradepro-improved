@@ -22,6 +22,7 @@ from app.models.instrument import Instrument
 from app.models.live_position import LivePosition
 from app.models.order import Order
 from app.models.portfolio import Portfolio
+from app.services.broker_charge_evidence_service import require_reviewed_charge_evidence
 from app.services.position_math import apply_fill
 from app.services.transaction_costs import Side
 
@@ -40,6 +41,8 @@ class LiveFillChargeBreakdown:
     total_charges: Decimal
     source: str
     reference: str
+    evidence_id: UUID | None = None
+    reviewer_user_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -177,6 +180,19 @@ class LiveFillAccountingService:
                     raise ValueError("Accounted execution exists but its live position row is missing.")
                 self.db.rollback()
                 return self._result(existing, record, position, inserted=False)
+
+            # Replay/conflict checks precede evidence checks: an already-accounted
+            # trade must return idempotently or fail on changed accounting details,
+            # without requiring callers to resubmit evidence metadata on every retry.
+            if charges.evidence_id is None or charges.reviewer_user_id is None:
+                raise ValueError("A persisted reviewed contract-note evidence record is required for live-fill accounting.")
+            require_reviewed_charge_evidence(
+                self.db,
+                evidence_id=charges.evidence_id,
+                broker_connection_id=connection.id,
+                broker_report_reference=charges.reference,
+                reviewer_user_id=charges.reviewer_user_id,
+            )
 
             staged_child_quantity = (
                 self.db.query(func.coalesce(func.sum(BrokerTradeRecord.quantity), 0))

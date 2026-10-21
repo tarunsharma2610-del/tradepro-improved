@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 
 from app.models.broker_connection import BrokerConnection
+from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.execution import Execution
@@ -33,6 +34,18 @@ def _charges(**overrides):
     )
     values.update(overrides)
     return LiveFillChargeBreakdown(**values)
+
+
+def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001"):
+    db, user, _portfolio, _instrument, connection, *_rest = accounting_context
+    evidence = db.query(BrokerChargeEvidence).filter_by(broker_connection_id=connection.id, broker_report_reference=reference).one_or_none()
+    if evidence is None:
+        from datetime import date
+        from uuid import uuid4
+        evidence = BrokerChargeEvidence(broker_connection_id=connection.id, source_kind="CONTRACT_NOTE", broker_report_reference=reference, report_date=date(2026, 10, 18), segment="NSE", source_filename="reviewed-contract-note.pdf", source_sha256=uuid4().hex + uuid4().hex, byte_size=1024, parser_version="phase3-test", status="REVIEWED", reviewed_at=datetime.now(timezone.utc), reviewed_by_user_id=user.id)
+        db.add(evidence)
+        db.commit()
+    return _charges(reference=reference, evidence_id=evidence.id, reviewer_user_id=user.id)
 
 
 @pytest.fixture()
@@ -103,7 +116,7 @@ def test_promote_live_trade_atomically_updates_live_position_and_execution_only(
     cash_before = Decimal(str(portfolio.cash_balance))
     service = LiveFillAccountingService(db)
 
-    result = service.promote_trade(user.id, record.id, _charges())
+    result = service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     db.refresh(portfolio)
     db.refresh(paper_position)
@@ -134,8 +147,8 @@ def test_replaying_same_broker_trade_does_not_double_count_position(accounting_c
     db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
     service = LiveFillAccountingService(db)
 
-    first = service.promote_trade(user.id, record.id, _charges())
-    second = service.promote_trade(user.id, record.id, _charges())
+    first = service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
+    second = service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert first.inserted is True
     assert second.inserted is False
@@ -151,14 +164,14 @@ def test_replaying_same_broker_trade_does_not_double_count_position(accounting_c
 def test_replay_with_same_trade_id_but_changed_fill_details_is_rejected(accounting_context):
     db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
     service = LiveFillAccountingService(db)
-    first = service.promote_trade(user.id, record.id, _charges())
+    first = service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
     assert first.inserted is True
 
     record.price = Decimal("101.25")
     db.commit()
 
     with pytest.raises(ValueError, match="conflicting accounted execution"):
-        service.promote_trade(user.id, record.id, _charges())
+        service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 1
     live_position = db.query(LivePosition).one()
@@ -195,13 +208,22 @@ def test_invalid_or_estimated_charges_block_live_promotion(accounting_context, c
     assert paper_position.quantity == 7
 
 
+def test_live_fill_promotion_requires_persisted_reviewed_evidence(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, paper_position = accounting_context
+    with pytest.raises(ValueError, match="persisted reviewed contract-note evidence"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
 def test_naive_exchange_timestamp_blocks_live_promotion(accounting_context):
     db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
     record.exchange_timestamp = "2026-10-18T09:20:00"
     db.commit()
 
     with pytest.raises(ValueError, match="timezone offset"):
-        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -224,7 +246,7 @@ def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position
     ))
     db.commit()
 
-    result = LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+    result = LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     live_position = db.query(LivePosition).filter(
         LivePosition.broker_connection_id == connection.id,
@@ -241,7 +263,7 @@ def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position
 def test_replay_with_changed_charge_evidence_is_rejected(accounting_context):
     db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
     service = LiveFillAccountingService(db)
-    first = service.promote_trade(user.id, record.id, _charges())
+    first = service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
     assert first.inserted is True
 
     with pytest.raises(ValueError, match="conflicting accounted execution"):
@@ -260,9 +282,9 @@ def test_charge_audit_reference_is_trimmed_and_replay_stays_idempotent(accountin
     service = LiveFillAccountingService(db)
 
     first = service.promote_trade(
-        user.id, record.id, _charges(reference="  contract-note-2026-10-18-001  ")
+        user.id, record.id, _reviewed_charges(accounting_context, reference="  contract-note-2026-10-18-001  ")
     )
-    second = service.promote_trade(user.id, record.id, _charges())
+    second = service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     execution = db.query(Execution).one()
     assert first.inserted is True
@@ -288,7 +310,7 @@ def test_same_timestamp_different_prices_are_rejected_as_ambiguous(accounting_co
     db.commit()
 
     with pytest.raises(ValueError, match="ambiguous exchange timestamps"):
-        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -312,7 +334,7 @@ def test_later_fill_waits_for_earlier_staged_trade(accounting_context):
     db.commit()
 
     with pytest.raises(ValueError, match="earlier broker trade is still unaccounted"):
-        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -323,7 +345,7 @@ def test_earlier_fill_is_rejected_after_later_fill_was_accounted(accounting_cont
     child.filled_quantity = 2
     later_record.exchange_timestamp = "2026-10-18T09:21:00+05:30"
     db.commit()
-    later_result = LiveFillAccountingService(db).promote_trade(user.id, later_record.id, _charges())
+    later_result = LiveFillAccountingService(db).promote_trade(user.id, later_record.id, _reviewed_charges(accounting_context))
     assert later_result.inserted is True
 
     earlier = BrokerTradeRecord(
@@ -341,7 +363,7 @@ def test_earlier_fill_is_rejected_after_later_fill_was_accounted(accounting_cont
     db.commit()
 
     with pytest.raises(ValueError, match="earlier broker trade cannot be promoted after a later trade"):
-        LiveFillAccountingService(db).promote_trade(user.id, earlier.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, earlier.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 1
     live_position = db.query(LivePosition).one()
@@ -354,7 +376,7 @@ def test_rejected_local_order_cannot_accept_broker_fill(accounting_context):
     db.commit()
 
     with pytest.raises(ValueError, match="rejected local order"):
-        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -367,7 +389,7 @@ def test_cancelled_local_order_can_account_a_confirmed_partial_fill(accounting_c
     child.status = "CANCELLED"
     db.commit()
 
-    result = LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+    result = LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     db.refresh(order)
     assert result.inserted is True
@@ -385,7 +407,7 @@ def test_broker_child_fill_cannot_exceed_local_order_quantity(accounting_context
     db.commit()
 
     with pytest.raises(ValueError, match="exceeds the local order quantity"):
-        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -397,7 +419,7 @@ def test_trade_quantity_cannot_exceed_broker_confirmed_child_fill(accounting_con
     db.commit()
 
     with pytest.raises(ValueError, match="exceeds the broker-confirmed child-order fill quantity"):
-        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -413,7 +435,7 @@ def test_promotion_waits_until_all_confirmed_child_fills_are_staged(accounting_c
     db.commit()
 
     with pytest.raises(ValueError, match="does not match broker-confirmed child fill quantity"):
-        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -425,7 +447,7 @@ def test_staged_trade_quantity_must_match_broker_confirmed_child_fill(accounting
     db, user, portfolio, instrument, connection, order, child, first_record, paper_position = accounting_context
     service = LiveFillAccountingService(db)
 
-    first = service.promote_trade(user.id, first_record.id, _charges())
+    first = service.promote_trade(user.id, first_record.id, _reviewed_charges(accounting_context))
     assert first.inserted is True
 
     second_record = BrokerTradeRecord(
@@ -442,7 +464,7 @@ def test_staged_trade_quantity_must_match_broker_confirmed_child_fill(accounting
     db.commit()
 
     with pytest.raises(ValueError, match="does not match broker-confirmed child fill quantity"):
-        service.promote_trade(user.id, second_record.id, _charges(reference="contract-note-2026-10-18-002"))
+        service.promote_trade(user.id, second_record.id, _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-002"))
 
     assert db.query(Execution).count() == 1
     live_position = db.query(LivePosition).filter_by(
@@ -456,7 +478,7 @@ def test_staged_trade_quantity_must_match_broker_confirmed_child_fill(accounting
 
 def test_cumulative_fills_across_child_orders_cannot_exceed_local_order_quantity(accounting_context):
     db, user, _portfolio, instrument, connection, order, _child, record, _paper_position = accounting_context
-    first = LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+    first = LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
     assert first.live_position_quantity == 2
 
     second_child = BrokerOrder(
@@ -484,7 +506,7 @@ def test_cumulative_fills_across_child_orders_cannot_exceed_local_order_quantity
     db.commit()
 
     with pytest.raises(ValueError, match="Cumulative accounted trade quantity exceeds the local order quantity"):
-        LiveFillAccountingService(db).promote_trade(user.id, second_record.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, second_record.id, _reviewed_charges(accounting_context))
 
     assert db.query(Execution).count() == 1
     live_position = db.query(LivePosition).one()
@@ -510,7 +532,7 @@ def test_live_fill_promotion_locks_parent_then_child_then_trade_record(accountin
 
     monkeypatch.setattr(Query, "with_for_update", track_lock)
 
-    LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+    LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     assert locked_models[:3] == ["Order", "BrokerOrder", "BrokerTradeRecord"]
 
@@ -525,7 +547,7 @@ def test_failed_commit_rolls_back_execution_and_live_position(accounting_context
 
     monkeypatch.setattr(db, "commit", fail_commit)
     with pytest.raises(RuntimeError, match="simulated database commit failure"):
-        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
     monkeypatch.setattr(db, "commit", original_commit)
 
     db.rollback()

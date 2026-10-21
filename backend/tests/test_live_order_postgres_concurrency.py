@@ -174,11 +174,12 @@ def test_simultaneous_reconciliation_lease_claims_allow_only_one_worker():
 
 def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
     """Two distinct confirmed fills must not race live-position accounting."""
-    from datetime import datetime, timezone
+    from datetime import date, datetime, timezone
     from decimal import Decimal
 
     from app.core.database import Base
     from app.models.broker_connection import BrokerConnection
+    from app.models.broker_charge_evidence import BrokerChargeEvidence
     from app.models.broker_order import BrokerOrder
     from app.models.broker_trade_record import BrokerTradeRecord
     from app.models.execution import Execution
@@ -293,7 +294,30 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
                 ),
             ]
             session.add_all(records)
+            for trade_id in trade_ids:
+                session.add(BrokerChargeEvidence(
+                    broker_connection_id=connection_id,
+                    source_kind="CONTRACT_NOTE",
+                    broker_report_reference=f"contract-note-{trade_id}",
+                    report_date=now.date(),
+                    segment="NSE",
+                    source_filename="contract-note.pdf",
+                    source_sha256=trade_id.hex + "0" * 32,
+                    byte_size=1,
+                    parser_version="phase3-test",
+                    status="REVIEWED",
+                    reviewed_at=now,
+                    reviewed_by_user_id=owner_id,
+                ))
             session.commit()
+
+        evidence_ids = {}
+        with SessionLocal() as session:
+            for trade_id in trade_ids:
+                evidence_ids[trade_id] = session.query(BrokerChargeEvidence.id).filter_by(
+                    broker_connection_id=connection_id,
+                    broker_report_reference=f"contract-note-{trade_id}",
+                ).scalar()
 
         barrier = threading.Barrier(2)
 
@@ -308,6 +332,8 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
                 total_charges=Decimal("23.86"),
                 source="BROKER_REPORTED",
                 reference=f"contract-note-{trade_id}",
+                evidence_id=evidence_ids[trade_id],
+                reviewer_user_id=owner_id,
             )
             with SessionLocal() as session:
                 barrier.wait(timeout=10)
@@ -345,6 +371,7 @@ def test_concurrent_child_orders_cannot_overfill_one_local_order():
 
     from app.core.database import Base
     from app.models.broker_connection import BrokerConnection
+    from app.models.broker_charge_evidence import BrokerChargeEvidence
     from app.models.broker_order import BrokerOrder
     from app.models.broker_trade_record import BrokerTradeRecord
     from app.models.execution import Execution
@@ -421,7 +448,30 @@ def test_concurrent_child_orders_cannot_overfill_one_local_order():
                 for index in range(2)
             ]
             session.add_all(records)
+            for trade_id in trade_ids:
+                session.add(BrokerChargeEvidence(
+                    broker_connection_id=connection_id,
+                    source_kind="CONTRACT_NOTE",
+                    broker_report_reference=f"contract-note-{trade_id}",
+                    report_date=now.date(),
+                    segment="NSE",
+                    source_filename="contract-note.pdf",
+                    source_sha256=trade_id.hex + "0" * 32,
+                    byte_size=1,
+                    parser_version="phase3-test",
+                    status="REVIEWED",
+                    reviewed_at=now,
+                    reviewed_by_user_id=owner_id,
+                ))
             session.commit()
+
+        evidence_ids = {}
+        with SessionLocal() as session:
+            for trade_id in trade_ids:
+                evidence_ids[trade_id] = session.query(BrokerChargeEvidence.id).filter_by(
+                    broker_connection_id=connection_id,
+                    broker_report_reference=f"contract-note-{trade_id}",
+                ).scalar()
 
         barrier = threading.Barrier(2)
 
@@ -432,6 +482,8 @@ def test_concurrent_child_orders_cannot_overfill_one_local_order():
                 stamp_duty=Decimal("0.03"), gst=Decimal("3.61"),
                 total_charges=Decimal("23.86"), source="BROKER_REPORTED",
                 reference=f"contract-note-{trade_id}",
+                evidence_id=evidence_ids[trade_id],
+                reviewer_user_id=owner_id,
             )
             with SessionLocal() as session:
                 barrier.wait(timeout=10)

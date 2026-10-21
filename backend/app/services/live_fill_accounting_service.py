@@ -141,6 +141,8 @@ class LiveFillAccountingService:
                     BrokerConnection.user_id == user_id,
                     BrokerConnection.broker == child.broker_name,
                 )
+                .with_for_update()
+                .populate_existing()
                 .first()
             )
             if connection is None or child.broker_name != "upstox":
@@ -175,6 +177,8 @@ class LiveFillAccountingService:
                     raise ValueError("Accounted execution exists but its live position row is missing.")
                 self.db.rollback()
                 return self._result(existing, record, position, inserted=False)
+
+            self._ensure_exchange_order(record, connection.id, instrument.instrument_key, executed_at)
 
             # A child order's filled_quantity is an aggregate cap, not a per-trade
             # cap. The child row is locked above so concurrent promotions for the
@@ -298,6 +302,70 @@ class LiveFillAccountingService:
         except Exception:
             self.db.rollback()
             raise
+
+    def _ensure_exchange_order(
+        self,
+        current_record: BrokerTradeRecord,
+        connection_id: UUID,
+        instrument_token: str,
+        current_time: datetime,
+    ) -> None:
+        """Fail closed if staged/accounted fills prove promotion would be out of exchange-time order.
+
+        The broker-connection row is locked by the caller so trade ingestion and
+        accounting promotion serialize on the same account boundary.
+        """
+        staged = (
+            self.db.query(BrokerTradeRecord)
+            .filter(
+                BrokerTradeRecord.broker_connection_id == connection_id,
+                BrokerTradeRecord.instrument_token == instrument_token,
+            )
+            .all()
+        )
+        if len(staged) < 2:
+            return
+        trade_ids = [item.broker_trade_id for item in staged]
+        accounted = (
+            self.db.query(Execution)
+            .filter(
+                Execution.broker_connection_id == connection_id,
+                Execution.broker_trade_id.in_(trade_ids),
+            )
+            .all()
+        )
+        executions_by_trade_id = {item.broker_trade_id: item for item in accounted}
+
+        for candidate in staged:
+            if candidate.id == current_record.id:
+                continue
+            try:
+                candidate_time = self._parse_exchange_timestamp(candidate.exchange_timestamp)
+            except ValueError:
+                raise ValueError(
+                    "Another staged broker trade has an invalid exchange timestamp; manual review required."
+                ) from None
+
+            prior_execution = executions_by_trade_id.get(candidate.broker_trade_id)
+            if prior_execution is not None:
+                prior_time = prior_execution.executed_at
+                if prior_time.tzinfo is None or prior_time.utcoffset() is None:
+                    prior_time = prior_time.replace(tzinfo=timezone.utc)
+                else:
+                    prior_time = prior_time.astimezone(timezone.utc)
+                if prior_time > current_time:
+                    raise ValueError(
+                        "An earlier broker trade cannot be promoted after a later trade was accounted; manual review required."
+                    )
+            elif candidate_time < current_time:
+                raise ValueError(
+                    "An earlier broker trade is still unaccounted; promote trades in exchange-time order."
+                )
+
+            if candidate_time == current_time and candidate.side != current_record.side:
+                raise ValueError(
+                    "Trades for the same instrument have ambiguous opposite-side exchange timestamps; manual review required."
+                )
 
     @staticmethod
     def _validate_charges(charges: LiveFillChargeBreakdown) -> dict[str, Decimal]:

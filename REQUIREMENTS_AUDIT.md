@@ -1,39 +1,14 @@
-
-> **AUTHORITATIVE MAIN-BRANCH STATUS — 21 October 2026**
+<!-- Latest verified status, updated 2026-10-21 -->
+> **Latest verified checkpoint — 21 October 2026**
 >
-> - Repository: `tarunsharma2610-del/tradepro-improved`; working branch: `main`.
-> - Current verified code/test HEAD: `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`.
-> - Backend [GitHub Actions run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed **466 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles. Frontend [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript and Next.js build.
-> - Phase 2 includes stale-run recovery, incomplete-summary warnings for `WORKER_INTERRUPTED` and `LEASE_LOST`, atomic terminal run/lease finalization, cancellation recovery, and lease renewal every 5 records during batch processing.
-> - Next: assess high-volume processing and single slow-record lease-expiry races; add transaction-level fencing if required.
-> - Safety: keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; live broker submission and automatic accounting promotion remain disabled; do not modify original `Tradepro`.
+> - Repository: `tarunsharma2610-del/tradepro-improved`; branch: `main`. Original `Tradepro` repository remains protected and untouched.
+> - Latest code/test commit: `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`. Backend [CI run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed **466 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration checks. Frontend [CI run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript and Next.js build.
+> - Documentation audit commit `6407c5a05865c1be0ef673d3bb5e71c0231ef8da` passed [CI run 39556816828](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39556816828).
+> - Phase 2 checkpoint complete through atomic run/lease finalization, stale-run and cancellation recovery, lease-loss fencing, five-record renewal, and incomplete-summary warnings.
+> - **Next engineering task (not started yet):** audit a single slow database persistence operation and high-volume lease-expiry races; implement transaction-level fencing only if the race is demonstrated.
+> - Deferred safety-branch work remains tracked in `SAFETY_BRANCH_PORT_MATRIX.md`; no wholesale branch merge. Keep live broker submission and automatic accounting promotion disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`.
 >
-> This is the authoritative main-branch status. Historical safety-branch entries below are retained as audit history and must not be read as evidence that the safety branch was merged or that its older CI results verify current main.
-
----
-
-> **AUTHORITATIVE CURRENT STATUS — 18 October 2026**
->
-> This block supersedes older “current status”, “latest verified”, and “next task” statements elsewhere in this document. Dated entries below are historical evidence and must not be read as current status unless their commit SHA matches the current branch head.
->
-> - Repository: `tarunsharma2610-del/tradepro-improved`; working branch: `safety/fail-closed-trading-mode`.
-> - PR #1: open, draft, unmerged. Do not merge without explicit user authorization. Original `tarunsharma2610-del/Tradepro` must remain untouched.
-> - Branch head reported by PR API at the documentation review: `15ff31122ba2f7e2f9f2ac1c1a7e80d6b77c80d1`.
-> - Latest broker parser test workflow observed: GitHub Actions run #722, SHA `e6a69138e2fd132da0b7a526c35f40aea4630432`, conclusion `success`. This is **not** the same SHA as the branch head above. Therefore exact-head CI is **NOT VERIFIED** by that run.
-> - Recent reconciliation changes: commit `e9a69472e54b84333134568a559fa2592dcc12ce` adds staged partial-fill replay/overfill/rollback regression coverage; `c2e881103e961aaa999e94ff2436fd1f91c80140` rejects order snapshots where average price contradicts filled quantity; `e6a69138e2fd132da0b7a526c35f40aea4630432` adds negative parser test cases.
-> - Trade staging is not fill accounting. Broker-confirmed fills have **not** been proven to promote exactly once into executions and atomically update cash, positions, fees, and P&L. Parent/child terminal-state and cancellation-after-partial-fill behavior remain open for end-to-end verification.
-> - Safety-control, durable intent/claim, account-bound recovery, and authorization foundations are documented in PR #1, but they do not constitute a complete broker-write path. `prepare_order_intent` and `validate_claimed_submission` are not permission to submit an order; the final check-to-network-I/O race remains unresolved.
-> - Mandatory safety: `TRADING_MODE=PAPER`; `LIVE_ORDER_SUBMISSION_ENABLED=false`; no live `place_order`, `modify_order`, or `cancel_order`; no real orders in tests; no changes to original `Tradepro`.
->
-> **Audit rule:** each finding must remain explicitly open until source inspection and a relevant test on a verified commit demonstrate closure. This status block does not mark any open security or requirements finding resolved.
->
-> **Evidence links:** [PR #1](https://github.com/tarunsharma2610-del/tradepro-improved/pull/1) · [workflow #722](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39143953569) · [partial-fill regression commit](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e9a69472e54b84333134568a559fa2592dcc12ce) · [parser fix](https://github.com/tarunsharma2610-del/tradepro-improved/commit/c2e881103e961aaa999e94ff2436fd1f91c80140) · [parser tests](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e6a69138e2fd132da0b7a526c35f40aea4630432)
->
-> ---
-# Tradepro Improved — Requirements Audit
-Audit date: 2026-10-17
-Audit target: `main` baseline plus the isolated safety branch where noted.
-Original repository `Tradepro`: untouched.
+> The CI status above refers to the stated code and documentation commits. This documentation refresh will create a new commit and trigger its own CI run; do not call that new run passed until GitHub reports success.
 
 ## Scope and inventory
 The recursive Git tree inventory now contains 219 files, including backend application code/tests, frontend routes/components, migrations, configuration, documentation and deployment files. The second-pass review covered the primary API routes, models/repositories, trading/accounting/strategy/risk services, Upstox adapter, auth/OAuth, middleware, frontend workflows, migrations, CI and deployment configuration. The full automated backend suite and CI migration check were run; this remains a static review, not a production end-to-end test.

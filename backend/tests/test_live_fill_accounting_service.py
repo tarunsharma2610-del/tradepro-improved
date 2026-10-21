@@ -282,7 +282,7 @@ def test_charge_audit_reference_is_trimmed_and_replay_stays_idempotent(accountin
     service = LiveFillAccountingService(db)
 
     first = service.promote_trade(
-        user.id, record.id, _charges(reference="  contract-note-2026-10-18-001  ")
+        user.id, record.id, _reviewed_charges(accounting_context, reference="  contract-note-2026-10-18-001  ")
     )
     second = service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 

@@ -231,6 +231,59 @@ def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position
     assert paper_position.quantity == 7
 
 
+def test_later_fill_waits_for_earlier_staged_trade(accounting_context):
+    db, user, _portfolio, instrument, connection, _order, child, record, _paper_position = accounting_context
+    child.filled_quantity = 3
+    record.exchange_timestamp = "2026-10-18T09:21:00+05:30"
+    earlier = BrokerTradeRecord(
+        broker_connection_id=connection.id,
+        broker_order_ref_id=child.id,
+        broker_trade_id="trade-live-earlier-001",
+        quantity=1,
+        price=Decimal("99.00"),
+        side="BUY",
+        instrument_token=instrument.instrument_key,
+        exchange_timestamp="2026-10-18T09:20:00+05:30",
+    )
+    db.add(earlier)
+    db.commit()
+
+    with pytest.raises(ValueError, match="earlier broker trade is still unaccounted"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+
+
+def test_earlier_fill_is_rejected_after_later_fill_was_accounted(accounting_context):
+    db, user, _portfolio, instrument, connection, _order, child, later_record, _paper_position = accounting_context
+    child.filled_quantity = 3
+    later_record.exchange_timestamp = "2026-10-18T09:21:00+05:30"
+    db.commit()
+    later_result = LiveFillAccountingService(db).promote_trade(user.id, later_record.id, _charges())
+    assert later_result.inserted is True
+
+    earlier = BrokerTradeRecord(
+        broker_connection_id=connection.id,
+        broker_order_ref_id=child.id,
+        broker_trade_id="trade-live-late-arrival-001",
+        quantity=1,
+        price=Decimal("99.00"),
+        side="BUY",
+        instrument_token=instrument.instrument_key,
+        exchange_timestamp="2026-10-18T09:20:00+05:30",
+    )
+    db.add(earlier)
+    db.commit()
+
+    with pytest.raises(ValueError, match="earlier broker trade cannot be promoted after a later trade"):
+        LiveFillAccountingService(db).promote_trade(user.id, earlier.id, _charges())
+
+    assert db.query(Execution).count() == 1
+    live_position = db.query(LivePosition).one()
+    assert live_position.quantity == 2
+
+
 def test_rejected_local_order_cannot_accept_broker_fill(accounting_context):
     db, user, _portfolio, _instrument, _connection, order, _child, record, _paper_position = accounting_context
     order.status = "REJECTED"

@@ -1,3 +1,16 @@
+<!-- Authoritative checkpoint refresh: 21 October 2026. Scope: tradepro-improved only. -->
+
+## Authoritative Phase 3 checkpoint — 21 October 2026
+
+- **Verified code/test commit:** `3adf1a5dd6ba016c5dbc9d4ff8254f4b01d9e509`. Backend CI [run 39623527572](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39623527572) completed successfully: **490 tests passed, 1 warning**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed.
+- This CI result verifies that code commit, **not any subsequent documentation-only commit**. The exact latest documentation HEAD must have its own successful push-triggered CI before documentation synchronization is declared fully green.
+- **Phase 3 remains in progress.** Charge-source string validation and arithmetic consistency do not authenticate broker evidence or establish a valid allocation basis for contract-note totals. Do not allocate aggregate charges per fill without verified source evidence and an explicitly approved, charge-specific allocation method.
+- Remaining work: resolve the exact-head CI verification for documentation commits; audit coordinator and fill-identity boundaries; verify charge provenance/allocation semantics; complete partial-fill and crash/restart acceptance criteria; update this checkpoint again only against a verified exact SHA/run.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. Work only in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
+- Earlier checkpoint entries below are historical unless they explicitly name the exact code SHA and CI run above.
+
+---
+
 # Phase 3 — Contract-note charge allocation contract
 
 Status: design gate; implementation not yet approved.

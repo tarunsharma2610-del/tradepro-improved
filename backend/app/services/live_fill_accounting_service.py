@@ -178,6 +178,19 @@ class LiveFillAccountingService:
                 self.db.rollback()
                 return self._result(existing, record, position, inserted=False)
 
+            staged_child_quantity = (
+                self.db.query(func.coalesce(func.sum(BrokerTradeRecord.quantity), 0))
+                .filter(
+                    BrokerTradeRecord.broker_connection_id == connection.id,
+                    BrokerTradeRecord.broker_order_ref_id == child.id,
+                )
+                .scalar()
+            )
+            if int(staged_child_quantity or 0) != int(child.filled_quantity or 0):
+                raise ValueError(
+                    "Durable broker trade quantity does not match broker-confirmed child fill quantity; reconciliation required."
+                )
+
             self._ensure_exchange_order(record, connection.id, instrument.instrument_key, executed_at)
 
             # A child order's filled_quantity is an aggregate cap, not a per-trade

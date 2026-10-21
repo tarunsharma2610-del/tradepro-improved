@@ -297,7 +297,7 @@ def test_later_fill_waits_for_earlier_staged_trade(accounting_context):
 
 def test_earlier_fill_is_rejected_after_later_fill_was_accounted(accounting_context):
     db, user, _portfolio, instrument, connection, _order, child, later_record, _paper_position = accounting_context
-    child.filled_quantity = 3
+    child.filled_quantity = 2
     later_record.exchange_timestamp = "2026-10-18T09:21:00+05:30"
     db.commit()
     later_result = LiveFillAccountingService(db).promote_trade(user.id, later_record.id, _charges())
@@ -314,6 +314,7 @@ def test_earlier_fill_is_rejected_after_later_fill_was_accounted(accounting_cont
         exchange_timestamp="2026-10-18T09:20:00+05:30",
     )
     db.add(earlier)
+    child.filled_quantity = 3
     db.commit()
 
     with pytest.raises(ValueError, match="earlier broker trade cannot be promoted after a later trade"):
@@ -383,7 +384,7 @@ def test_trade_quantity_cannot_exceed_broker_confirmed_child_fill(accounting_con
 
 
 
-def test_cumulative_promoted_trades_cannot_exceed_child_fill_quantity(accounting_context):
+def test_staged_trade_quantity_must_match_broker_confirmed_child_fill(accounting_context):
     db, user, portfolio, instrument, connection, order, child, first_record, paper_position = accounting_context
     service = LiveFillAccountingService(db)
 
@@ -403,7 +404,7 @@ def test_cumulative_promoted_trades_cannot_exceed_child_fill_quantity(accounting
     db.add(second_record)
     db.commit()
 
-    with pytest.raises(ValueError, match="Cumulative accounted trade quantity exceeds"):
+    with pytest.raises(ValueError, match="does not match broker-confirmed child fill quantity"):
         service.promote_trade(user.id, second_record.id, _charges(reference="contract-note-2026-10-18-002"))
 
     assert db.query(Execution).count() == 1

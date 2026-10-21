@@ -1,3 +1,14 @@
+## Current Phase 3 checkpoint — 21 October 2026
+
+- **Latest code checkpoint verified by CI:** `957b3dfa15e6a673b02b673f11ece7144f20470a`; [Backend tests run 909](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39601580853) completed successfully.
+- Verified CI steps: backend pytest, broker-write boundary guard, SQLite Alembic upgrade/downgrade/re-upgrade, and PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade all passed.
+- CI initially caught a pytest collection error: the changed-fill replay regression test accidentally inherited the charge-validation parametrization. Fixed in commit `957b3dfa15e6a673b02b673f11ece7144f20470a`; run 909 confirms the correction.
+- Phase 3 is in progress, **not complete**. Live-fill accounting review has tightened concurrent-promotion replay validation and added a regression test rejecting replay when fill details change. Continue with the remaining Phase 3 audit and tests; do not infer full-phase completion from this passing run.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. The original `Tradepro` repository remains untouched.
+- This status supersedes older statements in this file that Phase 3 was blocked pending approval or that the Phase 2 SHA was the latest verified code checkpoint. Phase 2 remains closed.
+
+---
+
 ## Current verified checkpoint — 21 October 2026
 
 - **Last verified code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.

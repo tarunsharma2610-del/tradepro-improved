@@ -49,6 +49,8 @@ jobs:
           MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: python -m pytest -q
+      - name: Enforce broker write boundary
+        run: python -m scripts.check_broker_write_boundary
       - name: Verify Alembic upgrade, downgrade and re-upgrade on SQLite
         env:
           DATABASE_URL: "sqlite:///./migration-check.db"

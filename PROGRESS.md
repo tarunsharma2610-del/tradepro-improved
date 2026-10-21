@@ -917,3 +917,10 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - Test change commit: `b8fa3eca4d2f6181a81ac3efd4d714af10cf5a8c`.
 - This is a test-only guard, not an importer or a new allocation mechanism. It does not prove actual-source authenticity; a caller could still mislabel data as `BROKER_REPORTED`, which is part of the outstanding source-provenance design gate.
 - Latest code/test commit requires exact-HEAD CI. Do not claim the new cases passed until GitHub Actions reports success for the exact current HEAD, including pytest, broker-write guard, SQLite migration cycle and PostgreSQL 16 migration cycle.
+
+## Handover checkpoint sync — 2026-10-21
+
+- Handover refresh committed as 195ac861d91fa10e1e26b69e5975c5e696c5d446.
+- Latest work remains the aggregate-charge rejection regression tests (commit b8fa3eca4d2f6181a81ac3efd4d714af10cf5a8c) and corresponding progress/handover records.
+- Exact-HEAD CI remains unverified. Available GitHub status/run queries have not returned a matching run; do not infer success.
+- No importer, allocation schema, or allocation formula was introduced. Phase 3 remains open pending authoritative per-component allocation evidence. Live submission, automatic accounting promotion, and automatic scheduling remain disabled; Phase 2 remains closed.

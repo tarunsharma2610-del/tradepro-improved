@@ -36,7 +36,7 @@
 
 - **Commit:** [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2).
 - Added test_failed_commit_rolls_back_execution_and_live_position in backend/tests/test_live_fill_accounting_service.py. The regression injects a commit failure and checks no live execution/position survives rollback and the paper position is unchanged.
-- Exact-head CI is not yet verified; empty status/run responses must not be treated as green. Earlier lease-fencing CI [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808) remains valid for its own commit only.
+- **Superseded at this historical checkpoint:** current code/test CI [39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests, 1 warning, source guard and SQLite/PostgreSQL 16 migration checks; the latest documentation HEAD `0bd502f83118799d5564e8fd5724d01e8dc975af` passed [39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
 - Phase 2 workflow boundary remains explicit: BrokerFillIdentity and manual BrokerTradeRecord stay separate. Safety-branch dependency decisions are recorded in SAFETY_BRANCH_PORT_MATRIX.md; Phase 3/Phase 4-only live-safety features are deferred, not wholesale-merged.
 - **Phase 2 status: open pending exact-head CI, final requirements audit, and documentation consistency verification.** Live broker submission, automatic accounting promotion, and automatic scheduling remain disabled.
 

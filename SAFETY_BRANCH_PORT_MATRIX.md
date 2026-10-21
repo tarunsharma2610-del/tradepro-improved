@@ -22,7 +22,7 @@
 
 ## Current scope audit — 2026-10-21
 
-- Latest test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2) adds failed-commit rollback coverage for live-fill accounting. Exact-head CI is not yet verified; do not infer a pass from an empty status response.
+- Latest code/test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2) adds failed-commit rollback coverage for live-fill accounting; exact-head CI [39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed. Latest documentation HEAD `0bd502f83118799d5564e8fd5724d01e8dc975af` passed [39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
 - The dependency inventory below is a phase-aware port decision, not a commitment to merge every safety-branch feature in Phase 2. Mainline has its own newer read-only reconciliation worker, schema, and lease controls; branch-only live execution and safety systems must be adapted as coherent later-phase work.
 - Phase 2 closure decisions: compatible broker response parsing, broker-trade staging, child-order reconciliation, the broker-write source guard, crash recovery/lease fencing, focused idempotency/rollback tests, and the explicit decision to keep BrokerFillIdentity separate from manual BrokerTradeRecord. The latest test commit still needs exact-head CI.
 
@@ -110,7 +110,7 @@ The current Phase 2 boundary is not “merge every file from the safety branch.�
 
 - Ported the source guard and its seven unit tests into main and wired `python -m scripts.check_broker_write_boundary` into the backend CI workflow.
 - Implementation/config commit: `c563683b85d7801cd19dcf3d1c7784ec6e433d1f`. Later commits update the progress/audit/roadmap/handover docs.
-- Exact-head CI remains unverified. Do not mark this port green until the workflow run for the current `main` HEAD passes. The AST check does not cover reflective/dynamic dispatch.
+- Historical note superseded by current exact-head CI: documentation HEAD `0bd502f83118799d5564e8fd5724d01e8dc975af` passed [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985). The AST check does not cover reflective/dynamic dispatch.
 
 ### Guard exception narrowing follow-up — 2026-10-21
 

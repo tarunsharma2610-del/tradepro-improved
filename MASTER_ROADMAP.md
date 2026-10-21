@@ -44,14 +44,14 @@
 >
 > The CI status above refers to the stated code and documentation commits. This documentation refresh will create a new commit and trigger its own CI run; do not call that new run passed until GitHub reports success.
 
-## Authoritative Phase 2 audit — 21 October 2026
+## Current Phase 2 audit checkpoint — 21 October 2026
 
-- Current code/test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2), adding failed-commit rollback coverage for live-fill accounting. Exact-head CI has **not yet been verified**; an empty commit-status response is not a pass.
-- Reconciliation crash recovery and transaction-level lease fencing are implemented and previously passed backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles. This historical run does not verify the newest test commit.
-- SAFETY_BRANCH_PORT_MATRIX.md is the authoritative dependency map. Phase 2 ports only compatible, dependency-complete safety behavior. Features requiring new live-safety endpoints, central broker-write authorization, live charge adjustments, or broker submission remain classified as Phase 3/Phase 4 work and must not be copied wholesale from the divergent branch.
-- The accounting workflow decision is explicit: keep BrokerFillIdentity and manual BrokerTradeRecord workflows separate. No transactional bridge is approved in Phase 2.
-- **Phase 2 is still open pending exact-head CI and the remaining final audit.** Do not start Phase 3 until latest CI, migration checks, source guard, documentation consistency, and every Phase 2 requirement are verified. Live broker submission, automatic accounting promotion, and automatic scheduling remain disabled.
+- **Current main HEAD:** `0bd502f83118799d5564e8fd5724d01e8dc975af`. Its exact-head backend CI [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985) passed. Code/test checkpoint `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154): 471 tests, 1 warning, broker-write guard and SQLite/PostgreSQL 16 reversible migration cycles.
+- The dependency/port matrix and `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary are reviewed. No bridge or dual-write is approved in Phase 2.
+- Phase 2 closure is in final consistency review: stale historical status statements in long-form audit documents are being aligned to the current verified checkpoint. Do not start Phase 3 until that review and its exact-head CI pass. Features classified as Phase 3/4 remain deferred by design.
+- Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. The original `Tradepro` repository remains untouched.
 
+---
 # Tradepro Improved — Master Roadmap
 
 Last reviewed: 2026-10-21  
@@ -66,8 +66,9 @@ Working branch: `main`
 5. Record exact commit SHAs and CI run URLs; don't label a checkpoint green until the run corresponds to the exact code HEAD.
 
 ## Current verified baseline
-- Latest verified code/test checkpoint: `84f3a3e48a64b6e1d764a87a2b337b2a8f052741`.
-- [GitHub Actions run 39482592808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581): **439 passed, 1 warning**; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade passed.
+- Latest verified `main` HEAD: `0bd502f83118799d5564e8fd5724d01e8dc975af`; exact-head backend CI passed [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
+- Latest code/test checkpoint `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed 471 tests, 1 warning, broker-write guard and SQLite/PostgreSQL 16 migration cycles in [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154).
+- Older 439-pass run [39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) is historical baseline evidence only.
 - 18 October safety checkpoint: [run 39140514552](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39140514552), SHA `9085d9fbdcc8ee2dd8baac6f5e73f92bd76cfa8b`, 456 passed, 8 skipped, 1 warning. It belongs to a materially different, diverged branch.
 - Tree audit: `main` has 38 test modules; the safety branch has 48. Twenty safety-branch test modules remain absent from main; see `SAFETY_BRANCH_PORT_MATRIX.md` for the dependency map. This explains why the test suites differ, but doesn't mean 101 tests were removed from an identical code line.
 - Migration graph: 14 files, one linear path from `202608170001` to `202610180008`; no missing parents. The live-fill service is present but unregistered.
@@ -88,9 +89,9 @@ Working branch: `main`
 - [x] Add cumulative live-fill accounting guard so already-accounted trades plus a new trade cannot exceed the broker-confirmed child fill quantity.
 - [x] Port child-order status/fill reconciliation with strict current-main schema adaptation; exact-head CI passed 438 tests.
 - [x] Resolve the current workflow boundary: keep intent-based BrokerFillIdentity separate from manual Order BrokerTradeRecord/BrokerOrder; no bridge or dual-write is permitted in Phase 2.
-- [x] Add focused regression coverage for idempotent trade identity, partial-fill aggregation, overfill rejection, batch rollback, malformed/inconsistent broker data, and paper-accounting isolation; latest addition covers failed-commit rollback (commit e56bf4c66f74b875a3ba8fe388138a9d688dd1e2; CI pending).
+- [x] Add focused regression coverage for idempotent trade identity, partial-fill aggregation, overfill rejection, batch rollback, malformed/inconsistent broker data, and paper-accounting isolation; latest addition covers failed-commit rollback (commit `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2`; exact-head CI passed in run 39564568154).
 - [x] Run focused tests, full backend pytest, PostgreSQL concurrency/integration tests, and reversible migrations on SQLite/PostgreSQL 16 (exact-head CI run 39564568154: 471 passed, 1 warning; source guard and SQLite/PostgreSQL 16 migration cycles passed).
-- [x] Commit the slice and synchronize progress/audit with exact-head CI evidence (code/test commit e56bf4c66f74b875a3ba8fe388138a9d688dd1e2; final documentation HEAD must still pass CI before Phase 3).
+- [x] Commit the slice and synchronize progress/audit with exact-head CI evidence (code/test commit `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2`; documentation HEAD `0bd502f83118799d5564e8fd5724d01e8dc975af` passed run 39566324985. Any further changes require new exact-head CI before Phase 3).
 
 ### Phase 3 — Live-fill accounting correctness
 - [ ] Review `LiveFillAccountingService`, charge provenance, position math, and broker trade/order linkage.

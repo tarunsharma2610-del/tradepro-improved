@@ -90,3 +90,17 @@ No allocation algorithm, schema migration, or identity bridge is implemented by 
 - `backend/app/services/broker_child_order_reconciliation_service.py` compares broker-reported filled quantity and average price with staged trade records and updates child-order metadata only. Its module contract explicitly avoids creating `Execution` rows or changing cash/positions/P&L.
 - Therefore, the currently reviewed ingestion/reconciliation path supplies no contract-note total or component-level fee evidence to the charge allocator. Do not implement allocation by pretending this evidence is present. The next prerequisite is to identify the actual Upstox contract-note/charges endpoint or supported export and the existing adapter/data-retention policy; until then, keep source-note allocation blocked by design.
 - The existing `.github/workflows/backend-tests.yml` already runs pytest with PostgreSQL 16, the broker-write boundary guard, and SQLite/PostgreSQL Alembic upgrade/downgrade/re-upgrade. No separate workflow is needed just for this feature at present; missing tests must be added to the existing suite. Exact-HEAD CI remains a separate verification requirement.
+
+
+### Upstox API evidence-source review — 2026-10-21
+
+Official Upstox documentation review identified these relevant endpoints:
+
+- `GET /v2/order/trades` and `GET /v2/order/trades/get-trades-for-day` expose order/trade execution data; inspect their exact response schemas before wiring them into ingestion.
+- `GET /v2/charges/historical-trades` returns historical trade rows including trade ID, date, quantity, price, and transaction type, paginated for up to the last three financial years. Its documented sample/schema does not include per-trade fee components.
+- `GET /v2/trade/profit-loss/charges` returns a charges breakdown aggregated for a requested segment/date range/financial year; its documented response is a total breakdown, not a per-trade allocation ledger.
+- `GET /v2/charges/brokerage` calculates a charge estimate for given instrument/quantity/product/side/price. This is not evidence of actual fees assessed on a completed fill and must not be passed as `BROKER_REPORTED` actual charges.
+
+References: Upstox [Get Trade History](https://upstox.com/developer/api-documentation/get-historical-trades/), [Get Trade Charges](https://upstox.com/developer/api-documentation/get-trade-charges/), and [Brokerage Details](https://upstox.com/developer/api-documentation/get-brokerage/).
+
+Conclusion: available documented APIs provide trade-level execution identity and a date/segment-level aggregate fee total, but the reviewed public response schemas do not establish a source-provided per-trade actual-charge breakdown. Do not distribute the aggregate by guessed proportions. The safe next path is to inspect `GET /v2/trade/profit-loss/data` and metadata for any trade-wise fee fields, and/or ingest the actual broker contract-note/bill report as source evidence. Until an exact per-trade charge mapping is verified, automatic live accounting promotion must remain blocked for those trades.

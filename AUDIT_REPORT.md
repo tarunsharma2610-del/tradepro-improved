@@ -339,3 +339,8 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Latest implementation/config commit: `c563683b85d7801cd19dcf3d1c7784ec6e433d1f`; progress documentation is being updated separately.
 - **Exact-head CI is not yet verified** through the available GitHub workflow connector. Earlier 439-pass evidence predates this guard and does not validate it. Check the CI run for the exact latest `main` head before calling this slice complete.
 - Limitation: AST inspection cannot prove safety against reflection/dynamic dispatch. This guard supplements—not replaces—authorization, risk interlocks, integration tests, and code review. Live submission remains disabled.
+
+
+## Broker-write guard review follow-up — 2026-10-21
+
+Review found that the first AST guard exempted the entire Upstox adapter file and permitted any `service.place_order` reference in the portfolios module. These were broader than needed. The guard now scans the adapter normally and limits the known PAPER endpoint exceptions to their exact function names and call shapes. Added regressions for an unexpected adapter call and an unrelated helper in the portfolios module. This improves source-level detection but is not a substitute for runtime authorization or protection against reflective/dynamic dispatch. Exact-head CI remains unverified; the previous 439-pass result predates this change. Live order writes and automatic accounting promotion remain disabled.

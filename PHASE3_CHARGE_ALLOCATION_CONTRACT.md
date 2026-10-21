@@ -176,3 +176,16 @@ Official references:
 - NSE says the revised contract-note format is mandatory for equity and derivatives segments and transaction charges may be combined across exchanges: https://www.nseindia.com/static/trade/contract-note-faqs
 
 Decision: the public sample search reduces uncertainty about the likely visible fields, but does NOT clear the implementation gate. Do not build a production parser, treat the public sample as authenticated, or allocate aggregate levies to fills without a verified actual downloadable file format and a documented, component-specific allocation basis. Keep the import boundary read-only and all live-account safety gates unchanged.
+
+### Repository code-path audit — 2026-10-21
+
+Inspected current files on `main` directly:
+- `backend/app/services/broker_trade_ingestion_service.py` — stages normalized broker trades separately; module contract says it does not update accounting balances, positions or P&L.
+- `backend/app/services/broker_child_order_reconciliation_service.py` — reconciles broker child-order status against staged trades; module contract limits writes to broker-order metadata.
+- `backend/app/models/broker_trade_record.py` — unique broker connection + trade ID, quantity, price, side, instrument token and exchange timestamp; no contract-note source, source fingerprint, or per-component allocation evidence.
+- `backend/app/services/live_fill_accounting_service.py` — requires explicit `BROKER_REPORTED` charge source, a non-empty reference <= 200 chars, non-negative finite paise-precision components and exact sum equality across brokerage, STT, exchange, SEBI, stamp duty and GST. It atomically promotes one staged trade and compares the charge values/reference on idempotent replay.
+- `backend/app/models/execution.py` — persists the six charge components, total, source and 200-character reference; unique connection + broker trade ID prevents duplicate accounted fills.
+
+Conclusion: the existing promotion boundary validates a caller-supplied charge breakdown but does not establish the authenticity of the source document or prove how aggregate contract-note levies should be apportioned. Do not change the promotion contract or add schema until a documented source-specific allocation rule is available. This audit found no basis to treat a text transcription or a broker estimate as verified per-fill actual fees.
+
+CI workflow inspection: `.github/workflows/backend-tests.yml` runs pytest, broker-write boundary guard, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks on pushes to main and pull requests. The current docs-only commit will trigger the push workflow, but exact-HEAD success must be checked after GitHub finishes.

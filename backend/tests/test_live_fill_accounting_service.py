@@ -170,6 +170,10 @@ def test_replay_with_same_trade_id_but_changed_fill_details_is_rejected(accounti
     ("charges", "message"),
     [
         (_charges(source="ESTIMATED"), "broker-reported charges"),
+        # Period/segment aggregate charges and estimates are not per-fill evidence.
+        (_charges(source="AGGREGATE_CHARGES"), "broker-reported charges"),
+        (_charges(source="TRADE_CHARGES_API"), "broker-reported charges"),
+        (_charges(source="BROKER_ESTIMATE"), "broker-reported charges"),
         (_charges(reference=" "), "audit reference"),
         (_charges(reference="x" * 201), "at most 200 characters"),
         (_charges(total_charges=Decimal("99.00")), "sum of its six components"),

@@ -344,3 +344,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 ## Broker-write guard review follow-up — 2026-10-21
 
 Review found that the first AST guard exempted the entire Upstox adapter file and permitted any `service.place_order` reference in the portfolios module. These were broader than needed. The guard now scans the adapter normally and limits the known PAPER endpoint exceptions to their exact function names and call shapes. Added regressions for an unexpected adapter call and an unrelated helper in the portfolios module. This improves source-level detection but is not a substitute for runtime authorization or protection against reflective/dynamic dispatch. Exact-head CI remains unverified; the previous 439-pass result predates this change. Live order writes and automatic accounting promotion remain disabled.
+
+
+## Exact-head broker-write guard verification — 2026-10-21
+
+- Current `main` HEAD `975717b05a3aa5faa030f3f9e177dbcf6066daf3` passed [GitHub Actions run 39550130192](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39550130192): **447 passed, 1 warning**.
+- Verified successful steps: full backend pytest, broker-write boundary AST guard, SQLite migration upgrade/downgrade/re-upgrade, and PostgreSQL 16 migration upgrade/downgrade/re-upgrade.
+- The prior run on `6273a3178e37a27e47a8634564f634075f375f3e` failed; the latest commit corrected an expected line number in a broker-guard test. The current head is green.
+- Remaining Phase 2 architectural gate: define whether `BrokerFillIdentity` and `BrokerTradeRecord` are separate workflows or need a transactional bridge. No integration or automatic promotion until ownership/account scoping, stable identity, conflict handling, idempotent replay, rollback and crash recovery are covered. Live broker submission remains disabled.

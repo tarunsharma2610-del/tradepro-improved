@@ -22,6 +22,7 @@ from app.models.instrument import Instrument
 from app.models.live_position import LivePosition
 from app.models.order import Order
 from app.models.portfolio import Portfolio
+from app.services.broker_charge_evidence_service import require_reviewed_charge_evidence
 from app.services.position_math import apply_fill
 from app.services.transaction_costs import Side
 
@@ -40,6 +41,8 @@ class LiveFillChargeBreakdown:
     total_charges: Decimal
     source: str
     reference: str
+    evidence_id: UUID | None = None
+    reviewer_user_id: UUID | None = None
 
 
 @dataclass(frozen=True)

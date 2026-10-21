@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 
 from app.models.broker_connection import BrokerConnection
+from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.execution import Execution
@@ -33,6 +34,18 @@ def _charges(**overrides):
     )
     values.update(overrides)
     return LiveFillChargeBreakdown(**values)
+
+
+def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001"):
+    db, user, _portfolio, _instrument, connection, *_rest = accounting_context
+    evidence = db.query(BrokerChargeEvidence).filter_by(broker_connection_id=connection.id, broker_report_reference=reference).one_or_none()
+    if evidence is None:
+        from datetime import date
+        from uuid import uuid4
+        evidence = BrokerChargeEvidence(broker_connection_id=connection.id, source_kind="CONTRACT_NOTE", broker_report_reference=reference, report_date=date(2026, 10, 18), segment="NSE", source_filename="reviewed-contract-note.pdf", source_sha256=uuid4().hex + uuid4().hex, byte_size=1024, parser_version="phase3-test", status="REVIEWED", reviewed_at=datetime.now(timezone.utc), reviewed_by_user_id=user.id)
+        db.add(evidence)
+        db.commit()
+    return _charges(reference=reference, evidence_id=evidence.id, reviewer_user_id=user.id)
 
 
 @pytest.fixture()
@@ -103,7 +116,7 @@ def test_promote_live_trade_atomically_updates_live_position_and_execution_only(
     cash_before = Decimal(str(portfolio.cash_balance))
     service = LiveFillAccountingService(db)
 
-    result = service.promote_trade(user.id, record.id, _charges())
+    result = service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
     db.refresh(portfolio)
     db.refresh(paper_position)
@@ -442,7 +455,7 @@ def test_staged_trade_quantity_must_match_broker_confirmed_child_fill(accounting
     db.commit()
 
     with pytest.raises(ValueError, match="does not match broker-confirmed child fill quantity"):
-        service.promote_trade(user.id, second_record.id, _charges(reference="contract-note-2026-10-18-002"))
+        service.promote_trade(user.id, second_record.id, _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-002"))
 
     assert db.query(Execution).count() == 1
     live_position = db.query(LivePosition).filter_by(

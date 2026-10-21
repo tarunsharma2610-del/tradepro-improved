@@ -606,3 +606,14 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Added a regression test that switches the local order to PAPER during the status read and confirms child status/fill quantity remain unchanged. Staged evidence remains available; no accounting rows are created.
 - Exact code/test checkpoint `84f3a3e48a64b6e1d764a87a2b337b2a8f052741`, [CI run 39482592808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39482592808): **439 passed, 1 warning**, with SQLite/PostgreSQL 16 reversible migrations passing.
 - This does not enable parent Order accounting or live submission. Keep `BrokerFillIdentity` and `BrokerTradeRecord` workflows isolated until their intended boundary is decided.
+
+
+
+## Broker-write source guard — implementation checkpoint (2026-10-21)
+
+- Added `backend/scripts/check_broker_write_boundary.py`, an AST-based source guard that rejects unapproved production references to `place_order`, `modify_order`, and `cancel_order`, while allowing the known PAPER execution call sites and the low-level Upstox adapter definitions.
+- Added seven focused unit tests in `backend/tests/test_broker_write_boundary_guard.py` for unauthorized writes, generic receiver bypass, central write boundary, adapter definitions, docstring false positives, and approved PAPER call sites.
+- Added a mandatory CI step to `.github/workflows/backend-tests.yml` that runs `python -m scripts.check_broker_write_boundary` against the real application source tree.
+- Code/config commits: `fe6700528469a91100f3bf8862a6e4eca3831951` (guard), `c0d8f9293ba44d6abccd41818599fe7dfdcbd0a2` (tests), `e7885101dbbb850cd69c73e4d390177caaa21024` (fixture correction), and `c563683b85d7801cd19dcf3d1c7784ec6e433d1f` (CI integration).
+- **Verification status:** the latest commit is `c563683b85d7801cd19dcf3d1c7784ec6e433d1f`. The connected GitHub workflow tool does not expose push-triggered run listings, so the CI result for this exact head is not yet verified here. Do not treat the earlier 439-pass run as verification of this guard. The next action is to inspect the workflow result for this exact head and fix any guard findings before proceeding.
+- Scope remains static source protection, not proof against reflection/dynamic dispatch. Live broker order submission and automatic accounting promotion remain disabled.

@@ -2,12 +2,13 @@
 
 ## Authoritative Phase 3 checkpoint — 21 October 2026
 
-- **Evidence-ledger implementation commit:** `6c0a382eb9fea7f386433cfdb65a65cbc53f218e`; migration correction commit: `c17f522bf68121a6d162a4d858cd9de8b95d45d1`. Exact-HEAD CI for the migration correction is [run 39633330531](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39633330531); check its final result before treating this implementation as validated.
-- **Added:** `BrokerChargeEvidence` model and migration `202610210009`, recording broker connection, report metadata, filename, SHA-256 fingerprint, byte size, parser version, and review status; tests cover persistence, duplicate-file idempotency, and database constraints.
-- **Limits:** a hash detects byte-level changes but does not prove broker origin. No source-document importer, document-byte retention, cryptographic authenticity validation, per-fill allocation ledger, or charge-allocation formula is implemented by this slice. `REVIEWED` is not authorization to promote live accounting.
-- **Phase 3 remains in progress.** Next: verify the migration and new tests on the exact latest HEAD, inspect an actual redacted broker contract note and its official format, then build an idempotent import/review boundary. Only after the evidence is sufficient should component-specific allocation rules and immutable per-fill allocation records be designed.
-- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. All work must stay in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
-- Earlier checkpoints below are historical unless they explicitly name a later verified SHA and its CI run.
+- **Current code-and-documentation HEAD before this documentation sync:** `4fe58dd11b018d1f85000540ad2ec1b7f6f52ae5`. Its exact-HEAD push CI [run 39633514414](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39633514414) completed successfully. Backend pytest, broker-write boundary guard, and SQLite/PostgreSQL 16 migration upgrade-downgrade-reupgrade checks all passed.
+- **Evidence-ledger implementation:** `6c0a382eb9fea7f386433cfdb65a65cbc53f218e`; migration correction: `c17f522bf68121a6d162a4d858cd9de8b95d45d1`. Their CI runs [39633266180](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39633266180) and [39633330531](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39633330531) both passed.
+- **Implemented:** `BrokerChargeEvidence` model and migration `202610210009`; captures broker connection, report metadata, filename, SHA-256 fingerprint, byte size, parser version, and review status. Tests cover persistence, duplicate-fingerprint rejection per connection, and database constraints.
+- **Limits:** a hash detects byte-level changes but does not prove broker origin. The ledger does not yet retain document bytes, import/parse the broker document, establish authenticity, or allocate charge components to fills. `REVIEWED` is a workflow status, not automatic approval to promote live accounting.
+- **Next Phase 3 gate:** build a fail-closed, idempotent contract-note import/review boundary and inspect a real redacted broker contract note before selecting charge-specific allocation rules. Then implement immutable per-fill allocation records, paise rounding/residual rules, source-total reconciliation, and replay/crash/partial-fill tests.
+- **Phase 3 remains in progress.** Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. All changes must stay in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
+- Older checkpoints below are historical; this section is authoritative until replaced by a later verified checkpoint.
 
 ---
 

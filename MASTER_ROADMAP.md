@@ -112,3 +112,12 @@ Working branch: `main`
 - [ ] Add PostgreSQL concurrency coverage for stale-run recovery racing a lease claim.
 - [ ] Ensure interrupted-run summaries are surfaced as incomplete because counters are not persisted incrementally. Do not interpret a zero summary after `WORKER_INTERRUPTED` as proof no partial fill work occurred.
 - Live submission and automatic accounting promotion remain disabled.
+
+
+## Phase 2 — stale-run recovery race/UI gates verified (2026-10-21)
+
+- [x] Add PostgreSQL concurrency coverage for recovery racing an expired-lease claim.
+- [x] Display a clear incomplete-summary warning when a run has `WORKER_INTERRUPTED`.
+- [x] Exact code/test HEAD `d0437be8ef27c4e86d659a9b85bf42dbdb99ecc4`: [backend run 39552046237](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046237) passed 456 tests, 1 warning, source guard and both migration cycles; [frontend run 39552046207](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046207) passed TypeScript and Next.js build.
+- [ ] Audit crash between lease release and durable run-summary finish, including lease-token/expiry inconsistency. Add focused regression coverage before any scheduler or new broker integration.
+- Recovery remains owner/connection-scoped and metadata-only. Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live submission and automatic accounting promotion remain disabled.

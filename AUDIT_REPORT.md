@@ -369,3 +369,11 @@ A crash can leave a durable `LiveReconciliationRun` in `RUNNING`. Added `fail_or
 - Tests cover stale-run recovery through the worker, active-lease protection, and no broker call when recovery fails. SQLite timezone handling and SQLAlchemy ORM-evaluation behavior were corrected.
 - Exact current code head `c1c0d8c6fbbb5dcc1389d2da77e911c815958d88`, [run 39551504884](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39551504884): **455 passed, 1 warning**; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
 - Important limitation: the summary schema stores counters only at run completion. `WORKER_INTERRUPTED` means counters may be incomplete; zero counters must not be interpreted as proof that no partial work persisted. Next: add PostgreSQL race coverage for recovery/lease claim and ensure the UI labels interrupted summaries as incomplete. Recovery does not retry broker reads or touch fills/accounting.
+
+
+## Exact-head stale-run recovery race and UI verification — 2026-10-21
+
+- Added a PostgreSQL race test between stale-run recovery and claiming an expired lease. It asserts a safe serialized outcome and prevents a run being marked orphaned after a new active lease wins.
+- Added a visible `WORKER_INTERRUPTED` warning in the reconciliation review UI: summary counters may be incomplete, and zero values are not evidence that no fills were processed.
+- Exact current code/test HEAD `d0437be8ef27c4e86d659a9b85bf42dbdb99ecc4`: [backend run 39552046237](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046237) passed 456 tests, 1 warning, source guard and SQLite/PostgreSQL 16 migration cycles; [frontend run 39552046207](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046207) passed TypeScript and Next.js build.
+- Remaining review: crash window between releasing lease and finalizing the run summary, and inconsistent lease states. Recovery is metadata-only and does not mutate fills/accounting. Live submission and automatic promotion remain disabled.

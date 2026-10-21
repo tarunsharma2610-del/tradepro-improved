@@ -665,3 +665,12 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Exact current code head `c1c0d8c6fbbb5dcc1389d2da77e911c815958d88`, [GitHub Actions run 39551504884](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39551504884): **455 tests passed, 1 warning**; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
 - Caveat: stale-run summary counters are not a durable progress ledger; `WORKER_INTERRUPTED` must be interpreted as incomplete/unknown work, not proof that zero fills occurred. No automatic broker retry, live order submission or accounting promotion is enabled.
 - Next Phase 2 gate: add PostgreSQL concurrency coverage for orphan recovery versus lease claim and review the UI/API presentation of interrupted runs so incomplete counters are not shown as authoritative.
+
+
+## Exact-head crash-recovery race and UI verification — 2026-10-21
+
+- Added PostgreSQL concurrency coverage for orphan-run recovery racing an expired-lease claim. The test verifies the outcome is serialized: either the stale run is marked `FAILED/WORKER_INTERRUPTED` before a new lease wins, or an active new lease prevents recovery.
+- The reconciliation review UI now explicitly warns that a `WORKER_INTERRUPTED` run's counters may be incomplete and zero values do not prove that no fills were processed.
+- Exact current code/test HEAD `d0437be8ef27c4e86d659a9b85bf42dbdb99ecc4`: backend [run 39552046237](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046237) passed **456 tests, 1 warning**, source guard and SQLite/PostgreSQL 16 migration cycles; frontend [run 39552046207](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046207) passed TypeScript and Next.js build.
+- This supersedes the previous pending verification note. Stale-run recovery remains metadata-only: it does not retry broker reads, promote fills or mutate accounting. Live submission and automatic promotion remain disabled.
+- Next Phase 2 task: audit the crash window between lease release and run-summary persistence, and fail-closed behavior for inconsistent lease state (for example a non-null lease token with no expiry). Preserve idempotency and do not introduce automatic scheduling or broker writes without review.

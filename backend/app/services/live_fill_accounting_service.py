@@ -101,6 +101,8 @@ class LiveFillAccountingService:
                 raise ValueError("Live fill accounting is only allowed for an owned LIVE order.")
             if order.execution_reason != "MANUAL":
                 raise ValueError("Only manual LIVE orders are supported by this accounting step.")
+            if order.status == "REJECTED":
+                raise ValueError("A rejected local order cannot accept broker fill accounting.")
 
             child = (
                 self.db.query(BrokerOrder)

@@ -384,6 +384,20 @@ def test_trade_quantity_cannot_exceed_broker_confirmed_child_fill(accounting_con
 
 
 
+def test_promotion_waits_until_all_confirmed_child_fills_are_staged(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, child, record, paper_position = accounting_context
+    child.filled_quantity = 3
+    db.commit()
+
+    with pytest.raises(ValueError, match="does not match broker-confirmed child fill quantity"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
 def test_staged_trade_quantity_must_match_broker_confirmed_child_fill(accounting_context):
     db, user, portfolio, instrument, connection, order, child, first_record, paper_position = accounting_context
     service = LiveFillAccountingService(db)

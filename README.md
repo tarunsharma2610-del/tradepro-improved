@@ -2,12 +2,13 @@
 
 ## Authoritative Phase 3 checkpoint — 21 October 2026
 
-- **Verified code/test commit:** `3adf1a5dd6ba016c5dbc9d4ff8254f4b01d9e509`. Backend CI [run 39623527572](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39623527572) completed successfully: **490 tests passed, 1 warning**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed.
-- This CI result verifies that code commit, **not any subsequent documentation-only commit**. The exact latest documentation HEAD must have its own successful push-triggered CI before documentation synchronization is declared fully green.
-- **Phase 3 remains in progress.** Charge-source string validation and arithmetic consistency do not authenticate broker evidence or establish a valid allocation basis for contract-note totals. Do not allocate aggregate charges per fill without verified source evidence and an explicitly approved, charge-specific allocation method.
-- Remaining work: resolve the exact-head CI verification for documentation commits; audit coordinator and fill-identity boundaries; verify charge provenance/allocation semantics; complete partial-fill and crash/restart acceptance criteria; update this checkpoint again only against a verified exact SHA/run.
-- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. Work only in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
-- Earlier checkpoint entries below are historical unless they explicitly name the exact code SHA and CI run above.
+- **Current `main` HEAD:** `8d581070c706875d3c653b826c69963b0900a3b7`. Exact-HEAD push-triggered Backend CI [run 39631298815](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39631298815) completed successfully. The backend test suite, broker-write boundary guard, SQLite migration checks, and PostgreSQL 16 migration checks passed.
+- **Last separately reported code/test baseline:** `3adf1a5dd6ba016c5dbc9d4ff8254f4b01d9e509`, with [CI run 39623527572](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39623527572) reporting 490 tests passed and one warning. Do not attribute that test count to a later SHA unless its run reports the same count.
+- **Phase 3 remains in progress.** `BROKER_REPORTED` and a caller-supplied reference are labels, not authenticated evidence. Current trade intake does not establish immutable contract-note source linkage or an auditable per-fill charge-allocation ledger.
+- **Next engineering gate:** define and test a durable, immutable source-evidence record and import/validation boundary first; inspect a real redacted broker contract note and document component-specific allocation rules before allocating aggregate charges. Reject ambiguous or unsupported source formats; do not infer a fee split.
+- Required follow-up: inspect source-note identity/version/hash, importer idempotency and replay behavior, trade/order/fill matching, charge component rounding/residual handling, source-total reconciliation, partial-fill and crash/restart recovery, and fail-closed promotion tests.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. All changes must stay in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
+- Headings labelled “Current” in older sections below are historical checkpoint titles unless they explicitly refer to the exact SHA and CI run above.
 
 ---
 
@@ -15,7 +16,7 @@
 
 > **Documentation synchronization:** commit [df8b73a2971cbcee949efa14e98bc16a070bf093](https://github.com/tarunsharma2610-del/tradepro-improved/commit/df8b73a2971cbcee949efa14e98bc16a070bf093) synchronized the Phase 3 checkpoint across all 16 top-level project Markdown documents. Verify the exact HEAD's CI before treating the documentation checkpoint as fully green.
 
-## Current Phase 3 checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current Phase 3 checkpoint — 21 October 2026
 
 - **Latest verified code/test HEAD:** `3963c2bf4e6ffe2bb33d327b10e2995cd243d003`. Exact-head [Backend CI run 39607630055](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39607630055) passed **484 tests, 1 warning in 29.34s**; the broker-write boundary guard passed, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks passed.
 - New Phase 3 guard: broker-reported live-fill charge references are trimmed for storage and rejected when longer than the `Execution.charge_reference` 200-character column limit. This prevents a predictable storage error from being misreported as a concurrent promotion conflict. Regression coverage is included in the 484-test result.
@@ -26,7 +27,7 @@
 
 ---
 
-## Current verified checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current verified checkpoint — 21 October 2026
 
 - **Last verified code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.
 - **Last verified documentation checkpoint before this status refresh:** `391dfefc9580abf9537ee659877578033baae4fd`; exact-head backend CI [run 39568264419](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39568264419) passed.
@@ -37,7 +38,7 @@
 
 ------
 
-## Current verified checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current verified checkpoint — 21 October 2026
 
 - **Latest CI-verified `main` HEAD:** `7798f03200ba823d51bdd359539594b38e9830e1`; exact-head backend CI [run 39567592850](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567592850) passed.
 - **Latest code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, the broker-write boundary guard and SQLite/PostgreSQL 16 reversible migration checks.
@@ -60,13 +61,13 @@ A separate improvement track for Tradepro. The original `Tradepro` repository an
 - Never commit API tokens, OAuth secrets, passwords, or other credentials.
 - Validate changes with automated tests and build checks before deploying.
 
-## Current Phase 2 checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current Phase 2 checkpoint — 21 October 2026
 
 - Reconciliation crash recovery and transaction-level lease fencing have passed backend CI on the recorded checkpoint (470 tests, 1 warning, broker-write guard, SQLite/PostgreSQL 16 migration cycles).
 - Latest test commit [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2) adds failed-commit rollback coverage. Exact-head backend CI [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests (1 warning), broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles. Documentation HEAD `adb69aeb05b70ba4fa9095fc73d9dea033d31eec` also passed backend CI [run 39565251793](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39565251793).
 - Phase 2 is in final documentation verification: code/test HEAD `00ee9bad0e962d92244da6f63da1e46ba058ad6f` passed [CI run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) with 472 tests, source guard and SQLite/PostgreSQL 16 migration checks. The documentation sync must pass its own exact-head CI before closure. Intent-based BrokerFillIdentity and manual BrokerTradeRecord remain separate; live submission, automatic accounting promotion and automatic scheduling remain disabled. See MASTER_ROADMAP.md and SAFETY_BRANCH_PORT_MATRIX.md for authoritative scope.
 
-## Current status
+## Historical checkpoint — formerly marked Current status
 
 The original source tree has been imported into this repository. Recent improvements include:
 - A dashboard at `/` with portfolio summaries and navigation.

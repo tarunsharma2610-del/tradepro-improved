@@ -50,3 +50,11 @@ This update supersedes the earlier "Immediate next task" paragraph above.
 - Relevant commits: `00c0986a0628cc6b55b842cfcf6e7fc01b071de4`, `30c1aa7b78de357e070f7cdb37b3719112ee8850`, `a75a15a0feae98fb2eb4d4301f199d33566c0acf`, `430d00ae787a250f5c7f425e2b72ad02a38c396a`.
 - **Do next:** verify backend CI for current `main` HEAD. The connected GitHub workflow interface available in this session does not expose push-triggered run listing, so do not claim the latest head is green unless verified through the Actions run itself.
 - If CI passes, resume Phase 2 safety-branch port mapping and decide the boundary between intent-based `BrokerFillIdentity` and manual-order `BrokerTradeRecord`. Keep live broker submission and automatic fill promotion disabled.
+
+
+## Verified resume checkpoint — 2026-10-21
+
+- Current `main` HEAD `975717b05a3aa5faa030f3f9e177dbcf6066daf3` is verified green: [GitHub Actions run 39550130192](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39550130192), **447 passed, 1 warning**. The AST broker-write guard passed; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed.
+- The preceding commit's CI failure was caused by an incorrect expected line number in the guard test; the assertion was corrected in the current head. No current CI failure is open.
+- Resume Phase 2 by reviewing the dependency map and deciding whether `BrokerFillIdentity` and `BrokerTradeRecord` represent separate workflows or need a carefully specified transactional bridge. Do not connect them before defining identity, owner/account scope, conflict handling, idempotent replay, rollback and crash recovery.
+- Keep live broker submission and automatic accounting promotion disabled.

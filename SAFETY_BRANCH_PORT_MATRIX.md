@@ -2,8 +2,8 @@
 
 - The **reconciliation crash-recovery/lease-fencing slice** is complete. Code/test commit `fe07b77b193da1232787384efb38cb589e0d71b6` passed backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
 - The documentation synchronization commit is CI-checked separately; use the live [GitHub Actions page](https://github.com/tarunsharma2610-del/tradepro-improved/actions) to verify the exact current `main` HEAD. Do not infer exact-HEAD CI from an earlier commit.
-- **This does not mean the entire Phase 2/Gate 2 roadmap is backlog-free.** Gate 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
-- Gate 3 live-fill accounting integration and Gate 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
+- **This does not mean the entire Phase 2/Phase 2 roadmap is backlog-free.** Phase 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
+- Phase 3 live-fill accounting integration and Phase 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
 - External-repository borrowing remains paused; the original `Tradepro` repository remains untouched. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 
 <!-- Latest verified status, updated 2026-10-21 -->
@@ -22,7 +22,12 @@
 
 ## Current scope audit — 2026-10-21
 
-The current mainline read-only reconciliation crash-recovery/lease-fencing slice is complete through atomic finalization, cancellation recovery, five-record lease renewal, renewal-boundary lease-loss tests, and transaction-level fencing for each persistence mutation. Backend CI run 39561621808 passed 470 tests, 1 warning, source guard and SQLite/PostgreSQL 16 migration cycles. The broader safety-branch port matrix and Gate 2 dependency/workflow-boundary work remain open. Safety-only live account safety, broker-write/preflight, live recovery/execution/accounting coordinator files remain intentionally deferred/blocked by the dependency gates below; they are not to be treated as completed or merged wholesale.
+- Latest test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2) adds failed-commit rollback coverage for live-fill accounting. Exact-head CI is not yet verified; do not infer a pass from an empty status response.
+- The dependency inventory below is a phase-aware port decision, not a commitment to merge every safety-branch feature in Phase 2. Mainline has its own newer read-only reconciliation worker, schema, and lease controls; branch-only live execution and safety systems must be adapted as coherent later-phase work.
+- Phase 2 closure decisions: compatible broker response parsing, broker-trade staging, child-order reconciliation, the broker-write source guard, crash recovery/lease fencing, focused idempotency/rollback tests, and the explicit decision to keep BrokerFillIdentity separate from manual BrokerTradeRecord. The latest test commit still needs exact-head CI.
+
+
+The current mainline read-only reconciliation crash-recovery/lease-fencing slice is complete through atomic finalization, cancellation recovery, five-record lease renewal, renewal-boundary lease-loss tests, and transaction-level fencing for each persistence mutation. Backend CI run 39561621808 passed 470 tests, 1 warning, source guard and SQLite/PostgreSQL 16 migration cycles. The broader safety-branch port matrix and Phase 2 dependency/workflow-boundary work remain open. Safety-only live account safety, broker-write/preflight, live recovery/execution/accounting coordinator files remain intentionally deferred/blocked by the dependency gates below; they are not to be treated as completed or merged wholesale.
 
 Last reviewed: 2026-10-21  
 Repository: `tarunsharma2610-del/tradepro-improved`  
@@ -42,35 +47,39 @@ Current main contains 40 `backend/tests/test_*.py` modules and the safety branch
 | Broker trade staging | Ported `BrokerTradeIngestionService` and regression tests; adapted to main's stricter schema and mandatory exchange timestamp | Stages evidence only; must not mutate Execution, Position, portfolio cash, or Order state |
 | Broker child-order reconciliation | Ported `BrokerChildOrderReconciliationService` and tests with current-main schema; validates staged quantity, weighted average price, monotonic fill quantity and terminal states | Updates only child status/fill quantity; does not mutate parent Order/accounting |
 
-## Safety-only test modules and port decisions
+## Safety-only test modules and phase-aware dependency decisions
 
-| Test module | Required behavior/dependencies to audit | Decision |
+| Safety-branch test module | Required dependencies / compatibility concern | Phase disposition |
 |---|---|---|
-| `test_api_live_analytics.py` | API routes, owner scoping, current analytics schema | Defer until route and schema dependencies are mapped |
-| `test_broker_child_order_reconciliation.py` | Child-order model, partial fills, order state aggregation | Ported to main; exact-head CI run 39481385581 passed 438 tests |
-| `test_broker_reconciliation.py` | Broker reconciliation service, current-main read-only worker and issue model | Compare semantics before porting; avoid duplicate competing reconciler |
-| `test_broker_write_boundary_guard.py` | Source guard patterns and approved broker-write boundary | Ported to main with `backend/scripts/check_broker_write_boundary.py`, seven focused tests, and a CI invocation; exact-head CI still needs verification |
-| `test_live_account_safety_postgres.py` | Account safety model/service, PostgreSQL locking and schema migration | Defer until full account-safety slice is ported |
-| `test_live_account_safety_service.py` | Safety state model, service and API contracts | Defer; do not port tests without implementation |
-| `test_live_broker_schema_migration.py` | Branch-specific schema and migration history | Do not transplant migration; compare intended constraints to main chain |
-| `test_live_broker_write_service.py` | Central broker-write service, authorization, safety interlock | Blocked; live submission remains disabled |
-| `test_live_charge_adjustment_postgres.py` | Charge-adjustment records and concurrent promotion transactions | Defer until charge model/service slice is implemented |
-| `test_live_charge_adjustment_service.py` | Charge provenance and immutable final-charge adjustments | Defer; estimates must not be treated as final executed charges |
-| `test_live_execution_service.py` | Live execution/accounting service, atomic fill promotion and rollback | Blocked until reviewed live-accounting path exists |
-| `test_live_order_fill_reconciliation_coordinator.py` | Staged trade ingestion, fill coordinator, parent-order accounting | Candidate after staging slice passes; must integrate with main's existing worker |
-| `test_live_order_fill_reconciliation_integration.py` | Full DB integration, idempotency, rollback, replay and accounting isolation | Defer until coordinator and dependencies are complete |
-| `test_live_order_recovery_postgres.py` | Recovery service, PostgreSQL row locks, idempotency and ambiguous outcomes | Defer until recovery service is adapted |
-| `test_live_order_recovery_service.py` | Intent lifecycle, broker outcome recovery, status/version transitions | Defer; do not copy branch-specific state machine blindly |
-| `test_live_position_isolation.py` | Live versus paper account/position isolation | Audit requirements against main's current Position and Order models |
-| `test_live_pre_trade_risk_gate.py` | Instrument/account snapshots, margin and risk gate | Defer until current-main live risk model is specified |
-| `test_live_preflight_coordinator.py` | Authorization, risk checks, intent creation, broker-write interlock | Blocked; preflight must fail closed |
-| `test_strategy_position_migration.py` | Strategy position schema and historical data migration | Compare product requirements; do not merge migration histories |
-| `test_upstox_adapter.py` | Full broker adapter contract and order-write endpoints | Defer until explicit live-write design review; read-only reconciliation client stays narrow |
-| `test_upstox_live_risk_snapshot_service.py` | Validated risk snapshot parser/service, funds/margin semantics | Candidate after mapping to current parser and portfolio risk service |
+| test_api_live_analytics.py | Analytics routes, current-main schema, owner scoping and auth contracts | Defer to later product/API work; not a Phase 2 reconciliation dependency |
+| test_broker_child_order_reconciliation.py | Child-order model, partial fills, status aggregation | Ported to Phase 2 mainline; keep main schema and exact CI evidence |
+| test_broker_reconciliation.py | Competing broker reconciler, read-only worker, run/issue models | Compare against the existing mainline worker; only port a demonstrated missing behavior, never add a duplicate reconciler |
+| test_broker_write_boundary_guard.py | AST guard and approved PAPER-only call-site rules | Ported to Phase 2; current latest test commit still needs exact-head CI |
+| test_live_account_safety_postgres.py | Account safety model/service, PostgreSQL locks and schema | Phase 4; requires a separately reviewed safety-control implementation |
+| test_live_account_safety_service.py | Safety-state service and API contracts | Phase 4; do not port tests without implementation and authorization design |
+| test_live_broker_schema_migration.py | Branch-specific schema/migration history | Do not transplant; any required constraints must be reconciled into main's migration chain during later-phase design |
+| test_live_broker_write_service.py | Central broker-write service, authorization and final safety interlock | Phase 4; live submission remains disabled |
+| test_live_charge_adjustment_postgres.py | Charge adjustment records and concurrent promotion transactions | Phase 3; depends on reviewed accounting integration and final-charge provenance |
+| test_live_charge_adjustment_service.py | Charge provenance and immutable final-charge adjustments | Phase 3; estimated charges must never be treated as final executed charges |
+| test_live_execution_service.py | Live execution/accounting promotion and rollback | Phase 3; do not enable or register an unreviewed live accounting path |
+| test_live_order_fill_reconciliation_coordinator.py | Staged trade ingestion, fill coordinator and parent-order accounting | Phase 3; must integrate with the existing mainline worker and keep workflow identities separate until bridge design is approved |
+| test_live_order_fill_reconciliation_integration.py | DB integration, idempotency, rollback, replay and accounting isolation | Phase 3; follows the coordinator and transactional identity design |
+| test_live_order_recovery_postgres.py | Recovery service, PostgreSQL locks, idempotency and ambiguous outcomes | Phase 4; depends on a reviewed live submission/recovery state machine |
+| test_live_order_recovery_service.py | Intent lifecycle, broker outcome recovery and version transitions | Phase 4; do not copy branch-specific state machine blindly |
+| test_live_position_isolation.py | Live versus paper account/position isolation | Phase 3 prerequisite for accounting integration; audit against current Position/Order models |
+| test_live_pre_trade_risk_gate.py | Instrument/account snapshots, margin and risk gate | Phase 4; must match current-main risk services and fail closed |
+| test_live_preflight_coordinator.py | Authorization, risk checks, intent creation and broker-write interlock | Phase 4; preflight must fail closed and remain unregistered until approved |
+| test_strategy_position_migration.py | Strategy position schema and historical-data migration | Separate schema/product audit; not a Phase 2 reconciliation dependency; never merge migration histories blindly |
+| test_upstox_adapter.py | Full broker adapter contract including write endpoints | Phase 4; current read-only reconciliation client remains narrow |
+| test_upstox_live_risk_snapshot_service.py | Validated funds/margin snapshots and current portfolio risk service | Phase 3/4 prerequisite only if required by the reviewed integration; map to current parser/service first |
 
 ## Mainline-only tests that must be preserved
 
 Main also contains test modules not present in the safety branch, including API reconciliation isolation, instrument service, PostgreSQL order-concurrency coverage, current read-only reconciliation worker/client, lease/repository tests, portfolio risk settings, and market-data streaming. These are evidence that the main branch has newer or different behavior and must not be overwritten by a wholesale branch merge.
+
+## Phase 2 exit decision
+
+The current Phase 2 boundary is not “merge every file from the safety branch.” Phase 2 closes only after (1) compatible reconciliation/staging behavior is implemented and tested on main, (2) the workflow identity boundary is explicitly decided, (3) focused tests and exact-head CI pass, (4) the broker-write source guard and SQLite/PostgreSQL 16 reversible migrations pass, and (5) roadmap, handover, progress, audit, requirements and design documents agree. Items classified as Phase 3 or Phase 4 above remain intentionally deferred and must not be represented as Phase 2 backlog or completed functionality.
 
 ## Porting gates
 

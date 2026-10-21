@@ -217,3 +217,10 @@ Checked the current public Upstox API documentation directly:
 NSE's revised contract-note FAQ says trade details including order number/time, trade number/time, quantity and price are to be attached as an annexure, and says transaction charges across exchanges are combined in the revised format: https://www.nseindia.com/static/trade/contract-note-faqs. This reinforces that a contract note can aggregate some charge categories and does not itself prove a unique per-fill mapping for every charge.
 
 Decision: the reviewed official API schemas do not eliminate the actual-charge evidence/allocation blocker. Do not reinterpret aggregate charge totals as per-fill fees, and do not match the trade-wise P&L rows to staged fills based only on symbol/date/average price. An importer may only persist source evidence and perform mappings for which exact identifiers and allocation rules are supported; ambiguous rows/components must remain unreconciled and must not be promoted automatically.
+
+
+## Implementation checkpoint — broker charge source evidence metadata (2026-10-21)
+
+A first persistence slice adds `broker_charge_evidence` and migration `202610210009`. It stores the broker connection, report metadata, filename, SHA-256 fingerprint, byte size, parser version, and review workflow status. The same fingerprint cannot be registered twice for the same broker connection. Tests cover persistence and database constraints.
+
+**Limitations are intentional:** the metadata ledger does not store the source document bytes, prove that a file originated from Upstox, validate the file format, parse charge rows, or allocate charges to fills. A SHA-256 fingerprint only identifies the bytes that were hashed. Do not treat `REVIEWED` as cryptographic authenticity or automatic accounting approval. Importer, evidence retention/access controls, review authorization, immutable allocation ledger, and component-specific allocation rules remain separate gates. Do not enable live accounting promotion based on this metadata alone.

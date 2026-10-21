@@ -231,6 +231,23 @@ def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position
     assert paper_position.quantity == 7
 
 
+def test_replay_with_changed_charge_evidence_is_rejected(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
+    service = LiveFillAccountingService(db)
+    first = service.promote_trade(user.id, record.id, _charges())
+    assert first.inserted is True
+
+    with pytest.raises(ValueError, match="conflicting accounted execution"):
+        service.promote_trade(
+            user.id, record.id, _charges(reference="different-contract-note-2026-10-18")
+        )
+
+    assert db.query(Execution).count() == 1
+    live_position = db.query(LivePosition).one()
+    assert live_position.quantity == 2
+    assert live_position.avg_price == Decimal("100.2500")
+
+
 def test_same_timestamp_different_prices_are_rejected_as_ambiguous(accounting_context):
     db, user, _portfolio, instrument, connection, _order, child, record, _paper_position = accounting_context
     child.filled_quantity = 3

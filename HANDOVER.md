@@ -90,7 +90,7 @@ This update supersedes the earlier "Immediate next task" paragraph above.
 
 ## Resume checkpoint — Phase 2 lease/crash recovery (2026-10-21)
 
-- Current verified main HEAD: `0ce59a7965e3e96da26d27b65ef43eb0cb755bc`.
+- Current verified main HEAD: `2d3a0bce8b0e1095c35242c068017d5fd24aba29`.
 - Exact-head [backend CI run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228) passed 461 tests, 1 warning, broker-write boundary guard, SQLite migration cycle, and PostgreSQL 16 migration cycle. Frontend TypeScript/build last passed on `d0437be8ef27c4e86d659a9b85bf42dbdb99ecc4`; no frontend files changed after that.
 - Both `fail_orphaned_runs` and `LiveReconciliationLeaseRepository.claim` reject a lease with exactly one of token/expiry populated. Claim SQL only reclaims a released (both NULL) or expired lease.
 - Regression coverage verifies a crash after lease release but before terminal summary persistence; after the run ages past the cutoff, the next worker marks it `FAILED/WORKER_INTERRUPTED` and proceeds with a new run. This is eventual recovery, not atomic completion.

@@ -1,7 +1,7 @@
 > **AUTHORITATIVE MAIN-BRANCH STATUS — 21 October 2026**
 >
 > - Repository: `tarunsharma2610-del/tradepro-improved`; working branch: `main`.
-> - Current verified code/test HEAD: `0ce59a7965e3e96da26d27b65ef43eb0cb755bc`.
+> - Current verified code/test HEAD: `0ce59a7965e3e96a425fa8ae30c841eb0cb755bc`.
 > - Exact-head GitHub Actions [run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228) passed **461 backend tests, 1 warning**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration cycles passed.
 > - Phase 2 verified: owner/connection-scoped stale-run recovery, explicit incomplete-summary UI warning, fail-closed handling of inconsistent lease token/expiry pairs in both recovery and claim, and regression coverage for crash after lease release but before terminal summary persistence.
 > - Next: review whether lease completion and run-summary terminal persistence should be atomic; test lost-lease and terminal-state ordering before changing lifecycle semantics.

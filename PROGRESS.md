@@ -835,3 +835,12 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - **CI status:** the existing `.github/workflows/backend-tests.yml` already runs pytest with PostgreSQL 16, the broker-write boundary guard, and SQLite/PostgreSQL migration cycles. Required charge-allocation tests are not yet present as a complete coverage set. A passing earlier code CI does not verify this latest docs commit; no exact-HEAD run is claimed here.
 - **Next Phase 3 action:** locate the actual broker trade/contract-note ingestion and identity definitions via the repository tree; confirm the broker's source evidence before designing schema or allocation basis. Do not guess fee allocation, add a speculative identity bridge, or enable live submission, automatic accounting promotion, or scheduling.
 - Phase 2 remains closed. Original `Tradepro` remains untouched by this work.
+
+
+## Phase 3 — broker ingestion evidence boundary (2026-10-21)
+
+- Traced `backend/app/services/broker_trade_ingestion_service.py`: it stages normalized Upstox trade rows in `BrokerTradeRecord`; this path does not ingest contract-note fee totals or per-component charges.
+- Traced `backend/app/services/broker_child_order_reconciliation_service.py`: it reconciles broker child-order status against staged trade quantity and average price, and does not create `Execution` rows or mutate accounting.
+- Recorded detailed findings and the next evidence prerequisite in `PHASE3_CHARGE_ALLOCATION_CONTRACT.md` (commit `3cf9fc88411234783fb1a654c6e12f195247b94c`).
+- CI gap classification: the existing backend workflow already covers pytest/PostgreSQL 16, broker-write boundary, and SQLite/PostgreSQL migration cycles. Add missing charge-allocation regressions to this workflow; do not create a duplicate CI workflow without a demonstrated need. Exact-HEAD CI must still be checked separately.
+- No allocation schema or formula was added because contract-note evidence has not yet been found in the reviewed ingestion path. Phase 3 remains open; live broker submission, automatic accounting promotion, and automatic scheduling remain disabled. Original `Tradepro` repository remains untouched by this work.

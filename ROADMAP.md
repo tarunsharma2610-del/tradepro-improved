@@ -1,3 +1,14 @@
+## Current verified checkpoint — 21 October 2026
+
+- **Latest CI-verified `main` HEAD:** `7798f03200ba823d51bdd359539594b38e9830e1`; exact-head backend CI [run 39567592850](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567592850) passed.
+- **Latest code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, the broker-write boundary guard and SQLite/PostgreSQL 16 reversible migration checks.
+- The slow-persistence/lease-race audit is complete: the PostgreSQL row-lock test proves reclaim waits while a fenced write transaction is open; `test_postgres_high_volume_expiry_races_never_resurrect_stale_lease` passed 20 concurrent expiry-boundary renewal/reclaim races. Expired owners cannot renew, and ownership generation/token advance is verified.
+- Official Upstox V2 order-book and get-trades-for-day endpoints are current-day endpoints without documented pagination parameters. Historical trades are a separate paginated API; that API is not wired into the Phase 2 worker.
+- **Current task:** synchronize the remaining historical architecture/roadmap/reference-audit notes. This documentation commit needs its own exact-head CI and a final stale-status scan before Phase 2 is formally closed. Phase 3 remains blocked until then.
+- Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. The original `Tradepro` repository remains untouched.
+
+---
+
 <!-- Latest verified status, updated 2026-10-21 -->
 > **Latest verified checkpoint — 21 October 2026**
 >
@@ -5,7 +16,7 @@
 > - Latest code/test commit: `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`. Backend [CI run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed **466 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration checks. Frontend [CI run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript and Next.js build.
 > - Documentation audit commit `6407c5a05865c1be0ef673d3bb5e71c0231ef8da` passed [CI run 39556816828](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39556816828).
 > - Phase 2 checkpoint complete through atomic run/lease finalization, stale-run and cancellation recovery, lease-loss fencing, five-record renewal, and incomplete-summary warnings.
-> - **Next engineering task (not started yet):** audit a single slow database persistence operation and high-volume lease-expiry races; implement transaction-level fencing only if the race is demonstrated.
+> - **Historical next-task note — completed:** slow persistence and 20-round concurrent expiry-boundary renewal/reclaim tests passed CI run [39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386).
 > - Deferred safety-branch work remains tracked in `SAFETY_BRANCH_PORT_MATRIX.md`; no wholesale branch merge. Keep live broker submission and automatic accounting promotion disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`.
 >
 > The CI status above refers to the stated code and documentation commits. This documentation refresh will create a new commit and trigger its own CI run; do not call that new run passed until GitHub reports success.
@@ -101,14 +112,14 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 - [x] Added `LiveReconciliationLeaseRepository` with bounded lease durations, atomic claims, expiry/reclaim, lease renewal, ownership checks and token-guarded completion. A stale worker cannot complete a newer worker's lease.
 - [x] Added lease tests for contention, expiry/reclaim, stale-owner completion, renewal, cross-user ownership and invalid lease duration. [Run 39057273255](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39057273255) passed 318 tests, 1 warning; SQLite/PostgreSQL 16 migration upgrade/downgrade/re-upgrade passed.
 - [x] Connect the lease to the read-only worker orchestration and add a PostgreSQL concurrency test proving only one simultaneous claim succeeds. [Lease concurrency test commit](https://github.com/tarunsharma2610-del/tradepro-improved/commit/bf0c2b707aaa023a961f899502ed9f2ae4d265a4).
-- [ ] Verify official API pagination/day-window semantics, add operator-facing persistent run summaries and manual-review visibility, then consider an explicitly approved read-only sandbox pass.
+- [x] Verify official API day-window semantics and document pagination boundaries; persistent run summaries and manual-review visibility are implemented. Official order-book and get-trades-for-day endpoints are current-day, with no documented pagination parameters. Historical trades use a separate paginated API that is not wired into this worker. No live/sandbox request was made.
 
 
 ### Latest Phase 2 worker verification — 2026-10-17
 - Worker implementation: [`live_order_reconciliation_worker.py`](backend/app/services/live_order_reconciliation_worker.py), commit [`4ee8427`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/4ee8427f890f7c31021e30f7b36177e2f3f227c3). It is GET-only by dependency construction and is not automatically scheduled or wired to an API route.
 - Regression coverage now includes successful matching/fill linking, repeat-run deduplication, cross-user rejection, busy lease, missing token, no mutation when either read fails, bounded transient retry and Retry-After, 403 no-retry, malformed envelope/data rejection, and UNKNOWN execution status recovery when later trade evidence arrives.
 - Latest code test run [39058734080](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39058734080) passed **338 tests, 1 warning**; SQLite/PostgreSQL 16 reversible migration checks passed. No live Upstox request, order action, production migration or accounting update occurred.
-- Remaining Phase 2 work is operational hardening and current official API pagination/session-boundary verification; live order submission is a separate later phase and remains disabled.
+- Historical Phase 2 status superseded: current-day API/session boundary has been checked against official Upstox documentation; see the current checkpoint at the top of this file. Historical-trade retrieval remains separate future work, not part of this worker's current-day contract.
 
 
 ### Durable reconciliation run summary checkpoint — 2026-10-17
@@ -120,7 +131,7 @@ Scope: this repository only. The original `Tradepro` repository must remain unto
 ### Durable manual-review issue checkpoint — 2026-10-17
 - Added `LiveReconciliationIssue`, migration `202610170005`, and `LiveReconciliationIssueRepository`; the worker records safe, deduplicated issues for unmatched orders, malformed order/trade rows, trade persistence conflicts, fill-link conflicts and status-transition conflicts.
 - Exact latest code commit [`71b5668`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/71b5668533f0461c12374319e496665cbda7e61c) passed [run 39059749652](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39059749652): **342 passed, 1 warning**, plus SQLite/PostgreSQL 16 reversible migrations. An earlier run failed because normalization errors were caught by the persistence-conflict branch; that was fixed by separating normalization from persistence, and the latest exact commit is green.
-- The queue is stored in the database but is not exposed in UI/API yet. Stale-run recovery, operator resolution, crash-boundary tests and historical API pagination remain open. No real broker request/order action or accounting update occurred.
+- Historical checkpoint superseded: run summaries and safe review issues are exposed through owner-scoped read API/UI; stale-run recovery and crash-boundary tests are covered. A privileged issue-resolution workflow and historical-trade API integration remain separate future work. No real broker request/order action or accounting update occurred.
 
 
 ### Owner-scoped reconciliation read API checkpoint — 2026-10-17
@@ -182,9 +193,9 @@ Latest verified code/test HEAD `8f967adaa2328f16a0a08a104c3ec394e62f9310`; exact
 
 ## Phase 2 resume point — 2026-10-21
 
-Latest verified code/test HEAD `2ac6bfaafd3475ee63360bd0049b0b6987236bc1`; exact-head [CI run 39553981172](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553981172) passed 465 backend tests, broker-write guard, and SQLite/PostgreSQL 16 migration cycles. Atomic finalization, lease-loss protection, and cancellation-to-expiry recovery are covered. Next: inspect lease-renewal cadence and expiry races during large batches. Keep live submission and automatic accounting promotion disabled.
+Historical checkpoint superseded by the lease-race audit: code/test HEAD `00ee9bad0e962d92244da6f63da1e46ba058ad6f` passed 472 tests, source guard and SQLite/PostgreSQL 16 migration checks in [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386). Large-batch expiry and renewal races are now covered. Keep live submission and automatic accounting promotion disabled.
 
 
 ## Phase 2 resume point — 2026-10-21
 
-Latest verified code/test HEAD `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`. Backend [run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed 466 tests, broker-write guard, and SQLite/PostgreSQL 16 migration cycles; frontend [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript/build. Renewal is every 5 records; UI marks `LEASE_LOST` and `WORKER_INTERRUPTED` summaries incomplete. Next: assess slow-record/high-volume expiry races and need for transaction-level lease fencing. Keep live submission/accounting promotion disabled.
+Historical checkpoint superseded: renewal remains every five records; UI marks `LEASE_LOST` and `WORKER_INTERRUPTED` summaries incomplete. Slow-record/high-volume expiry races and transaction-level fencing were subsequently audited and passed in CI run [39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386). Keep live submission/accounting promotion disabled.

@@ -1,3 +1,14 @@
+## Current verified checkpoint — 21 October 2026
+
+- **Latest CI-verified `main` HEAD:** `7798f03200ba823d51bdd359539594b38e9830e1`; exact-head backend CI [run 39567592850](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567592850) passed.
+- **Latest code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, the broker-write boundary guard and SQLite/PostgreSQL 16 reversible migration checks.
+- The slow-persistence/lease-race audit is complete: the PostgreSQL row-lock test proves reclaim waits while a fenced write transaction is open; `test_postgres_high_volume_expiry_races_never_resurrect_stale_lease` passed 20 concurrent expiry-boundary renewal/reclaim races. Expired owners cannot renew, and ownership generation/token advance is verified.
+- Official Upstox V2 order-book and get-trades-for-day endpoints are current-day endpoints without documented pagination parameters. Historical trades are a separate paginated API; that API is not wired into the Phase 2 worker.
+- **Current task:** synchronize the remaining historical architecture/roadmap/reference-audit notes. This documentation commit needs its own exact-head CI and a final stale-status scan before Phase 2 is formally closed. Phase 3 remains blocked until then.
+- Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. The original `Tradepro` repository remains untouched.
+
+---
+
 # External Repository Gap Audit — Tradepro Improved
 
 Audit date: 2026-10-21
@@ -128,7 +139,7 @@ Disposition: strong low-cost test-design reference, not a source of real-market 
 Priority is based on Tradepro's current architecture and the inspected services, not on feature counts advertised by upstream projects.
 
 ### P0 — Continue existing safety work; do not duplicate it
-1. Finish the already-recorded Phase 2 slow-persistence and high-volume lease-expiry/renewal race audit. Make transaction/fencing changes only if a race is demonstrated.
+1. **Completed 21 October 2026:** Phase 2 slow-persistence and high-volume lease-expiry/renewal race audit passed CI run [39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386). No additional production-code change was required.
 2. Keep broker submission disabled until order lifecycle, broker reconciliation, partial fills, charge provenance, duplicate prevention, recovery, kill switch and end-to-end tests are complete.
 3. Verify cost rates against current primary Upstox/NSE/BSE sources and add a clear “last verified” mechanism; the cost module itself flags some rates as indicative.
 
@@ -163,7 +174,7 @@ Priority is based on Tradepro's current architecture and the inspected services,
 
 ## 5. Recommended implementation order
 
-1. Close the existing Phase 2 persistence/lease race audit and confirm exact-head CI.
+1. **Completed:** persistence/lease race tests passed CI run [39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386); current docs CI must be verified against its own HEAD.
 2. Add missing backtest metrics/report fields and no-lookahead/walk-forward tests after confirming which metrics are already exposed end-to-end.
 3. Add a read-only explainable signal-ranking/scan result using existing indicators and risk rules; do not route it to order placement.
 4. Add an options research/backtest gap only after validating the current data model, supported instruments, data entitlements and expected performance on the current host.

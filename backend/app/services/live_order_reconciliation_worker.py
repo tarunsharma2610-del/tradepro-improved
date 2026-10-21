@@ -59,7 +59,7 @@ class ReconciliationRunResult:
 _LEASE_RENEWAL_BATCH_SIZE = 5
 
 
-class _WorkerFailure(RuntimeError):
+class _WorkerFailure(Exception):
     def __init__(self, code: str):
         super().__init__(code)
         self.code = code

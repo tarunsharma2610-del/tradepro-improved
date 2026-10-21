@@ -109,3 +109,11 @@ Conclusion: available documented APIs provide trade-level execution identity and
 ### Trade-wise P&L endpoint checked — 2026-10-21
 
 The official `GET /v2/trade/profit-loss/data` documentation describes trade-wise realized P&L rows with quantity, buy/sell dates, averages and amounts, but its documented response schema does not include per-trade charge components. Its companion metadata endpoint provides report counts/page limits only. This does not close the actual-charge evidence gap. Continue to treat the aggregate charges endpoint as reconciliation context only, not as per-fill allocation evidence. Reference: https://upstox.com/developer/api-documentation/get-profit-loss-report/ and https://upstox.com/developer/api-documentation/get-report-meta-data/.
+
+
+### Contract-note source availability check — 2026-10-21
+
+- Reviewed the current official Upstox API endpoint catalogue via its Swagger UI and developer API overview. The documented post-trade/charges endpoints include historical trades, trade-wise P&L data/metadata, aggregate P&L charges, and brokerage estimation; no documented contract-note download endpoint was identified in that catalogue review.
+- This is a bounded documentation review, not proof that no contract-note export exists in the Upstox web/app or support channels. The source remains unresolved. Until verified, use an explicit manual evidence-import boundary only if the product already supports secure uploads and retention; otherwise keep actual-charge promotion blocked rather than allocating aggregate totals.
+- Official endpoint catalogue: https://api.upstox.com/v2/swagger-ui/index.html and https://upstox.com/developer/api-documentation/.
+- Do not call `/charges/brokerage` estimates actual charges, and do not treat `/trade/profit-loss/charges` aggregates as per-trade fees. Keep any future source ingestion read-only and separate from order placement.

@@ -287,3 +287,118 @@ def test_postgres_write_fence_blocks_reclaim_until_persistence_transaction_finis
         # Avoid leaving schema behind for the workflow's Alembic check.
         Base.metadata.drop_all(engine)
         engine.dispose()
+
+def test_postgres_high_volume_expiry_races_never_resurrect_stale_lease():
+    """Race renewal against reclaim repeatedly; expiry must always fence old owners."""
+    import os
+    import threading
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.core.database import Base
+    from app.models.user import User
+    import app.models  # noqa: F401
+
+    url = os.environ.get("TEST_POSTGRES_URL")
+    if not url:
+        pytest.skip("TEST_POSTGRES_URL is not configured")
+
+    engine = create_engine(url, pool_size=5)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        # CI PostgreSQL is dedicated to this workflow; leave it clean for Alembic.
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+        with SessionLocal() as session:
+            user = User(
+                email=f"lease-race-{uuid.uuid4()}@example.invalid",
+                password_hash="test-only-hash",
+                full_name="Lease Race Test",
+            )
+            session.add(user)
+            session.flush()
+            connection = BrokerConnection(
+                user_id=user.id,
+                broker="upstox",
+                api_key_encrypted="test-key",
+                api_secret_encrypted="test-secret",
+                redirect_uri="https://example.invalid/callback",
+                is_connected=False,
+            )
+            session.add(connection)
+            session.commit()
+            user_id, connection_id = user.id, connection.id
+
+        now = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+        with SessionLocal() as session:
+            current_token = LiveReconciliationLeaseRepository(session).claim(
+                user_id=user_id,
+                broker_connection_id=connection_id,
+                now=now,
+                lease_seconds=1,
+            )
+        assert current_token is not None
+
+        # Exercise 20 consecutive expiry boundaries with renewal and reclaim
+        # started simultaneously on independent PostgreSQL sessions.
+        for _ in range(20):
+            race_now = now + timedelta(seconds=1, milliseconds=100)
+            barrier = threading.Barrier(3)
+            outcome = {}
+
+            def attempt_renew():
+                try:
+                    with SessionLocal() as session:
+                        barrier.wait(timeout=3)
+                        outcome["renewed"] = LiveReconciliationLeaseRepository(session).renew(
+                            user_id=user_id,
+                            broker_connection_id=connection_id,
+                            lease_token=current_token,
+                            now=race_now,
+                            lease_seconds=1,
+                        )
+                except Exception as exc:
+                    outcome["renew_error"] = exc
+
+            def attempt_reclaim():
+                try:
+                    with SessionLocal() as session:
+                        barrier.wait(timeout=3)
+                        outcome["new_token"] = LiveReconciliationLeaseRepository(session).claim(
+                            user_id=user_id,
+                            broker_connection_id=connection_id,
+                            now=race_now,
+                            lease_seconds=1,
+                        )
+                except Exception as exc:
+                    outcome["claim_error"] = exc
+
+            renew_thread = threading.Thread(target=attempt_renew, daemon=True)
+            claim_thread = threading.Thread(target=attempt_reclaim, daemon=True)
+            renew_thread.start()
+            claim_thread.start()
+            barrier.wait(timeout=3)
+            renew_thread.join(timeout=5)
+            claim_thread.join(timeout=5)
+            assert not renew_thread.is_alive()
+            assert not claim_thread.is_alive()
+            assert "renew_error" not in outcome
+            assert "claim_error" not in outcome
+            assert outcome.get("renewed") is False
+            new_token = outcome.get("new_token")
+            assert new_token is not None and new_token != current_token
+
+            with SessionLocal() as session:
+                lease = session.query(LiveReconciliationLease).filter_by(
+                    broker_connection_id=connection_id
+                ).one()
+                assert lease.lease_token == new_token
+                assert lease.generation == _ + 2
+
+            current_token = new_token
+            now = race_now
+    finally:
+        Base.metadata.drop_all(engine)
+        engine.dispose()
+

@@ -859,3 +859,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Reviewed the official Upstox Swagger endpoint catalogue and developer API overview. The documented APIs reviewed expose historical trades, trade-wise P&L data/metadata, aggregate charges, and brokerage estimates; no contract-note download endpoint was identified in that catalogue review.
 - This does not prove no downloadable contract-note export exists through the Upstox web/app or support channels. Source remains unresolved; do not allocate aggregate charges or treat estimates as actual broker charges. See `PHASE3_CHARGE_ALLOCATION_CONTRACT.md`, commit `70185e5efa937f57a20a9e8c20f2ce3fc1c5e510`.
 - No code/migration change made in this step. Existing backend CI remains appropriate; missing feature regressions still need implementation once source evidence is established. Exact-HEAD CI remains unverified. Phase 3 remains open and live broker submission/automatic accounting promotion/scheduling remain disabled.
+
+
+## Phase 3 — adapter and charge provenance audit (2026-10-21)
+
+- Reviewed `backend/app/brokers/base.py`, `backend/app/brokers/upstox/adapter.py`, `backend/app/brokers/upstox/response_parsing.py`, ingestion service, and `Execution` model.
+- Adapter contract has order/trade retrieval but no contract-note ingestion or actual-charge retrieval capability. `BrokerageChargeEstimate` explicitly represents estimates; `BrokerTrade` has no charge fields. `Execution` stores per-fill amounts/reference but no immutable source-note/allocation ledger.
+- Detailed finding and safe design gate recorded in `PHASE3_CHARGE_ALLOCATION_CONTRACT.md` (commit `49f95bdd5f20ee99b21a573087c6e97a9bc03526`).
+- No speculative API method, schema migration, or fee formula added. Next: settle supported evidence import path and retention/security policy, then implement source ledger + allocation transaction + regression tests. Existing `.github/workflows/backend-tests.yml` is the right CI; exact latest HEAD status must be verified before claiming green.

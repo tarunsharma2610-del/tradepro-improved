@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import or_, update
+from sqlalchemy import and_, or_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -40,7 +40,7 @@ class LiveReconciliationLeaseRepository:
         until = now + timedelta(seconds=lease_seconds)
         existing = self.db.query(LiveReconciliationLease).filter(
             LiveReconciliationLease.broker_connection_id == broker_connection_id
-        ).first()
+        ).with_for_update().first()
         if existing is None:
             try:
                 self.db.add(LiveReconciliationLease(
@@ -57,13 +57,22 @@ class LiveReconciliationLeaseRepository:
             except IntegrityError:
                 # Another process may have inserted the one-per-connection row.
                 self.db.rollback()
+                existing = self.db.query(LiveReconciliationLease).filter(
+                    LiveReconciliationLease.broker_connection_id == broker_connection_id
+                ).with_for_update().first()
+
+        if existing is not None and ((existing.lease_token is None) != (existing.claimed_until is None)):
+            self.db.rollback()
+            raise RuntimeError("inconsistent reconciliation lease state")
 
         result = self.db.query(LiveReconciliationLease).filter(
             LiveReconciliationLease.user_id == user_id,
             LiveReconciliationLease.broker_connection_id == broker_connection_id,
             or_(
-                LiveReconciliationLease.lease_token.is_(None),
-                LiveReconciliationLease.claimed_until.is_(None),
+                and_(
+                    LiveReconciliationLease.lease_token.is_(None),
+                    LiveReconciliationLease.claimed_until.is_(None),
+                ),
                 LiveReconciliationLease.claimed_until <= now,
             ),
         ).update(

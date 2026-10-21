@@ -133,6 +133,11 @@ export default function ReconciliationPage() {
                   <p><span className="text-ink/50 dark:text-paper/50">Started:</span> {dateTime(run.started_at)}</p>
                   <p><span className="text-ink/50 dark:text-paper/50">Completed:</span> {dateTime(run.completed_at)}</p>
                 </div>
+                {run.error_code === "WORKER_INTERRUPTED" && (
+                  <p role="alert" className="text-sm text-loss">
+                    This run was interrupted before its summary could be finalized. The counters below may be incomplete; zero values do not prove that no fills were processed.
+                  </p>
+                )}
                 {run.summary && (
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
                     {Object.entries(run.summary).map(([key, value]) => (

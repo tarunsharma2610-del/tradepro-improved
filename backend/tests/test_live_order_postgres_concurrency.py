@@ -335,3 +335,115 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
     finally:
         Base.metadata.drop_all(engine)
         engine.dispose()
+
+
+
+def test_orphan_recovery_and_expired_lease_claim_are_serialized():
+    """Recovery and a new lease claimant must not both treat the run as theirs."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.core.database import Base
+    from app.models.broker_connection import BrokerConnection
+    from app.models.live_order_records import LiveReconciliationLease, LiveReconciliationRun
+    from app.models.user import User
+    from app.repositories.live_order_reconciliation_run_repository import LiveReconciliationRunRepository
+    from app.repositories.live_reconciliation_lease_repository import LiveReconciliationLeaseRepository
+
+    engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        owner_id = uuid.uuid4()
+        connection_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+        started_at = now - timedelta(hours=1)
+        with SessionLocal() as session:
+            session.add(User(
+                id=owner_id,
+                email=f"orphan-race-{owner_id}@example.invalid",
+                password_hash="test-only",
+                full_name="Orphan Race Test",
+            ))
+            session.commit()
+            session.add(BrokerConnection(
+                id=connection_id,
+                user_id=owner_id,
+                broker="upstox",
+                api_key_encrypted="test-only",
+                api_secret_encrypted="test-only",
+                redirect_uri="https://example.invalid/callback",
+                is_connected=False,
+            ))
+            session.commit()
+            session.add_all([
+                LiveReconciliationLease(
+                    user_id=owner_id,
+                    broker_connection_id=connection_id,
+                    lease_token=uuid.uuid4(),
+                    claimed_until=now - timedelta(minutes=10),
+                    generation=1,
+                    last_started_at=started_at,
+                    last_error_code=None,
+                ),
+                LiveReconciliationRun(
+                    user_id=owner_id,
+                    broker_connection_id=connection_id,
+                    status="RUNNING",
+                    started_at=started_at,
+                    summary={
+                        "orders_seen": 0, "orders_matched": 0, "orders_unmatched": 0,
+                        "trades_seen": 0, "fills_inserted": 0, "duplicate_fills": 0,
+                        "conflicts": 0,
+                    },
+                ),
+            ])
+            session.commit()
+
+        barrier = threading.Barrier(2)
+
+        def recover():
+            with SessionLocal() as session:
+                barrier.wait(timeout=10)
+                return LiveReconciliationRunRepository(session).fail_orphaned_runs(
+                    user_id=owner_id,
+                    broker_connection_id=connection_id,
+                    stale_before=now - timedelta(minutes=5),
+                    now=now,
+                )
+
+        def claim():
+            with SessionLocal() as session:
+                barrier.wait(timeout=10)
+                return LiveReconciliationLeaseRepository(session).claim(
+                    user_id=owner_id,
+                    broker_connection_id=connection_id,
+                    now=now,
+                    lease_seconds=300,
+                )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            recovery_future = pool.submit(recover)
+            claim_future = pool.submit(claim)
+            recovered_count = recovery_future.result(timeout=20)
+            token = claim_future.result(timeout=20)
+
+        assert recovered_count in (0, 1)
+        assert token is not None
+        with SessionLocal() as session:
+            run = session.query(LiveReconciliationRun).filter_by(
+                user_id=owner_id, broker_connection_id=connection_id
+            ).one()
+            lease = session.query(LiveReconciliationLease).filter_by(
+                user_id=owner_id, broker_connection_id=connection_id
+            ).one()
+            assert lease.lease_token == token
+            if run.status == "FAILED":
+                assert run.error_code == "WORKER_INTERRUPTED"
+                assert recovered_count == 1
+            else:
+                assert run.status == "RUNNING"
+                assert recovered_count == 0
+                assert lease.claimed_until > now
+    finally:
+        Base.metadata.drop_all(engine)
+        engine.dispose()

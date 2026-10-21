@@ -1,5 +1,13 @@
 <!-- Authoritative checkpoint audit: 2026-10-21; supersedes older status notes below. -->
-## Authoritative checkpoint audit — 21 October 2026
+## Current verified checkpoint — 21 October 2026
+
+- Current `main` HEAD: `f369839f20efed60f62abdbc329fe6d4454faeaa` (documentation checkpoint; code/test commit `fe07b77b193da1232787384efb38cb589e0d71b6`).
+- Latest exact-HEAD backend CI: [run 39562094642](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39562094642) passed **470 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- Phase 2 slow-persistence/high-volume lease-expiry audit is **complete**; per-write lease fencing and regression tests are verified.
+- Latest frontend CI remains [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474), passing TypeScript and Next.js build; no frontend code changed in this checkpoint.
+- Documentation files were synchronized in commit `f369839f20efed60f62abdbc329fe6d4454faeaa`. Historical references to earlier commits and counts below are historical records, not current status.
+- Phase 3 is not started. External-repository borrowing remains paused; live broker submission, automatic accounting promotion, and automatic scheduling remain disabled.
+
 
 - **Repository/branch:** `tarunsharma2610-del/tradepro-improved`, `main`. The original `tarunsharma2610-del/Tradepro` repository is a protected baseline and must remain untouched.
 - **Latest repository HEAD before this audit update:** `a297b1a356c133aaca0ed10079eb5226c03b747b` — documentation-only commit `docs: synchronize Phase 2 status with passing CI evidence`.

@@ -1,5 +1,11 @@
 # Read-only broker reconciliation worker — design and implementation gate
 
+## Current verified checkpoint — 21 October 2026
+- Phase 2 lease-fencing audit is complete; backend CI run 39562094642 passed 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- Current repository HEAD is f369839f20efed60f62abdbc329fe6d4454faeaa; code/test checkpoint is fe07b77b193da1232787384efb38cb589e0d71b6.
+- Read-only worker remains gated from operational invocation with a real broker; live submission, automatic accounting promotion, and automatic scheduling remain disabled.
+
+
 Status: worker implementation exists and is mocked-CI-tested; operational invocation and any real broker read remain gated. Reviewed 2026-10-17. Scope is the separate `tradepro-improved` repository. Live submission and cancellation remain disabled.
 
 ## Phase 2 lease-fencing addendum — 2026-10-21

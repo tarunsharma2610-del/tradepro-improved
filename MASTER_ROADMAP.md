@@ -183,5 +183,5 @@ Working branch: `main`
 - [x] Warn in the reconciliation UI for both `WORKER_INTERRUPTED` and `LEASE_LOST` incomplete summaries.
 - [x] Backend [CI run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380): 466 passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
 - [x] Frontend [CI run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474): TypeScript and Next.js build passed.
-- [ ] Audit a single slow persistence operation and high-volume processing for lease-expiry races; add transaction-level fencing if the evidence requires it.
+- [x] Audit a single slow persistence operation and high-volume processing for lease-expiry races; add transaction-level fencing and regression tests. Verified by backend CI run 39561621808 (470 passed, 1 warning).
 - Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.

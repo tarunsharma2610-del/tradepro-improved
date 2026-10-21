@@ -55,8 +55,8 @@ def test_docstring_mentions_are_not_treated_as_adapter_calls(tmp_path):
     app = tmp_path / "app"
     (app / "services").mkdir(parents=True)
     (app / "services" / "preflight.py").write_text(
-        '"""Never call adapter.place_order from preflight."""\\n'
-        "def check():\\n    return True\\n",
+        '"""Never call adapter.place_order from preflight."""\n'
+        "def check():\n    return True\n",
         encoding="utf-8",
     )
 

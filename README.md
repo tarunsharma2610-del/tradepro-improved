@@ -1,3 +1,13 @@
+## Current verified checkpoint — 21 October 2026
+
+- **Latest verified code/test HEAD:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, the broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.
+- The lease-race audit now has both pieces of evidence: PostgreSQL test `test_postgres_write_fence_blocks_reclaim_until_persistence_transaction_finishes` proves reclaim waits while a fenced transaction holds the lease-row lock; new `test_postgres_high_volume_expiry_races_never_resurrect_stale_lease` runs 20 concurrent expiry-boundary renewal-versus-reclaim races and asserts expired owners cannot renew and generation/token ownership advances safely.
+- CI logs confirm the full backend suite and source guard passed; the successful workflow includes SQLite and PostgreSQL 16 upgrade/downgrade/re-upgrade checks. The one Python warning is the existing Starlette/AnyIO deprecation.
+- **Current task:** synchronize all authoritative documents with this result. The resulting documentation HEAD still needs exact-head CI and a final stale-status scan before Phase 2 is formally closed. Do not start Phase 3 before then.
+- Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. The original `Tradepro` repository remains untouched.
+
+---
+
 # Tradepro Improved
 
 A separate improvement track for Tradepro. The original `Tradepro` repository and its `main` branch remain untouched.
@@ -14,7 +24,7 @@ A separate improvement track for Tradepro. The original `Tradepro` repository an
 
 - Reconciliation crash recovery and transaction-level lease fencing have passed backend CI on the recorded checkpoint (470 tests, 1 warning, broker-write guard, SQLite/PostgreSQL 16 migration cycles).
 - Latest test commit [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2) adds failed-commit rollback coverage. Exact-head backend CI [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests (1 warning), broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles. Documentation HEAD `adb69aeb05b70ba4fa9095fc73d9dea033d31eec` also passed backend CI [run 39565251793](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39565251793).
-- Phase 2 is not complete until latest-head CI and the final requirements/doc audit pass. Intent-based BrokerFillIdentity and manual BrokerTradeRecord remain separate; live submission, automatic accounting promotion and automatic scheduling remain disabled. See MASTER_ROADMAP.md and SAFETY_BRANCH_PORT_MATRIX.md for the authoritative scope.
+- Phase 2 is in final documentation verification: code/test HEAD `00ee9bad0e962d92244da6f63da1e46ba058ad6f` passed [CI run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) with 472 tests, source guard and SQLite/PostgreSQL 16 migration checks. The documentation sync must pass its own exact-head CI before closure. Intent-based BrokerFillIdentity and manual BrokerTradeRecord remain separate; live submission, automatic accounting promotion and automatic scheduling remain disabled. See MASTER_ROADMAP.md and SAFETY_BRANCH_PORT_MATRIX.md for authoritative scope.
 
 ## Current status
 

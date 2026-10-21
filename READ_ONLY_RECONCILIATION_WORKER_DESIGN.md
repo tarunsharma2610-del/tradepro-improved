@@ -1,18 +1,19 @@
 ## Current verified checkpoint — 21 October 2026
 
-- Latest CI-verified `main` HEAD before this documentation reconciliation: `0bd502f83118799d5564e8fd5724d01e8dc975af`; backend CI passed [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
-- Code/test commit `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154): 471 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration cycles.
-- Current task: reconcile historical status statements across the roadmap, handover, progress, requirements, audit and design documents. **This new documentation commit still requires its own exact-head CI run. Phase 2 is not formally closed until that run passes and the consistency scan is clean.**
-- Keep Phase 3 blocked. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled; the original `Tradepro` repository remains untouched.
+- **Latest verified code/test HEAD:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, the broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.
+- The lease-race audit now has both pieces of evidence: PostgreSQL test `test_postgres_write_fence_blocks_reclaim_until_persistence_transaction_finishes` proves reclaim waits while a fenced transaction holds the lease-row lock; new `test_postgres_high_volume_expiry_races_never_resurrect_stale_lease` runs 20 concurrent expiry-boundary renewal-versus-reclaim races and asserts expired owners cannot renew and generation/token ownership advances safely.
+- CI logs confirm the full backend suite and source guard passed; the successful workflow includes SQLite and PostgreSQL 16 upgrade/downgrade/re-upgrade checks. The one Python warning is the existing Starlette/AnyIO deprecation.
+- **Current task:** synchronize all authoritative documents with this result. The resulting documentation HEAD still needs exact-head CI and a final stale-status scan before Phase 2 is formally closed. Do not start Phase 3 before then.
+- Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. The original `Tradepro` repository remains untouched.
 
----
+------
 
 ## Current Phase 2 boundary — 21 October 2026
 
 - The reconciliation crash-recovery/lease-fencing slice is complete on the verified earlier checkpoint (backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808), 470 passed, 1 warning, source guard and SQLite/PostgreSQL 16 migration cycles).
 - Latest code/test commit [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2) adds live-fill commit-failure rollback coverage; exact-head backend CI [39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests, 1 warning, source guard and SQLite/PostgreSQL 16 migration cycles.
 - The worker remains read-only and metadata/reconciliation-evidence scoped. It must not create manual BrokerTradeRecord rows, Execution, LivePosition, or change paper cash/positions. BrokerFillIdentity and BrokerTradeRecord remain separate workflows for Phase 2; any bridge belongs to Phase 3 and requires its own identity, scoping, replay, conflict, rollback, and recovery design.
-- No real broker read has been operationally verified. Live submission, automatic accounting promotion, and automatic scheduling remain disabled. Historical documentation HEAD `0bd502f83118799d5564e8fd5724d01e8dc975af` passed backend CI [39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985); see the top checkpoint for current status.
+- No real broker read has been operationally verified. Live submission, automatic accounting promotion, and automatic scheduling remain disabled. Code/test HEAD `00ee9bad0e962d92244da6f63da1e46ba058ad6f` passed backend CI [39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386); see the top checkpoint for current documentation status.
 
 # Read-only broker reconciliation worker — design and implementation gate
 

@@ -148,16 +148,6 @@ def test_replaying_same_broker_trade_does_not_double_count_position(accounting_c
     assert db.query(Execution).count() == 1
 
 
-@pytest.mark.parametrize(
-    ("charges", "message"),
-    [
-        (_charges(source="ESTIMATED"), "broker-reported charges"),
-        (_charges(reference=" "), "audit reference"),
-        (_charges(total_charges=Decimal("99.00")), "sum of its six components"),
-        (_charges(brokerage=Decimal("-1.00"), total_charges=Decimal("2.86")), "non-negative"),
-        (_charges(stt=Decimal("0.201"), total_charges=Decimal("23.861")), "paise precision"),
-    ],
-)
 def test_replay_with_same_trade_id_but_changed_fill_details_is_rejected(accounting_context):
     db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
     service = LiveFillAccountingService(db)
@@ -176,6 +166,16 @@ def test_replay_with_same_trade_id_but_changed_fill_details_is_rejected(accounti
     assert live_position.avg_price == Decimal("100.2500")
 
 
+@pytest.mark.parametrize(
+    ("charges", "message"),
+    [
+        (_charges(source="ESTIMATED"), "broker-reported charges"),
+        (_charges(reference=" "), "audit reference"),
+        (_charges(total_charges=Decimal("99.00")), "sum of its six components"),
+        (_charges(brokerage=Decimal("-1.00"), total_charges=Decimal("2.86")), "non-negative"),
+        (_charges(stt=Decimal("0.201"), total_charges=Decimal("23.861")), "paise precision"),
+    ],
+)
 def test_invalid_or_estimated_charges_block_live_promotion(accounting_context, charges, message):
     db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
 

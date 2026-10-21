@@ -178,6 +178,8 @@ class BrokerTradeIngestionService:
                     BrokerConnection.user_id == user_id,
                     BrokerConnection.broker == broker_order.broker_name,
                 )
+                .with_for_update()
+                .populate_existing()
                 .first()
             )
             if connection is None:

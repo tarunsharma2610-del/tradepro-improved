@@ -7,7 +7,7 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.models.broker_connection import BrokerConnection
-from app.models.live_order_records import LiveReconciliationRun
+from app.models.live_order_records import LiveReconciliationLease, LiveReconciliationRun
 
 
 _SUMMARY_COUNTERS = {
@@ -92,3 +92,48 @@ class LiveReconciliationRunRepository:
             LiveReconciliationRun.id == run_id,
             LiveReconciliationRun.user_id == user_id,
         ).one()
+
+    def fail_orphaned_runs(
+        self,
+        *,
+        user_id: uuid.UUID,
+        broker_connection_id: uuid.UUID,
+        stale_before: datetime,
+        now: datetime | None = None,
+    ) -> int:
+        """Fail stale RUNNING summaries only when no unexpired lease owns the connection.
+
+        Lock the lease row on databases that support row locks so a concurrent
+        claimant cannot race the orphan check. This records recovery state only;
+        it never retries broker calls or alters fill/accounting evidence.
+        """
+        now = now or datetime.now(timezone.utc)
+        if stale_before.tzinfo is None or now.tzinfo is None:
+            raise ValueError("stale_before and now must be timezone-aware")
+        if stale_before > now:
+            raise ValueError("stale_before cannot be later than now")
+
+        lease = self.db.query(LiveReconciliationLease).filter(
+            LiveReconciliationLease.user_id == user_id,
+            LiveReconciliationLease.broker_connection_id == broker_connection_id,
+        ).with_for_update().first()
+        if lease is not None and lease.lease_token is not None and lease.claimed_until is not None and lease.claimed_until > now:
+            return 0
+
+        result = self.db.execute(
+            update(LiveReconciliationRun)
+            .where(
+                LiveReconciliationRun.user_id == user_id,
+                LiveReconciliationRun.broker_connection_id == broker_connection_id,
+                LiveReconciliationRun.status == "RUNNING",
+                LiveReconciliationRun.started_at < stale_before,
+            )
+            .values(
+                status="FAILED",
+                completed_at=now,
+                error_code="WORKER_INTERRUPTED",
+            )
+        )
+        count = int(result.rowcount or 0)
+        self.db.commit()
+        return count

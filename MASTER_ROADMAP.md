@@ -85,7 +85,7 @@ Working branch: `main`
 - [x] Confirm broker-write AST guard passes on the actual application source.
 - [x] Confirm SQLite and PostgreSQL 16 migration upgrade → downgrade → re-upgrade checks pass.
 - [x] Fix the failed guard-test line-number assertion from the previous run.
-- [ ] Resume Phase 2 with the `BrokerFillIdentity` versus `BrokerTradeRecord` workflow boundary review; define identity, scoping, idempotency, conflict, rollback and recovery behavior before integrating.
+- [x] Review the `BrokerFillIdentity` versus `BrokerTradeRecord` workflow boundary; decision for the current phase is to keep them separate. Any future bridge remains blocked until identity, scoping, idempotency, conflict, rollback and recovery semantics are designed.
 - Live broker submission and automatic accounting promotion remain disabled.
 
 ### Fill-workflow boundary decision — 2026-10-21

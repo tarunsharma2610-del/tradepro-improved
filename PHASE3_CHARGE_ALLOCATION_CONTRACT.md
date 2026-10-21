@@ -117,3 +117,11 @@ The official `GET /v2/trade/profit-loss/data` documentation describes trade-wise
 - This is a bounded documentation review, not proof that no contract-note export exists in the Upstox web/app or support channels. The source remains unresolved. Until verified, use an explicit manual evidence-import boundary only if the product already supports secure uploads and retention; otherwise keep actual-charge promotion blocked rather than allocating aggregate totals.
 - Official endpoint catalogue: https://api.upstox.com/v2/swagger-ui/index.html and https://upstox.com/developer/api-documentation/.
 - Do not call `/charges/brokerage` estimates actual charges, and do not treat `/trade/profit-loss/charges` aggregates as per-trade fees. Keep any future source ingestion read-only and separate from order placement.
+
+
+### Existing adapter capability audit — 2026-10-21
+
+- Reviewed `backend/app/brokers/base.py`, `backend/app/brokers/upstox/adapter.py`, `backend/app/brokers/upstox/response_parsing.py`, `backend/app/services/broker_trade_ingestion_service.py`, and `backend/app/models/execution.py`.
+- `BrokerAdapter` exposes order/trade retrieval methods but no contract-note ingestion or actual-charge retrieval method. `UpstoxAdapter` defines a `BrokerageChargeEstimate` parser in response parsing for the estimate endpoint; its own docstring says this is an estimate, not proof of final fees. The ingestion parser's `BrokerTrade` schema likewise contains no charge fields.
+- `Execution` persists per-fill charge components and a 200-character `charge_reference`, but there is no source-note/allocation ledger or FK to immutable source evidence. The current test fixture uses a reference named like a contract note; this is only test input and must not be mistaken for proof the production adapter fetched or validated that note.
+- Decision: do not add an adapter method or migration until the accepted evidence format/path and security/retention requirements are approved. If using a contract-note file, parse it as untrusted input, validate account/period/IDs/totals, retain a fingerprint and provenance, and make import idempotent. Keep it read-only and never couple it to broker order-write APIs.

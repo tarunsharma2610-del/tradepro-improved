@@ -78,3 +78,9 @@ Main also contains test modules not present in the safety branch, including API 
 - Ported the source guard and its seven unit tests into main and wired `python -m scripts.check_broker_write_boundary` into the backend CI workflow.
 - Implementation/config commit: `c563683b85d7801cd19dcf3d1c7784ec6e433d1f`. Later commits update the progress/audit/roadmap/handover docs.
 - Exact-head CI remains unverified. Do not mark this port green until the workflow run for the current `main` HEAD passes. The AST check does not cover reflective/dynamic dispatch.
+
+### Guard exception narrowing follow-up — 2026-10-21
+
+- Follow-up review found the initial AST guard's adapter-file exemption and portfolios-module exemption too broad. Current `main` removes the file-wide adapter exemption and scopes PAPER exceptions to the known endpoint function names/call shapes.
+- Added regression coverage for unexpected adapter calls and an unrelated helper in the otherwise approved portfolios module. See implementation/test commits `00c0986a0628cc6b55b842cfcf6e7fc01b071de4` and `30c1aa7b78de357e070f7cdb37b3719112ee8850`, with fixture newline correction in `430d00ae787a250f5c7f425e2b72ad02a38c396a`.
+- The current workflow lookup returned no runs for the latest `main` HEAD; this connector only exposes PR-triggered runs for commit lookups. Treat exact-head CI as unverified, not passed. Next action is to inspect the Actions page/run directly and fix any guard/test failures before porting another slice.

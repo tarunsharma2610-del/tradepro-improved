@@ -617,3 +617,10 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Code/config commits: `fe6700528469a91100f3bf8862a6e4eca3831951` (guard), `c0d8f9293ba44d6abccd41818599fe7dfdcbd0a2` (tests), `e7885101dbbb850cd69c73e4d390177caaa21024` (fixture correction), and `c563683b85d7801cd19dcf3d1c7784ec6e433d1f` (CI integration).
 - **Verification status:** the latest commit is `c563683b85d7801cd19dcf3d1c7784ec6e433d1f`. The connected GitHub workflow tool does not expose push-triggered run listings, so the CI result for this exact head is not yet verified here. Do not treat the earlier 439-pass run as verification of this guard. The next action is to inspect the workflow result for this exact head and fix any guard findings before proceeding.
 - Scope remains static source protection, not proof against reflection/dynamic dispatch. Live broker order submission and automatic accounting promotion remain disabled.
+
+
+
+### Source-guard fixture follow-up
+
+- Corrected the docstring/newline fixture in `backend/tests/test_broker_write_boundary_guard.py`; follow-up commit `a9105fdfc2252c067782649c5c659460db042cc4`.
+- This correction has not been independently run locally in this session. The exact-head CI gate remains open; check the workflow result for the current `main` head before proceeding.

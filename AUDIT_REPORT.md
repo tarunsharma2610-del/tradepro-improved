@@ -329,3 +329,13 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Added a regression test that switches the local order to PAPER during the status read and confirms child status/fill quantity remain unchanged. Staged evidence remains available; no accounting rows are created.
 - Exact code/test checkpoint `84f3a3e48a64b6e1d764a87a2b337b2a8f052741`, [CI run 39482592808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39482592808): **439 passed, 1 warning**, with SQLite/PostgreSQL 16 reversible migrations passing.
 - This does not enable parent Order accounting or live submission. Keep `BrokerFillIdentity` and `BrokerTradeRecord` workflows isolated until their intended boundary is decided.
+
+
+
+## Broker-write boundary guard — 2026-10-21
+
+- Added an AST-based guard under `backend/scripts/check_broker_write_boundary.py` to detect unapproved source references to broker order-write methods and integrated it into the backend CI workflow.
+- Added focused guard unit tests covering generic receiver aliases, the proposed central write boundary, adapter-definition exclusions, docstring false positives, and existing PAPER execution call sites.
+- Latest implementation/config commit: `c563683b85d7801cd19dcf3d1c7784ec6e433d1f`; progress documentation is being updated separately.
+- **Exact-head CI is not yet verified** through the available GitHub workflow connector. Earlier 439-pass evidence predates this guard and does not validate it. Check the CI run for the exact latest `main` head before calling this slice complete.
+- Limitation: AST inspection cannot prove safety against reflection/dynamic dispatch. This guard supplements—not replaces—authorization, risk interlocks, integration tests, and code review. Live submission remains disabled.

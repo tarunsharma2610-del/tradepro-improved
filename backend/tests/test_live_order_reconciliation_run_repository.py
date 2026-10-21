@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta, timezone
+import uuid
+
+import pytest
 
 from app.models.broker_connection import BrokerConnection
-from app.models.live_order_records import LiveReconciliationRun
+from app.models.live_order_records import LiveReconciliationLease, LiveReconciliationRun
 from app.repositories.live_order_reconciliation_run_repository import LiveReconciliationRunRepository
 from app.repositories.live_reconciliation_lease_repository import LiveReconciliationLeaseRepository
 
@@ -119,3 +122,39 @@ def test_orphan_recovery_rejects_naive_or_future_cutoff(db_session, make_user):
             user_id=user.id, broker_connection_id=connection.id,
             stale_before=now + timedelta(seconds=1), now=now,
         )
+
+
+@pytest.mark.parametrize("lease_token_missing", [False, True])
+def test_orphan_recovery_fails_closed_on_inconsistent_lease_state(
+    db_session, make_user, lease_token_missing
+):
+    user = make_user()
+    connection = _connection(db_session, user)
+    now = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+    run = _run(db_session, user, connection, now - timedelta(hours=2))
+    lease = LiveReconciliationLease(
+        user_id=user.id,
+        broker_connection_id=connection.id,
+        lease_token=None if lease_token_missing else uuid.uuid4(),
+        claimed_until=now + timedelta(minutes=2) if lease_token_missing else None,
+        generation=1,
+        last_started_at=now - timedelta(hours=2),
+        last_error_code=None,
+    )
+    db_session.add(lease)
+    db_session.commit()
+
+    with pytest.raises(RuntimeError, match="inconsistent reconciliation lease state"):
+        LiveReconciliationRunRepository(db_session).fail_orphaned_runs(
+            user_id=user.id,
+            broker_connection_id=connection.id,
+            stale_before=now - timedelta(minutes=5),
+            now=now,
+        )
+
+    db_session.refresh(run)
+    db_session.refresh(lease)
+    assert run.status == "RUNNING"
+    assert lease.lease_token is (None if lease_token_missing else lease.lease_token)
+    assert (lease.lease_token is None) == lease_token_missing
+    assert lease.claimed_until is not None if lease_token_missing else lease.claimed_until is None

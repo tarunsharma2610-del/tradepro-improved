@@ -415,7 +415,7 @@ def test_concurrent_child_orders_cannot_overfill_one_local_order():
                 BrokerTradeRecord(
                     id=trade_ids[index], broker_connection_id=connection_id,
                     broker_order_ref_id=child_ids[index], broker_trade_id=f"cross-trade-{trade_ids[index]}",
-                    quantity=3, price=Decimal("100.00") + index, side="BUY",
+                    quantity=3, price=Decimal("100.00"), side="BUY",
                     instrument_token=instrument.instrument_key, exchange_timestamp=now.isoformat(),
                 )
                 for index in range(2)

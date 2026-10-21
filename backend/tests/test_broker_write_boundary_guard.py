@@ -107,4 +107,4 @@ def test_same_file_cannot_hide_write_reference_in_unapproved_function(tmp_path):
 
     violations = find_violations(app)
     assert len(violations) == 1
-    assert "portfolios.py:4" in violations[0]
+    assert "portfolios.py:5" in violations[0]

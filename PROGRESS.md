@@ -844,3 +844,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Recorded detailed findings and the next evidence prerequisite in `PHASE3_CHARGE_ALLOCATION_CONTRACT.md` (commit `3cf9fc88411234783fb1a654c6e12f195247b94c`).
 - CI gap classification: the existing backend workflow already covers pytest/PostgreSQL 16, broker-write boundary, and SQLite/PostgreSQL migration cycles. Add missing charge-allocation regressions to this workflow; do not create a duplicate CI workflow without a demonstrated need. Exact-HEAD CI must still be checked separately.
 - No allocation schema or formula was added because contract-note evidence has not yet been found in the reviewed ingestion path. Phase 3 remains open; live broker submission, automatic accounting promotion, and automatic scheduling remain disabled. Original `Tradepro` repository remains untouched by this work.
+
+
+## Phase 3 — official Upstox charge API review (2026-10-21)
+
+- Reviewed official Upstox docs for historical trades, trade charges, and brokerage calculation. Historical trade rows include trade identity/economics but not documented per-trade fee components; the trade-charges endpoint is an aggregate by segment/date range/financial year; brokerage endpoint calculates fees and is not actual completed-trade charge evidence.
+- Recorded API references and the fail-closed conclusion in `PHASE3_CHARGE_ALLOCATION_CONTRACT.md` (commit `754bdfe0cfb6f73464bf238f72f830d412c70006`).
+- Next: inspect the official trade-wise P&L data/metadata response schema and actual contract-note/bill report options before choosing a source. Do not treat estimated brokerage calculations as broker-reported actual charges or allocate aggregate fees by guess.
+- Existing backend CI workflow remains the correct place for feature tests. No separate CI workflow needed; exact-HEAD verification for the latest commits remains outstanding. Phase 3 open; live submission, automatic accounting promotion, and scheduling disabled.

@@ -104,3 +104,29 @@ def test_blocks_review_without_actor_or_timestamp(reviewed_evidence):
             broker_report_reference="CN-2026-10-21-001",
             reviewer_user_id=user.id,
         )
+
+def test_blocks_non_contract_note_source(reviewed_evidence):
+    db, user, connection, evidence = reviewed_evidence
+    evidence.source_kind = "TRADE_CHARGES_API"
+    db.commit()
+    with pytest.raises(ValueError, match="must originate from a contract note"):
+        require_reviewed_charge_evidence(
+            db,
+            evidence_id=evidence.id,
+            broker_connection_id=connection.id,
+            broker_report_reference="CN-2026-10-21-001",
+            reviewer_user_id=user.id,
+        )
+
+
+def test_blocks_different_reviewer_identity(reviewed_evidence):
+    db, user, connection, evidence = reviewed_evidence
+    with pytest.raises(ValueError, match="matching reviewer and review timestamp"):
+        require_reviewed_charge_evidence(
+            db,
+            evidence_id=evidence.id,
+            broker_connection_id=connection.id,
+            broker_report_reference="CN-2026-10-21-001",
+            reviewer_user_id=uuid4(),
+        )
+

@@ -551,7 +551,7 @@ async def test_worker_recovers_expired_orphan_run_before_claiming_new_lease(db_s
 
 
 @pytest.mark.asyncio
-async def test_worker_recovers_run_left_running_after_lease_release_before_summary_finish(
+async def test_atomic_finalization_keeps_lease_when_summary_persistence_fails(
     db_session, make_user
 ):
     user, _portfolio, connection = _setup(db_session, make_user)
@@ -562,9 +562,9 @@ async def test_worker_recovers_run_left_running_after_lease_release_before_summa
     )
 
     def fail_finish(**_kwargs):
-        raise RuntimeError("simulated crash during summary persistence")
+        raise RuntimeError("simulated summary persistence failure")
 
-    worker.run_repository.finish = fail_finish
+    worker.run_repository.finish_with_lease = fail_finish
     first = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
 
     assert first.status == "FAILED"
@@ -575,11 +575,14 @@ async def test_worker_recovers_run_left_running_after_lease_release_before_summa
         broker_connection_id=connection.id
     ).one()
     assert interrupted.status == "RUNNING"
-    assert lease.lease_token is None
-    assert lease.claimed_until is None
+    assert lease.lease_token is not None
+    assert lease.claimed_until is not None
+    assert lease.last_completed_at is None
 
-    # Simulate time passing beyond the orphan cutoff after the worker crashed.
-    interrupted.started_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    # Simulate process loss and passage beyond both the lease and orphan cutoffs.
+    stale_time = datetime.now(timezone.utc) - timedelta(hours=1)
+    interrupted.started_at = stale_time
+    lease.claimed_until = stale_time
     db_session.commit()
 
     recovery_client = _FakeReadClient()

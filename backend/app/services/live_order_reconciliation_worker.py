@@ -297,6 +297,7 @@ class LiveOrderReconciliationWorker:
                 }.items() if value is not None
             }
             try:
+                self._fence_write(user_id, connection_id, lease_token)
                 _, inserted = self.order_repository.record_broker_fill(
                     user_id=user_id,
                     broker_connection_id=connection_id,
@@ -388,6 +389,7 @@ class LiveOrderReconciliationWorker:
             else:
                 initial_state = order.state
             try:
+                self._fence_write(user_id, connection_id, lease_token)
                 current, _ = self.order_repository.apply_reconciliation_transition(
                     user_id=user_id,
                     intent_id=intent_id,
@@ -449,6 +451,7 @@ class LiveOrderReconciliationWorker:
                 LiveOrderIntent.user_id == user_id,
             ).one()
             try:
+                self._fence_write(user_id, connection_id, lease_token)
                 resolved_intent, _ = self.order_repository.apply_reconciliation_transition(
                     user_id=user_id,
                     intent_id=intent_id,

@@ -657,3 +657,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Added tests for stale-run recovery, active-lease protection, owner/connection and age scoping, and invalid cutoff times. Normalized SQLite's naive persisted UTC lease timestamps before comparison.
 - Implementation commits: `c21dc711c9102c4a6f0aad36b404ba8c1b57d5f8`, `007383da7f0ca5a1793098288f610ed98de9eb71`, `298caa0a1a05124cdf6fdc9d94ff0644f20295a5`. Exact-head CI pending; do not claim green until the latest commit passes backend tests, guard, and both database migration checks.
 - Recovery is currently an explicit repository operation, not automatically scheduled. Live broker submission and automatic accounting promotion remain disabled.
+
+## Exact-head stale-run recovery verification — 2026-10-21
+
+- Integrated stale-run recovery into the on-demand reconciliation worker before lease claim. Stale `RUNNING` summaries older than the lease-duration cutoff are marked `FAILED/WORKER_INTERRUPTED` only when no unexpired lease owns the user/connection. If recovery fails, the worker fails closed before claiming a lease or calling the broker.
+- Active-lease protection is tested; expired orphan recovery is tested end-to-end through the worker; recovery-error handling is tested to make no broker calls. The repository method preserves stored counters and does not retry broker requests or mutate fill/accounting rows.
+- Exact current code head `c1c0d8c6fbbb5dcc1389d2da77e911c815958d88`, [GitHub Actions run 39551504884](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39551504884): **455 tests passed, 1 warning**; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
+- Caveat: stale-run summary counters are not a durable progress ledger; `WORKER_INTERRUPTED` must be interpreted as incomplete/unknown work, not proof that zero fills occurred. No automatic broker retry, live order submission or accounting promotion is enabled.
+- Next Phase 2 gate: add PostgreSQL concurrency coverage for orphan recovery versus lease claim and review the UI/API presentation of interrupted runs so incomplete counters are not shown as authoritative.

@@ -102,3 +102,13 @@ Working branch: `main`
 - [x] Add tests for stale recovery, active-lease protection, ownership/connection isolation and cutoff validation.
 - [ ] Verify exact-head CI after implementation and timestamp-normalization fixes.
 - [ ] After green CI, review the lifecycle for a crash between releasing the lease and persisting the terminal run summary, then decide whether recovery should be invoked by a controlled maintenance path. Do not add automatic scheduling or broker writes without separate review.
+
+## Phase 2 — stale-run recovery integration verified (2026-10-21)
+
+- [x] Add owner/connection-scoped recovery of stale `RUNNING` reconciliation summaries before a new lease is claimed.
+- [x] Defer recovery while an unexpired lease exists; fail closed without claiming a lease or calling the broker if recovery errors.
+- [x] Add worker-level tests for stale-run recovery, active-lease protection, and recovery-error behavior.
+- [x] Exact-head [run 39551504884](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39551504884) for `c1c0d8c6fbbb5dcc1389d2da77e911c815958d88`: 455 passed, 1 warning; source guard and SQLite/PostgreSQL 16 migration cycles passed.
+- [ ] Add PostgreSQL concurrency coverage for stale-run recovery racing a lease claim.
+- [ ] Ensure interrupted-run summaries are surfaced as incomplete because counters are not persisted incrementally. Do not interpret a zero summary after `WORKER_INTERRUPTED` as proof no partial fill work occurred.
+- Live submission and automatic accounting promotion remain disabled.

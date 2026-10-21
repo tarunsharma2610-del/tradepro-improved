@@ -362,3 +362,10 @@ Decision: keep the paths separate in this phase. No copy/dual-write/automatic pr
 ## Orphaned reconciliation-run recovery review — 2026-10-21
 
 A crash can leave a durable `LiveReconciliationRun` in `RUNNING`. Added `fail_orphaned_runs` as an explicit recovery primitive. It is owner/connection scoped, only targets runs started before a supplied cutoff, and refuses to mark them failed while a lease is unexpired. It writes only `FAILED`, completion time, and `WORKER_INTERRUPTED`; it preserves counters and does not re-read the broker or alter `BrokerFillIdentity`, `BrokerTradeRecord`, `Execution`, `LivePosition`, or portfolio cash. Tests cover the stale, active-lease, scope and input-validation cases. Exact-head CI remains pending for commits `c21dc711c9102c4a6f0aad36b404ba8c1b57d5f8`, `007383da7f0ca5a1793098288f610ed98de9eb71`, and `298caa0a1a05124cdf6fdc9d94ff0644f20295a5`.
+
+## Exact-head stale-run recovery verification — 2026-10-21
+
+- The on-demand worker now calls `fail_orphaned_runs` before claiming a new lease. Recovery is owner/connection scoped, only targets stale `RUNNING` rows, defers while a lease is active, and fails closed with `STALE_RUN_RECOVERY_FAILED` if recovery itself errors.
+- Tests cover stale-run recovery through the worker, active-lease protection, and no broker call when recovery fails. SQLite timezone handling and SQLAlchemy ORM-evaluation behavior were corrected.
+- Exact current code head `c1c0d8c6fbbb5dcc1389d2da77e911c815958d88`, [run 39551504884](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39551504884): **455 passed, 1 warning**; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
+- Important limitation: the summary schema stores counters only at run completion. `WORKER_INTERRUPTED` means counters may be incomplete; zero counters must not be interpreted as proof that no partial work persisted. Next: add PostgreSQL race coverage for recovery/lease claim and ensure the UI labels interrupted summaries as incomplete. Recovery does not retry broker reads or touch fills/accounting.

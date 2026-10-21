@@ -624,3 +624,12 @@ The three files deleted during the temporary rollback have been restored byte-fo
 
 - Corrected the docstring/newline fixture in `backend/tests/test_broker_write_boundary_guard.py`; follow-up commit `a9105fdfc2252c067782649c5c659460db042cc4`.
 - This correction has not been independently run locally in this session. The exact-head CI gate remains open; check the workflow result for the current `main` head before proceeding.
+
+
+## Broker-write guard hardening follow-up — 2026-10-21
+
+- Reviewed the first AST guard and found its exemptions too broad: the entire Upstox adapter file was skipped, and any `service.place_order` reference in the portfolios module could pass regardless of function context.
+- Narrowed exceptions to the exact known PAPER strategy call and the named PAPER `place_order` / `cancel_order` endpoint functions. The adapter file is now scanned normally; method definitions are not AST attribute references, while unexpected calls inside that file are detected.
+- Added regression coverage for unexpected adapter calls and for a broker-write reference hidden in an unrelated helper in the otherwise approved portfolios module.
+- Commits: `00c0986a0628cc6b55b842cfcf6e7fc01b071de4`, `30c1aa7b78de357e070f7cdb37b3719112ee8850`, newline correction `a75a15a0feae98fb2eb4d4301f199d33566c0acf` / `430d00ae787a250f5c7f425e2b72ad02a38c396a`.
+- Exact-head CI is not yet verified. Prior 439-pass results do not cover these changes. Next: verify current-head workflow; correct any real findings without broad exemptions. Guard remains static-only and cannot prove safety against reflection/dynamic dispatch. Live writes/accounting promotion remain disabled.

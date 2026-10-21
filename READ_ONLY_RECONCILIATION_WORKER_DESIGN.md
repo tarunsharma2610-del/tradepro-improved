@@ -2,6 +2,14 @@
 
 Status: worker implementation exists and is mocked-CI-tested; operational invocation and any real broker read remain gated. Reviewed 2026-10-17. Scope is the separate `tradepro-improved` repository. Live submission and cancellation remain disabled.
 
+## Phase 2 lease-fencing addendum — 2026-10-21
+
+- The worker now acquires a current, unexpired reconciliation lease row lock immediately before each persistence mutation and holds that lock through the repository transaction.
+- Fenced operations include broker-fill identity persistence, review-issue persistence, order-state transitions and late fill-to-intent links. Lease loss raises a dedicated worker failure and must not be swallowed as an ordinary persistence conflict.
+- Verification: backend [CI run 39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808) passed 470 tests, 1 warning, broker-write boundary checks and SQLite/PostgreSQL 16 migration cycles. Regression coverage includes high-volume batch interruption and a PostgreSQL test proving that an expired lease cannot be reclaimed until the current fenced transaction releases its row lock.
+- This remains read-only reconciliation: no broker order writes, no automatic accounting promotion and no automatic scheduling. This change does not authorize live trading.
+
+
 ## Goal
 
 Add a scheduled/on-demand worker that reads Upstox order and trade observations, validates them, matches them to durable local intents, and persists safe status/fill evidence. It must not place, modify or cancel orders. This worker is not authorization to enable live trading.
@@ -11,7 +19,7 @@ Add a scheduled/on-demand worker that reads Upstox order and trade observations,
 - `backend/app/services/live_order_reconciliation.py`: pure order/trade normalizers, strict intent matcher and fill-evidence state resolver.
 - `backend/app/repositories/live_order_repository.py`: versioned state persistence, idempotent fill identity persistence, and safe late-linking.
 - `live_order_intents`, `live_order_events`, `broker_fill_identities`: durable evidence.
-- Latest pre-design test checkpoint: [GitHub Actions run 39056392873](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39056392873), 294 passed, 1 warning; SQLite/PostgreSQL 16 migration checks passed.
+- Latest verified code/test checkpoint (2026-10-21): [backend CI run 39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808), 470 passed, 1 warning; broker-write boundary guard and SQLite/PostgreSQL 16 migration cycles passed.
 
 ## Hard safety boundary
 

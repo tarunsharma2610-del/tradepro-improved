@@ -2,13 +2,12 @@
 
 ## Authoritative Phase 3 checkpoint — 21 October 2026
 
-- **Current `main` HEAD:** `8d581070c706875d3c653b826c69963b0900a3b7`. Exact-HEAD push-triggered Backend CI [run 39631298815](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39631298815) completed successfully. The backend test suite, broker-write boundary guard, SQLite migration checks, and PostgreSQL 16 migration checks passed.
-- **Last separately reported code/test baseline:** `3adf1a5dd6ba016c5dbc9d4ff8254f4b01d9e509`, with [CI run 39623527572](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39623527572) reporting 490 tests passed and one warning. Do not attribute that test count to a later SHA unless its run reports the same count.
-- **Phase 3 remains in progress.** `BROKER_REPORTED` and a caller-supplied reference are labels, not authenticated evidence. Current trade intake does not establish immutable contract-note source linkage or an auditable per-fill charge-allocation ledger.
-- **Next engineering gate:** define and test a durable, immutable source-evidence record and import/validation boundary first; inspect a real redacted broker contract note and document component-specific allocation rules before allocating aggregate charges. Reject ambiguous or unsupported source formats; do not infer a fee split.
-- Required follow-up: inspect source-note identity/version/hash, importer idempotency and replay behavior, trade/order/fill matching, charge component rounding/residual handling, source-total reconciliation, partial-fill and crash/restart recovery, and fail-closed promotion tests.
-- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. All changes must stay in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
-- Headings labelled “Current” in older sections below are historical checkpoint titles unless they explicitly refer to the exact SHA and CI run above.
+- **Evidence-ledger implementation commit:** `6c0a382eb9fea7f386433cfdb65a65cbc53f218e`; migration correction commit: `c17f522bf68121a6d162a4d858cd9de8b95d45d1`. Exact-HEAD CI for the migration correction is [run 39633330531](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39633330531); check its final result before treating this implementation as validated.
+- **Added:** `BrokerChargeEvidence` model and migration `202610210009`, recording broker connection, report metadata, filename, SHA-256 fingerprint, byte size, parser version, and review status; tests cover persistence, duplicate-file idempotency, and database constraints.
+- **Limits:** a hash detects byte-level changes but does not prove broker origin. No source-document importer, document-byte retention, cryptographic authenticity validation, per-fill allocation ledger, or charge-allocation formula is implemented by this slice. `REVIEWED` is not authorization to promote live accounting.
+- **Phase 3 remains in progress.** Next: verify the migration and new tests on the exact latest HEAD, inspect an actual redacted broker contract note and its official format, then build an idempotent import/review boundary. Only after the evidence is sufficient should component-specific allocation rules and immutable per-fill allocation records be designed.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. All work must stay in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
+- Earlier checkpoints below are historical unless they explicitly name a later verified SHA and its CI run.
 
 ---
 

@@ -90,3 +90,7 @@ This is not a complete live-fill pipeline: the service remains unregistered, ing
 - The safety branch's 18 October run passed 456 tests, while main's earlier parser checkpoint passed 406. These runs used different test trees. Main now has 38 test modules; the safety branch has 48, with 20 safety-only modules remaining. See `SAFETY_BRANCH_PORT_MATRIX.md`; do not infer deleted functionality from raw counts.
 - Broker trade staging and child-order reconciliation are implemented as an isolated manual-Order path. They update staged records and child metadata, not parent-order accounting. The live accounting service remains unregistered.
 - Before further integration, inspect the intent-based `BrokerFillIdentity` worker path versus the manual `BrokerTradeRecord` path and explicitly document whether they are distinct by design or need a safe bridge. Keep live writes and automatic accounting promotion disabled.
+
+
+### Broker-write guard follow-up — 2026-10-21
+The AST source guard was tightened after review: no whole-file Upstox adapter exemption remains, and PAPER portfolio exceptions are restricted to the named endpoint functions. Regression tests cover unexpected adapter calls and unrelated helpers. The exact current `main` head still requires CI verification; do not mark this checkpoint green based on the earlier 439-pass run. Keep live submission and automatic accounting promotion disabled.

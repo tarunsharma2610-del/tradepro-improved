@@ -139,6 +139,7 @@ class LiveReconciliationRunRepository:
                 completed_at=now,
                 error_code="WORKER_INTERRUPTED",
             )
+            .execution_options(synchronize_session=False)
         )
         count = int(result.rowcount or 0)
         self.db.commit()

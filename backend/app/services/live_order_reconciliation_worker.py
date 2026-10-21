@@ -280,6 +280,7 @@ class LiveOrderReconciliationWorker:
                     raise BrokerOrderDataError("trade is missing product/order type")
             except BrokerOrderDataError:
                 result.conflicts += 1
+                self._fence_write(user_id, connection_id, lease_token)
                 self.issue_repository.record(
                     user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
                     issue_type="INVALID_TRADE_RECORD",
@@ -318,6 +319,7 @@ class LiveOrderReconciliationWorker:
                     result.duplicate_fills += 1
             except (ValueError, RuntimeError):
                 result.conflicts += 1
+                self._fence_write(user_id, connection_id, lease_token)
                 self.issue_repository.record(
                     user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
                     issue_type="TRADE_PERSISTENCE_CONFLICT",
@@ -333,6 +335,7 @@ class LiveOrderReconciliationWorker:
                 order = normalize_upstox_order(record)
             except BrokerOrderDataError:
                 result.conflicts += 1
+                self._fence_write(user_id, connection_id, lease_token)
                 self.issue_repository.record(
                     user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
                     issue_type="INVALID_ORDER_RECORD",
@@ -346,6 +349,7 @@ class LiveOrderReconciliationWorker:
                 result.orders_unmatched += 1
                 if match.status != "NO_MATCH":
                     result.conflicts += 1
+                self._fence_write(user_id, connection_id, lease_token)
                 self.issue_repository.record(
                     user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
                     issue_type="UNMATCHED_ORDER" if match.status == "NO_MATCH" else "ORDER_MATCH_REQUIRES_REVIEW",
@@ -366,6 +370,7 @@ class LiveOrderReconciliationWorker:
             ).first()
             if intent is None:
                 result.conflicts += 1
+                self._fence_write(user_id, connection_id, lease_token)
                 self.issue_repository.record(
                     user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
                     issue_type="MATCHED_INTENT_NOT_FOUND", broker_order_id=order.broker_order_id,
@@ -398,6 +403,7 @@ class LiveOrderReconciliationWorker:
                 )
             except (ValueError, RuntimeError):
                 result.conflicts += 1
+                self._fence_write(user_id, connection_id, lease_token)
                 self.issue_repository.record(
                     user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
                     intent_id=intent_id, broker_order_id=order.broker_order_id,
@@ -421,6 +427,7 @@ class LiveOrderReconciliationWorker:
                     result.conflicts += 1
                     continue
                 try:
+                    self._fence_write(user_id, connection_id, lease_token)
                     self.order_repository.link_existing_fill_to_intent(
                         user_id=user_id,
                         fill_id=fill.id,
@@ -429,6 +436,7 @@ class LiveOrderReconciliationWorker:
                     )
                 except (ValueError, RuntimeError):
                     result.conflicts += 1
+                    self._fence_write(user_id, connection_id, lease_token)
                     self.issue_repository.record(
                         user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
                         intent_id=intent_id, broker_order_id=order.broker_order_id,
@@ -459,6 +467,7 @@ class LiveOrderReconciliationWorker:
                 result.orders_matched += 1
             except (ValueError, RuntimeError):
                 result.conflicts += 1
+                self._fence_write(user_id, connection_id, lease_token)
                 self.issue_repository.record(
                     user_id=user_id, broker_connection_id=connection_id, run_id=run_id,
                     intent_id=intent_id, broker_order_id=order.broker_order_id,

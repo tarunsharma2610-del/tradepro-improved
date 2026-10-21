@@ -117,7 +117,12 @@ class LiveReconciliationRunRepository:
             LiveReconciliationLease.user_id == user_id,
             LiveReconciliationLease.broker_connection_id == broker_connection_id,
         ).with_for_update().first()
-        if lease is not None and lease.lease_token is not None and lease.claimed_until is not None and lease.claimed_until > now:
+        lease_expiry = lease.claimed_until if lease is not None else None
+        if lease_expiry is not None and lease_expiry.tzinfo is None:
+            # SQLite drops timezone metadata for DateTime(timezone=True); persisted
+            # lease timestamps are UTC, so normalize before Python comparison.
+            lease_expiry = lease_expiry.replace(tzinfo=timezone.utc)
+        if lease is not None and lease.lease_token is not None and lease_expiry is not None and lease_expiry > now:
             self.db.rollback()
             return 0
 

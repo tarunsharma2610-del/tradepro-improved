@@ -1,8 +1,7 @@
-import uuid
 from datetime import datetime, timedelta, timezone
 
 from app.models.broker_connection import BrokerConnection
-from app.models.live_order_records import LiveReconciliationLease, LiveReconciliationRun
+from app.models.live_order_records import LiveReconciliationRun
 from app.repositories.live_order_reconciliation_run_repository import LiveReconciliationRunRepository
 from app.repositories.live_reconciliation_lease_repository import LiveReconciliationLeaseRepository
 
@@ -54,7 +53,7 @@ def test_orphaned_stale_run_is_failed_without_active_lease(db_session, make_user
     db_session.refresh(run)
     assert run.status == "FAILED"
     assert run.error_code == "WORKER_INTERRUPTED"
-    assert run.completed_at == now
+    assert run.completed_at.replace(tzinfo=timezone.utc) == now
     assert run.summary["orders_seen"] == 0
 
 

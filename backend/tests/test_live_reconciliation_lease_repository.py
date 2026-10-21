@@ -180,3 +180,110 @@ def test_write_fence_requires_current_unexpired_lease_and_locks_owned_row(db_ses
         lease_token=second, now=now + timedelta(seconds=32),
     ) is True
     db_session.rollback()
+
+
+def test_postgres_write_fence_blocks_reclaim_until_persistence_transaction_finishes():
+    import os
+    import threading
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.core.database import Base
+    from app.models.user import User
+    import app.models  # noqa: F401
+
+    url = os.environ.get("TEST_POSTGRES_URL")
+    if not url:
+        pytest.skip("TEST_POSTGRES_URL is not configured")
+
+    engine = create_engine(url, pool_size=5)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    first_session = None
+    claimant_thread = None
+    try:
+        # The CI PostgreSQL database is dedicated to this workflow. Leave it
+        # clean for the subsequent Alembic migration cycle.
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+        first_session = SessionLocal()
+        user = User(
+            email=f"lease-fence-{uuid.uuid4()}@example.invalid",
+            password_hash="test-only-hash",
+            full_name="Lease Fence Test",
+        )
+        first_session.add(user)
+        first_session.flush()
+        connection = BrokerConnection(
+            user_id=user.id,
+            broker="upstox",
+            api_key_encrypted="test-key",
+            api_secret_encrypted="test-secret",
+            redirect_uri="https://example.invalid/callback",
+            is_connected=False,
+        )
+        first_session.add(connection)
+        first_session.commit()
+
+        now = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+        leases = LiveReconciliationLeaseRepository(first_session)
+        first_token = leases.claim(
+            user_id=user.id,
+            broker_connection_id=connection.id,
+            now=now,
+            lease_seconds=30,
+        )
+        assert first_token is not None
+
+        # Model one slow persistence transaction: the lease is valid at the
+        # fence check, then expires while this transaction still owns the row.
+        assert leases.fence_for_write(
+            user_id=user.id,
+            broker_connection_id=connection.id,
+            lease_token=first_token,
+            now=now + timedelta(seconds=10),
+        ) is True
+
+        started = threading.Event()
+        finished = threading.Event()
+        outcome = {}
+
+        def attempt_reclaim():
+            session = SessionLocal()
+            try:
+                started.set()
+                outcome["token"] = LiveReconciliationLeaseRepository(session).claim(
+                    user_id=user.id,
+                    broker_connection_id=connection.id,
+                    now=now + timedelta(seconds=31),
+                    lease_seconds=30,
+                )
+            except Exception as exc:
+                outcome["error"] = exc
+            finally:
+                session.close()
+                finished.set()
+
+        claimant_thread = threading.Thread(target=attempt_reclaim, daemon=True)
+        claimant_thread.start()
+        assert started.wait(timeout=3)
+        # Without the row lock, the expired lease would be reclaimable here.
+        assert not finished.wait(timeout=0.25)
+
+        first_session.commit()
+        assert finished.wait(timeout=3)
+        claimant_thread.join(timeout=3)
+        assert not claimant_thread.is_alive()
+        assert "error" not in outcome
+        assert outcome.get("token") is not None
+        assert outcome["token"] != first_token
+    finally:
+        if first_session is not None:
+            if first_session.in_transaction():
+                first_session.rollback()
+            first_session.close()
+        if claimant_thread is not None and claimant_thread.is_alive():
+            claimant_thread.join(timeout=3)
+        # Avoid leaving schema behind for the workflow's Alembic check.
+        Base.metadata.drop_all(engine)
+        engine.dispose()

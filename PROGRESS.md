@@ -875,3 +875,13 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Contract-note design gate updated with the minimum read-only source-ledger/allocation-record invariants and 12 required regressions (commit `1db60bd6c94d23c9ce6bededcffc46458b333d4f`).
 - No schema migration or allocation formula implemented because a supported source format and per-charge allocation basis are still unverified. This avoids creating misleading accounting records.
 - Existing backend CI remains the appropriate workflow for the new tests. Latest docs commit must have its exact-head CI result checked; no green status is inferred from prior code runs. Original `Tradepro` repository remains untouched. Phase 3 open; live submission, automatic accounting promotion and scheduling disabled.
+
+
+## Phase 3 checkpoint refresh — 2026-10-21
+
+- **Repository boundary:** all current Phase 3 work is confined to `tarunsharma2610-del/tradepro-improved`, branch `main`. The original `tarunsharma2610-del/Tradepro` is a protected baseline and must not be modified.
+- **Current HEAD at audit start:** `3b5c8831d4f3475eee320176b3c06bdbd5364bd2` (source-ledger design-gate documentation). The documentation synchronization commit created after this note requires its own exact-HEAD CI result.
+- **Latest confirmed backend CI during this audit:** [run 39618611385](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39618611385) completed successfully on **commit `49f95bdd5f20ee99b21a573087c6e97a9bc03526`**, with **485 passed, 1 warning in 30.65s**. The broker-write boundary guard and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade steps passed. This run is an older SHA, not current HEAD; do not label later commits green based on it.
+- **Phase 3 status:** in progress. Current blocker is verified actual-charge evidence and an approved allocation basis. Reviewed Upstox documented APIs provide trade data, aggregate charges, or estimates, but no verified per-fill actual-charge source/contract-note ingestion capability was found in the reviewed adapter/API catalogue. Do not treat estimates as actual charges or allocate aggregate totals by guess.
+- **Next engineering sequence:** establish authoritative source format and retention/security boundary; then implement immutable source evidence and per-fill allocation records, migration, transactional reconciliation/idempotency, and required regression tests; finally verify exact-HEAD CI.
+- **Safety:** live broker submission, automatic accounting promotion, and automatic scheduling remain disabled. Phase 2 remains closed. This checkpoint is status tracking, not a claim that Phase 3 charge allocation is implemented.

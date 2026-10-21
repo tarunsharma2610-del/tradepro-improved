@@ -82,3 +82,11 @@ Live broker submission, automatic accounting promotion, and automatic scheduling
 5. Verify CI against the exact resulting code SHA, then update the nine core docs and this contract.
 
 No allocation algorithm, schema migration, or identity bridge is implemented by this audit. Live broker submission, automatic accounting promotion, and automatic scheduling remain disabled. Phase 2 remains closed.
+
+
+### Broker ingestion path traced — 2026-10-21
+
+- `backend/app/services/broker_trade_ingestion_service.py` fetches and validates Upstox trade rows, then persists normalized `BrokerTradeRecord` rows. The staged row has trade identity/economics/timestamp but no contract-note charge payload. Duplicate ingestion is checked against the connection-scoped broker trade ID and conflicting trade fields are rejected.
+- `backend/app/services/broker_child_order_reconciliation_service.py` compares broker-reported filled quantity and average price with staged trade records and updates child-order metadata only. Its module contract explicitly avoids creating `Execution` rows or changing cash/positions/P&L.
+- Therefore, the currently reviewed ingestion/reconciliation path supplies no contract-note total or component-level fee evidence to the charge allocator. Do not implement allocation by pretending this evidence is present. The next prerequisite is to identify the actual Upstox contract-note/charges endpoint or supported export and the existing adapter/data-retention policy; until then, keep source-note allocation blocked by design.
+- The existing `.github/workflows/backend-tests.yml` already runs pytest with PostgreSQL 16, the broker-write boundary guard, and SQLite/PostgreSQL Alembic upgrade/downgrade/re-upgrade. No separate workflow is needed just for this feature at present; missing tests must be added to the existing suite. Exact-HEAD CI remains a separate verification requirement.

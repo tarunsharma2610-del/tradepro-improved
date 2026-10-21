@@ -155,3 +155,24 @@ Correction/refinement: the reviewed Upstox public API catalogue did not show a c
 Implementation consequence: design a user-initiated, read-only import of the downloaded contract-note file, not automatic API retrieval. Before coding, inspect a redacted sample to establish file format, signed-document verification, trade-level IDs, actual charge fields, account/segment/date scope and allocation basis. Treat files as untrusted; enforce account ownership and duplicate-import idempotency; store minimal provenance/fingerprint; reject ambiguous mappings; protect source files under access/retention rules; never store PAN/password in the source record. Do not approve a fee allocation formula until the actual document fields and valid allocation basis are verified.
 
 CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39619332422 passed on SHA `49f95bdd5f20ee99b21a573087c6e97a9bc03526`, not current HEAD `273a340dc12ae3f20dbe87aa2b16463de5e75e7c`; exact-HEAD Actions query returned zero runs. Do not infer latest-head green. Phase 3 open; Phase 2 closed; live submission, automatic accounting promotion and scheduling disabled. All work must remain in `tradepro-improved`, never original `Tradepro`.
+
+### Public sample contract-note review — 2026-10-21
+
+A public, third-party-hosted Upstox contract-note transcription was located for field discovery:
+- https://www.scribd.com/document/735902961/CW-T-842243-20240521-NSE-35749411
+- A second example is available at https://www.scribd.com/document/971660843/CW-T-3JCTYG-20250312-NSE-66319975-1
+These are user-uploaded copies, not broker-authenticated test fixtures. They contain personal/client information and must not be copied into the repository, test data, logs, or documentation. Only their field structure was reviewed.
+
+The reviewed sample text shows contract-note metadata (contract-note number, trade date, segment, settlement, trading code), trade rows with order number/time, trade number/time, contract description/ISIN, side, quantity, rate, brokerage per unit, net rate and net trade total, plus segment-level obligation and charge lines. The charge summary may include IGST/GST, STT and rounding, stamp duty, turnover/exchange charges, IPFT, SEBI fees and depository transaction charges depending on the activity. A sample explicitly says trade-wise levies can be provided on request.
+
+This is enough to establish a candidate *field inventory*, but not a safe allocation contract:
+- Publicly visible text is not the original PDF byte stream and cannot verify PDF structure, embedded digital signature, tamper status, parser behavior, or exact fields in the currently downloadable report.
+- A sample contract note's segment-level totals do not establish how every charge component maps to each individual trade/fill. The note's displayed per-unit brokerage is not proof that every other levy can be apportioned with the same basis.
+- Public samples are privacy-sensitive third-party uploads and cannot be trusted as authoritative account evidence.
+
+Official references:
+- Upstox explains how an account holder can download their own contract note from the app/site: https://upstox.com/help-center/my-account/portfolio-reports/
+- NSE's official sample format documents order/trade numbers, time, security, side, quantity, price, brokerage, net total and levies: https://nsearchives.nseindia.com/web/sites/default/files/inline-files/How_to_buy_and_sell_shares_in_Stock_Exchange.pdf
+- NSE says the revised contract-note format is mandatory for equity and derivatives segments and transaction charges may be combined across exchanges: https://www.nseindia.com/static/trade/contract-note-faqs
+
+Decision: the public sample search reduces uncertainty about the likely visible fields, but does NOT clear the implementation gate. Do not build a production parser, treat the public sample as authenticated, or allocate aggregate levies to fills without a verified actual downloadable file format and a documented, component-specific allocation basis. Keep the import boundary read-only and all live-account safety gates unchanged.

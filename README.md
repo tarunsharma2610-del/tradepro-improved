@@ -1,3 +1,7 @@
+<!-- Phase 3 docs sync: df8b73a2971cbcee949efa14e98bc16a070bf093 -->
+
+> **Documentation synchronization:** commit [df8b73a2971cbcee949efa14e98bc16a070bf093](https://github.com/tarunsharma2610-del/tradepro-improved/commit/df8b73a2971cbcee949efa14e98bc16a070bf093) synchronized the Phase 3 checkpoint across all 16 top-level project Markdown documents. Verify the exact HEAD's CI before treating the documentation checkpoint as fully green.
+
 ## Current Phase 3 checkpoint — 21 October 2026
 
 - **Latest verified code/test HEAD:** `3963c2bf4e6ffe2bb33d327b10e2995cd243d003`. Exact-head [Backend CI run 39607630055](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39607630055) passed **484 tests, 1 warning in 29.34s**; the broker-write boundary guard passed, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks passed.

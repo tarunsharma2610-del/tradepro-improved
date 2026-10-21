@@ -852,3 +852,10 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Recorded API references and the fail-closed conclusion in `PHASE3_CHARGE_ALLOCATION_CONTRACT.md` (commit `754bdfe0cfb6f73464bf238f72f830d412c70006`).
 - Next: inspect the official trade-wise P&L data/metadata response schema and actual contract-note/bill report options before choosing a source. Do not treat estimated brokerage calculations as broker-reported actual charges or allocate aggregate fees by guess.
 - Existing backend CI workflow remains the correct place for feature tests. No separate CI workflow needed; exact-HEAD verification for the latest commits remains outstanding. Phase 3 open; live submission, automatic accounting promotion, and scheduling disabled.
+
+
+## Phase 3 — contract-note source catalogue review (2026-10-21)
+
+- Reviewed the official Upstox Swagger endpoint catalogue and developer API overview. The documented APIs reviewed expose historical trades, trade-wise P&L data/metadata, aggregate charges, and brokerage estimates; no contract-note download endpoint was identified in that catalogue review.
+- This does not prove no downloadable contract-note export exists through the Upstox web/app or support channels. Source remains unresolved; do not allocate aggregate charges or treat estimates as actual broker charges. See `PHASE3_CHARGE_ALLOCATION_CONTRACT.md`, commit `70185e5efa937f57a20a9e8c20f2ce3fc1c5e510`.
+- No code/migration change made in this step. Existing backend CI remains appropriate; missing feature regressions still need implementation once source evidence is established. Exact-HEAD CI remains unverified. Phase 3 remains open and live broker submission/automatic accounting promotion/scheduling remain disabled.

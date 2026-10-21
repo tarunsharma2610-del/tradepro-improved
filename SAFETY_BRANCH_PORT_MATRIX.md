@@ -25,7 +25,7 @@ After the child-order reconciliation port, main contains 38 `backend/tests/test_
 | `test_api_live_analytics.py` | API routes, owner scoping, current analytics schema | Defer until route and schema dependencies are mapped |
 | `test_broker_child_order_reconciliation.py` | Child-order model, partial fills, order state aggregation | Ported to main; exact-head CI run 39481385581 passed 438 tests |
 | `test_broker_reconciliation.py` | Broker reconciliation service, current-main read-only worker and issue model | Compare semantics before porting; avoid duplicate competing reconciler |
-| `test_broker_write_boundary_guard.py` | Source guard patterns and approved broker-write boundary | Port/adapt guard after checking current main module names |
+| `test_broker_write_boundary_guard.py` | Source guard patterns and approved broker-write boundary | Ported to main with `backend/scripts/check_broker_write_boundary.py`, seven focused tests, and a CI invocation; exact-head CI still needs verification |
 | `test_live_account_safety_postgres.py` | Account safety model/service, PostgreSQL locking and schema migration | Defer until full account-safety slice is ported |
 | `test_live_account_safety_service.py` | Safety state model, service and API contracts | Defer; do not port tests without implementation |
 | `test_live_broker_schema_migration.py` | Branch-specific schema and migration history | Do not transplant migration; compare intended constraints to main chain |
@@ -70,3 +70,11 @@ Main also contains test modules not present in the safety branch, including API 
 - Added a regression test that switches the local order to PAPER during the status read and confirms child status/fill quantity remain unchanged. Staged evidence remains available; no accounting rows are created.
 - Exact code/test checkpoint `84f3a3e48a64b6e1d764a87a2b337b2a8f052741`, [CI run 39482592808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39482592808): **439 passed, 1 warning**, with SQLite/PostgreSQL 16 reversible migrations passing.
 - This does not enable parent Order accounting or live submission. Keep `BrokerFillIdentity` and `BrokerTradeRecord` workflows isolated until their intended boundary is decided.
+
+
+
+## Broker-write boundary guard — 2026-10-21
+
+- Ported the source guard and its seven unit tests into main and wired `python -m scripts.check_broker_write_boundary` into the backend CI workflow.
+- Implementation/config commit: `c563683b85d7801cd19dcf3d1c7784ec6e433d1f`. Later commits update the progress/audit/roadmap/handover docs.
+- Exact-head CI remains unverified. Do not mark this port green until the workflow run for the current `main` HEAD passes. The AST check does not cover reflective/dynamic dispatch.

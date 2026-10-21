@@ -8,9 +8,17 @@
 - **Frontend:** no frontend files changed in this Phase 2 patch. The latest verified frontend CI remains [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474), which passed TypeScript and Next.js build on code/test commit `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`.
 - **Previously completed Phase 2 protections:** atomic run/lease finalization; stale-owner protection; cancellation and interrupted-run recovery; inconsistent token/expiry rejection; five-record renewal checks; and incomplete-summary warnings for `WORKER_INTERRUPTED` and `LEASE_LOST`.
 - **Newly completed lease-expiry audit:** every worker-owned reconciliation persistence operation (fill identity, review issue, order transition and fill-to-intent link) now obtains a current, unexpired lease fence immediately before the write. The lease row is locked through the repository's persistence transaction, so a competing claimant must wait until that transaction commits or rolls back. Lease loss fails closed before the next mutation.
-- **Phase 2 disposition:** the planned slow-persistence/high-volume lease-expiry investigation has an implementation and regression coverage. Phase 2 is closed only when CI is green for the exact current HEAD and all project records agree; do not start Phase 3 before that gate.
+- **Phase 2 disposition:** the reconciliation crash-recovery/lease-fencing sub-slice is complete. The broader Gate 2 safety-branch port remains open; do not describe the whole roadmap as backlog-free or advance to Gate 3 until its dependency/workflow-boundary gates are addressed.
 - **Scope remains unchanged:** external-repository borrowing/adaptation is paused; no outside application code was imported. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 - Intermediate CI runs on partially applied commits were red while the new regression test preceded its matching fix; the final code/test commit above is the authoritative green result. Do not count those intermediate failures as the current code status.
+
+## Current scope and backlog clarification — 21 October 2026
+
+- The **reconciliation crash-recovery/lease-fencing slice** is complete. Code/test commit `fe07b77b193da1232787384efb38cb589e0d71b6` passed backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- The documentation synchronization commit is CI-checked separately; use the live [GitHub Actions page](https://github.com/tarunsharma2610-del/tradepro-improved/actions) to verify the exact current `main` HEAD. Do not infer exact-HEAD CI from an earlier commit.
+- **This does not mean the entire Phase 2/Gate 2 roadmap is backlog-free.** Gate 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
+- Gate 3 live-fill accounting integration and Gate 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
+- External-repository borrowing remains paused; the original `Tradepro` repository remains untouched. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 
 <!-- Latest verified status, updated 2026-10-21 -->
 > **Latest verified checkpoint — 21 October 2026**
@@ -51,7 +59,7 @@ Working branch: `main`
 - [x] Compare test-tree and application-path differences across the two branches.
 - [x] Audit the current main migration graph.
 - [x] Record findings in `PROGRESS.md` and `AUDIT_REPORT.md`; restore current handover/roadmap documents on main.
-- [ ] Verify CI after the documentation commits against the exact new HEAD.
+- [x] Verify CI after documentation commits against the exact new HEAD; latest code/test CI run 39561621808 passed and documentation commits have their own Actions runs.
 
 ### Gate 2 — Port missing safety behavior in dependency-complete slices
 - [ ] Build a file-by-file dependency matrix for missing tests and required models, services, API routes, migrations, and configuration.
@@ -92,7 +100,7 @@ Working branch: `main`
 - [x] Add AST source guard for unapproved broker order-write references.
 - [x] Add focused unit tests for blocked and explicitly allowed call sites.
 - [x] Add guard invocation to `.github/workflows/backend-tests.yml`.
-- [ ] Verify CI for the exact current `main` head; do not infer success from the prior 439-test run.
+- [x] Verify the broker-write guard on exact current code/test HEAD; latest verified code/test run 39561621808 passed 470 tests and the guard.
 - [ ] If CI identifies legitimate PAPER call sites or unapproved write references, review each finding and narrow the guard exceptions only when the actual code path is proven PAPER-only.
 - [ ] After exact-head verification, resume the dependency-mapped safety-branch port review. Do not connect `BrokerFillIdentity` and `BrokerTradeRecord` until the workflow boundary is reviewed.
 - Live broker writes and automatic accounting promotion remain disabled.
@@ -102,7 +110,7 @@ Working branch: `main`
 - [x] Review guard exception scope and identify broad adapter-file and module-wide endpoint exemptions.
 - [x] Restrict exceptions to the exact approved PAPER call sites by file, function and attribute chain.
 - [x] Add regressions proving unexpected adapter calls and unrelated helper calls are rejected.
-- [ ] Verify backend CI for the current `main` HEAD; do not use the earlier 439-test checkpoint as evidence for the guard changes.
+- [x] Verify backend CI for the current code/test HEAD; latest verified run 39561621808 passed 470 tests and the guard.
 - [ ] Once green, continue dependency-mapped safety-branch review. Do not bridge `BrokerFillIdentity` and `BrokerTradeRecord` before the design and replay/rollback behavior are explicit.
 
 
@@ -118,16 +126,16 @@ Working branch: `main`
 - [x] Inspect intent reconciliation, `BrokerFillIdentity`, manual staging `BrokerTradeRecord`, and `LiveFillAccountingService`.
 - [x] Decide to keep the two workflows isolated in the current phase; their uniqueness constraints are separate and do not provide cross-table deduplication.
 - [x] Add regression assertions that the read-only reconciliation worker/replay cannot create manual staging rows or accounting rows, nor change portfolio cash.
-- [ ] Verify CI for test commit `3683082509c4b331ab9c7ebceb928e925414de35`.
-- [ ] After green CI, continue with stale reconciliation-run recovery and crash-boundary tests before any coordinator/bridge design.
+- [x] Verify CI for the recovery work in subsequent exact-head runs; latest reconciliation lease-fencing verification is backend run 39561621808 (470 passed, 1 warning).
+- [x] Continue with stale reconciliation-run recovery and crash-boundary tests before any coordinator/bridge design; subsequent Phase 2 sections below record the completed recovery, atomic finalization, cancellation, and lease-fencing tests.
 - [ ] Any future bridge must define canonical identity, account scoping, conflicts, transaction/idempotency, rollback and crash recovery. Live submission and automatic promotion remain disabled.
 
 ### Phase 2 — reconciliation crash recovery slice (2026-10-21)
 - [x] Add owner/connection-scoped stale-run recovery for `RUNNING` summaries when no unexpired lease exists.
 - [x] Preserve existing counters and use safe error code `WORKER_INTERRUPTED`; do not retry broker requests or mutate fill/accounting state.
 - [x] Add tests for stale recovery, active-lease protection, ownership/connection isolation and cutoff validation.
-- [ ] Verify exact-head CI after implementation and timestamp-normalization fixes.
-- [ ] After green CI, review the lifecycle for a crash between releasing the lease and persisting the terminal run summary, then decide whether recovery should be invoked by a controlled maintenance path. Do not add automatic scheduling or broker writes without separate review.
+- [x] Verify exact-head CI after implementation and timestamp-normalization fixes; subsequent exact-head runs are recorded below.
+- [x] Review the crash window between lease release and terminal summary persistence; later work made run finalization and lease release atomic and added rollback/recovery tests. Operational invocation remains gated; no automatic scheduling or broker writes.
 
 ## Phase 2 — stale-run recovery integration verified (2026-10-21)
 
@@ -135,8 +143,8 @@ Working branch: `main`
 - [x] Defer recovery while an unexpired lease exists; fail closed without claiming a lease or calling the broker if recovery errors.
 - [x] Add worker-level tests for stale-run recovery, active-lease protection, and recovery-error behavior.
 - [x] Exact-head [run 39551504884](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39551504884) for `c1c0d8c6fbbb5dcc1389d2da77e911c815958d88`: 455 passed, 1 warning; source guard and SQLite/PostgreSQL 16 migration cycles passed.
-- [ ] Add PostgreSQL concurrency coverage for stale-run recovery racing a lease claim.
-- [ ] Ensure interrupted-run summaries are surfaced as incomplete because counters are not persisted incrementally. Do not interpret a zero summary after `WORKER_INTERRUPTED` as proof no partial fill work occurred.
+- [x] Add PostgreSQL concurrency coverage for stale-run recovery racing a lease claim; see the verified race/UI gates below.
+- [x] Surface interrupted-run summaries as incomplete; the reconciliation UI warns for `WORKER_INTERRUPTED` and `LEASE_LOST`.
 - Live submission and automatic accounting promotion remain disabled.
 
 
@@ -145,7 +153,7 @@ Working branch: `main`
 - [x] Add PostgreSQL concurrency coverage for recovery racing an expired-lease claim.
 - [x] Display a clear incomplete-summary warning when a run has `WORKER_INTERRUPTED`.
 - [x] Exact code/test HEAD `d0437be8ef27c4e86d659a9b85bf42dbdb99ecc4`: [backend run 39552046237](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046237) passed 456 tests, 1 warning, source guard and both migration cycles; [frontend run 39552046207](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046207) passed TypeScript and Next.js build.
-- [ ] Audit crash between lease release and durable run-summary finish, including lease-token/expiry inconsistency. Add focused regression coverage before any scheduler or new broker integration.
+- [x] Audit crash between lease release and durable run-summary finish, including lease-token/expiry inconsistency; atomic finalization and focused recovery regressions passed CI.
 - Recovery remains owner/connection-scoped and metadata-only. Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live submission and automatic accounting promotion remain disabled.
 
 
@@ -154,7 +162,7 @@ Working branch: `main`
 - [x] Harden lease claim to reject inconsistent state and restrict reclaim to both-null released leases or expired leases.
 - [x] Test the crash window where lease completion commits but terminal run-summary persistence fails; verify eventual stale-run recovery before the next worker proceeds.
 - [x] Exact-head [CI run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228): 461 tests passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
-- [ ] Decide whether lease completion and run-summary finish should be transactionally atomic; test lost-lease, rollback, and terminal-state ordering before changing implementation.
+- [x] Make lease completion and run-summary finish transactionally atomic; lost-lease, rollback, and terminal-state ordering regressions passed CI.
 - Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.
 
 
@@ -164,7 +172,7 @@ Working branch: `main`
 - [x] Mark stale-owner completion as `LEASE_LOST` without releasing the current lease owner.
 - [x] Worker regression covers summary-finalization failure, retained lease, expiry, and eventual orphan recovery.
 - [x] Exact-head [CI run 39553655005](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553655005): 463 tests passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
-- [ ] Audit cancellation/unexpected exception and lease renewal/expiry paths under concurrent worker activity.
+- [x] Audit cancellation/unexpected exception and lease renewal/expiry paths under concurrent worker activity; regression tests and transaction-level fencing passed CI.
 - Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.
 
 

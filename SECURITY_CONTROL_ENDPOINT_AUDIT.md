@@ -1,6 +1,11 @@
 <!-- Authoritative checkpoint audit: 2026-10-21; supersedes older status notes below. -->
 ## Current verified checkpoint — 21 October 2026
 
+- The reconciliation crash-recovery/lease-fencing sub-slice is complete; backend CI run 39561621808 passed 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- The broader Gate 2 safety-branch port and workflow-boundary work remains open. Gate 3 accounting integration and Gate 4 live-trading release gates remain blocked.
+- The current documentation commit's exact-head CI status must be checked in the live [GitHub Actions page](https://github.com/tarunsharma2610-del/tradepro-improved/actions); older commit results are historical evidence, not proof for a newer HEAD.
+- Live broker submission, automatic accounting promotion and automatic scheduling remain disabled.
+
 - Current `main` HEAD is the latest documentation synchronization commit; the verified code/test checkpoint is `fe07b77b193da1232787384efb38cb589e0d71b6`. Check the live repository HEAD and Actions page for the newest documentation-only commit and its CI result.
 - Latest exact-HEAD backend CI: [run 39562094642](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39562094642) passed **470 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
 - Phase 2 slow-persistence/high-volume lease-expiry audit is **complete**; per-write lease fencing and regression tests are verified.

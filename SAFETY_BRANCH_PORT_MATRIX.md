@@ -1,3 +1,11 @@
+## Current scope and backlog clarification — 21 October 2026
+
+- The **reconciliation crash-recovery/lease-fencing slice** is complete. Code/test commit `fe07b77b193da1232787384efb38cb589e0d71b6` passed backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- The documentation synchronization commit is CI-checked separately; use the live [GitHub Actions page](https://github.com/tarunsharma2610-del/tradepro-improved/actions) to verify the exact current `main` HEAD. Do not infer exact-HEAD CI from an earlier commit.
+- **This does not mean the entire Phase 2/Gate 2 roadmap is backlog-free.** Gate 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
+- Gate 3 live-fill accounting integration and Gate 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
+- External-repository borrowing remains paused; the original `Tradepro` repository remains untouched. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
+
 <!-- Latest verified status, updated 2026-10-21 -->
 > **Latest verified checkpoint — 21 October 2026**
 >
@@ -5,7 +13,7 @@
 > - Latest code/test commit: `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`. Backend [CI run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed **466 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration checks. Frontend [CI run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript and Next.js build.
 > - Documentation audit commit `6407c5a05865c1be0ef673d3bb5e71c0231ef8da` passed [CI run 39556816828](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39556816828).
 > - Phase 2 checkpoint complete through atomic run/lease finalization, stale-run and cancellation recovery, lease-loss fencing, five-record renewal, and incomplete-summary warnings.
-> - **Next engineering task (not started yet):** audit a single slow database persistence operation and high-volume lease-expiry races; implement transaction-level fencing only if the race is demonstrated.
+> - **Completed engineering task:** single slow-write and high-volume lease-expiry audit; transaction-level fencing and regression coverage passed backend CI run 39561621808 (470 passed, 1 warning).
 > - Deferred safety-branch work remains tracked in `SAFETY_BRANCH_PORT_MATRIX.md`; no wholesale branch merge. Keep live broker submission and automatic accounting promotion disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`.
 >
 > The CI status above refers to the stated code and documentation commits. This documentation refresh will create a new commit and trigger its own CI run; do not call that new run passed until GitHub reports success.
@@ -14,7 +22,7 @@
 
 ## Current scope audit — 2026-10-21
 
-The current mainline read-only reconciliation crash-recovery slice is audited complete through atomic finalization, cancellation recovery, five-record lease renewal, and renewal-boundary lease-loss tests. No missing implementation in that slice was identified. The remaining slow-persistence/high-volume expiry race review is still open. Safety-only live account safety, broker-write/preflight, live recovery/execution/accounting coordinator files remain intentionally deferred/blocked by the dependency gates below; they are not to be treated as completed or merged wholesale.
+The current mainline read-only reconciliation crash-recovery/lease-fencing slice is complete through atomic finalization, cancellation recovery, five-record lease renewal, renewal-boundary lease-loss tests, and transaction-level fencing for each persistence mutation. Backend CI run 39561621808 passed 470 tests, 1 warning, source guard and SQLite/PostgreSQL 16 migration cycles. The broader safety-branch port matrix and Gate 2 dependency/workflow-boundary work remain open. Safety-only live account safety, broker-write/preflight, live recovery/execution/accounting coordinator files remain intentionally deferred/blocked by the dependency gates below; they are not to be treated as completed or merged wholesale.
 
 Last reviewed: 2026-10-21  
 Repository: `tarunsharma2610-del/tradepro-improved`  

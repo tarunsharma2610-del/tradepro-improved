@@ -158,6 +158,24 @@ def test_replaying_same_broker_trade_does_not_double_count_position(accounting_c
         (_charges(stt=Decimal("0.201"), total_charges=Decimal("23.861")), "paise precision"),
     ],
 )
+def test_replay_with_same_trade_id_but_changed_fill_details_is_rejected(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
+    service = LiveFillAccountingService(db)
+    first = service.promote_trade(user.id, record.id, _charges())
+    assert first.inserted is True
+
+    record.price = Decimal("101.25")
+    db.commit()
+
+    with pytest.raises(ValueError, match="conflicting accounted execution"):
+        service.promote_trade(user.id, record.id, _charges())
+
+    assert db.query(Execution).count() == 1
+    live_position = db.query(LivePosition).one()
+    assert live_position.quantity == 2
+    assert live_position.avg_price == Decimal("100.2500")
+
+
 def test_invalid_or_estimated_charges_block_live_promotion(accounting_context, charges, message):
     db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
 

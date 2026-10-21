@@ -146,3 +146,37 @@ def test_claim_fails_closed_on_inconsistent_lease_state(db_session, make_user, m
     assert (lease.lease_token is None) == missing_token
     assert (lease.claimed_until is None) != missing_token
     assert lease.generation == 1
+
+
+def test_write_fence_requires_current_unexpired_lease_and_locks_owned_row(db_session, make_user):
+    user = make_user()
+    connection = _connection(db_session, user)
+    repository = LiveReconciliationLeaseRepository(db_session)
+    now = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+    first = repository.claim(
+        user_id=user.id, broker_connection_id=connection.id,
+        now=now, lease_seconds=30,
+    )
+    assert first is not None
+
+    assert repository.fence_for_write(
+        user_id=user.id, broker_connection_id=connection.id,
+        lease_token=first, now=now + timedelta(seconds=10),
+    ) is True
+    # The caller's write transaction owns the row lock until it commits/rolls back.
+    db_session.rollback()
+
+    second = repository.claim(
+        user_id=user.id, broker_connection_id=connection.id,
+        now=now + timedelta(seconds=31), lease_seconds=30,
+    )
+    assert second is not None and second != first
+    assert repository.fence_for_write(
+        user_id=user.id, broker_connection_id=connection.id,
+        lease_token=first, now=now + timedelta(seconds=32),
+    ) is False
+    assert repository.fence_for_write(
+        user_id=user.id, broker_connection_id=connection.id,
+        lease_token=second, now=now + timedelta(seconds=32),
+    ) is True
+    db_session.rollback()

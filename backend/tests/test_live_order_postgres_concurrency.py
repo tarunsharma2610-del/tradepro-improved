@@ -169,3 +169,169 @@ def test_simultaneous_reconciliation_lease_claims_allow_only_one_worker():
     finally:
         Base.metadata.drop_all(engine)
         engine.dispose()
+
+
+
+def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
+    """Two distinct confirmed fills must not race live-position accounting."""
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    from app.core.database import Base
+    from app.models.broker_connection import BrokerConnection
+    from app.models.broker_order import BrokerOrder
+    from app.models.broker_trade_record import BrokerTradeRecord
+    from app.models.execution import Execution
+    from app.models.instrument import Instrument
+    from app.models.live_position import LivePosition
+    from app.models.order import Order
+    from app.models.portfolio import Portfolio
+    from app.models.user import User
+    from app.services.live_fill_accounting_service import (
+        LiveFillAccountingService,
+        LiveFillChargeBreakdown,
+    )
+
+    engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        owner_id = uuid.uuid4()
+        portfolio_id = uuid.uuid4()
+        connection_id = uuid.uuid4()
+        instrument_id = uuid.uuid4()
+        order_id = uuid.uuid4()
+        child_id = uuid.uuid4()
+        trade_ids = [uuid.uuid4(), uuid.uuid4()]
+        now = datetime.now(timezone.utc)
+
+        with SessionLocal() as session:
+            session.add(User(
+                id=owner_id,
+                email=f"fill-lock-{owner_id}@example.invalid",
+                password_hash="test-only",
+                full_name="Fill Lock Test",
+            ))
+            session.commit()
+            portfolio = Portfolio(
+                id=portfolio_id,
+                user_id=owner_id,
+                name="Live fill lock test",
+                virtual_capital=Decimal("100000"),
+                cash_balance=Decimal("100000"),
+                is_active=True,
+            )
+            connection = BrokerConnection(
+                id=connection_id,
+                user_id=owner_id,
+                broker="upstox",
+                api_key_encrypted="test-only",
+                api_secret_encrypted="test-only",
+                redirect_uri="https://example.invalid/callback",
+                is_connected=True,
+            )
+            instrument = Instrument(
+                id=instrument_id,
+                instrument_key="NSE_EQ|FILL-LOCK-TEST",
+                exchange="NSE",
+                segment="NSE_EQ",
+                instrument_type="EQUITY",
+                trading_symbol="FILL-LOCK-TEST",
+                name="Fill lock test",
+            )
+            session.add_all([portfolio, connection, instrument])
+            session.commit()
+            order = Order(
+                id=order_id,
+                portfolio_id=portfolio_id,
+                instrument_id=instrument_id,
+                side="BUY",
+                order_type="MARKET",
+                segment="EQUITY_DELIVERY",
+                quantity=2,
+                status="PENDING",
+                trading_mode="LIVE",
+                execution_reason="MANUAL",
+                placed_at=now,
+            )
+            session.add(order)
+            session.commit()
+            child = BrokerOrder(
+                id=child_id,
+                broker_connection_id=connection_id,
+                order_id=order_id,
+                broker_name="upstox",
+                broker_order_id=f"broker-{uuid.uuid4()}",
+                requested_quantity=2,
+                filled_quantity=2,
+                status="FILLED",
+            )
+            session.add(child)
+            session.commit()
+            records = [
+                BrokerTradeRecord(
+                    id=trade_ids[0],
+                    broker_connection_id=connection_id,
+                    broker_order_ref_id=child_id,
+                    broker_trade_id=f"trade-{trade_ids[0]}",
+                    quantity=1,
+                    price=Decimal("100.25"),
+                    side="BUY",
+                    instrument_token=instrument.instrument_key,
+                    exchange_timestamp=now.isoformat(),
+                ),
+                BrokerTradeRecord(
+                    id=trade_ids[1],
+                    broker_connection_id=connection_id,
+                    broker_order_ref_id=child_id,
+                    broker_trade_id=f"trade-{trade_ids[1]}",
+                    quantity=1,
+                    price=Decimal("101.25"),
+                    side="BUY",
+                    instrument_token=instrument.instrument_key,
+                    exchange_timestamp=now.isoformat(),
+                ),
+            ]
+            session.add_all(records)
+            session.commit()
+
+        barrier = threading.Barrier(2)
+
+        def promote(trade_id):
+            charges = LiveFillChargeBreakdown(
+                brokerage=Decimal("20.00"),
+                stt=Decimal("0.20"),
+                exchange_charges=Decimal("0.01"),
+                sebi_charges=Decimal("0.01"),
+                stamp_duty=Decimal("0.03"),
+                gst=Decimal("3.61"),
+                total_charges=Decimal("23.86"),
+                source="BROKER_REPORTED",
+                reference=f"contract-note-{trade_id}",
+            )
+            with SessionLocal() as session:
+                barrier.wait(timeout=10)
+                return LiveFillAccountingService(session).promote_trade(
+                    owner_id, trade_id, charges
+                )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(promote, trade_id) for trade_id in trade_ids]
+            results = [future.result(timeout=20) for future in futures]
+
+        assert all(result.inserted for result in results)
+        with SessionLocal() as session:
+            position = session.query(LivePosition).filter_by(
+                broker_connection_id=connection_id,
+                instrument_id=instrument_id,
+            ).one()
+            executions = session.query(Execution).filter_by(
+                broker_connection_id=connection_id,
+                broker_order_ref_id=child_id,
+            ).all()
+            assert position.quantity == 2
+            assert len(executions) == 2
+            assert sum(item.quantity for item in executions) == 2
+    finally:
+        Base.metadata.drop_all(engine)
+        engine.dispose()

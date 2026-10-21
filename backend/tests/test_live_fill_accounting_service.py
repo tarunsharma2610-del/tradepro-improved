@@ -259,3 +259,28 @@ def test_cumulative_promoted_trades_cannot_exceed_child_fill_quantity(accounting
     assert live_position.quantity == 2
     db.refresh(paper_position)
     assert paper_position.quantity == 7
+
+
+
+def test_live_fill_promotion_locks_parent_then_child_then_trade_record(accounting_context, monkeypatch):
+    from sqlalchemy.orm import Query
+
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
+    locked_models = []
+    original = Query.with_for_update
+
+    def track_lock(query, *args, **kwargs):
+        entities = [item.get("entity") for item in query.column_descriptions]
+        if Order in entities:
+            locked_models.append("Order")
+        elif BrokerOrder in entities:
+            locked_models.append("BrokerOrder")
+        elif BrokerTradeRecord in entities:
+            locked_models.append("BrokerTradeRecord")
+        return original(query, *args, **kwargs)
+
+    monkeypatch.setattr(Query, "with_for_update", track_lock)
+
+    LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+
+    assert locked_models[:3] == ["Order", "BrokerOrder", "BrokerTradeRecord"]

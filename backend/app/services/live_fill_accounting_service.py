@@ -66,30 +66,32 @@ class LiveFillAccountingService:
     ) -> LiveFillAccountingResult:
         try:
             fee_values = self._validate_charges(charges)
-            record = (
+            # Use unlocked reads only to discover the parent ID, then acquire row
+            # locks in the shared Order -> BrokerOrder -> BrokerTradeRecord order.
+            # Ingestion and child reconciliation take the same parent/child locks;
+            # locking the trade record first can deadlock against reconciliation.
+            record_hint = (
                 self.db.query(BrokerTradeRecord)
                 .filter(BrokerTradeRecord.id == broker_trade_record_id)
-                .with_for_update()
                 .first()
             )
-            if record is None:
+            if record_hint is None:
                 raise ValueError("Broker trade intake record not found.")
 
-            child = (
+            child_hint = (
                 self.db.query(BrokerOrder)
-                .filter(BrokerOrder.id == record.broker_order_ref_id)
-                .with_for_update()
+                .filter(BrokerOrder.id == record_hint.broker_order_ref_id)
                 .first()
             )
-            if child is None or child.broker_connection_id != record.broker_connection_id:
+            if child_hint is None or child_hint.broker_connection_id != record_hint.broker_connection_id:
                 raise ValueError("Broker trade is not bound to a valid child-order/connection mapping.")
-            if record.quantity > child.filled_quantity or record.quantity > child.requested_quantity:
-                raise ValueError("Broker trade quantity exceeds the broker-confirmed child-order fill quantity.")
+
             row = (
                 self.db.query(Order, Portfolio.user_id)
                 .join(Portfolio, Portfolio.id == Order.portfolio_id)
-                .filter(Order.id == child.order_id, Portfolio.user_id == user_id)
-                .with_for_update()
+                .filter(Order.id == child_hint.order_id, Portfolio.user_id == user_id)
+                .with_for_update(of=Order)
+                .populate_existing()
                 .first()
             )
             if row is None:
@@ -99,6 +101,35 @@ class LiveFillAccountingService:
                 raise ValueError("Live fill accounting is only allowed for an owned LIVE order.")
             if order.execution_reason != "MANUAL":
                 raise ValueError("Only manual LIVE orders are supported by this accounting step.")
+
+            child = (
+                self.db.query(BrokerOrder)
+                .filter(BrokerOrder.id == child_hint.id, BrokerOrder.order_id == order.id)
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            if (
+                child is None
+                or child.broker_connection_id != record_hint.broker_connection_id
+            ):
+                raise ValueError("Broker child-order mapping changed while acquiring accounting locks.")
+
+            record = (
+                self.db.query(BrokerTradeRecord)
+                .filter(
+                    BrokerTradeRecord.id == broker_trade_record_id,
+                    BrokerTradeRecord.broker_order_ref_id == child.id,
+                    BrokerTradeRecord.broker_connection_id == child.broker_connection_id,
+                )
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            if record is None:
+                raise ValueError("Broker trade mapping changed while acquiring accounting locks.")
+            if record.quantity > child.filled_quantity or record.quantity > child.requested_quantity:
+                raise ValueError("Broker trade quantity exceeds the broker-confirmed child-order fill quantity.")
             connection = (
                 self.db.query(BrokerConnection)
                 .filter(

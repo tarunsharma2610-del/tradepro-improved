@@ -130,6 +130,8 @@ class LiveFillAccountingService:
                 raise ValueError("Broker trade mapping changed while acquiring accounting locks.")
             if record.quantity > child.filled_quantity or record.quantity > child.requested_quantity:
                 raise ValueError("Broker trade quantity exceeds the broker-confirmed child-order fill quantity.")
+            if record.quantity > order.quantity:
+                raise ValueError("Broker trade quantity exceeds the local order quantity.")
             connection = (
                 self.db.query(BrokerConnection)
                 .filter(
@@ -186,6 +188,18 @@ class LiveFillAccountingService:
             if int(accounted_quantity or 0) + record.quantity > child.filled_quantity:
                 raise ValueError(
                     "Cumulative accounted trade quantity exceeds the broker-confirmed child-order fill quantity."
+                )
+            accounted_order_quantity = (
+                self.db.query(func.coalesce(func.sum(Execution.quantity), 0))
+                .filter(
+                    Execution.order_id == order.id,
+                    Execution.broker_connection_id == connection.id,
+                )
+                .scalar()
+            )
+            if int(accounted_order_quantity or 0) + record.quantity > order.quantity:
+                raise ValueError(
+                    "Cumulative accounted trade quantity exceeds the local order quantity."
                 )
 
             portfolio = (

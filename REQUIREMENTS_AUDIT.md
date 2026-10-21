@@ -1,7 +1,7 @@
 <!-- Authoritative checkpoint audit: 2026-10-21; supersedes older status notes below. -->
 ## Current verified checkpoint — 21 October 2026
 
-- Current `main` HEAD: `f369839f20efed60f62abdbc329fe6d4454faeaa` (documentation checkpoint; code/test commit `fe07b77b193da1232787384efb38cb589e0d71b6`).
+- Current `main` HEAD is the latest documentation synchronization commit; the verified code/test checkpoint is `fe07b77b193da1232787384efb38cb589e0d71b6`. Check the live repository HEAD and Actions page for the newest documentation-only commit and its CI result.
 - Latest exact-HEAD backend CI: [run 39562094642](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39562094642) passed **470 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
 - Phase 2 slow-persistence/high-volume lease-expiry audit is **complete**; per-write lease fencing and regression tests are verified.
 - Latest frontend CI remains [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474), passing TypeScript and Next.js build; no frontend code changed in this checkpoint.

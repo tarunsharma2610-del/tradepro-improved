@@ -2,7 +2,7 @@
 
 ## Current verified checkpoint — 21 October 2026
 - Phase 2 lease-fencing audit is complete; backend CI run 39562094642 passed 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
-- Current repository HEAD is f369839f20efed60f62abdbc329fe6d4454faeaa; code/test checkpoint is fe07b77b193da1232787384efb38cb589e0d71b6.
+- Current main includes the documentation synchronization commit following the code/test checkpoint `fe07b77b193da1232787384efb38cb589e0d71b6`; see the live repository HEAD and Actions page for the newest documentation-only commit and its CI result.
 - Read-only worker remains gated from operational invocation with a real broker; live submission, automatic accounting promotion, and automatic scheduling remain disabled.
 
 

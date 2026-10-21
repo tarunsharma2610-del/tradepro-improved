@@ -161,28 +161,25 @@ class LiveOrderReconciliationWorker:
         completion_error = result.error_code
         if result.status == "COMPLETED_WITH_CONFLICTS" and completion_error is None:
             completion_error = "RECONCILIATION_CONFLICTS"
-        completed = self.lease_repository.complete(
-            user_id=user_id,
-            broker_connection_id=broker_connection_id,
-            lease_token=lease_token,
-            error_code=completion_error,
-        )
-        if not completed:
-            result.status = "LEASE_LOST"
-            result.error_code = "LEASE_LOST"
         result.run_id = run.id
         try:
-            self.run_repository.finish(
+            final_status = self.run_repository.finish_with_lease(
                 run_id=run.id,
                 user_id=user_id,
                 broker_connection_id=broker_connection_id,
+                lease_token=lease_token,
                 status=result.status,
                 error_code=result.error_code,
+                lease_error_code=completion_error,
                 summary=result.safe_summary(),
             )
+            if final_status == "LEASE_LOST":
+                result.status = "LEASE_LOST"
+                result.error_code = "LEASE_LOST"
         except Exception:
-            # The broker work may have completed, but a durable summary failure is
-            # operationally significant and must not be reported as clean success.
+            # Finalizing the run and releasing the lease share one transaction.
+            # A failed summary write rolls back the lease release as well.
+            self.db.rollback()
             result.status = "FAILED"
             result.error_code = "RUN_SUMMARY_PERSISTENCE_FAILED"
         return result

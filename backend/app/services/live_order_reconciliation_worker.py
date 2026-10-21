@@ -6,6 +6,7 @@ modify, or cancel orders. It is not automatically scheduled by this module.
 """
 import asyncio
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable
 from uuid import UUID
 
@@ -108,6 +109,24 @@ class LiveOrderReconciliationWorker:
             return ReconciliationRunResult(status="FAILED", error_code="UNSUPPORTED_BROKER")
         if not connection.is_connected:
             return ReconciliationRunResult(status="FAILED", error_code="CONNECTION_NOT_READY")
+
+        # Recover old RUNNING summaries before claiming a new lease. The
+        # repository locks the existing lease row and refuses recovery while an
+        # unexpired owner exists; doing this before claim avoids mistaking our
+        # own newly claimed lease for an active orphan.
+        recovery_now = datetime.now(timezone.utc)
+        try:
+            self.run_repository.fail_orphaned_runs(
+                user_id=user_id,
+                broker_connection_id=broker_connection_id,
+                stale_before=recovery_now - timedelta(seconds=self.lease_seconds),
+                now=recovery_now,
+            )
+        except Exception:
+            self.db.rollback()
+            return ReconciliationRunResult(
+                status="FAILED", error_code="STALE_RUN_RECOVERY_FAILED"
+            )
 
         lease_token = self.lease_repository.claim(
             user_id=user_id,

@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import uuid
 
 import pytest
 
@@ -224,12 +225,28 @@ async def test_worker_missing_token_and_busy_lease_do_not_call_broker(db_session
 
     connection.is_connected = True
     db_session.commit()
+    stale_started = datetime.now(timezone.utc) - timedelta(hours=1)
+    stale_run = LiveReconciliationRun(
+        user_id=user.id,
+        broker_connection_id=connection.id,
+        status="RUNNING",
+        started_at=stale_started,
+        summary={
+            "orders_seen": 0, "orders_matched": 0, "orders_unmatched": 0,
+            "trades_seen": 0, "fills_inserted": 0, "duplicate_fills": 0,
+            "conflicts": 0,
+        },
+    )
+    db_session.add(stale_run)
+    db_session.commit()
     lease_token = LiveReconciliationLeaseRepository(db_session).claim(
         user_id=user.id, broker_connection_id=connection.id, lease_seconds=60
     )
     assert lease_token is not None
     result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
     assert result.status == "LEASE_BUSY"
+    db_session.refresh(stale_run)
+    assert stale_run.status == "RUNNING"
     assert client.calls == []
 
 
@@ -479,3 +496,76 @@ async def test_worker_persists_invalid_trade_as_safe_review_issue(db_session, ma
         "record_index": 0, "reason_code": "TRADE_NORMALIZATION_FAILED",
     }
     assert "NaN" not in str(issue.safe_details)
+
+
+
+@pytest.mark.asyncio
+async def test_worker_recovers_expired_orphan_run_before_claiming_new_lease(db_session, make_user):
+    user, _portfolio, connection = _setup(db_session, make_user)
+    now = datetime.now(timezone.utc)
+    stale_started = now - timedelta(hours=1)
+    stale_run = LiveReconciliationRun(
+        user_id=user.id,
+        broker_connection_id=connection.id,
+        status="RUNNING",
+        started_at=stale_started,
+        summary={
+            "orders_seen": 0, "orders_matched": 0, "orders_unmatched": 0,
+            "trades_seen": 0, "fills_inserted": 0, "duplicate_fills": 0,
+            "conflicts": 0,
+        },
+    )
+    db_session.add_all([
+        stale_run,
+        LiveReconciliationLease(
+            user_id=user.id,
+            broker_connection_id=connection.id,
+            lease_token=uuid.uuid4(),
+            claimed_until=now - timedelta(minutes=10),
+            generation=1,
+            last_started_at=stale_started,
+            last_error_code=None,
+        ),
+    ])
+    db_session.commit()
+
+    client = _FakeReadClient()
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    db_session.refresh(stale_run)
+    assert stale_run.status == "FAILED"
+    assert stale_run.error_code == "WORKER_INTERRUPTED"
+    assert result.status == "COMPLETED"
+    assert result.run_id is not None and result.run_id != stale_run.id
+    current_run = db_session.query(LiveReconciliationRun).filter_by(id=result.run_id).one()
+    assert current_run.status == "COMPLETED"
+    lease = db_session.query(LiveReconciliationLease).filter_by(
+        broker_connection_id=connection.id
+    ).one()
+    assert lease.generation == 2
+    assert lease.lease_token is None
+
+
+@pytest.mark.asyncio
+async def test_worker_fails_closed_if_stale_run_recovery_errors(db_session, make_user):
+    user, _portfolio, connection = _setup(db_session, make_user)
+    client = _FakeReadClient()
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+
+    def fail_recovery(**_kwargs):
+        raise RuntimeError("private database detail")
+
+    worker.run_repository.fail_orphaned_runs = fail_recovery
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    assert result.status == "FAILED"
+    assert result.error_code == "STALE_RUN_RECOVERY_FAILED"
+    assert client.calls == []
+    assert db_session.query(LiveReconciliationLease).count() == 0

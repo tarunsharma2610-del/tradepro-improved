@@ -94,3 +94,7 @@ This is not a complete live-fill pipeline: the service remains unregistered, ing
 
 ### Broker-write guard follow-up — 2026-10-21
 The AST source guard was tightened after review: no whole-file Upstox adapter exemption remains, and PAPER portfolio exceptions are restricted to the named endpoint functions. Regression tests cover unexpected adapter calls and unrelated helpers. The exact current `main` head still requires CI verification; do not mark this checkpoint green based on the earlier 439-pass run. Keep live submission and automatic accounting promotion disabled.
+
+
+### Exact-head verification — 2026-10-21
+Current main `975717b05a3aa5faa030f3f9e177dbcf6066daf3` passed [GitHub Actions run 39550130192](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39550130192): **447 passed, 1 warning**, broker-write source guard passed, and SQLite/PostgreSQL 16 reversible migrations passed. The previous CI failure was a guard-test line-number assertion, corrected in this head. Continue Phase 2 by reviewing the `BrokerFillIdentity` and `BrokerTradeRecord` workflow boundary; do not bridge them until transactional identity, ownership, conflict, replay, rollback and recovery rules are explicit. Live submission and automatic accounting promotion remain disabled.

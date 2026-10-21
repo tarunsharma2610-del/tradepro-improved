@@ -189,3 +189,17 @@ Inspected current files on `main` directly:
 Conclusion: the existing promotion boundary validates a caller-supplied charge breakdown but does not establish the authenticity of the source document or prove how aggregate contract-note levies should be apportioned. Do not change the promotion contract or add schema until a documented source-specific allocation rule is available. This audit found no basis to treat a text transcription or a broker estimate as verified per-fill actual fees.
 
 CI workflow inspection: `.github/workflows/backend-tests.yml` runs pytest, broker-write boundary guard, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks on pushes to main and pull requests. The current docs-only commit will trigger the push workflow, but exact-HEAD success must be checked after GitHub finishes.
+
+### Official Upstox API schema cross-check — 2026-10-21
+
+Checked the current public Upstox API documentation directly:
+- Trade-wise realised P&L endpoint: https://upstox.com/developer/api-documentation/get-profit-and-loss-report/
+  The documented response exposes quantity, ISIN, scrip name, trade type, buy/sell dates, average prices and buy/sell amounts. The documented response does not expose the six actual per-fill charge components or broker trade IDs needed to attach verified charge evidence to `Execution`.
+- Charges endpoint: https://upstox.com/developer/api-documentation/get-trade-charges/
+  The documented response exposes a `charges_breakdown` total and aggregate brokerage, taxes (GST, STT, stamp duty) and charges (transaction, clearing, IPFT, others, SEBI turnover and demat transaction). The request is scoped by date range, segment and financial year; the documented response is a segment/date-period aggregate, not a per-fill charge allocation record.
+- Historical trade endpoint: https://upstox.com/developer/api-documentation/get-historical-trades/
+  This provides historical trade/transaction data with pagination for up to the last three financial years, but does not, by itself, document a per-trade actual-charge breakdown.
+
+NSE's revised contract-note FAQ says trade details including order number/time, trade number/time, quantity and price are to be attached as an annexure, and says transaction charges across exchanges are combined in the revised format: https://www.nseindia.com/static/trade/contract-note-faqs. This reinforces that a contract note can aggregate some charge categories and does not itself prove a unique per-fill mapping for every charge.
+
+Decision: the reviewed official API schemas do not eliminate the actual-charge evidence/allocation blocker. Do not reinterpret aggregate charge totals as per-fill fees, and do not match the trade-wise P&L rows to staged fills based only on symbol/date/average price. An importer may only persist source evidence and perform mappings for which exact identifiers and allocation rules are supported; ambiguous rows/components must remain unreconciled and must not be promoted automatically.

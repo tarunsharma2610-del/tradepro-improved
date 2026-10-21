@@ -121,3 +121,12 @@ Working branch: `main`
 - [x] Exact code/test HEAD `d0437be8ef27c4e86d659a9b85bf42dbdb99ecc4`: [backend run 39552046237](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046237) passed 456 tests, 1 warning, source guard and both migration cycles; [frontend run 39552046207](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046207) passed TypeScript and Next.js build.
 - [ ] Audit crash between lease release and durable run-summary finish, including lease-token/expiry inconsistency. Add focused regression coverage before any scheduler or new broker integration.
 - Recovery remains owner/connection-scoped and metadata-only. Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live submission and automatic accounting promotion remain disabled.
+
+
+## Phase 2 — lease integrity and crash-window recovery verified (2026-10-21)
+- [x] Fail closed on inconsistent token/expiry pairs during stale-run recovery.
+- [x] Harden lease claim to reject inconsistent state and restrict reclaim to both-null released leases or expired leases.
+- [x] Test the crash window where lease completion commits but terminal run-summary persistence fails; verify eventual stale-run recovery before the next worker proceeds.
+- [x] Exact-head [CI run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228): 461 tests passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
+- [ ] Decide whether lease completion and run-summary finish should be transactionally atomic; test lost-lease, rollback, and terminal-state ordering before changing implementation.
+- Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.

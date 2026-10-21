@@ -377,3 +377,11 @@ A crash can leave a durable `LiveReconciliationRun` in `RUNNING`. Added `fail_or
 - Added a visible `WORKER_INTERRUPTED` warning in the reconciliation review UI: summary counters may be incomplete, and zero values are not evidence that no fills were processed.
 - Exact current code/test HEAD `d0437be8ef27c4e86d659a9b85bf42dbdb99ecc4`: [backend run 39552046237](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046237) passed 456 tests, 1 warning, source guard and SQLite/PostgreSQL 16 migration cycles; [frontend run 39552046207](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046207) passed TypeScript and Next.js build.
 - Remaining review: crash window between releasing lease and finalizing the run summary, and inconsistent lease states. Recovery is metadata-only and does not mutate fills/accounting. Live submission and automatic promotion remain disabled.
+
+
+## Phase 2 crash-window and lease-integrity audit — 2026-10-21
+
+- Exact current main code/test head `0ce59a7965e3e96da26d27b65ef43eb0cb755bc`: [CI run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228) passed 461 backend tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- Fixed a lease-claim weakness: prior SQL treated a missing token **or** missing expiry as reclaimable, which could overwrite a half-populated lease. Claim now rejects inconsistent pairs and only reclaims both-null released rows or rows whose populated expiry has elapsed; row locking is requested where supported.
+- Added recovery coverage for a crash after lease release but before run-summary persistence. The summary remains RUNNING until it is older than the recovery cutoff, then is marked FAILED/WORKER_INTERRUPTED before a subsequent run. Its counters remain incomplete and are not evidence that no fill work occurred.
+- Remaining architectural question: lease completion and run-summary finalization are separate commits. Decide whether to unify them in a transaction; if not, retain explicit eventual-recovery semantics and test the lost-lease / finish-order edge cases. No broker write, fill promotion, or accounting mutation was added.

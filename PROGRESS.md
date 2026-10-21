@@ -674,3 +674,12 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Exact current code/test HEAD `d0437be8ef27c4e86d659a9b85bf42dbdb99ecc4`: backend [run 39552046237](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046237) passed **456 tests, 1 warning**, source guard and SQLite/PostgreSQL 16 migration cycles; frontend [run 39552046207](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552046207) passed TypeScript and Next.js build.
 - This supersedes the previous pending verification note. Stale-run recovery remains metadata-only: it does not retry broker reads, promote fills or mutate accounting. Live submission and automatic promotion remain disabled.
 - Next Phase 2 task: audit the crash window between lease release and run-summary persistence, and fail-closed behavior for inconsistent lease state (for example a non-null lease token with no expiry). Preserve idempotency and do not introduce automatic scheduling or broker writes without review.
+
+
+## Phase 2 exact-head checkpoint — 2026-10-21
+
+- Current main HEAD `0ce59a7965e3e96da26d27b65ef43eb0cb755bc`: [backend CI run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228) passed **461 tests, 1 warning**, broker-write boundary guard, SQLite migration cycle, and PostgreSQL 16 migration cycle.
+- Added fail-closed checks for inconsistent lease token/expiry state in both stale-run recovery and the lease claim repository. Claim predicates no longer treat either half-populated state as an expired lease.
+- Added a crash-window regression test: lease release succeeds, terminal summary persistence fails, the run remains marked RUNNING, and later stale-run recovery marks it WORKER_INTERRUPTED before the next run.
+- Crash-window test commit `cc01b7143bafba57ed20feaa6cef40c57f122c27` passed 459 tests; the latest exact-head run above includes the additional claim-state tests.
+- Next: review whether lease completion and run-summary terminal persistence should be one atomic transaction; add tests for lost-lease / summary ordering before changing lifecycle semantics. Keep recovery metadata-only, preserve separate fill workflows, and keep live submission/accounting promotion disabled.

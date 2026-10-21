@@ -104,3 +104,11 @@ Keep intent-based `BrokerFillIdentity` reconciliation and manual-order `BrokerTr
 
 ### Reconciliation crash-recovery rule — 2026-10-21
 Stale reconciliation summaries may be marked `FAILED/WORKER_INTERRUPTED` only through owner/connection-scoped recovery and only when no unexpired lease is active. Preserve the summary counters. Never retry broker calls or change fill/accounting rows as part of run-summary recovery. The current `fail_orphaned_runs` method is not automatically scheduled; do not wire it into background execution until exact-head CI and crash-boundary behavior are reviewed. Live broker submission and automatic accounting promotion remain disabled.
+
+## Current Phase 2 checkpoint — 2026-10-21
+
+- Verify against main HEAD `0ce59a7965e3e96da26d27b65ef43eb0cb755bc` and [CI run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228): 461 backend tests passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
+- Lease token and expiry must be both present or both absent. Do not allow claims or orphan recovery to silently overwrite half-populated lease records.
+- `WORKER_INTERRUPTED` means reconciliation counters may be incomplete. Do not infer no fills from zero counters and do not auto-retry broker requests or promote accounting.
+- Next work: review lease completion versus terminal run-summary persistence for transaction atomicity; add focused lost-lease and crash-ordering tests before lifecycle changes.
+- Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live broker submission, automatic accounting promotion, and automatic scheduling remain disabled.

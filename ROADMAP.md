@@ -156,3 +156,8 @@ See [REFERENCE_REPOSITORY_AUDIT.md](REFERENCE_REPOSITORY_AUDIT.md) for the sourc
 - Ported child-order status/fill reconciliation with current-main schema compatibility. It validates the broker snapshot against durable staged trade quantities and weighted average price, locks the child row, rejects fill regressions/terminal-state conflicts, and updates only child status/fill quantity.
 - Exact-head [run 39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) passed **438 tests, 1 warning**, including SQLite/PostgreSQL 16 reversible migration checks.
 - Remaining architecture gate: distinguish the intent-based `BrokerFillIdentity` workflow from the manual Order `BrokerTradeRecord`/`BrokerOrder` workflow, or design an explicit transaction-safe bridge. No live order submission or automatic accounting promotion is enabled.
+
+
+## Phase 2 resume point — 2026-10-21
+
+Latest main-branch checkpoint is `0ce59a7965e3e96da26d27b65ef43eb0cb755bc`; exact-head [CI run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228) passed 461 backend tests, the broker-write guard, and SQLite/PostgreSQL 16 migration cycles. Phase 2 now covers stale-run recovery, incomplete-summary UI warning, inconsistent lease-state rejection, and eventual recovery after lease-release/summary-persistence crash. Next: review transaction atomicity between lease completion and run-summary finish and add lost-lease/ordering tests. Keep live submission and automatic accounting promotion disabled.

@@ -149,3 +149,13 @@ Working branch: `main`
 - [x] Exact-head [CI run 39553981172](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553981172): 465 tests passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
 - [ ] Review lease-renewal cadence for large batches and test expiry races around per-record persistence.
 - Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.
+
+
+## Phase 2 — renewal-boundary and UI completeness gates verified (2026-10-21)
+- [x] Reduce renewal cadence to every 5 records in trade and order batches.
+- [x] Test that lease loss at a renewal boundary stops before the next record is persisted and preserves the replacement owner's lease.
+- [x] Warn in the reconciliation UI for both `WORKER_INTERRUPTED` and `LEASE_LOST` incomplete summaries.
+- [x] Backend [CI run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380): 466 passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
+- [x] Frontend [CI run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474): TypeScript and Next.js build passed.
+- [ ] Audit a single slow persistence operation and high-volume processing for lease-expiry races; add transaction-level fencing if the evidence requires it.
+- Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.

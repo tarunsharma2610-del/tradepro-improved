@@ -130,3 +130,12 @@ Stale reconciliation summaries may be marked `FAILED/WORKER_INTERRUPTED` only th
 - Cancellation during broker reads is expected to leave a recoverable RUNNING summary/lease; after expiry, recovery marks it `WORKER_INTERRUPTED`. Its counters must not be treated as complete.
 - Next: audit lease-renewal cadence for large batches and test expiry races around per-record persistence.
 - Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live submission, automatic accounting promotion, and automatic scheduling remain disabled.
+
+
+## Current Phase 2 checkpoint — 2026-10-21
+
+- Verified code/test HEAD `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`; backend [run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed 466 tests, 1 warning, broker-write guard, and SQLite/PostgreSQL 16 migration cycles; frontend [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript/build.
+- Renew the reconciliation lease every 5 records during trade/order batches. If ownership is lost, stop before the next record and do not clear the replacement owner's lease.
+- UI must warn for both `WORKER_INTERRUPTED` and `LEASE_LOST`; summary counters can be partial.
+- Next: inspect a single slow persistence operation and high-volume processing for lease-expiry races; add transaction-level fencing if needed.
+- Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live submission, automatic accounting promotion, and automatic scheduling remain disabled.

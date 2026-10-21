@@ -171,3 +171,8 @@ Latest verified code/test HEAD `8f967adaa2328f16a0a08a104c3ec394e62f9310`; exact
 ## Phase 2 resume point — 2026-10-21
 
 Latest verified code/test HEAD `2ac6bfaafd3475ee63360bd0049b0b6987236bc1`; exact-head [CI run 39553981172](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553981172) passed 465 backend tests, broker-write guard, and SQLite/PostgreSQL 16 migration cycles. Atomic finalization, lease-loss protection, and cancellation-to-expiry recovery are covered. Next: inspect lease-renewal cadence and expiry races during large batches. Keep live submission and automatic accounting promotion disabled.
+
+
+## Phase 2 resume point — 2026-10-21
+
+Latest verified code/test HEAD `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`. Backend [run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed 466 tests, broker-write guard, and SQLite/PostgreSQL 16 migration cycles; frontend [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript/build. Renewal is every 5 records; UI marks `LEASE_LOST` and `WORKER_INTERRUPTED` summaries incomplete. Next: assess slow-record/high-volume expiry races and need for transaction-level lease fencing. Keep live submission/accounting promotion disabled.

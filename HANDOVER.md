@@ -113,3 +113,12 @@ This update supersedes the earlier "Immediate next task" paragraph above.
 - Worker now has regression coverage for losing lease ownership before local persistence and for cancellation during broker read followed by expiry-based recovery. A stale owner cannot write fill evidence or release the replacement owner's lease.
 - Run-summary terminalization and lease release are atomic; failure rolls back lease release. The crash/cancellation recovery marker remains `WORKER_INTERRUPTED`, whose summary counters are incomplete.
 - Next: review lease-renewal cadence for large batches and inspect any remaining cancellation/unexpected-error paths. Keep all live broker writes and automatic accounting promotion disabled.
+
+
+## Latest verified checkpoint — renewal boundary and incomplete-summary UI (2026-10-21)
+
+- Current verified code/test HEAD: `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`.
+- Backend [run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380): 466 passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed. Frontend [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474): TypeScript and Next.js build passed.
+- Lease renewal now occurs every 5 records during trade/order batches. A regression test simulates lease replacement at a renewal boundary and verifies the worker stops before writing the next record, keeps the new lease owner intact, and marks the run `LEASE_LOST`.
+- UI warning now covers `LEASE_LOST` as well as `WORKER_INTERRUPTED`, because neither terminal status guarantees a complete summary.
+- Next: inspect high-volume processing and a single slow persistence operation for lease-expiry races. Keep the intent-fill and manual accounting workflows separate; live submission and automatic promotion stay disabled.

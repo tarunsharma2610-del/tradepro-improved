@@ -403,3 +403,11 @@ A crash can leave a durable `LiveReconciliationRun` in `RUNNING`. Added `fail_or
 - Added cancellation coverage: cancellation during broker read propagates, leaving the run/lease for expiry-based recovery. Once stale, the run becomes `FAILED/WORKER_INTERRUPTED` before the next run starts.
 - Terminal run-summary and lease finalization remain one transaction. If terminal summary update fails, lease release is rolled back.
 - Remaining audit: renewal cadence during large batches and expiry races around per-record persistence. Recovery summaries remain incomplete; no live broker write or accounting mutation was added.
+
+
+## Phase 2 renewal-boundary and UI completeness audit — 2026-10-21
+
+- Verified code/test HEAD `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`: backend [run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed 466 tests, 1 warning, broker-write guard, and SQLite/PostgreSQL 16 migration cycles; frontend [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript/build.
+- Lease renewal cadence is now every five records during trade/order processing. A test replaces the lease owner at the renewal boundary and verifies no subsequent record is persisted by the stale worker.
+- The review UI warns on both `WORKER_INTERRUPTED` and `LEASE_LOST` because both may carry partial counters.
+- Remaining risk to assess: one unusually slow local persistence operation may exceed the lease duration between renewals. Next, inspect high-volume/slow-record paths and determine whether lease fencing must be part of each persistence transaction. No broker-write or accounting-promotion capability was enabled.

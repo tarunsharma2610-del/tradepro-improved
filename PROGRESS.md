@@ -703,3 +703,12 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Added cancellation coverage: cancellation during broker read leaves a RUNNING run and owned lease for expiry-based recovery; the next worker marks the stale run `WORKER_INTERRUPTED` before starting a fresh run.
 - Atomic finalization remains in place: lease release and terminal run-summary update share one transaction; failed finalization rolls back lease release.
 - Next: review whether lease renewal is frequent enough during large trade/order batches and confirm all cancellation/error paths converge on safe recovery. Keep broker access read-only and live submission/accounting promotion disabled.
+
+
+## Phase 2 lease-renewal boundary and UI verification — 2026-10-21
+
+- Current verified code/test HEAD: `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`.
+- Backend [CI run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed **466 tests, 1 warning**, broker-write guard, and SQLite/PostgreSQL 16 migration cycles. Frontend [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript and Next.js build.
+- Reduced worker lease renewal interval from 25 to 5 records in both trade and order batches. Regression coverage proves a lost lease at a renewal boundary stops before persisting the next batch record; already-persisted fills remain idempotent evidence and the newer lease is preserved.
+- The reconciliation UI now warns for both `WORKER_INTERRUPTED` and `LEASE_LOST` runs because their summary counters may be incomplete.
+- Next: audit per-record persistence duration and high-volume lease expiry behavior; determine whether transaction-level lease fencing is needed for a single slow record. Keep broker reads only, with live submission and accounting promotion disabled.

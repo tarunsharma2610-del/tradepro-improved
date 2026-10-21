@@ -231,6 +231,34 @@ def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position
     assert paper_position.quantity == 7
 
 
+def test_rejected_local_order_cannot_accept_broker_fill(accounting_context):
+    db, user, _portfolio, _instrument, _connection, order, _child, record, _paper_position = accounting_context
+    order.status = "REJECTED"
+    db.commit()
+
+    with pytest.raises(ValueError, match="rejected local order"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    assert order.status == "REJECTED"
+
+
+def test_cancelled_local_order_can_account_a_confirmed_partial_fill(accounting_context):
+    db, user, _portfolio, _instrument, _connection, order, child, record, _paper_position = accounting_context
+    order.status = "CANCELLED"
+    child.status = "CANCELLED"
+    db.commit()
+
+    result = LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+
+    db.refresh(order)
+    assert result.inserted is True
+    assert result.live_position_quantity == 2
+    assert order.status == "CANCELLED"
+    assert db.query(Execution).count() == 1
+
+
 def test_broker_child_fill_cannot_exceed_local_order_quantity(accounting_context):
     db, user, _portfolio, _instrument, _connection, order, child, record, _paper_position = accounting_context
     order.quantity = 5

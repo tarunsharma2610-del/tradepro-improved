@@ -2,16 +2,17 @@
 
 ## Authoritative Phase 3 checkpoint — 21 October 2026
 
-- **Verified code/test commit:** `3adf1a5dd6ba016c5dbc9d4ff8254f4b01d9e509`. Backend CI [run 39623527572](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39623527572) completed successfully: **490 tests passed, 1 warning**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed.
-- This CI result verifies that code commit, **not any subsequent documentation-only commit**. The exact latest documentation HEAD must have its own successful push-triggered CI before documentation synchronization is declared fully green.
-- **Phase 3 remains in progress.** Charge-source string validation and arithmetic consistency do not authenticate broker evidence or establish a valid allocation basis for contract-note totals. Do not allocate aggregate charges per fill without verified source evidence and an explicitly approved, charge-specific allocation method.
-- Remaining work: resolve the exact-head CI verification for documentation commits; audit coordinator and fill-identity boundaries; verify charge provenance/allocation semantics; complete partial-fill and crash/restart acceptance criteria; update this checkpoint again only against a verified exact SHA/run.
-- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. Work only in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
-- Earlier checkpoint entries below are historical unless they explicitly name the exact code SHA and CI run above.
+- **Current `main` HEAD:** `8d581070c706875d3c653b826c69963b0900a3b7`. Exact-HEAD push-triggered Backend CI [run 39631298815](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39631298815) completed successfully. The backend test suite, broker-write boundary guard, SQLite migration checks, and PostgreSQL 16 migration checks passed.
+- **Last separately reported code/test baseline:** `3adf1a5dd6ba016c5dbc9d4ff8254f4b01d9e509`, with [CI run 39623527572](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39623527572) reporting 490 tests passed and one warning. Do not attribute that test count to a later SHA unless its run reports the same count.
+- **Phase 3 remains in progress.** `BROKER_REPORTED` and a caller-supplied reference are labels, not authenticated evidence. Current trade intake does not establish immutable contract-note source linkage or an auditable per-fill charge-allocation ledger.
+- **Next engineering gate:** define and test a durable, immutable source-evidence record and import/validation boundary first; inspect a real redacted broker contract note and document component-specific allocation rules before allocating aggregate charges. Reject ambiguous or unsupported source formats; do not infer a fee split.
+- Required follow-up: inspect source-note identity/version/hash, importer idempotency and replay behavior, trade/order/fill matching, charge component rounding/residual handling, source-total reconciliation, partial-fill and crash/restart recovery, and fail-closed promotion tests.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. All changes must stay in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
+- Headings labelled “Current” in older sections below are historical checkpoint titles unless they explicitly refer to the exact SHA and CI run above.
 
 ---
 
-## Current Phase 3 checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current Phase 3 checkpoint — 21 October 2026
 
 - **Latest verified code/test HEAD:** `3963c2bf4e6ffe2bb33d327b10e2995cd243d003`. Exact-head [Backend CI run 39607630055](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39607630055) passed **484 tests, 1 warning in 29.34s**; the broker-write boundary guard passed, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks passed.
 - New Phase 3 guard: broker-reported live-fill charge references are trimmed for storage and rejected when longer than the `Execution.charge_reference` 200-character column limit. This prevents a predictable storage error from being misreported as a concurrent promotion conflict. Regression coverage is included in the 484-test result.
@@ -22,7 +23,7 @@
 
 ---
 
-## Current verified checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current verified checkpoint — 21 October 2026
 
 - **Last verified code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.
 - **Last verified documentation checkpoint before this status refresh:** `391dfefc9580abf9537ee659877578033baae4fd`; exact-head backend CI [run 39568264419](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39568264419) passed.
@@ -33,7 +34,7 @@
 
 ---
 
-## Current verified checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current verified checkpoint — 21 October 2026
 
 - **Verified code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, the broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.
 - **Previously verified documentation checkpoint:** `a2e639f61e2c50070deb26d1a9a0741545c9737d`; exact-head backend CI [run 39568011689](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39568011689) passed. This is historical evidence for that SHA; every new commit still requires its own exact-head CI.
@@ -43,7 +44,7 @@
 
 ------
 
-## Current verified checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current verified checkpoint — 21 October 2026
 
 - **Latest verified code/test HEAD:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, the broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.
 - The lease-race audit now has both pieces of evidence: PostgreSQL test `test_postgres_write_fence_blocks_reclaim_until_persistence_transaction_finishes` proves reclaim waits while a fenced transaction holds the lease-row lock; new `test_postgres_high_volume_expiry_races_never_resurrect_stale_lease` runs 20 concurrent expiry-boundary renewal-versus-reclaim races and asserts expired owners cannot renew and generation/token ownership advances safely.
@@ -61,7 +62,7 @@
 - Phase 2 workflow boundary: resolved by keeping BrokerFillIdentity and manual BrokerTradeRecord independent. No bridge or dual-write is approved. SAFETY_BRANCH_PORT_MATRIX.md is the dependency map; live account-safety endpoints, charge adjustments, preflight, central broker-write service and actual live submission are not silently treated as Phase 2-complete.
 - Historical checkpoint note: Phase 2 engineering checks and the cited code/test CI were verified on their respective commits. See the top checkpoint for current-head documentation CI and Phase 2 closure status.
 
-## Current verified checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current verified checkpoint — 21 October 2026
 
 - The reconciliation crash-recovery/lease-fencing sub-slice is complete; backend CI run 39561621808 passed 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
 - The defined Phase 2 dependency/port matrix and workflow-boundary decision are complete; the code/test checkpoint and current documentation HEAD have passing exact-head backend CI (runs 39564568154 and 39566324985). Phase 3 accounting integration and Phase 4 live-trading release gates remain blocked by design while final historical-status consistency review is completed.
@@ -360,7 +361,7 @@ This verifies the code present at that SHA in CI. It does not validate PostgreSQ
 
 ## Authoritative checkpoint — 18 October 2026 (idempotent live intent and tag recovery)
 
-### Current verified implementation
+### Historical checkpoint — formerly marked Current verified implementation
 - Latest code/test SHA: `de2e2b7524f09b1be2d4378a9b5ac29bdf26f9e7`. GitHub Actions [run #39110239225](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39110239225) completed successfully: **296 passed, 1 warning in 22.04s**; SQLite `alembic upgrade head` passed.
 - Added `backend/app/services/live_order_recovery_service.py`: deterministic opaque 40-character broker tag, durable LIVE intent persistence, idempotency-key replay with exact-payload validation, submission-unknown state persistence, and read-only recovery through Upstox order-history-by-tag.
 - Added `backend/tests/test_live_order_recovery_service.py`: stable tag, repeated intent, key/payload mismatch, fail-closed preflight, timeout/no-match no-resubmit, mismatched tag/intent, sliced child-order quantity reconciliation and repeated recovery.

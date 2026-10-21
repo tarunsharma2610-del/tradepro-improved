@@ -10,6 +10,12 @@ A separate improvement track for Tradepro. The original `Tradepro` repository an
 - Never commit API tokens, OAuth secrets, passwords, or other credentials.
 - Validate changes with automated tests and build checks before deploying.
 
+## Current Phase 2 checkpoint — 21 October 2026
+
+- Reconciliation crash recovery and transaction-level lease fencing have passed backend CI on the recorded checkpoint (470 tests, 1 warning, broker-write guard, SQLite/PostgreSQL 16 migration cycles).
+- Latest test commit [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2) adds failed-commit rollback coverage; exact-head CI is not yet verified.
+- Phase 2 is not complete until latest-head CI and the final requirements/doc audit pass. Intent-based BrokerFillIdentity and manual BrokerTradeRecord remain separate; live submission, automatic accounting promotion and automatic scheduling remain disabled. See MASTER_ROADMAP.md and SAFETY_BRANCH_PORT_MATRIX.md for the authoritative scope.
+
 ## Current status
 
 The original source tree has been imported into this repository. Recent improvements include:

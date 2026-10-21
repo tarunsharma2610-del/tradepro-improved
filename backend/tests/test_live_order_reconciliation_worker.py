@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 import uuid
 
@@ -621,3 +622,88 @@ async def test_worker_fails_closed_if_stale_run_recovery_errors(db_session, make
     assert result.error_code == "STALE_RUN_RECOVERY_FAILED"
     assert client.calls == []
     assert db_session.query(LiveReconciliationLease).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_worker_does_not_persist_fills_after_losing_lease_before_local_processing(
+    db_session, make_user
+):
+    user, _portfolio, connection = _setup(db_session, make_user)
+    client = _FakeReadClient(trades=[_trade()])
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+    replacement_token = uuid.uuid4()
+
+    def replace_lease_owner(**_kwargs):
+        lease = db_session.query(LiveReconciliationLease).filter_by(
+            broker_connection_id=connection.id
+        ).one()
+        lease.lease_token = replacement_token
+        lease.claimed_until = datetime.now(timezone.utc) + timedelta(minutes=5)
+        db_session.commit()
+        return False
+
+    worker.lease_repository.renew = replace_lease_owner
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    assert result.status == "LEASE_LOST"
+    assert db_session.query(BrokerFillIdentity).filter_by(
+        broker_connection_id=connection.id
+    ).count() == 0
+    run = db_session.query(LiveReconciliationRun).filter_by(id=result.run_id).one()
+    assert run.status == "LEASE_LOST"
+    lease = db_session.query(LiveReconciliationLease).filter_by(
+        broker_connection_id=connection.id
+    ).one()
+    assert lease.lease_token == replacement_token
+
+
+@pytest.mark.asyncio
+async def test_worker_cancellation_leaves_recoverable_run_and_lease(db_session, make_user):
+    user, _portfolio, connection = _setup(db_session, make_user)
+    client = _FakeReadClient()
+
+    async def cancel_order_read(_access_token):
+        raise asyncio.CancelledError()
+
+    client.get_order_book = cancel_order_read
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    run = db_session.query(LiveReconciliationRun).filter_by(
+        broker_connection_id=connection.id
+    ).one()
+    lease = db_session.query(LiveReconciliationLease).filter_by(
+        broker_connection_id=connection.id
+    ).one()
+    assert run.status == "RUNNING"
+    assert lease.lease_token is not None
+    assert lease.claimed_until is not None
+
+    # Simulate process loss and lease expiry; the next run must recover first.
+    stale_time = datetime.now(timezone.utc) - timedelta(hours=1)
+    run.started_at = stale_time
+    lease.claimed_until = stale_time
+    db_session.commit()
+    recovery_client = _FakeReadClient()
+    recovery_worker = LiveOrderReconciliationWorker(
+        db_session, client=recovery_client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+    recovered = await recovery_worker.run_for_connection(
+        user_id=user.id, broker_connection_id=connection.id
+    )
+
+    db_session.refresh(run)
+    assert run.status == "FAILED"
+    assert run.error_code == "WORKER_INTERRUPTED"
+    assert recovered.status == "COMPLETED"
+    assert recovered.run_id != run.id
+

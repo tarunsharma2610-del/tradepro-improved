@@ -1,50 +1,16 @@
-## Current Phase 2 audit checkpoint — 21 October 2026
+## Current verified checkpoint — 21 October 2026
 
-- **Current main HEAD before this documentation synchronization:** `adb69aeb05b70ba4fa9095fc73d9dea033d31eec`.
-- **Latest code/test commit:** [`e56bf4c66f74b875a3ba8fe388138a9d688dd1e2`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2). Exact-head backend CI [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed **471 tests, 1 warning**, the broker-write boundary guard, and SQLite/PostgreSQL 16 Alembic upgrade → downgrade → re-upgrade checks.
-- The latest pre-sync documentation HEAD `adb69aeb...` also passed backend CI [run 39565251793](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39565251793): **471 passed, 1 warning**; source guard and both database migration cycles passed. The commit-specific run logs were inspected.
-- **Verified Phase 2 engineering scope:** dependency/port matrix reviewed; compatible parsing, staging and child-order reconciliation behavior tested; `BrokerFillIdentity` remains separate from manual `BrokerTradeRecord`; accounting idempotency/rollback coverage includes simulated commit failure; reconciliation crash recovery and transaction-level lease fencing are covered by tests.
-- **Phase 2 closure rule:** keep Phase 2 limited to dependency-complete, safe ports on main. Live-account safety endpoints, central broker-write service/preflight, live charge adjustments, actual broker submission and the accounting coordinator remain classified as Phase 3/Phase 4 work in the matrix—not missing Phase 2 work. Do not wholesale-merge the divergent safety branch.
-- **Final action:** synchronize this checkpoint across roadmap, handover, progress, audit, requirements, instructions, matrix and README; then verify the resulting exact `main` HEAD CI before any Phase 3 work. Until that final run passes, Phase 2 is **not yet formally closed**.
-- Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. The original `Tradepro` repository remains untouched.
+- Latest CI-verified `main` HEAD before this documentation reconciliation: `0bd502f83118799d5564e8fd5724d01e8dc975af`; backend CI passed [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
+- Code/test commit `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154): 471 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration cycles.
+- Current task: reconcile historical status statements across the roadmap, handover, progress, requirements, audit and design documents. **This new documentation commit still requires its own exact-head CI run. Phase 2 is not formally closed until that run passes and the consistency scan is clean.**
+- Keep Phase 3 blocked. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled; the original `Tradepro` repository remains untouched.
 
 ---
 
-<!-- Authoritative checkpoint audit: 2026-10-21; updated after Phase 2 lease-fencing verification. -->
-## Authoritative checkpoint audit — 21 October 2026
+## Superseded checkpoint history — 21 October 2026
 
-- **Repository/branch:** `tarunsharma2610-del/tradepro-improved`, `main`. The original `tarunsharma2610-del/Tradepro` repository is a protected baseline and must remain untouched.
-- **Latest code/test commit:** `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` adds failed-commit rollback coverage for live-fill accounting. Exact-head backend CI [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migrations.
-- **Exact-commit backend CI:** [run 39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808) passed **470 tests, 1 warning**, the broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles. It includes lease-fence ownership/expiry tests, a high-volume batch-stop regression, and a PostgreSQL contention test proving an expired lease cannot be reclaimed while a fenced persistence transaction still holds the row lock.
-- **Documentation checkpoint CI:** [run 39561881539](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561881539) passed on documentation commit `292cad087bf0febad7793dcec164ebb5435726e8`; this follow-up synchronizes the closure wording and design note.
-- **Frontend:** no frontend files changed in this Phase 2 patch. The latest verified frontend CI remains [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474), which passed TypeScript and Next.js build on code/test commit `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`.
-- **Previously completed Phase 2 protections:** atomic run/lease finalization; stale-owner protection; cancellation and interrupted-run recovery; inconsistent token/expiry rejection; five-record renewal checks; and incomplete-summary warnings for `WORKER_INTERRUPTED` and `LEASE_LOST`.
-- **Newly completed lease-expiry audit:** every worker-owned reconciliation persistence operation (fill identity, review issue, order transition and fill-to-intent link) now obtains a current, unexpired lease fence immediately before the write. The lease row is locked through the repository's persistence transaction, so a competing claimant must wait until that transaction commits or rolls back. Lease loss fails closed before the next mutation.
-- **Phase 2 disposition:** all currently defined Phase 2 engineering checks are verified, including the dependency matrix, workflow-boundary decision, focused/full backend tests, PostgreSQL concurrency, source guard and SQLite/PostgreSQL 16 reversible migrations. Synchronize the final audit/handover/progress notes and verify CI on the resulting documentation HEAD before Phase 3. Features classified Phase 3/4 remain deferred, not Phase 2 backlog.
-- **Scope remains unchanged:** external-repository borrowing/adaptation is paused; no outside application code was imported. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
-- Intermediate CI runs on partially applied commits were red while the new regression test preceded its matching fix; the final code/test commit above is the authoritative green result. Do not count those intermediate failures as the current code status.
 
-## Current scope and backlog clarification — 21 October 2026
-
-- The **reconciliation crash-recovery/lease-fencing slice** is complete. Code/test commit `fe07b77b193da1232787384efb38cb589e0d71b6` passed backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
-- The documentation synchronization commit is CI-checked separately; use the live [GitHub Actions page](https://github.com/tarunsharma2610-del/tradepro-improved/actions) to verify the exact current `main` HEAD. Do not infer exact-HEAD CI from an earlier commit.
-- **This does not mean the entire Phase 2/Phase 2 roadmap is backlog-free.** Phase 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
-- Phase 3 live-fill accounting integration and Phase 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
-- External-repository borrowing remains paused; the original `Tradepro` repository remains untouched. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
-
-<!-- Latest verified status, updated 2026-10-21 -->
-> **Latest verified checkpoint — 21 October 2026**
->
-> - Repository: `tarunsharma2610-del/tradepro-improved`; branch: `main`. Original `Tradepro` repository remains protected and untouched.
-> - Latest code/test commit: `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`. Backend [CI run 39554328380](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328380) passed **466 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration checks. Frontend [CI run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474) passed TypeScript and Next.js build.
-> - Documentation audit commit `6407c5a05865c1be0ef673d3bb5e71c0231ef8da` passed [CI run 39556816828](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39556816828).
-> - Phase 2 checkpoint complete through atomic run/lease finalization, stale-run and cancellation recovery, lease-loss fencing, five-record renewal, and incomplete-summary warnings.
-> - **Completed engineering task:** audited single slow-write and high-volume lease-expiry races; transaction-level fencing and regression coverage passed backend CI run 39561621808 (470 passed, 1 warning).
-> - Deferred safety-branch work remains tracked in `SAFETY_BRANCH_PORT_MATRIX.md`; no wholesale branch merge. Keep live broker submission and automatic accounting promotion disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`.
->
-> The CI status above refers to the stated code and documentation commits. This documentation refresh will create a new commit and trigger its own CI run; do not call that new run passed until GitHub reports success.
-
-## Current Phase 2 audit checkpoint — 21 October 2026
+## Superseded checkpoint history — 21 October 2026
 
 - **Current main HEAD:** `0bd502f83118799d5564e8fd5724d01e8dc975af`. Its exact-head backend CI [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985) passed. Code/test checkpoint `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154): 471 tests, 1 warning, broker-write guard and SQLite/PostgreSQL 16 reversible migration cycles.
 - The dependency/port matrix and `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary are reviewed. No bridge or dual-write is approved in Phase 2.

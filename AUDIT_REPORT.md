@@ -1,3 +1,12 @@
+## Current verified checkpoint — 21 October 2026
+
+- Latest CI-verified `main` HEAD before this documentation reconciliation: `0bd502f83118799d5564e8fd5724d01e8dc975af`; backend CI passed [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
+- Code/test commit `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154): 471 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration cycles.
+- Current task: reconcile historical status statements across the roadmap, handover, progress, requirements, audit and design documents. **This new documentation commit still requires its own exact-head CI run. Phase 2 is not formally closed until that run passes and the consistency scan is clean.**
+- Keep Phase 3 blocked. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled; the original `Tradepro` repository remains untouched.
+
+---
+
 <!-- Authoritative checkpoint audit: 2026-10-21; updated after Phase 2 lease-fencing verification. -->
 ## Superseding audit note — latest test commit, 21 October 2026
 
@@ -15,7 +24,7 @@
 - **Frontend:** no frontend files changed in this Phase 2 patch. The latest verified frontend CI remains [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474), which passed TypeScript and Next.js build on code/test commit `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`.
 - **Previously completed Phase 2 protections:** atomic run/lease finalization; stale-owner protection; cancellation and interrupted-run recovery; inconsistent token/expiry rejection; five-record renewal checks; and incomplete-summary warnings for `WORKER_INTERRUPTED` and `LEASE_LOST`.
 - **Newly completed lease-expiry audit:** every worker-owned reconciliation persistence operation (fill identity, review issue, order transition and fill-to-intent link) now obtains a current, unexpired lease fence immediately before the write. The lease row is locked through the repository's persistence transaction, so a competing claimant must wait until that transaction commits or rolls back. Lease loss fails closed before the next mutation.
-- **Scope clarification (superseded status wording):** the defined Phase 2 dependency/port matrix, workflow-boundary decision, rollback coverage and exact-head CI checks are verified. The latest documentation HEAD `0bd502f83118799d5564e8fd5724d01e8dc975af` passed run 39566324985. This audit is being reconciled for stale historical statements; Phase 3 stays blocked until the final consistency review is committed and CI passes.
+- **Historical checkpoint:** the defined Phase 2 dependency/port matrix, workflow-boundary decision, rollback coverage and CI checks were verified on their cited commits. The current documentation reconciliation and its exact-head CI status are tracked in the top checkpoint.
 - **Scope remains unchanged:** external-repository borrowing/adaptation is paused; no outside application code was imported. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 - Intermediate CI runs on partially applied commits were red while the new regression test preceded its matching fix; the final code/test commit above is the authoritative green result. Do not count those intermediate failures as the current code status.
 

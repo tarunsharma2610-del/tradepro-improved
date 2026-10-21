@@ -1,10 +1,19 @@
+## Current verified checkpoint — 21 October 2026
+
+- Latest CI-verified `main` HEAD before this documentation reconciliation: `0bd502f83118799d5564e8fd5724d01e8dc975af`; backend CI passed [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
+- Code/test commit `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154): 471 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration cycles.
+- Current task: reconcile historical status statements across the roadmap, handover, progress, requirements, audit and design documents. **This new documentation commit still requires its own exact-head CI run. Phase 2 is not formally closed until that run passes and the consistency scan is clean.**
+- Keep Phase 3 blocked. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled; the original `Tradepro` repository remains untouched.
+
+---
+
 <!-- Authoritative checkpoint audit: 2026-10-21; supersedes older status notes below. -->
 ## Superseding verification note — 21 October 2026
 
 - Latest code/test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2), adding failed-commit rollback coverage for live-fill accounting.
 - Exact-head CI for this commit is verified: [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests, 1 warning, the broker-write boundary guard and SQLite/PostgreSQL 16 reversible migrations. The subsequent documentation HEAD `adb69aeb05b70ba4fa9095fc73d9dea033d31eec` passed [run 39565251793](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39565251793).
 - Phase 2 workflow boundary: resolved by keeping BrokerFillIdentity and manual BrokerTradeRecord independent. No bridge or dual-write is approved. SAFETY_BRANCH_PORT_MATRIX.md is the dependency map; live account-safety endpoints, charge adjustments, preflight, central broker-write service and actual live submission are not silently treated as Phase 2-complete.
-- Phase 2's defined engineering checks, source guard, PostgreSQL concurrency coverage, SQLite/PostgreSQL 16 migration checks and code/test exact-head CI are verified. Final documentation synchronization and its exact-head CI are the remaining closure step. Items in this audit explicitly assigned to Phase 3/Phase 4 remain deferred by design.
+- Historical checkpoint note: Phase 2 engineering checks and the cited code/test CI were verified on their respective commits. See the top checkpoint for current-head documentation CI and Phase 2 closure status.
 
 ## Current verified checkpoint — 21 October 2026
 

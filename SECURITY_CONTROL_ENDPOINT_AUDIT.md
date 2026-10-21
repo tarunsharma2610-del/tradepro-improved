@@ -1,9 +1,18 @@
+## Current verified checkpoint — 21 October 2026
+
+- Latest CI-verified `main` HEAD before this documentation reconciliation: `0bd502f83118799d5564e8fd5724d01e8dc975af`; backend CI passed [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
+- Code/test commit `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154): 471 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration cycles.
+- Current task: reconcile historical status statements across the roadmap, handover, progress, requirements, audit and design documents. **This new documentation commit still requires its own exact-head CI run. Phase 2 is not formally closed until that run passes and the consistency scan is clean.**
+- Keep Phase 3 blocked. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled; the original `Tradepro` repository remains untouched.
+
+---
+
 <!-- Authoritative checkpoint audit: 2026-10-21; supersedes older status notes below. -->
 ## Superseding phase-status note — 21 October 2026
 
 - This security audit is a historical requirements inventory, not evidence that all safety-control endpoints or live broker-write protections are implemented. Features for persistent account safety, kill-switch trip/reset, trusted grants, central broker-write authorization, and live preflight remain deferred to the appropriate later phase and are not Phase 2 closure criteria unless explicitly listed in the master roadmap.
 - Latest code/test checkpoint: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2). Exact-head backend CI [39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests, 1 warning, the broker-write guard and SQLite/PostgreSQL 16 migration cycles. Latest docs HEAD passed [39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
-- Phase 2 code/test and documentation-head CI are verified; this security document remains a historical requirements inventory, not evidence that Phase 3/4 live-safety endpoints are implemented. Live submission and automatic accounting promotion remain disabled.
+- Historical checkpoint note: cited code/test and documentation CI passed on their respective SHAs. This security document remains a historical requirements inventory, not evidence that Phase 3/4 live-safety endpoints are implemented. Live submission and automatic accounting promotion remain disabled.
 
 ## Current verified checkpoint — 21 October 2026
 

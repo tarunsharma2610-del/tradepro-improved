@@ -1,9 +1,18 @@
+## Current verified checkpoint — 21 October 2026
+
+- Latest CI-verified `main` HEAD before this documentation reconciliation: `0bd502f83118799d5564e8fd5724d01e8dc975af`; backend CI passed [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
+- Code/test commit `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154): 471 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration cycles.
+- Current task: reconcile historical status statements across the roadmap, handover, progress, requirements, audit and design documents. **This new documentation commit still requires its own exact-head CI run. Phase 2 is not formally closed until that run passes and the consistency scan is clean.**
+- Keep Phase 3 blocked. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled; the original `Tradepro` repository remains untouched.
+
+---
+
 ## Current Phase 2 boundary — 21 October 2026
 
 - The reconciliation crash-recovery/lease-fencing slice is complete on the verified earlier checkpoint (backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808), 470 passed, 1 warning, source guard and SQLite/PostgreSQL 16 migration cycles).
 - Latest code/test commit [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2) adds live-fill commit-failure rollback coverage; exact-head backend CI [39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests, 1 warning, source guard and SQLite/PostgreSQL 16 migration cycles.
 - The worker remains read-only and metadata/reconciliation-evidence scoped. It must not create manual BrokerTradeRecord rows, Execution, LivePosition, or change paper cash/positions. BrokerFillIdentity and BrokerTradeRecord remain separate workflows for Phase 2; any bridge belongs to Phase 3 and requires its own identity, scoping, replay, conflict, rollback, and recovery design.
-- No real broker read has been operationally verified. Live submission, automatic accounting promotion, and automatic scheduling remain disabled. The current documentation HEAD `0bd502f83118799d5564e8fd5724d01e8dc975af` passed backend CI [39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985); final Phase 2 closure still requires the consistency review to be committed and its exact-head CI to pass.
+- No real broker read has been operationally verified. Live submission, automatic accounting promotion, and automatic scheduling remain disabled. Historical documentation HEAD `0bd502f83118799d5564e8fd5724d01e8dc975af` passed backend CI [39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985); see the top checkpoint for current status.
 
 # Read-only broker reconciliation worker — design and implementation gate
 

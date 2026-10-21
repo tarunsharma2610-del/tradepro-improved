@@ -91,6 +91,35 @@ class LiveReconciliationLeaseRepository:
         self.db.commit()
         return token
 
+    def fence_for_write(
+        self,
+        *,
+        user_id: uuid.UUID,
+        broker_connection_id: uuid.UUID,
+        lease_token: uuid.UUID,
+        now: datetime | None = None,
+    ) -> bool:
+        """Lock the current unexpired lease row for one persistence transaction.
+
+        Call immediately before a worker-owned database mutation. The caller must
+        keep using this Session and must let the mutation commit/rollback before
+        returning: the row lock then prevents a competing claimant from taking
+        over the lease midway through that write.
+        """
+        now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            raise ValueError("now must be timezone-aware")
+        lease = self.db.query(LiveReconciliationLease).filter(
+            LiveReconciliationLease.user_id == user_id,
+            LiveReconciliationLease.broker_connection_id == broker_connection_id,
+            LiveReconciliationLease.lease_token == lease_token,
+            LiveReconciliationLease.claimed_until > now,
+        ).with_for_update().first()
+        if lease is None:
+            # End the read transaction and fail closed before any caller write.
+            self.db.rollback()
+            return False
+        return True
     def renew(
         self,
         *,

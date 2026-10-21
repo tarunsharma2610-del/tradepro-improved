@@ -231,6 +231,29 @@ def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position
     assert paper_position.quantity == 7
 
 
+def test_same_timestamp_different_prices_are_rejected_as_ambiguous(accounting_context):
+    db, user, _portfolio, instrument, connection, _order, child, record, _paper_position = accounting_context
+    child.filled_quantity = 3
+    ambiguous = BrokerTradeRecord(
+        broker_connection_id=connection.id,
+        broker_order_ref_id=child.id,
+        broker_trade_id="trade-live-ambiguous-time-001",
+        quantity=1,
+        price=Decimal("101.25"),
+        side="BUY",
+        instrument_token=instrument.instrument_key,
+        exchange_timestamp=record.exchange_timestamp,
+    )
+    db.add(ambiguous)
+    db.commit()
+
+    with pytest.raises(ValueError, match="ambiguous exchange timestamps"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+
+
 def test_later_fill_waits_for_earlier_staged_trade(accounting_context):
     db, user, _portfolio, instrument, connection, _order, child, record, _paper_position = accounting_context
     child.filled_quantity = 3

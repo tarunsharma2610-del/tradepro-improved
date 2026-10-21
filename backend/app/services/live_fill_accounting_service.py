@@ -362,9 +362,12 @@ class LiveFillAccountingService:
                     "An earlier broker trade is still unaccounted; promote trades in exchange-time order."
                 )
 
-            if candidate_time == current_time and candidate.side != current_record.side:
+            if candidate_time == current_time and (
+                candidate.side != current_record.side
+                or Decimal(str(candidate.price)) != Decimal(str(current_record.price))
+            ):
                 raise ValueError(
-                    "Trades for the same instrument have ambiguous opposite-side exchange timestamps; manual review required."
+                    "Trades for the same instrument have ambiguous exchange timestamps; manual review required."
                 )
 
     @staticmethod

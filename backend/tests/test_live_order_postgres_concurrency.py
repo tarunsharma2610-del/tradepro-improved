@@ -286,7 +286,7 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
                     broker_order_ref_id=child_id,
                     broker_trade_id=f"trade-{trade_ids[1]}",
                     quantity=1,
-                    price=Decimal("101.25"),
+                    price=Decimal("100.25"),
                     side="BUY",
                     instrument_token=instrument.instrument_key,
                     exchange_timestamp=now.isoformat(),

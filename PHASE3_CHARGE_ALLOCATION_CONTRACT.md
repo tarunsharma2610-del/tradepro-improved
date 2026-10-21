@@ -104,3 +104,8 @@ Official Upstox documentation review identified these relevant endpoints:
 References: Upstox [Get Trade History](https://upstox.com/developer/api-documentation/get-historical-trades/), [Get Trade Charges](https://upstox.com/developer/api-documentation/get-trade-charges/), and [Brokerage Details](https://upstox.com/developer/api-documentation/get-brokerage/).
 
 Conclusion: available documented APIs provide trade-level execution identity and a date/segment-level aggregate fee total, but the reviewed public response schemas do not establish a source-provided per-trade actual-charge breakdown. Do not distribute the aggregate by guessed proportions. The safe next path is to inspect `GET /v2/trade/profit-loss/data` and metadata for any trade-wise fee fields, and/or ingest the actual broker contract-note/bill report as source evidence. Until an exact per-trade charge mapping is verified, automatic live accounting promotion must remain blocked for those trades.
+
+
+### Trade-wise P&L endpoint checked — 2026-10-21
+
+The official `GET /v2/trade/profit-loss/data` documentation describes trade-wise realized P&L rows with quantity, buy/sell dates, averages and amounts, but its documented response schema does not include per-trade charge components. Its companion metadata endpoint provides report counts/page limits only. This does not close the actual-charge evidence gap. Continue to treat the aggregate charges endpoint as reconciliation context only, not as per-fill allocation evidence. Reference: https://upstox.com/developer/api-documentation/get-profit-loss-report/ and https://upstox.com/developer/api-documentation/get-report-meta-data/.

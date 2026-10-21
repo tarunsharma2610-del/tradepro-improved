@@ -8,7 +8,7 @@
 - **Frontend:** no frontend files changed in this Phase 2 patch. The latest verified frontend CI remains [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474), which passed TypeScript and Next.js build on code/test commit `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`.
 - **Previously completed Phase 2 protections:** atomic run/lease finalization; stale-owner protection; cancellation and interrupted-run recovery; inconsistent token/expiry rejection; five-record renewal checks; and incomplete-summary warnings for `WORKER_INTERRUPTED` and `LEASE_LOST`.
 - **Newly completed lease-expiry audit:** every worker-owned reconciliation persistence operation (fill identity, review issue, order transition and fill-to-intent link) now obtains a current, unexpired lease fence immediately before the write. The lease row is locked through the repository's persistence transaction, so a competing claimant must wait until that transaction commits or rolls back. Lease loss fails closed before the next mutation.
-- **Phase 2 disposition:** the reconciliation crash-recovery/lease-fencing sub-slice is complete. The broader Gate 2 safety-branch port remains open; do not describe the whole roadmap as backlog-free or advance to Gate 3 until its dependency/workflow-boundary gates are addressed.
+- **Phase 2 disposition:** the reconciliation crash-recovery/lease-fencing sub-slice is complete. The broader Phase 2 safety-branch port remains open; do not describe the whole roadmap as backlog-free or advance to Phase 3 until its dependency/workflow-boundary gates are addressed.
 - **Scope remains unchanged:** external-repository borrowing/adaptation is paused; no outside application code was imported. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 - Intermediate CI runs on partially applied commits were red while the new regression test preceded its matching fix; the final code/test commit above is the authoritative green result. Do not count those intermediate failures as the current code status.
 
@@ -16,8 +16,8 @@
 
 - The **reconciliation crash-recovery/lease-fencing slice** is complete. Code/test commit `fe07b77b193da1232787384efb38cb589e0d71b6` passed backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
 - The documentation synchronization commit is CI-checked separately; use the live [GitHub Actions page](https://github.com/tarunsharma2610-del/tradepro-improved/actions) to verify the exact current `main` HEAD. Do not infer exact-HEAD CI from an earlier commit.
-- **This does not mean the entire Phase 2/Gate 2 roadmap is backlog-free.** Gate 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
-- Gate 3 live-fill accounting integration and Gate 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
+- **This does not mean the entire Phase 2/Phase 2 roadmap is backlog-free.** Phase 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
+- Phase 3 live-fill accounting integration and Phase 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
 - External-repository borrowing remains paused; the original `Tradepro` repository remains untouched. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 
 <!-- Latest verified status, updated 2026-10-21 -->
@@ -31,6 +31,14 @@
 > - Deferred safety-branch work remains tracked in `SAFETY_BRANCH_PORT_MATRIX.md`; no wholesale branch merge. Keep live broker submission and automatic accounting promotion disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`.
 >
 > The CI status above refers to the stated code and documentation commits. This documentation refresh will create a new commit and trigger its own CI run; do not call that new run passed until GitHub reports success.
+
+## Authoritative Phase 2 audit — 21 October 2026
+
+- Current code/test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2), adding failed-commit rollback coverage for live-fill accounting. Exact-head CI has **not yet been verified**; an empty commit-status response is not a pass.
+- Reconciliation crash recovery and transaction-level lease fencing are implemented and previously passed backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles. This historical run does not verify the newest test commit.
+- SAFETY_BRANCH_PORT_MATRIX.md is the authoritative dependency map. Phase 2 ports only compatible, dependency-complete safety behavior. Features requiring new live-safety endpoints, central broker-write authorization, live charge adjustments, or broker submission remain classified as Phase 3/Phase 4 work and must not be copied wholesale from the divergent branch.
+- The accounting workflow decision is explicit: keep BrokerFillIdentity and manual BrokerTradeRecord workflows separate. No transactional bridge is approved in Phase 2.
+- **Phase 2 is still open pending exact-head CI and the remaining final audit.** Do not start Phase 3 until latest CI, migration checks, source guard, documentation consistency, and every Phase 2 requirement are verified. Live broker submission, automatic accounting promotion, and automatic scheduling remain disabled.
 
 # Tradepro Improved — Master Roadmap
 
@@ -54,25 +62,25 @@ Working branch: `main`
 
 ## Roadmap and gates
 
-### Gate 1 — Baseline reconciliation and documentation
+### Phase 1 — Baseline reconciliation and documentation
 - [x] Verify the exact 18 October CI checkpoint and current main CI checkpoint.
 - [x] Compare test-tree and application-path differences across the two branches.
 - [x] Audit the current main migration graph.
 - [x] Record findings in `PROGRESS.md` and `AUDIT_REPORT.md`; restore current handover/roadmap documents on main.
 - [x] Verify CI after documentation commits against the exact new HEAD; latest code/test CI run 39561621808 passed and documentation commits have their own Actions runs.
 
-### Gate 2 — Port missing safety behavior in dependency-complete slices
-- [ ] Build a file-by-file dependency matrix for missing tests and required models, services, API routes, migrations, and configuration.
+### Phase 2 — Port missing safety behavior in dependency-complete slices
+- [x] Build and maintain the file-by-file dependency/port matrix in SAFETY_BRANCH_PORT_MATRIX.md, including required models, services, API routes, migrations, configuration, and explicit defer/block decisions.
 - [x] Port pure Upstox response parsing and regression tests as an isolated, read-only validation slice; exact-head CI passed 406 tests.
 - [x] Port broker trade staging with current-main schema adaptations and fail-closed timestamp validation; exact-head CI passed 431 tests.
 - [x] Add cumulative live-fill accounting guard so already-accounted trades plus a new trade cannot exceed the broker-confirmed child fill quantity.
 - [x] Port child-order status/fill reconciliation with strict current-main schema adaptation; exact-head CI passed 438 tests.
-- [ ] Resolve the workflow boundary between intent-based `BrokerFillIdentity` and manual Order `BrokerTradeRecord`/`BrokerOrder` before connecting either flow to accounting promotion.
-- [ ] Add focused regression coverage for idempotent trade identity, partial-fill aggregation, overfill rejection, batch rollback, malformed snapshots, and paper-accounting isolation as applicable to the chosen slice.
+- [x] Resolve the current workflow boundary: keep intent-based BrokerFillIdentity separate from manual Order BrokerTradeRecord/BrokerOrder; no bridge or dual-write is permitted in Phase 2.
+- [x] Add focused regression coverage for idempotent trade identity, partial-fill aggregation, overfill rejection, batch rollback, malformed/inconsistent broker data, and paper-accounting isolation; latest addition covers failed-commit rollback (commit e56bf4c66f74b875a3ba8fe388138a9d688dd1e2; CI pending).
 - [ ] Run focused tests, full backend pytest, PostgreSQL concurrency/integration tests, and reversible migrations on SQLite/PostgreSQL 16.
 - [ ] Commit the slice and update progress/audit with exact-head CI evidence.
 
-### Gate 3 — Live-fill accounting correctness
+### Phase 3 — Live-fill accounting correctness
 - [ ] Review `LiveFillAccountingService`, charge provenance, position math, and broker trade/order linkage.
 - [ ] Implement a reviewed coordinator path for broker-confirmed trades with connection-scoped identity and transaction-safe idempotency.
 - [ ] Prove replay safety, concurrency behavior, rollback behavior, partial fills, out-of-order updates, and crash/restart recovery.
@@ -80,7 +88,7 @@ Working branch: `main`
 - [ ] Verify parent-order partial-fill and terminal-state behavior with integration tests.
 - [ ] Keep the service unregistered until all gates pass and the path has been reviewed.
 
-### Gate 4 — Live-trading release gates (blocked)
+### Phase 4 — Live-trading release gates (blocked)
 - [ ] Final race-safe safety interlock across authorization, intent claim, kill switch and broker request lifecycle.
 - [ ] Broker status/fill/cancel reconciliation and ambiguous-outcome recovery.
 - [ ] Account-level risk controls, circuit breaker, credential/token lifecycle and operational alerts.

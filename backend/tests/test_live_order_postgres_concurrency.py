@@ -338,6 +338,131 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
 
 
 
+def test_concurrent_child_orders_cannot_overfill_one_local_order():
+    """Parent-order locking serializes separate children against one quantity cap."""
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    from app.core.database import Base
+    from app.models.broker_connection import BrokerConnection
+    from app.models.broker_order import BrokerOrder
+    from app.models.broker_trade_record import BrokerTradeRecord
+    from app.models.execution import Execution
+    from app.models.instrument import Instrument
+    from app.models.live_position import LivePosition
+    from app.models.order import Order
+    from app.models.portfolio import Portfolio
+    from app.models.user import User
+    from app.services.live_fill_accounting_service import (
+        LiveFillAccountingService,
+        LiveFillChargeBreakdown,
+    )
+
+    engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        owner_id, portfolio_id, connection_id, instrument_id, order_id = (
+            uuid.uuid4() for _ in range(5)
+        )
+        child_ids = [uuid.uuid4(), uuid.uuid4()]
+        trade_ids = [uuid.uuid4(), uuid.uuid4()]
+        now = datetime.now(timezone.utc)
+
+        with SessionLocal() as session:
+            session.add(User(
+                id=owner_id,
+                email=f"cross-child-overfill-{owner_id}@example.invalid",
+                password_hash="test-only",
+                full_name="Cross Child Overfill Test",
+            ))
+            session.commit()
+            portfolio = Portfolio(
+                id=portfolio_id, user_id=owner_id, name="Cross child overfill",
+                virtual_capital=Decimal("100000"), cash_balance=Decimal("100000"), is_active=True,
+            )
+            connection = BrokerConnection(
+                id=connection_id, user_id=owner_id, broker="upstox",
+                api_key_encrypted="test-only", api_secret_encrypted="test-only",
+                redirect_uri="https://example.invalid/callback", is_connected=True,
+            )
+            instrument = Instrument(
+                id=instrument_id, instrument_key="NSE_EQ|CROSS-CHILD-OVERFILL",
+                exchange="NSE", segment="NSE_EQ", instrument_type="EQUITY",
+                trading_symbol="CROSS-CHILD-OVERFILL", name="Cross child overfill test",
+            )
+            session.add_all([portfolio, connection, instrument])
+            session.commit()
+            order = Order(
+                id=order_id, portfolio_id=portfolio_id, instrument_id=instrument_id,
+                side="BUY", order_type="MARKET", segment="EQUITY_DELIVERY",
+                quantity=5, status="PENDING", trading_mode="LIVE",
+                execution_reason="MANUAL", placed_at=now,
+            )
+            session.add(order)
+            session.commit()
+            children = [
+                BrokerOrder(
+                    id=child_ids[index], broker_connection_id=connection_id, order_id=order_id,
+                    broker_name="upstox", broker_order_id=f"cross-child-{index}-{uuid.uuid4()}",
+                    requested_quantity=3, filled_quantity=3, status="FILLED",
+                )
+                for index in range(2)
+            ]
+            session.add_all(children)
+            session.commit()
+            records = [
+                BrokerTradeRecord(
+                    id=trade_ids[index], broker_connection_id=connection_id,
+                    broker_order_ref_id=child_ids[index], broker_trade_id=f"cross-trade-{trade_ids[index]}",
+                    quantity=3, price=Decimal("100.00") + index, side="BUY",
+                    instrument_token=instrument.instrument_key, exchange_timestamp=now.isoformat(),
+                )
+                for index in range(2)
+            ]
+            session.add_all(records)
+            session.commit()
+
+        barrier = threading.Barrier(2)
+
+        def promote(trade_id):
+            charges = LiveFillChargeBreakdown(
+                brokerage=Decimal("20.00"), stt=Decimal("0.20"),
+                exchange_charges=Decimal("0.01"), sebi_charges=Decimal("0.01"),
+                stamp_duty=Decimal("0.03"), gst=Decimal("3.61"),
+                total_charges=Decimal("23.86"), source="BROKER_REPORTED",
+                reference=f"contract-note-{trade_id}",
+            )
+            with SessionLocal() as session:
+                barrier.wait(timeout=10)
+                try:
+                    result = LiveFillAccountingService(session).promote_trade(
+                        owner_id, trade_id, charges
+                    )
+                    return "inserted" if result.inserted else "replayed"
+                except ValueError as exc:
+                    if "local order quantity" not in str(exc):
+                        raise
+                    return "rejected"
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(promote, trade_ids))
+
+        assert sorted(results) == ["inserted", "rejected"]
+        with SessionLocal() as session:
+            executions = session.query(Execution).filter_by(order_id=order_id).all()
+            position = session.query(LivePosition).filter_by(
+                broker_connection_id=connection_id, instrument_id=instrument_id,
+            ).one()
+            assert len(executions) == 1
+            assert sum(item.quantity for item in executions) == 3
+            assert position.quantity == 3
+    finally:
+        Base.metadata.drop_all(engine)
+        engine.dispose()
+
+
+
 def test_orphan_recovery_and_expired_lease_claim_are_serialized():
     """Recovery and a new lease claimant must not both treat the run as theirs."""
     from datetime import datetime, timedelta, timezone

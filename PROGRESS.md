@@ -867,3 +867,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Adapter contract has order/trade retrieval but no contract-note ingestion or actual-charge retrieval capability. `BrokerageChargeEstimate` explicitly represents estimates; `BrokerTrade` has no charge fields. `Execution` stores per-fill amounts/reference but no immutable source-note/allocation ledger.
 - Detailed finding and safe design gate recorded in `PHASE3_CHARGE_ALLOCATION_CONTRACT.md` (commit `49f95bdd5f20ee99b21a573087c6e97a9bc03526`).
 - No speculative API method, schema migration, or fee formula added. Next: settle supported evidence import path and retention/security policy, then implement source ledger + allocation transaction + regression tests. Existing `.github/workflows/backend-tests.yml` is the right CI; exact latest HEAD status must be verified before claiming green.
+
+
+## Phase 3 — source-ledger implementation gate (2026-10-21)
+
+- Confirmed against current adapter and model files: the adapter exposes trade retrieval/estimate capabilities but no actual-charge/contract-note ingestion operation; `Execution` stores per-fill fee components but is not linked to immutable source evidence.
+- Contract-note design gate updated with the minimum read-only source-ledger/allocation-record invariants and 12 required regressions (commit `1db60bd6c94d23c9ce6bededcffc46458b333d4f`).
+- No schema migration or allocation formula implemented because a supported source format and per-charge allocation basis are still unverified. This avoids creating misleading accounting records.
+- Existing backend CI remains the appropriate workflow for the new tests. Latest docs commit must have its exact-head CI result checked; no green status is inferred from prior code runs. Original `Tradepro` repository remains untouched. Phase 3 open; live submission, automatic accounting promotion and scheduling disabled.

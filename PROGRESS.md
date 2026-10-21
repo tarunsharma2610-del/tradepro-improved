@@ -8,7 +8,7 @@
 - **Frontend:** no frontend files changed in this Phase 2 patch. The latest verified frontend CI remains [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474), which passed TypeScript and Next.js build on code/test commit `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`.
 - **Previously completed Phase 2 protections:** atomic run/lease finalization; stale-owner protection; cancellation and interrupted-run recovery; inconsistent token/expiry rejection; five-record renewal checks; and incomplete-summary warnings for `WORKER_INTERRUPTED` and `LEASE_LOST`.
 - **Newly completed lease-expiry audit:** every worker-owned reconciliation persistence operation (fill identity, review issue, order transition and fill-to-intent link) now obtains a current, unexpired lease fence immediately before the write. The lease row is locked through the repository's persistence transaction, so a competing claimant must wait until that transaction commits or rolls back. Lease loss fails closed before the next mutation.
-- **Scope clarification:** the reconciliation crash-recovery/lease-fencing sub-slice is complete and verified. The broader Gate 2 safety-branch port remains open; do not describe the full roadmap as backlog-free or start Gate 3 before its dependency/workflow-boundary gates are addressed.
+- **Scope clarification:** the reconciliation crash-recovery/lease-fencing sub-slice is complete and verified. The broader Phase 2 safety-branch port remains open; do not describe the full roadmap as backlog-free or start Phase 3 before its dependency/workflow-boundary gates are addressed.
 - **Scope remains unchanged:** external-repository borrowing/adaptation is paused; no outside application code was imported. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 - Intermediate CI runs on partially applied commits were red while the new regression test preceded its matching fix; the final code/test commit above is the authoritative green result. Do not count those intermediate failures as the current code status.
 
@@ -16,8 +16,8 @@
 
 - The **reconciliation crash-recovery/lease-fencing slice** is complete. Code/test commit `fe07b77b193da1232787384efb38cb589e0d71b6` passed backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
 - The documentation synchronization commit is CI-checked separately; use the live [GitHub Actions page](https://github.com/tarunsharma2610-del/tradepro-improved/actions) to verify the exact current `main` HEAD. Do not infer exact-HEAD CI from an earlier commit.
-- **This does not mean the entire Phase 2/Gate 2 roadmap is backlog-free.** Gate 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
-- Gate 3 live-fill accounting integration and Gate 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
+- **This does not mean the entire Phase 2/Phase 2 roadmap is backlog-free.** Phase 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
+- Phase 3 live-fill accounting integration and Phase 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
 - External-repository borrowing remains paused; the original `Tradepro` repository remains untouched. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 
 <!-- Latest verified status, updated 2026-10-21 -->
@@ -31,6 +31,14 @@
 > - Deferred safety-branch work remains tracked in `SAFETY_BRANCH_PORT_MATRIX.md`; no wholesale branch merge. Keep live broker submission and automatic accounting promotion disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`.
 >
 > The CI status above refers to the stated code and documentation commits. This documentation refresh will create a new commit and trigger its own CI run; do not call that new run passed until GitHub reports success.
+
+## Latest continuation — accounting commit-failure rollback test (2026-10-21)
+
+- **Commit:** [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2).
+- Added test_failed_commit_rolls_back_execution_and_live_position in backend/tests/test_live_fill_accounting_service.py. The regression injects a commit failure and checks no live execution/position survives rollback and the paper position is unchanged.
+- Exact-head CI is not yet verified; empty status/run responses must not be treated as green. Earlier lease-fencing CI [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808) remains valid for its own commit only.
+- Phase 2 workflow boundary remains explicit: BrokerFillIdentity and manual BrokerTradeRecord stay separate. Safety-branch dependency decisions are recorded in SAFETY_BRANCH_PORT_MATRIX.md; Phase 3/Phase 4-only live-safety features are deferred, not wholesale-merged.
+- **Phase 2 status: open pending exact-head CI, final requirements audit, and documentation consistency verification.** Live broker submission, automatic accounting promotion, and automatic scheduling remain disabled.
 
 # Tradepro Improved — Progress Tracker
 
@@ -315,8 +323,8 @@ Check workflow 39047545900. If the PostgreSQL service starts, resolve any concur
 
 ### Current gate and next action
 - Automated Phase 1 concurrency and reversible migration checks are complete for SQLite and PostgreSQL 16.
-- Gate 1 remains open until schema/constraints are verified on a backup-restored staging copy of the actual deployment database engine, and broader crash/rollback/contention checks are reviewed.
-- Next: verify CI for each documentation commit; then confirm the deployment database engine and safe staging access before claiming staging verification. Do not start broker submission. Gate 2 is reconciliation-only and must remain unable to submit orders.
+- Phase 1 remains open until schema/constraints are verified on a backup-restored staging copy of the actual deployment database engine, and broader crash/rollback/contention checks are reviewed.
+- Next: verify CI for each documentation commit; then confirm the deployment database engine and safe staging access before claiming staging verification. Do not start broker submission. Phase 2 is reconciliation-only and must remain unable to submit orders.
 
 
 ## Documentation CI verification — all current Phase 1 updates green — 2026-10-17
@@ -333,7 +341,7 @@ Each updated Markdown file's exact commit has its own successful GitHub Actions 
 
 The latest verified application/test checkpoint remains `dd36b48a92057ad50618f6f9941f908832c9cea3` with [run 39048147046](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39048147046): 215 passed, 1 warning, plus SQLite/PostgreSQL 16 reversible migration checks. This is separate from the documentation commits' own green CI runs.
 
-Actual deployment database engine and access to a backup-restored staging copy are not established by repository CI. Gate 1 remains open until that environment is verified. No live broker submission, production migration or reconciliation worker was introduced.
+Actual deployment database engine and access to a backup-restored staging copy are not established by repository CI. Phase 1 remains open until that environment is verified. No live broker submission, production migration or reconciliation worker was introduced.
 
 
 ## Phase 2 — conservative broker order normalization — 2026-10-17

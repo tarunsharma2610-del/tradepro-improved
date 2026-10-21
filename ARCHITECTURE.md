@@ -341,3 +341,10 @@ Before integrating these paths, decide whether they are separate supported workf
 ## Parent-order lock guard — 2026-10-21
 
 After broker status I/O, child reconciliation locks/revalidates the owned parent Order, verifies LIVE mode and the pre-network instrument/side/quantity snapshot, then locks the BrokerOrder child before reading staged trade totals. This matches ingestion's parent→child lock order and blocks stale responses after a local order mode/economic change. A regression test switches the order to PAPER during the status read and confirms child state remains unchanged. Exact-head [run 39482592808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39482592808) passed **439 tests, 1 warning**, with SQLite/PostgreSQL 16 reversible migrations. No parent accounting or live submission is enabled.
+
+
+## Explicit fill-workflow boundary decision — 2026-10-21
+
+Decision: keep the intent-based reconciliation evidence path and manual-order trade staging/accounting path separate for this Phase 2 slice. The worker persists `BrokerFillIdentity` under `(broker_connection_id, broker_trade_id)` and links it to a `LiveOrderIntent` only after validated order matching. The manual Order path persists `BrokerTradeRecord` linked to `BrokerOrder`, with separate charge-validated accounting promotion. They currently have independent uniqueness constraints; the database does not provide cross-table deduplication.
+
+Do not dual-write, copy, or promote one model into the other. Before a future bridge, define one canonical broker-fill identity, deterministic conflict handling when the same broker trade appears in both tables, owner/connection/intent/order linkage, transaction boundaries, idempotent replay, rollback, and crash recovery. The worker must remain read-only with respect to broker APIs and must not mutate `BrokerTradeRecord`, `Execution`, `LivePosition`, or portfolio cash. Regression coverage now enforces that boundary. No broker submission or automatic promotion is enabled.

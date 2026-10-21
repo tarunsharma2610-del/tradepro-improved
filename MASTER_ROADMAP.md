@@ -87,3 +87,11 @@ Working branch: `main`
 - [x] Fix the failed guard-test line-number assertion from the previous run.
 - [ ] Resume Phase 2 with the `BrokerFillIdentity` versus `BrokerTradeRecord` workflow boundary review; define identity, scoping, idempotency, conflict, rollback and recovery behavior before integrating.
 - Live broker submission and automatic accounting promotion remain disabled.
+
+### Fill-workflow boundary decision — 2026-10-21
+- [x] Inspect intent reconciliation, `BrokerFillIdentity`, manual staging `BrokerTradeRecord`, and `LiveFillAccountingService`.
+- [x] Decide to keep the two workflows isolated in the current phase; their uniqueness constraints are separate and do not provide cross-table deduplication.
+- [x] Add regression assertions that the read-only reconciliation worker/replay cannot create manual staging rows or accounting rows, nor change portfolio cash.
+- [ ] Verify CI for test commit `3683082509c4b331ab9c7ebceb928e925414de35`.
+- [ ] After green CI, continue with stale reconciliation-run recovery and crash-boundary tests before any coordinator/bridge design.
+- [ ] Any future bridge must define canonical identity, account scoping, conflicts, transaction/idempotency, rollback and crash recovery. Live submission and automatic promotion remain disabled.

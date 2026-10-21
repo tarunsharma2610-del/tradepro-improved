@@ -352,3 +352,9 @@ Review found that the first AST guard exempted the entire Upstox adapter file an
 - Verified successful steps: full backend pytest, broker-write boundary AST guard, SQLite migration upgrade/downgrade/re-upgrade, and PostgreSQL 16 migration upgrade/downgrade/re-upgrade.
 - The prior run on `6273a3178e37a27e47a8634564f634075f375f3e` failed; the latest commit corrected an expected line number in a broker-guard test. The current head is green.
 - Remaining Phase 2 architectural gate: define whether `BrokerFillIdentity` and `BrokerTradeRecord` are separate workflows or need a transactional bridge. No integration or automatic promotion until ownership/account scoping, stable identity, conflict handling, idempotent replay, rollback and crash recovery are covered. Live broker submission remains disabled.
+
+## Fill-workflow boundary audit — 2026-10-21
+
+The intent reconciliation worker and manual-order accounting service currently use distinct persistence models and independent unique keys: `BrokerFillIdentity` is unique by broker connection/trade ID; `BrokerTradeRecord` is also unique by broker connection/trade ID, but the database cannot enforce uniqueness across the two tables. The worker links validated fill evidence to a `LiveOrderIntent`; the manual path links staged trades to `BrokerOrder` and promotes them only through explicit broker-reported charges.
+
+Decision: keep the paths separate in this phase. No copy/dual-write/automatic promotion. Added worker regression assertions that successful reconciliation and replay do not create `BrokerTradeRecord`, `Execution`, or `LivePosition` rows and leave portfolio cash unchanged. Test commit `3683082509c4b331ab9c7ebceb928e925414de35`; exact-head CI pending. A future bridge requires canonical fill identity, owner/connection/intent/order linkage, deterministic cross-table conflict semantics, transaction-safe idempotency, rollback and crash-recovery tests.

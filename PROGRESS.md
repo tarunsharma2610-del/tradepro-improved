@@ -641,3 +641,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - The run confirms the real application-source broker-write guard passed, and SQLite plus PostgreSQL 16 upgrade → downgrade → re-upgrade migration checks passed.
 - The immediately preceding run for `6273a3178e37a27e47a8634564f634075f375f3e` failed; the latest test fix corrected a line-number assertion in the guard test. This was a test assertion failure, not evidence that production broker logic was broken.
 - Next Phase 2 work: review the dependency map and design the explicit boundary between intent-based `BrokerFillIdentity` and manual-order `BrokerTradeRecord` before any integration. Keep live submission and automatic accounting promotion disabled.
+
+## Fill-workflow boundary review and regression guard — 2026-10-21
+
+- Reviewed the current worker, repository, staging service, and accounting service. The intent path uses `BrokerFillIdentity`; the manual Order path uses `BrokerOrder` + `BrokerTradeRecord` and a separate explicit-charge accounting service. Their unique constraints are separate, so cross-table duplicate detection is not automatic.
+- Decision: preserve them as separate workflows for now; do not dual-write or add a bridge until canonical identity, conflict semantics, ownership/account linkage, transaction, replay, rollback and crash-recovery rules are designed.
+- Added assertions to `test_worker_links_trade_and_resolves_full_fill_without_order_write_methods` and `test_worker_repeat_run_deduplicates_fill_and_audit` proving reconciliation and replay do not create `BrokerTradeRecord`, `Execution`, or `LivePosition` rows and do not change portfolio cash.
+- Test commit: `3683082509c4b331ab9c7ebceb928e925414de35`. Exact-head CI is pending; do not treat prior 447-pass CI as verification of this test change.
+- Next: run the exact-head backend/source-guard/SQLite/PostgreSQL CI. If green, proceed to the next dependency-complete safety slice and add stale-run/crash-recovery coverage. Live order submission and automatic accounting promotion remain disabled.

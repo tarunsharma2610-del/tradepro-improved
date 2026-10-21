@@ -781,3 +781,49 @@ async def test_worker_stops_before_trade_persistence_when_write_fence_is_lost(
     assert db_session.query(BrokerTradeRecord).count() == 0
     assert db_session.query(Execution).count() == 0
     assert db_session.query(LivePosition).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_worker_high_volume_batch_stops_at_first_failed_write_fence(
+    db_session, make_user
+):
+    user, portfolio, connection = _setup(db_session, make_user)
+    _intent(db_session, user, portfolio, connection)
+    trades = [
+        _trade(
+            trade_id=f"trade-{index}",
+            order_id=f"broker-order-{index}",
+            exchange_order_id=f"exchange-order-{index}",
+            order_ref_id=f"ref-{index}",
+        )
+        for index in range(8)
+    ]
+    client = _FakeReadClient(orders=[], trades=trades)
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+    fence_calls = 0
+
+    def lose_fence_after_three_writes(**_kwargs):
+        nonlocal fence_calls
+        fence_calls += 1
+        return fence_calls <= 3
+
+    worker.lease_repository.fence_for_write = lose_fence_after_three_writes
+
+    result = await worker.run_for_connection(
+        user_id=user.id, broker_connection_id=connection.id
+    )
+
+    assert result.error_code == "LEASE_LOST"
+    assert fence_calls == 4
+    fills = db_session.query(BrokerFillIdentity).order_by(
+        BrokerFillIdentity.broker_trade_id
+    ).all()
+    assert [fill.broker_trade_id for fill in fills] == [
+        "trade-0", "trade-1", "trade-2"
+    ]
+    assert db_session.query(BrokerTradeRecord).count() == 0
+    assert db_session.query(Execution).count() == 0
+    assert db_session.query(LivePosition).count() == 0

@@ -4,6 +4,9 @@ import pytest
 
 from app.brokers.upstox.reconciliation_client import ReadOnlyBrokerResult
 from app.models.broker_connection import BrokerConnection
+from app.models.broker_trade_record import BrokerTradeRecord
+from app.models.execution import Execution
+from app.models.live_position import LivePosition
 from app.models.live_order_records import BrokerFillIdentity, LiveOrderIntent, LiveReconciliationIssue, LiveReconciliationLease, LiveReconciliationRun
 from app.models.portfolio import Portfolio
 from app.repositories.live_order_repository import LiveOrderRepository
@@ -114,6 +117,14 @@ async def test_worker_links_trade_and_resolves_full_fill_without_order_write_met
     assert intent.broker_order_id == "broker-order-1"
     fill = db_session.query(BrokerFillIdentity).filter_by(broker_trade_id="trade-1").one()
     assert fill.intent_id == intent.id
+    # Architectural boundary: the intent-based reconciliation worker stores
+    # BrokerFillIdentity evidence only. It must never create manual-order staging
+    # rows or promote evidence into live accounting as a side effect.
+    assert db_session.query(BrokerTradeRecord).count() == 0
+    assert db_session.query(Execution).count() == 0
+    assert db_session.query(LivePosition).count() == 0
+    db_session.refresh(portfolio)
+    assert portfolio.cash_balance == 100000
     assert [call[0] for call in client.calls] == ["orders", "trades"]
     assert not hasattr(client, "place_order")
     row = db_session.query(LiveReconciliationLease).filter_by(
@@ -144,6 +155,10 @@ async def test_worker_repeat_run_deduplicates_fill_and_audit(db_session, make_us
     assert second.status == "COMPLETED"
     assert second.duplicate_fills == 1
     assert db_session.query(BrokerFillIdentity).filter_by(broker_trade_id="trade-1").count() == 1
+    # Replay must preserve the same workflow boundary as the initial pass.
+    assert db_session.query(BrokerTradeRecord).count() == 0
+    assert db_session.query(Execution).count() == 0
+    assert db_session.query(LivePosition).count() == 0
 
 
 @pytest.mark.asyncio

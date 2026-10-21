@@ -693,3 +693,13 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Worker finalization now uses that atomic method. If the lease token is no longer owned, the run is finalized as `LEASE_LOST` without releasing the newer owner's lease.
 - Tests cover atomic rollback on a terminal/missing run, protection of a newer lease, and recovery after a simulated worker crash/finalization failure. The worker leaves the lease intact until expiry if summary finalization fails, then stale-run recovery handles the incomplete run.
 - Next: review cancellation/exception paths and lease renewal/expiry behavior under concurrent worker activity. Keep reconciliation read-only; no automatic broker writes, live submission, accounting promotion, or scheduler.
+
+
+## Phase 2 lease-loss and cancellation checks verified — 2026-10-21
+
+- Current verified code/test HEAD: `2ac6bfaafd3475ee63360bd0049b0b6987236bc1`.
+- Exact-head [backend CI run 39553981172](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553981172) passed **465 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- Added a worker test that replaces the lease owner before local processing; the old worker stops before persisting fills, marks its run `LEASE_LOST`, and leaves the new owner's lease intact.
+- Added cancellation coverage: cancellation during broker read leaves a RUNNING run and owned lease for expiry-based recovery; the next worker marks the stale run `WORKER_INTERRUPTED` before starting a fresh run.
+- Atomic finalization remains in place: lease release and terminal run-summary update share one transaction; failed finalization rolls back lease release.
+- Next: review whether lease renewal is frequent enough during large trade/order batches and confirm all cancellation/error paths converge on safe recovery. Keep broker access read-only and live submission/accounting promotion disabled.

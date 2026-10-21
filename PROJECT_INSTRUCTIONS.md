@@ -121,3 +121,12 @@ Stale reconciliation summaries may be marked `FAILED/WORKER_INTERRUPTED` only th
 - If lease ownership has changed, preserve the newer lease and terminalize the old run as `LEASE_LOST`. If summary persistence fails, roll back lease release and allow expiry/recovery to handle the incomplete run.
 - Next: audit cancellation/unexpected exception paths and lease renewal/expiry under concurrency. `WORKER_INTERRUPTED` means counters may be incomplete.
 - Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live submission, automatic accounting promotion, and automatic scheduling remain disabled.
+
+
+## Current Phase 2 checkpoint — 2026-10-21
+
+- Verified code/test HEAD `2ac6bfaafd3475ee63360bd0049b0b6987236bc1`; [CI run 39553981172](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553981172) passed 465 backend tests, 1 warning, broker-write guard, and SQLite/PostgreSQL 16 migration cycles.
+- Worker terminalization must use the atomic run/lease finalization method. Stale lease owners are marked `LEASE_LOST` without clearing a newer owner's token.
+- Cancellation during broker reads is expected to leave a recoverable RUNNING summary/lease; after expiry, recovery marks it `WORKER_INTERRUPTED`. Its counters must not be treated as complete.
+- Next: audit lease-renewal cadence for large batches and test expiry races around per-record persistence.
+- Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live submission, automatic accounting promotion, and automatic scheduling remain disabled.

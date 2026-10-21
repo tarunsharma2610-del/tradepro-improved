@@ -166,3 +166,8 @@ Latest main-branch checkpoint is `0ce59a7965e3e96a425fa8ae30c841eb0cb755bc`; exa
 ## Phase 2 resume point — 2026-10-21
 
 Latest verified code/test HEAD `8f967adaa2328f16a0a08a104c3ec394e62f9310`; exact-head [CI run 39553655005](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553655005) passed 463 backend tests, the broker-write guard, and SQLite/PostgreSQL 16 migration cycles. Terminal run-summary persistence and lease release are now atomic; stale owners are marked `LEASE_LOST` without releasing a newer owner's lease. Next: audit cancellation, unexpected exceptions, and lease renewal/expiry concurrency. Keep live submission and automatic accounting promotion disabled.
+
+
+## Phase 2 resume point — 2026-10-21
+
+Latest verified code/test HEAD `2ac6bfaafd3475ee63360bd0049b0b6987236bc1`; exact-head [CI run 39553981172](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553981172) passed 465 backend tests, broker-write guard, and SQLite/PostgreSQL 16 migration cycles. Atomic finalization, lease-loss protection, and cancellation-to-expiry recovery are covered. Next: inspect lease-renewal cadence and expiry races during large batches. Keep live submission and automatic accounting promotion disabled.

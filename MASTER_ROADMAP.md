@@ -140,3 +140,12 @@ Working branch: `main`
 - [x] Exact-head [CI run 39553655005](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553655005): 463 tests passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
 - [ ] Audit cancellation/unexpected exception and lease renewal/expiry paths under concurrent worker activity.
 - Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.
+
+
+## Phase 2 — lease-loss and cancellation recovery verified (2026-10-21)
+- [x] Test that lease loss before local processing prevents fill persistence and does not release the newer lease owner.
+- [x] Test cancellation during broker read leaves a recoverable RUNNING summary/lease; after expiry, a subsequent worker marks it `WORKER_INTERRUPTED` before starting fresh.
+- [x] Preserve atomic run-summary finalization and lease release; rollback keeps the lease when terminal summary persistence fails.
+- [x] Exact-head [CI run 39553981172](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553981172): 465 tests passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
+- [ ] Review lease-renewal cadence for large batches and test expiry races around per-record persistence.
+- Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.

@@ -394,3 +394,12 @@ A crash can leave a durable `LiveReconciliationRun` in `RUNNING`. Added `fail_or
 - If a worker's lease token is stale, the run is marked `LEASE_LOST`; the repository does not clear the newer owner's token or expiry. Tests cover both rollback and stale-owner finalization.
 - Worker-level failure coverage verifies the lease remains active when summary finalization fails; after simulated process loss and expiry, stale-run recovery marks the run `WORKER_INTERRUPTED` before a subsequent run. Summary counters remain incomplete and are not evidence that no fill work occurred.
 - Remaining Phase 2 review: cancellation/unexpected exceptions and lease renewal/expiry under concurrent worker activity. No live broker writes, fill promotion, or accounting mutation was added.
+
+
+## Phase 2 lease-loss and cancellation audit — 2026-10-21
+
+- Exact verified code/test HEAD `2ac6bfaafd3475ee63360bd0049b0b6987236bc1`: [CI run 39553981172](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553981172) passed 465 backend tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- Added worker coverage for lease replacement before local persistence: the old worker stops before inserting fills, finalizes its run as `LEASE_LOST`, and does not release the new lease token.
+- Added cancellation coverage: cancellation during broker read propagates, leaving the run/lease for expiry-based recovery. Once stale, the run becomes `FAILED/WORKER_INTERRUPTED` before the next run starts.
+- Terminal run-summary and lease finalization remain one transaction. If terminal summary update fails, lease release is rolled back.
+- Remaining audit: renewal cadence during large batches and expiry races around per-record persistence. Recovery summaries remain incomplete; no live broker write or accounting mutation was added.

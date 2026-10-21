@@ -249,6 +249,22 @@ def test_replay_with_changed_charge_evidence_is_rejected(accounting_context):
     assert live_position.avg_price == Decimal("100.2500")
 
 
+def test_charge_audit_reference_is_trimmed_and_replay_stays_idempotent(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
+    service = LiveFillAccountingService(db)
+
+    first = service.promote_trade(
+        user.id, record.id, _charges(reference="  contract-note-2026-10-18-001  ")
+    )
+    second = service.promote_trade(user.id, record.id, _charges())
+
+    execution = db.query(Execution).one()
+    assert first.inserted is True
+    assert second.inserted is False
+    assert execution.charge_reference == "contract-note-2026-10-18-001"
+    assert first.execution_id == second.execution_id
+
+
 def test_same_timestamp_different_prices_are_rejected_as_ambiguous(accounting_context):
     db, user, _portfolio, instrument, connection, _order, child, record, _paper_position = accounting_context
     child.filled_quantity = 3

@@ -42,3 +42,11 @@ This update supersedes the earlier "Immediate next task" paragraph above.
 - The previous 439-pass run applies to commit `84f3a3e48a64b6e1d764a87a2b337b2a8f052741`, not automatically to the new source-guard changes. The connected workflow tool does not list push-triggered runs; exact-head CI must be checked before claiming this step passed.
 - First next action: inspect the CI result for current `main`; if it fails, read the guard findings and correct the scanner or narrowly document proven PAPER-only exceptions. Never blanket-ignore a broker-write call.
 - After exact-head CI, continue the mapped safety-branch audit with one dependency-complete slice. Keep the intent worker's `BrokerFillIdentity` and manual-order `BrokerTradeRecord` paths separate until a reviewed bridge is designed. No live broker submission or automatic fill promotion.
+
+
+## Resume note — tightened broker-write source guard (2026-10-21)
+
+- Current work narrowed AST guard exemptions: the whole Upstox adapter is scanned, and the portfolios endpoint exception is limited to the actual `place_order` and `cancel_order` functions. Added tests for unexpected adapter calls and an unrelated helper in the same module.
+- Relevant commits: `00c0986a0628cc6b55b842cfcf6e7fc01b071de4`, `30c1aa7b78de357e070f7cdb37b3719112ee8850`, `a75a15a0feae98fb2eb4d4301f199d33566c0acf`, `430d00ae787a250f5c7f425e2b72ad02a38c396a`.
+- **Do next:** verify backend CI for current `main` HEAD. The connected GitHub workflow interface available in this session does not expose push-triggered run listing, so do not claim the latest head is green unless verified through the Actions run itself.
+- If CI passes, resume Phase 2 safety-branch port mapping and decide the boundary between intent-based `BrokerFillIdentity` and manual-order `BrokerTradeRecord`. Keep live broker submission and automatic fill promotion disabled.

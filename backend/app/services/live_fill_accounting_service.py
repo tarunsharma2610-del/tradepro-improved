@@ -391,6 +391,8 @@ class LiveFillAccountingService:
             raise ValueError("Live fill promotion requires broker-reported charges, not estimates.")
         if not isinstance(charges.reference, str) or not charges.reference.strip():
             raise ValueError("Broker-reported charges require a non-empty audit reference.")
+        if len(charges.reference.strip()) > 200:
+            raise ValueError("Broker-reported charge audit reference must be at most 200 characters.")
         names = (
             "brokerage", "stt", "exchange_charges", "sebi_charges",
             "stamp_duty", "gst", "total_charges",

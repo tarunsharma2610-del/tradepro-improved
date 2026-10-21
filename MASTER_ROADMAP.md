@@ -70,3 +70,11 @@ Working branch: `main`
 - [ ] If CI identifies legitimate PAPER call sites or unapproved write references, review each finding and narrow the guard exceptions only when the actual code path is proven PAPER-only.
 - [ ] After exact-head verification, resume the dependency-mapped safety-branch port review. Do not connect `BrokerFillIdentity` and `BrokerTradeRecord` until the workflow boundary is reviewed.
 - Live broker writes and automatic accounting promotion remain disabled.
+
+
+### Broker-write guard review follow-up — 2026-10-21
+- [x] Review guard exception scope and identify broad adapter-file and module-wide endpoint exemptions.
+- [x] Restrict exceptions to the exact approved PAPER call sites by file, function and attribute chain.
+- [x] Add regressions proving unexpected adapter calls and unrelated helper calls are rejected.
+- [ ] Verify backend CI for the current `main` HEAD; do not use the earlier 439-test checkpoint as evidence for the guard changes.
+- [ ] Once green, continue dependency-mapped safety-branch review. Do not bridge `BrokerFillIdentity` and `BrokerTradeRecord` before the design and replay/rollback behavior are explicit.

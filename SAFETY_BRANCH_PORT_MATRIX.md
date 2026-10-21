@@ -1,10 +1,10 @@
 ## Phase 3 verified checkpoint — 21 October 2026
 
-- **Verified code/test HEAD:** `e3a0cbae0602e9ddf740b6cccc3216ff6ac0c833`; exact-head [Backend CI run 39603547333](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39603547333) passed **477 tests, 1 warning in 26.88s**, the broker-write boundary guard, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks.
-- Live-fill accounting now rejects (1) a single staged fill exceeding the local order quantity, (2) cumulative fills across broker child orders exceeding the local order quantity, and (3) broker fills mapped to a local order already marked `REJECTED`. A `CANCELLED` local order may still account a confirmed partial fill, while its local status remains unchanged.
-- Regression tests assert rejected cases create no execution and do not mutate live positions; cancellation does not silently change the local order state.
-- The concurrent-promotion replay integrity fix and changed-fill replay regression remain included in this code checkpoint.
-- **Phase 3 is in progress, not complete.** This checkpoint verifies only the listed accounting gates. Continue the reviewed coordinator/identity design, charge provenance, concurrency, rollback, partial-fill, out-of-order and crash/restart acceptance tests before phase closure.
+- **Verified code/test HEAD:** `5f8efac68adde83666fed30b3480ab50231e0215`; exact-head [Backend CI run 39604041472](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39604041472) passed **478 tests, 1 warning in 25.59s**, the broker-write boundary guard, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks.
+- Live-fill accounting rejects a single staged fill above the local order quantity, cumulative fills across broker child orders above the local order quantity, and fills mapped to a local order already marked `REJECTED`. A `CANCELLED` local order can still account for a confirmed partial fill without changing the local status.
+- Added PostgreSQL race coverage for two different child orders concurrently trying to exceed one local order's quantity. CI confirms exactly one overfill attempt is accepted and the rejected attempt leaves no extra execution or live-position quantity.
+- The concurrent-promotion replay integrity fix and changed-fill replay regression remain included.
+- **Phase 3 is in progress, not complete.** Continue the reviewed coordinator/identity design, charge provenance, replay conflicts, concurrency, rollback, partial-fill, out-of-order and crash/restart acceptance tests before phase closure.
 - Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. The original `Tradepro` repository remains untouched. Phase 2 remains closed.
 - This is the current checkpoint summary. Older checkpoint notes below are retained as historical audit trail and must not be treated as newer than this entry.
 

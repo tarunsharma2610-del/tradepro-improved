@@ -150,6 +150,15 @@ class LiveFillAccountingService:
             )
             if connection is None or child.broker_name != "upstox":
                 raise ValueError("Broker trade connection is not owned by this user.")
+            if charges.evidence_id is None or charges.reviewer_user_id is None:
+                raise ValueError("A persisted reviewed contract-note evidence record is required for live-fill accounting.")
+            require_reviewed_charge_evidence(
+                self.db,
+                evidence_id=charges.evidence_id,
+                broker_connection_id=connection.id,
+                broker_report_reference=charges.reference,
+                reviewer_user_id=charges.reviewer_user_id,
+            )
             instrument: Instrument | None = self.db.get(Instrument, order.instrument_id)
             if instrument is None:
                 raise ValueError("The order instrument no longer exists.")

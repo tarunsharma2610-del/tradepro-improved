@@ -2,16 +2,17 @@
 
 ## Authoritative Phase 3 checkpoint — 21 October 2026
 
-- **Verified code/test commit:** `3adf1a5dd6ba016c5dbc9d4ff8254f4b01d9e509`. Backend CI [run 39623527572](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39623527572) completed successfully: **490 tests passed, 1 warning**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed.
-- This CI result verifies that code commit, **not any subsequent documentation-only commit**. The exact latest documentation HEAD must have its own successful push-triggered CI before documentation synchronization is declared fully green.
-- **Phase 3 remains in progress.** Charge-source string validation and arithmetic consistency do not authenticate broker evidence or establish a valid allocation basis for contract-note totals. Do not allocate aggregate charges per fill without verified source evidence and an explicitly approved, charge-specific allocation method.
-- Remaining work: resolve the exact-head CI verification for documentation commits; audit coordinator and fill-identity boundaries; verify charge provenance/allocation semantics; complete partial-fill and crash/restart acceptance criteria; update this checkpoint again only against a verified exact SHA/run.
-- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. Work only in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
-- Earlier checkpoint entries below are historical unless they explicitly name the exact code SHA and CI run above.
+- **Current `main` HEAD:** `8d581070c706875d3c653b826c69963b0900a3b7`. Exact-HEAD push-triggered Backend CI [run 39631298815](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39631298815) completed successfully. The backend test suite, broker-write boundary guard, SQLite migration checks, and PostgreSQL 16 migration checks passed.
+- **Last separately reported code/test baseline:** `3adf1a5dd6ba016c5dbc9d4ff8254f4b01d9e509`, with [CI run 39623527572](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39623527572) reporting 490 tests passed and one warning. Do not attribute that test count to a later SHA unless its run reports the same count.
+- **Phase 3 remains in progress.** `BROKER_REPORTED` and a caller-supplied reference are labels, not authenticated evidence. Current trade intake does not establish immutable contract-note source linkage or an auditable per-fill charge-allocation ledger.
+- **Next engineering gate:** define and test a durable, immutable source-evidence record and import/validation boundary first; inspect a real redacted broker contract note and document component-specific allocation rules before allocating aggregate charges. Reject ambiguous or unsupported source formats; do not infer a fee split.
+- Required follow-up: inspect source-note identity/version/hash, importer idempotency and replay behavior, trade/order/fill matching, charge component rounding/residual handling, source-total reconciliation, partial-fill and crash/restart recovery, and fail-closed promotion tests.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Phase 2 remains closed. All changes must stay in `tarunsharma2610-del/tradepro-improved`; do not modify `tarunsharma2610-del/Tradepro`.
+- Headings labelled “Current” in older sections below are historical checkpoint titles unless they explicitly refer to the exact SHA and CI run above.
 
 ---
 
-## Current Phase 3 checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current Phase 3 checkpoint — 21 October 2026
 
 - **Latest verified code/test HEAD:** `3963c2bf4e6ffe2bb33d327b10e2995cd243d003`. Exact-head [Backend CI run 39607630055](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39607630055) passed **484 tests, 1 warning in 29.34s**; the broker-write boundary guard passed, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks passed.
 - New Phase 3 guard: broker-reported live-fill charge references are trimmed for storage and rejected when longer than the `Execution.charge_reference` 200-character column limit. This prevents a predictable storage error from being misreported as a concurrent promotion conflict. Regression coverage is included in the 484-test result.
@@ -22,7 +23,7 @@
 
 ---
 
-## Current verified checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current verified checkpoint — 21 October 2026
 
 - **Last verified code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.
 - **Last verified documentation checkpoint before this status refresh:** `391dfefc9580abf9537ee659877578033baae4fd`; exact-head backend CI [run 39568264419](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39568264419) passed.
@@ -33,7 +34,7 @@
 
 ---
 
-## Current verified checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current verified checkpoint — 21 October 2026
 
 - **Verified code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, the broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.
 - **Previously verified documentation checkpoint:** `a2e639f61e2c50070deb26d1a9a0741545c9737d`; exact-head backend CI [run 39568011689](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39568011689) passed. This is historical evidence for that SHA; every new commit still requires its own exact-head CI.
@@ -43,7 +44,7 @@
 
 ------
 
-## Current verified checkpoint — 21 October 2026
+## Historical checkpoint — formerly marked Current verified checkpoint — 21 October 2026
 
 - **Latest verified code/test HEAD:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, the broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.
 - The lease-race audit now has both pieces of evidence: PostgreSQL test `test_postgres_write_fence_blocks_reclaim_until_persistence_transaction_finishes` proves reclaim waits while a fenced transaction holds the lease-row lock; new `test_postgres_high_volume_expiry_races_never_resurrect_stale_lease` runs 20 concurrent expiry-boundary renewal-versus-reclaim races and asserts expired owners cannot renew and generation/token ownership advances safely.
@@ -77,7 +78,7 @@ Working branch: `main`
 4. No real broker orders in tests. Live order submission stays disabled.
 5. Record exact commit SHAs and CI run URLs; don't label a checkpoint green until the run corresponds to the exact code HEAD.
 
-## Current verified baseline
+## Historical checkpoint — formerly marked Current verified baseline
 - Latest verified `main` HEAD: `0bd502f83118799d5564e8fd5724d01e8dc975af`; exact-head backend CI passed [run 39566324985](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39566324985).
 - Latest code/test checkpoint `e56bf4c66f74b875a3ba8fe388138a9d688dd1e2` passed 471 tests, 1 warning, broker-write guard and SQLite/PostgreSQL 16 migration cycles in [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154).
 - Older 439-pass run [39481385581](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39481385581) is historical baseline evidence only.
@@ -121,7 +122,7 @@ Working branch: `main`
 - [ ] Backup-safe staging verification with no real-money order.
 - [ ] Explicit user approval before any change that enables live submission.
 
-## Current status and constraints
+## Historical checkpoint — formerly marked Current status and constraints
 - Paper trading remains the usable execution mode. The current mainline includes portfolio risk controls, instrument-master sync, Upstox streaming, a read-only reconciliation interface/worker foundation, and live-fill accounting storage/service foundations.
 - No claim of complete live trading, broker order submission, end-to-end live accounting, or production readiness is allowed.
 - The original repository remains untouched. No production migrations or real broker orders have been performed.

@@ -2,9 +2,9 @@
 ## Superseding audit note — latest test commit, 21 October 2026
 
 - Latest code/test commit reviewed: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2). It adds test_failed_commit_rolls_back_execution_and_live_position to simulate a failed database commit during live-fill promotion and assert there is no partial Execution/LivePosition and the paper position is unchanged.
-- Exact-head CI is **unverified**. The connector status response contained no status entries and its workflow lookup returned no runs; these are not evidence of success. The earlier run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808) verifies only its own commit (470 passed, 1 warning, broker-write guard and SQLite/PostgreSQL 16 migration cycles).
+- Exact-head CI is verified: [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) for this code/test commit passed 471 tests, 1 warning, the broker-write boundary guard and SQLite/PostgreSQL 16 reversible migration cycles. The later documentation HEAD `adb69aeb05b70ba4fa9095fc73d9dea033d31eec` passed [run 39565251793](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39565251793).
 - The workflow-boundary decision is resolved for Phase 2: keep intent-based BrokerFillIdentity and manual Order BrokerTradeRecord separate; do not add a bridge or dual-write. The safety-branch matrix records compatible ports versus items deferred to Phase 3/Phase 4.
-- Reconciliation crash recovery/lease fencing remains closed unless new evidence identifies a regression. **Overall Phase 2 is not closed** until exact-head CI and the final Phase 2 requirements audit are verified. No live broker submission, automatic accounting promotion, or automatic scheduling is enabled.
+- Reconciliation crash recovery/lease fencing remains closed unless new evidence identifies a regression. Phase 2's defined engineering checks and exact-head CI are verified; synchronize all authoritative docs and require CI on the resulting documentation HEAD before formally advancing to Phase 3. No live broker submission, automatic accounting promotion, or automatic scheduling is enabled.
 
 ## Authoritative checkpoint audit — 21 October 2026
 

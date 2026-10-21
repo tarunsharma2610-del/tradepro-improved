@@ -2,9 +2,9 @@
 ## Superseding verification note — 21 October 2026
 
 - Latest code/test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2), adding failed-commit rollback coverage for live-fill accounting.
-- Exact-head CI for this commit is **not verified**. The available status response had no entries and the workflow lookup returned no runs; do not mark the requirement passed based on those responses. Prior run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808) verifies the earlier lease-fencing code/test commit only.
+- Exact-head CI for this commit is verified: [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests, 1 warning, the broker-write boundary guard and SQLite/PostgreSQL 16 reversible migrations. The subsequent documentation HEAD `adb69aeb05b70ba4fa9095fc73d9dea033d31eec` passed [run 39565251793](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39565251793).
 - Phase 2 workflow boundary: resolved by keeping BrokerFillIdentity and manual BrokerTradeRecord independent. No bridge or dual-write is approved. SAFETY_BRANCH_PORT_MATRIX.md is the dependency map; live account-safety endpoints, charge adjustments, preflight, central broker-write service and actual live submission are not silently treated as Phase 2-complete.
-- **Overall Phase 2 remains open** until exact-head backend CI, source guard, SQLite/PostgreSQL 16 migration checks, and final requirements/doc consistency audit are verified.
+- Phase 2's defined engineering checks, source guard, PostgreSQL concurrency coverage, SQLite/PostgreSQL 16 migration checks and code/test exact-head CI are verified. Final documentation synchronization and its exact-head CI are the remaining closure step. Items in this audit explicitly assigned to Phase 3/Phase 4 remain deferred by design.
 
 ## Current verified checkpoint — 21 October 2026
 

@@ -158,3 +158,44 @@ def test_orphan_recovery_fails_closed_on_inconsistent_lease_state(
     assert lease.lease_token is (None if lease_token_missing else lease.lease_token)
     assert (lease.lease_token is None) == lease_token_missing
     assert lease.claimed_until is not None if lease_token_missing else lease.claimed_until is None
+
+
+def test_finish_with_lease_rolls_back_lease_release_if_run_is_not_running(db_session, make_user):
+    user = make_user()
+    connection = _connection(db_session, user)
+    now = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+    run = _run(db_session, user, connection, now - timedelta(minutes=1))
+    token = LiveReconciliationLeaseRepository(db_session).claim(
+        user_id=user.id,
+        broker_connection_id=connection.id,
+        now=now,
+        lease_seconds=300,
+    )
+    assert token is not None
+
+    run.status = "FAILED"
+    db_session.commit()
+
+    with pytest.raises(RuntimeError, match="missing, not owned, or already completed"):
+        LiveReconciliationRunRepository(db_session).finish_with_lease(
+            run_id=run.id,
+            user_id=user.id,
+            broker_connection_id=connection.id,
+            lease_token=token,
+            status="COMPLETED",
+            summary={
+                "orders_seen": 0, "orders_matched": 0, "orders_unmatched": 0,
+                "trades_seen": 0, "fills_inserted": 0, "duplicate_fills": 0,
+                "conflicts": 0,
+            },
+            now=now + timedelta(seconds=1),
+        )
+
+    db_session.refresh(run)
+    lease = db_session.query(LiveReconciliationLease).filter_by(
+        broker_connection_id=connection.id
+    ).one()
+    assert run.status == "FAILED"
+    assert lease.lease_token == token
+    assert lease.claimed_until is not None
+    assert lease.last_completed_at is None

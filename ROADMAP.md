@@ -1,3 +1,12 @@
+## Phase 3 status checkpoint — 21 October 2026
+
+- Latest verified code/test checkpoint: `957b3dfa15e6a673b02b673f11ece7144f20470a`; [Backend CI run 909](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39601580853) passed the backend pytest suite, broker-write boundary guard, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks.
+- Phase 3 is in progress, not complete. A test parametrization collection error was fixed in that commit; continue reviewing live-fill accounting replay integrity and its remaining acceptance criteria.
+- Documentation status updates are being synchronized across the core project files. The latest documentation commit requires its own exact-head CI confirmation.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. Keep the original `Tradepro` repository untouched. Phase 2 remains closed.
+
+---
+
 ## Current verified checkpoint — 21 October 2026
 
 - **Last verified code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.

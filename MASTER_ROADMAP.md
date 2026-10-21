@@ -110,7 +110,7 @@ Working branch: `main`
 - [x] Add guard invocation to `.github/workflows/backend-tests.yml`.
 - [x] Verify the broker-write guard on exact current code/test HEAD; latest verified code/test run 39561621808 passed 470 tests and the guard.
 - [ ] If CI identifies legitimate PAPER call sites or unapproved write references, review each finding and narrow the guard exceptions only when the actual code path is proven PAPER-only.
-- [ ] After exact-head verification, resume the dependency-mapped safety-branch port review. Do not connect `BrokerFillIdentity` and `BrokerTradeRecord` until the workflow boundary is reviewed.
+- [x] Review the dependency-mapped safety-branch port decisions; the current matrix now classifies each listed safety-only test by compatible port, Phase 3/Phase 4 dependency, or separate schema/product review. Keep BrokerFillIdentity and BrokerTradeRecord separate.
 - Live broker writes and automatic accounting promotion remain disabled.
 
 
@@ -119,7 +119,7 @@ Working branch: `main`
 - [x] Restrict exceptions to the exact approved PAPER call sites by file, function and attribute chain.
 - [x] Add regressions proving unexpected adapter calls and unrelated helper calls are rejected.
 - [x] Verify backend CI for the current code/test HEAD; latest verified run 39561621808 passed 470 tests and the guard.
-- [ ] Once green, continue dependency-mapped safety-branch review. Do not bridge `BrokerFillIdentity` and `BrokerTradeRecord` before the design and replay/rollback behavior are explicit.
+- [x] Record the Phase 2 workflow-boundary decision: keep BrokerFillIdentity and BrokerTradeRecord separate; any future bridge requires a separately reviewed Phase 3 design with identity, owner/account scoping, replay, conflict, rollback, and recovery semantics.
 
 
 ### Exact-head verification update — 2026-10-21

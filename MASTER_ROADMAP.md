@@ -58,3 +58,15 @@ Working branch: `main`
 - Paper trading remains the usable execution mode. The current mainline includes portfolio risk controls, instrument-master sync, Upstox streaming, a read-only reconciliation interface/worker foundation, and live-fill accounting storage/service foundations.
 - No claim of complete live trading, broker order submission, end-to-end live accounting, or production readiness is allowed.
 - The original repository remains untouched. No production migrations or real broker orders have been performed.
+
+
+
+## Broker-write source guard checkpoint — 2026-10-21
+
+- [x] Add AST source guard for unapproved broker order-write references.
+- [x] Add focused unit tests for blocked and explicitly allowed call sites.
+- [x] Add guard invocation to `.github/workflows/backend-tests.yml`.
+- [ ] Verify CI for the exact current `main` head; do not infer success from the prior 439-test run.
+- [ ] If CI identifies legitimate PAPER call sites or unapproved write references, review each finding and narrow the guard exceptions only when the actual code path is proven PAPER-only.
+- [ ] After exact-head verification, resume the dependency-mapped safety-branch port review. Do not connect `BrokerFillIdentity` and `BrokerTradeRecord` until the workflow boundary is reviewed.
+- Live broker writes and automatic accounting promotion remain disabled.

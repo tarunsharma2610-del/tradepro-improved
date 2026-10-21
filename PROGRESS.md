@@ -633,3 +633,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Added regression coverage for unexpected adapter calls and for a broker-write reference hidden in an unrelated helper in the otherwise approved portfolios module.
 - Commits: `00c0986a0628cc6b55b842cfcf6e7fc01b071de4`, `30c1aa7b78de357e070f7cdb37b3719112ee8850`, newline correction `a75a15a0feae98fb2eb4d4301f199d33566c0acf` / `430d00ae787a250f5c7f425e2b72ad02a38c396a`.
 - Exact-head CI is not yet verified. Prior 439-pass results do not cover these changes. Next: verify current-head workflow; correct any real findings without broad exemptions. Guard remains static-only and cannot prove safety against reflection/dynamic dispatch. Live writes/accounting promotion remain disabled.
+
+
+## Exact-head broker-write guard verification — 2026-10-21
+
+- Verified current `main` HEAD `975717b05a3aa5faa030f3f9e177dbcf6066daf3`; GitHub Actions [run 39550130192](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39550130192) passed **447 tests, 1 warning**.
+- The run confirms the real application-source broker-write guard passed, and SQLite plus PostgreSQL 16 upgrade → downgrade → re-upgrade migration checks passed.
+- The immediately preceding run for `6273a3178e37a27e47a8634564f634075f375f3e` failed; the latest test fix corrected a line-number assertion in the guard test. This was a test assertion failure, not evidence that production broker logic was broken.
+- Next Phase 2 work: review the dependency map and design the explicit boundary between intent-based `BrokerFillIdentity` and manual-order `BrokerTradeRecord` before any integration. Keep live submission and automatic accounting promotion disabled.

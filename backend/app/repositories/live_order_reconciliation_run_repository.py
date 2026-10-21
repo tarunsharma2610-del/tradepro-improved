@@ -42,6 +42,37 @@ class LiveReconciliationRunRepository:
         self.db.refresh(run)
         return run
 
+    @staticmethod
+    def _validate_error_code(error_code: str | None) -> None:
+        if error_code is not None:
+            if not isinstance(error_code, str) or not error_code or len(error_code) > 100:
+                raise ValueError("error_code must be a safe category")
+            if not all(char.isupper() or char.isdigit() or char == "_" for char in error_code):
+                raise ValueError("error_code must contain only uppercase letters, digits and underscores")
+
+    @classmethod
+    def _validate_terminal_payload(
+        cls,
+        *,
+        status: str,
+        summary: dict[str, Any],
+        error_code: str | None,
+        now: datetime | None,
+    ) -> tuple[str, dict[str, Any], str | None, datetime]:
+        normalized_status = status.strip().upper()
+        if normalized_status not in _RUN_STATES - {"RUNNING"}:
+            raise ValueError("invalid terminal reconciliation run status")
+        if not isinstance(summary, dict) or set(summary) != _SUMMARY_COUNTERS:
+            raise ValueError("summary must contain only the known reconciliation counters")
+        for key, value in summary.items():
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"summary counter {key} must be a non-negative integer")
+        cls._validate_error_code(error_code)
+        now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            raise ValueError("now must be timezone-aware")
+        return normalized_status, dict(summary), error_code, now
+
     def finish(
         self,
         *,
@@ -53,22 +84,9 @@ class LiveReconciliationRunRepository:
         error_code: str | None = None,
         now: datetime | None = None,
     ) -> LiveReconciliationRun:
-        normalized_status = status.strip().upper()
-        if normalized_status not in _RUN_STATES - {"RUNNING"}:
-            raise ValueError("invalid terminal reconciliation run status")
-        if not isinstance(summary, dict) or set(summary) != _SUMMARY_COUNTERS:
-            raise ValueError("summary must contain only the known reconciliation counters")
-        for key, value in summary.items():
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                raise ValueError(f"summary counter {key} must be a non-negative integer")
-        if error_code is not None:
-            if not isinstance(error_code, str) or not error_code or len(error_code) > 100:
-                raise ValueError("error_code must be a safe category")
-            if not all(char.isupper() or char.isdigit() or char == "_" for char in error_code):
-                raise ValueError("error_code must contain only uppercase letters, digits and underscores")
-        now = now or datetime.now(timezone.utc)
-        if now.tzinfo is None:
-            raise ValueError("now must be timezone-aware")
+        normalized_status, safe_summary, error_code, now = self._validate_terminal_payload(
+            status=status, summary=summary, error_code=error_code, now=now
+        )
         result = self.db.execute(
             update(LiveReconciliationRun)
             .where(
@@ -81,7 +99,7 @@ class LiveReconciliationRunRepository:
                 status=normalized_status,
                 completed_at=now,
                 error_code=error_code,
-                summary=dict(summary),
+                summary=safe_summary,
             )
         )
         if result.rowcount != 1:
@@ -92,6 +110,70 @@ class LiveReconciliationRunRepository:
             LiveReconciliationRun.id == run_id,
             LiveReconciliationRun.user_id == user_id,
         ).one()
+
+    def finish_with_lease(
+        self,
+        *,
+        run_id: uuid.UUID,
+        user_id: uuid.UUID,
+        broker_connection_id: uuid.UUID,
+        lease_token: uuid.UUID,
+        status: str,
+        summary: dict[str, Any],
+        error_code: str | None = None,
+        lease_error_code: str | None = None,
+        now: datetime | None = None,
+    ) -> str:
+        """Atomically finalize a run and release its lease if this worker still owns it.
+
+        If lease ownership has changed, finalize the run as LEASE_LOST. If run
+        finalization fails, roll back the lease update so recovery sees either
+        both terminal/released or neither, never a half-finalized lifecycle.
+        """
+        normalized_status, safe_summary, error_code, now = self._validate_terminal_payload(
+            status=status, summary=summary, error_code=error_code, now=now
+        )
+        self._validate_error_code(lease_error_code)
+        lease_result = self.db.execute(
+            update(LiveReconciliationLease)
+            .where(
+                LiveReconciliationLease.user_id == user_id,
+                LiveReconciliationLease.broker_connection_id == broker_connection_id,
+                LiveReconciliationLease.lease_token == lease_token,
+            )
+            .values(
+                lease_token=None,
+                claimed_until=None,
+                last_completed_at=now,
+                last_error_code=lease_error_code,
+            )
+        )
+        final_status = normalized_status
+        final_error_code = error_code
+        if lease_result.rowcount != 1:
+            final_status = "LEASE_LOST"
+            final_error_code = "LEASE_LOST"
+
+        run_result = self.db.execute(
+            update(LiveReconciliationRun)
+            .where(
+                LiveReconciliationRun.id == run_id,
+                LiveReconciliationRun.user_id == user_id,
+                LiveReconciliationRun.broker_connection_id == broker_connection_id,
+                LiveReconciliationRun.status == "RUNNING",
+            )
+            .values(
+                status=final_status,
+                completed_at=now,
+                error_code=final_error_code,
+                summary=safe_summary,
+            )
+        )
+        if run_result.rowcount != 1:
+            self.db.rollback()
+            raise RuntimeError("reconciliation run is missing, not owned, or already completed")
+        self.db.commit()
+        return final_status
 
     def fail_orphaned_runs(
         self,

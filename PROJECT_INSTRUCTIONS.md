@@ -1,10 +1,10 @@
 <!-- Authoritative checkpoint audit: 2026-10-21; supersedes older status notes below. -->
 ## Superseding current checkpoint — 21 October 2026
 
-- Latest test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2), adding a failed-commit rollback test for live-fill accounting. Exact-head CI is not verified; do not infer success from empty status/workflow lookup responses.
+- Latest test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2), adding failed-commit rollback coverage. Exact-head backend CI [run 39564568154](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39564568154) passed 471 tests, 1 warning, the broker-write guard and SQLite/PostgreSQL 16 reversible migrations. Documentation HEAD `adb69aeb05b70ba4fa9095fc73d9dea033d31eec` passed [run 39565251793](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39565251793).
 - Reconciliation crash recovery and per-write lease fencing are complete on the earlier verified checkpoint [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 passed, 1 warning, source guard and SQLite/PostgreSQL 16 reversible migrations.
 - Phase 2 workflow boundary: keep BrokerFillIdentity separate from manual BrokerTradeRecord; no bridge/dual-write. Follow SAFETY_BRANCH_PORT_MATRIX.md for phase-aware dependency decisions. Do not wholesale-merge the divergent safety branch or introduce real broker orders.
-- Phase 2 remains open until the latest code/test commit and subsequent documentation HEAD pass required CI and final audit. Preserve PAPER defaults; live submission, automatic accounting promotion and scheduling remain disabled. Original Tradepro must remain untouched.
+- Phase 2 engineering checks are verified. Complete the synchronized-documentation checkpoint and confirm its exact-head CI before starting Phase 3. Preserve PAPER defaults; live submission, automatic accounting promotion and scheduling remain disabled. Original Tradepro must remain untouched.
 
 ## Authoritative checkpoint audit — 21 October 2026
 

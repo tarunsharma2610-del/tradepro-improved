@@ -649,3 +649,11 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Added assertions to `test_worker_links_trade_and_resolves_full_fill_without_order_write_methods` and `test_worker_repeat_run_deduplicates_fill_and_audit` proving reconciliation and replay do not create `BrokerTradeRecord`, `Execution`, or `LivePosition` rows and do not change portfolio cash.
 - Test commit: `3683082509c4b331ab9c7ebceb928e925414de35`. Exact-head CI is pending; do not treat prior 447-pass CI as verification of this test change.
 - Next: run the exact-head backend/source-guard/SQLite/PostgreSQL CI. If green, proceed to the next dependency-complete safety slice and add stale-run/crash-recovery coverage. Live order submission and automatic accounting promotion remain disabled.
+
+## Orphaned reconciliation-run recovery — 2026-10-21
+
+- Added `LiveReconciliationRunRepository.fail_orphaned_runs(...)` to mark stale `RUNNING` summaries as `FAILED` with the safe category `WORKER_INTERRUPTED` only when no unexpired lease currently owns the specified user/connection.
+- The recovery operation is scoped to the authenticated owner and broker connection, only affects runs older than the explicit cutoff, preserves numeric summary counters, and does not retry broker requests or alter fill/accounting evidence. It locks the lease row where supported and releases the transaction when recovery is deferred.
+- Added tests for stale-run recovery, active-lease protection, owner/connection and age scoping, and invalid cutoff times. Normalized SQLite's naive persisted UTC lease timestamps before comparison.
+- Implementation commits: `c21dc711c9102c4a6f0aad36b404ba8c1b57d5f8`, `007383da7f0ca5a1793098288f610ed98de9eb71`, `298caa0a1a05124cdf6fdc9d94ff0644f20295a5`. Exact-head CI pending; do not claim green until the latest commit passes backend tests, guard, and both database migration checks.
+- Recovery is currently an explicit repository operation, not automatically scheduled. Live broker submission and automatic accounting promotion remain disabled.

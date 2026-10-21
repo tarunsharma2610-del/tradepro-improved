@@ -95,3 +95,10 @@ Working branch: `main`
 - [ ] Verify CI for test commit `3683082509c4b331ab9c7ebceb928e925414de35`.
 - [ ] After green CI, continue with stale reconciliation-run recovery and crash-boundary tests before any coordinator/bridge design.
 - [ ] Any future bridge must define canonical identity, account scoping, conflicts, transaction/idempotency, rollback and crash recovery. Live submission and automatic promotion remain disabled.
+
+### Phase 2 — reconciliation crash recovery slice (2026-10-21)
+- [x] Add owner/connection-scoped stale-run recovery for `RUNNING` summaries when no unexpired lease exists.
+- [x] Preserve existing counters and use safe error code `WORKER_INTERRUPTED`; do not retry broker requests or mutate fill/accounting state.
+- [x] Add tests for stale recovery, active-lease protection, ownership/connection isolation and cutoff validation.
+- [ ] Verify exact-head CI after implementation and timestamp-normalization fixes.
+- [ ] After green CI, review the lifecycle for a crash between releasing the lease and persisting the terminal run summary, then decide whether recovery should be invoked by a controlled maintenance path. Do not add automatic scheduling or broker writes without separate review.

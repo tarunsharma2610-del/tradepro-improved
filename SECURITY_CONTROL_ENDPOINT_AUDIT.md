@@ -1,3 +1,14 @@
+## Phase 3 verified checkpoint — 21 October 2026
+
+- **Verified code/test HEAD:** `d3aee27ae72253ceec72a30e244fd88fdc719cd1`; exact-head [Backend CI run 39603039152](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39603039152) passed **475 tests, 1 warning in 30.22s**, the broker-write boundary guard, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks.
+- Phase 3 live-fill accounting now rejects a single staged fill above the local order quantity and rejects cumulative accounted fills across broker child orders above the local order quantity. Regression coverage includes both cases, including proof that rejected fills create no execution and do not mutate the live position.
+- The concurrent-promotion replay integrity fix and changed-fill replay regression remain included in this code checkpoint.
+- **Phase 3 is in progress, not complete.** This checkpoint proves the listed code and CI checks only; continue the remaining accounting correctness, idempotency, crash/retry and audit review before phase closure.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. The original `Tradepro` repository remains untouched. Phase 2 remains closed.
+- This is the current checkpoint summary. Older checkpoint notes below are retained as historical audit trail and must not be treated as newer than this entry.
+
+---
+
 ## Current verified checkpoint — 21 October 2026
 
 - **Last verified code/test checkpoint:** `00ee9bad0e962d92244da6f63da1e46ba058ad6f`; exact-head backend CI [run 39567242386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39567242386) passed **472 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 reversible migration checks.

@@ -1,11 +1,11 @@
-## Current Phase 3 checkpoint — 21 October 2026
+## Phase 3 verified checkpoint — 21 October 2026
 
-- **Latest code checkpoint verified by CI:** `957b3dfa15e6a673b02b673f11ece7144f20470a`; [Backend tests run 909](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39601580853) completed successfully.
-- Verified CI steps: backend pytest, broker-write boundary guard, SQLite Alembic upgrade/downgrade/re-upgrade, and PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade all passed.
-- CI initially caught a pytest collection error: the changed-fill replay regression test accidentally inherited the charge-validation parametrization. Fixed in commit `957b3dfa15e6a673b02b673f11ece7144f20470a`; run 909 confirms the correction.
-- Phase 3 is in progress, **not complete**. Live-fill accounting review has tightened concurrent-promotion replay validation and added a regression test rejecting replay when fill details change. Continue with the remaining Phase 3 audit and tests; do not infer full-phase completion from this passing run.
-- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. The original `Tradepro` repository remains untouched.
-- This status supersedes older statements in this file that Phase 3 was blocked pending approval or that the Phase 2 SHA was the latest verified code checkpoint. Phase 2 remains closed.
+- **Verified code/test HEAD:** `d3aee27ae72253ceec72a30e244fd88fdc719cd1`; exact-head [Backend CI run 39603039152](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39603039152) passed **475 tests, 1 warning in 30.22s**, the broker-write boundary guard, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks.
+- Phase 3 live-fill accounting now rejects a single staged fill above the local order quantity and rejects cumulative accounted fills across broker child orders above the local order quantity. Regression coverage includes both cases, including proof that rejected fills create no execution and do not mutate the live position.
+- The concurrent-promotion replay integrity fix and changed-fill replay regression remain included in this code checkpoint.
+- **Phase 3 is in progress, not complete.** This checkpoint proves the listed code and CI checks only; continue the remaining accounting correctness, idempotency, crash/retry and audit review before phase closure.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. The original `Tradepro` repository remains untouched. Phase 2 remains closed.
+- This is the current checkpoint summary. Older checkpoint notes below are retained as historical audit trail and must not be treated as newer than this entry.
 
 ---
 

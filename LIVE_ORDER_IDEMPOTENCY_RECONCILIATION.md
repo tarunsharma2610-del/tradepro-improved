@@ -1,3 +1,14 @@
+## Phase 3 verified checkpoint — 21 October 2026
+
+- **Verified code/test HEAD:** `d3aee27ae72253ceec72a30e244fd88fdc719cd1`; exact-head [Backend CI run 39603039152](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39603039152) passed **475 tests, 1 warning in 30.22s**, the broker-write boundary guard, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks.
+- Phase 3 live-fill accounting now rejects a single staged fill above the local order quantity and rejects cumulative accounted fills across broker child orders above the local order quantity. Regression coverage includes both cases, including proof that rejected fills create no execution and do not mutate the live position.
+- The concurrent-promotion replay integrity fix and changed-fill replay regression remain included in this code checkpoint.
+- **Phase 3 is in progress, not complete.** This checkpoint proves the listed code and CI checks only; continue the remaining accounting correctness, idempotency, crash/retry and audit review before phase closure.
+- Keep live broker submission, automatic accounting promotion, and automatic scheduling disabled. The original `Tradepro` repository remains untouched. Phase 2 remains closed.
+- This is the current checkpoint summary. Older checkpoint notes below are retained as historical audit trail and must not be treated as newer than this entry.
+
+---
+
 # Durable Live-Order Idempotency and Broker Reconciliation
 
 Status: user-approved design; Phase 1 durable records/repository safeguards are CI-tested. Phase 2 has pure order/trade normalization, strict intent matching, versioned status persistence, idempotent `BrokerFillIdentity` persistence, and an explicit on-demand GET-only reconciliation worker with lease/run/issue records and owner-scoped read API/UI; CI uses mocks and no real-account read has been verified. A separate manual-Order path now stages `BrokerTradeRecord` rows and reconciles `BrokerOrder` child status/fill quantity; `LiveFillAccountingService` is still unregistered. The intent-based `BrokerFillIdentity` path and manual `BrokerTradeRecord` path are not connected and must not be treated as interchangeable. Resolve their workflow boundary before integration. No live order placement or cancellation is enabled.

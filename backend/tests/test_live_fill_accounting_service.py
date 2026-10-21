@@ -284,3 +284,29 @@ def test_live_fill_promotion_locks_parent_then_child_then_trade_record(accountin
     LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
 
     assert locked_models[:3] == ["Order", "BrokerOrder", "BrokerTradeRecord"]
+
+
+def test_failed_commit_rolls_back_execution_and_live_position(accounting_context, monkeypatch):
+    """A persistence failure must not leave half-promoted live accounting."""
+    db, user, _portfolio, instrument, connection, _order, _child, record, paper_position = accounting_context
+    original_commit = db.commit
+
+    def fail_commit():
+        raise RuntimeError("simulated database commit failure")
+
+    monkeypatch.setattr(db, "commit", fail_commit)
+    with pytest.raises(RuntimeError, match="simulated database commit failure"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+    monkeypatch.setattr(db, "commit", original_commit)
+
+    db.rollback()
+    assert db.query(Execution).filter_by(
+        broker_connection_id=connection.id,
+        broker_trade_id=record.broker_trade_id,
+    ).count() == 0
+    assert db.query(LivePosition).filter_by(
+        broker_connection_id=connection.id,
+        instrument_id=instrument.id,
+    ).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7

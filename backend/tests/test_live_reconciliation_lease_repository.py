@@ -116,3 +116,33 @@ def test_lease_duration_is_bounded(lease_seconds, db_session, make_user):
         LiveReconciliationLeaseRepository(db_session).claim(
             user_id=user.id, broker_connection_id=connection.id, lease_seconds=lease_seconds
         )
+
+
+@pytest.mark.parametrize("missing_token", [False, True])
+def test_claim_fails_closed_on_inconsistent_lease_state(db_session, make_user, missing_token):
+    user = make_user()
+    connection = _connection(db_session, user)
+    now = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+    lease = LiveReconciliationLease(
+        user_id=user.id,
+        broker_connection_id=connection.id,
+        lease_token=None if missing_token else uuid.uuid4(),
+        claimed_until=now + timedelta(minutes=2) if missing_token else None,
+        generation=1,
+        last_started_at=now - timedelta(hours=1),
+        last_error_code=None,
+    )
+    db_session.add(lease)
+    db_session.commit()
+
+    with pytest.raises(RuntimeError, match="inconsistent reconciliation lease state"):
+        LiveReconciliationLeaseRepository(db_session).claim(
+            user_id=user.id,
+            broker_connection_id=connection.id,
+            now=now,
+        )
+
+    db_session.refresh(lease)
+    assert (lease.lease_token is None) == missing_token
+    assert (lease.claimed_until is None) != missing_token
+    assert lease.generation == 1

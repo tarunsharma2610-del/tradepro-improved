@@ -1,4 +1,11 @@
 <!-- Authoritative checkpoint audit: 2026-10-21; updated after Phase 2 lease-fencing verification. -->
+## Superseding audit note — latest test commit, 21 October 2026
+
+- Latest code/test commit reviewed: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2). It adds test_failed_commit_rolls_back_execution_and_live_position to simulate a failed database commit during live-fill promotion and assert there is no partial Execution/LivePosition and the paper position is unchanged.
+- Exact-head CI is **unverified**. The connector status response contained no status entries and its workflow lookup returned no runs; these are not evidence of success. The earlier run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808) verifies only its own commit (470 passed, 1 warning, broker-write guard and SQLite/PostgreSQL 16 migration cycles).
+- The workflow-boundary decision is resolved for Phase 2: keep intent-based BrokerFillIdentity and manual Order BrokerTradeRecord separate; do not add a bridge or dual-write. The safety-branch matrix records compatible ports versus items deferred to Phase 3/Phase 4.
+- Reconciliation crash recovery/lease fencing remains closed unless new evidence identifies a regression. **Overall Phase 2 is not closed** until exact-head CI and the final Phase 2 requirements audit are verified. No live broker submission, automatic accounting promotion, or automatic scheduling is enabled.
+
 ## Authoritative checkpoint audit — 21 October 2026
 
 - **Repository/branch:** `tarunsharma2610-del/tradepro-improved`, `main`. The original `tarunsharma2610-del/Tradepro` repository is a protected baseline and must remain untouched.
@@ -8,7 +15,7 @@
 - **Frontend:** no frontend files changed in this Phase 2 patch. The latest verified frontend CI remains [run 39554328474](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39554328474), which passed TypeScript and Next.js build on code/test commit `14995e5b41b3014b7de9d50a8466ac1cce4a77e6`.
 - **Previously completed Phase 2 protections:** atomic run/lease finalization; stale-owner protection; cancellation and interrupted-run recovery; inconsistent token/expiry rejection; five-record renewal checks; and incomplete-summary warnings for `WORKER_INTERRUPTED` and `LEASE_LOST`.
 - **Newly completed lease-expiry audit:** every worker-owned reconciliation persistence operation (fill identity, review issue, order transition and fill-to-intent link) now obtains a current, unexpired lease fence immediately before the write. The lease row is locked through the repository's persistence transaction, so a competing claimant must wait until that transaction commits or rolls back. Lease loss fails closed before the next mutation.
-- **Scope clarification:** the reconciliation crash-recovery/lease-fencing sub-slice is complete and verified. The broader Gate 2 safety-branch port remains open; do not describe the full roadmap as backlog-free or start Gate 3 before its dependency/workflow-boundary gates are addressed.
+- **Scope clarification:** the reconciliation crash-recovery/lease-fencing sub-slice is complete and verified. The broader Phase 2 safety-branch port remains open; do not describe the full roadmap as backlog-free or start Phase 3 before its dependency/workflow-boundary gates are addressed.
 - **Scope remains unchanged:** external-repository borrowing/adaptation is paused; no outside application code was imported. Live broker submission, automatic accounting promotion and automatic scheduling remain disabled. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 - Intermediate CI runs on partially applied commits were red while the new regression test preceded its matching fix; the final code/test commit above is the authoritative green result. Do not count those intermediate failures as the current code status.
 
@@ -16,8 +23,8 @@
 
 - The **reconciliation crash-recovery/lease-fencing slice** is complete. Code/test commit `fe07b77b193da1232787384efb38cb589e0d71b6` passed backend CI run [39561621808](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39561621808): 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
 - The documentation synchronization commit is CI-checked separately; use the live [GitHub Actions page](https://github.com/tarunsharma2610-del/tradepro-improved/actions) to verify the exact current `main` HEAD. Do not infer exact-HEAD CI from an earlier commit.
-- **This does not mean the entire Phase 2/Gate 2 roadmap is backlog-free.** Gate 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
-- Gate 3 live-fill accounting integration and Gate 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
+- **This does not mean the entire Phase 2/Phase 2 roadmap is backlog-free.** Phase 2 still has open work: complete the safety-branch dependency matrix, resolve the `BrokerFillIdentity` versus manual `BrokerTradeRecord` workflow boundary before any bridge, and complete the remaining focused accounting/idempotency/rollback tests for any selected port slice.
+- Phase 3 live-fill accounting integration and Phase 4 live-trading release gates remain future work and are intentionally blocked. No live submission, automatic accounting promotion, or automatic scheduling is enabled.
 - External-repository borrowing remains paused; the original `Tradepro` repository remains untouched. Keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; do not wholesale-merge the divergent safety branch.
 
 <!-- Latest verified status, updated 2026-10-21 -->
@@ -170,7 +177,7 @@ Reviewed official Upstox Place Order V2/V3, Order History, Order Book, Order Det
 - Two intermediate commits failed CI during the canonical-hash API/test-fixture transition; the later checkpoint corrected the mismatch and is green. Those failures are retained in Actions history rather than hidden.
 - No real broker order was submitted. No production database was migrated. This code does not yet implement a dispatch worker, live-order API, broker reconciliation or broker fill ingestion. CI contention coverage now exists for PostgreSQL; backup-restored staging verification and broader stress/failure testing remain open.
 
-### Remaining Gate 1 work
+### Remaining Phase 1 work
 - PostgreSQL CI now covers simultaneous same-key creation and reversible migrations; retain the exact run evidence above.
 - Verify migration downgrade/upgrade and constraints against a backup-restored staging copy of the actual deployment database engine.
 - Continue to preserve PAPER/live isolation; live submission remains disabled.

@@ -78,3 +78,12 @@ Working branch: `main`
 - [x] Add regressions proving unexpected adapter calls and unrelated helper calls are rejected.
 - [ ] Verify backend CI for the current `main` HEAD; do not use the earlier 439-test checkpoint as evidence for the guard changes.
 - [ ] Once green, continue dependency-mapped safety-branch review. Do not bridge `BrokerFillIdentity` and `BrokerTradeRecord` before the design and replay/rollback behavior are explicit.
+
+
+### Exact-head verification update — 2026-10-21
+- [x] Verify current `main` head `975717b05a3aa5faa030f3f9e177dbcf6066daf3` in [GitHub Actions run 39550130192](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39550130192): **447 passed, 1 warning**.
+- [x] Confirm broker-write AST guard passes on the actual application source.
+- [x] Confirm SQLite and PostgreSQL 16 migration upgrade → downgrade → re-upgrade checks pass.
+- [x] Fix the failed guard-test line-number assertion from the previous run.
+- [ ] Resume Phase 2 with the `BrokerFillIdentity` versus `BrokerTradeRecord` workflow boundary review; define identity, scoping, idempotency, conflict, rollback and recovery behavior before integrating.
+- Live broker submission and automatic accounting promotion remain disabled.

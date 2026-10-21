@@ -270,7 +270,13 @@ class LiveFillAccountingService:
                         record.broker_connection_id,
                         existing.instrument_id,
                     )
-                    if position is not None and existing.charge_source == charges.source and existing.charge_reference == charges.reference.strip():
+                    order = self.db.get(Order, existing.order_id)
+                    fee_values = self._validate_charges(charges)
+                    if (
+                        position is not None
+                        and order is not None
+                        and self._same_execution(existing, record, order, fee_values, charges)
+                    ):
                         return self._result(existing, record, position, inserted=False)
             raise ValueError("Concurrent live fill promotion conflict; review required.") from None
         except Exception:
@@ -337,10 +343,21 @@ class LiveFillAccountingService:
     ) -> bool:
         return (
             execution.order_id == order.id
+            and execution.portfolio_id == order.portfolio_id
+            and execution.instrument_id == order.instrument_id
             and execution.broker_order_ref_id == record.broker_order_ref_id
+            and execution.broker_trade_id == record.broker_trade_id
+            and execution.broker_name == "upstox"
             and execution.quantity == record.quantity
             and Decimal(str(execution.price)) == Decimal(str(record.price))
+            and Decimal(str(execution.gross_value)) == (
+                Decimal(str(record.price)) * Decimal(record.quantity)
+            ).quantize(CENT, rounding=ROUND_HALF_UP)
             and execution.side == record.side
+            and execution.executed_at.replace(tzinfo=timezone.utc) == (
+                LiveFillAccountingService._parse_exchange_timestamp(record.exchange_timestamp)
+                .replace(tzinfo=timezone.utc)
+            )
             and execution.charge_source == charges.source
             and execution.charge_reference == charges.reference.strip()
             and Decimal(str(execution.brokerage)) == fees["brokerage"]

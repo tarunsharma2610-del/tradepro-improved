@@ -171,6 +171,7 @@ def test_replay_with_same_trade_id_but_changed_fill_details_is_rejected(accounti
     [
         (_charges(source="ESTIMATED"), "broker-reported charges"),
         (_charges(reference=" "), "audit reference"),
+        (_charges(reference="x" * 201), "at most 200 characters"),
         (_charges(total_charges=Decimal("99.00")), "sum of its six components"),
         (_charges(brokerage=Decimal("-1.00"), total_charges=Decimal("2.86")), "non-negative"),
         (_charges(stt=Decimal("0.201"), total_charges=Decimal("23.861")), "paise precision"),

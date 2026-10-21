@@ -208,6 +208,15 @@ def test_invalid_or_estimated_charges_block_live_promotion(accounting_context, c
     assert paper_position.quantity == 7
 
 
+def test_live_fill_promotion_requires_persisted_reviewed_evidence(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, paper_position = accounting_context
+    with pytest.raises(ValueError, match="persisted reviewed contract-note evidence"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
 def test_naive_exchange_timestamp_blocks_live_promotion(accounting_context):
     db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
     record.exchange_timestamp = "2026-10-18T09:20:00"

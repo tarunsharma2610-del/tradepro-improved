@@ -1,10 +1,10 @@
 > **AUTHORITATIVE MAIN-BRANCH STATUS — 21 October 2026**
 >
 > - Repository: `tarunsharma2610-del/tradepro-improved`; working branch: `main`.
-> - Current verified code/test HEAD: `0ce59a7965e3e96a425fa8ae30c841eb0cb755bc`.
-> - Exact-head GitHub Actions [run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228) passed **461 backend tests, 1 warning**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration cycles passed.
-> - Phase 2 verified: owner/connection-scoped stale-run recovery, explicit incomplete-summary UI warning, fail-closed handling of inconsistent lease token/expiry pairs in both recovery and claim, and regression coverage for crash after lease release but before terminal summary persistence.
-> - Next: review whether lease completion and run-summary terminal persistence should be atomic; test lost-lease and terminal-state ordering before changing lifecycle semantics.
+> - Current verified code/test HEAD: `8f967adaa2328f16a0a08a104c3ec394e62f9310`.
+> - Exact-head GitHub Actions [run 39553655005](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553655005) passed **463 backend tests, 1 warning**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration cycles passed.
+> - Phase 2 now includes owner/connection-scoped stale-run recovery, an incomplete-summary UI warning, fail-closed inconsistent lease-state handling, and atomic terminal run-summary/lease finalization. A stale owner is marked `LEASE_LOST` without releasing a newer owner's lease; a failed summary update rolls back lease release.
+> - Next: audit cancellation/unexpected exceptions and lease renewal/expiry under concurrent worker activity.
 > - Safety: keep `BrokerFillIdentity` separate from `BrokerTradeRecord`; live broker submission and automatic accounting promotion remain disabled; do not modify original `Tradepro`.
 >
 > This is the authoritative main-branch status. Historical safety-branch entries below are retained as audit history and must not be read as evidence that the safety branch was merged or that its older CI results verify current main.
@@ -271,3 +271,8 @@ The step-up verifier now also denies a token if the authenticated user's MFA has
 ## Main-branch continuation note — 2026-10-21
 
 The current main-branch checkpoint is summarized at the top of this file. Historical branch-specific findings and commit references below remain useful context, but the safety branch was not merged wholesale. For the latest Phase 2 status, follow `PROGRESS.md`, `HANDOVER.md`, `MASTER_ROADMAP.md`, and `AUDIT_REPORT.md`.
+
+
+## Main-branch continuation note — 2026-10-21
+
+The latest verified main-branch Phase 2 checkpoint is summarized at the top of this file. Historical branch-specific findings remain useful context, but the safety branch was not merged wholesale. See `PROGRESS.md`, `HANDOVER.md`, `MASTER_ROADMAP.md`, and `AUDIT_REPORT.md` for current lifecycle changes.

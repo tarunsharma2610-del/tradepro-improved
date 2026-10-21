@@ -95,3 +95,12 @@ This update supersedes the earlier "Immediate next task" paragraph above.
 - Both `fail_orphaned_runs` and `LiveReconciliationLeaseRepository.claim` reject a lease with exactly one of token/expiry populated. Claim SQL only reclaims a released (both NULL) or expired lease.
 - Regression coverage verifies a crash after lease release but before terminal summary persistence; after the run ages past the cutoff, the next worker marks it `FAILED/WORKER_INTERRUPTED` and proceeds with a new run. This is eventual recovery, not atomic completion.
 - Next: decide whether run-summary finish and lease completion should share a transaction, then cover lost-lease and summary-ordering edge cases. Do not enable live submission, automatic accounting promotion, or a scheduler. Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate.
+
+
+## Latest verified checkpoint — atomic reconciliation lifecycle (2026-10-21)
+
+- Current verified code/test HEAD: `8f967adaa2328f16a0a08a104c3ec394e62f9310`.
+- Exact-head [CI run 39553655005](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553655005) passed 463 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- Run finalization and lease release now execute in one transaction. A summary update failure rolls back lease release; a stale worker cannot release a newer lease and marks its run `LEASE_LOST` instead.
+- The previous simulated-crash test now asserts the lease remains claimed when finalization fails, then verifies eventual orphan recovery after expiry. A repository-level rollback test and a stale-owner/new-owner regression test pass.
+- Next: audit cancellation, unexpected exception, and lease renewal/expiry paths. Keep fill workflows separate and all live submission/accounting promotion disabled.

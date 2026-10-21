@@ -112,3 +112,12 @@ Stale reconciliation summaries may be marked `FAILED/WORKER_INTERRUPTED` only th
 - `WORKER_INTERRUPTED` means reconciliation counters may be incomplete. Do not infer no fills from zero counters and do not auto-retry broker requests or promote accounting.
 - Next work: review lease completion versus terminal run-summary persistence for transaction atomicity; add focused lost-lease and crash-ordering tests before lifecycle changes.
 - Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live broker submission, automatic accounting promotion, and automatic scheduling remain disabled.
+
+
+## Current Phase 2 checkpoint — 2026-10-21
+
+- Verified code/test HEAD `8f967adaa2328f16a0a08a104c3ec394e62f9310`; [CI run 39553655005](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553655005) passed 463 backend tests, 1 warning, broker-write guard, and SQLite/PostgreSQL 16 migration cycles.
+- Use `LiveReconciliationRunRepository.finish_with_lease` for worker terminalization. Do not split lease release and run-summary persistence into separate commits.
+- If lease ownership has changed, preserve the newer lease and terminalize the old run as `LEASE_LOST`. If summary persistence fails, roll back lease release and allow expiry/recovery to handle the incomplete run.
+- Next: audit cancellation/unexpected exception paths and lease renewal/expiry under concurrency. `WORKER_INTERRUPTED` means counters may be incomplete.
+- Keep `BrokerFillIdentity` and `BrokerTradeRecord` separate; live submission, automatic accounting promotion, and automatic scheduling remain disabled.

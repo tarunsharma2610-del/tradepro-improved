@@ -385,3 +385,12 @@ A crash can leave a durable `LiveReconciliationRun` in `RUNNING`. Added `fail_or
 - Fixed a lease-claim weakness: prior SQL treated a missing token **or** missing expiry as reclaimable, which could overwrite a half-populated lease. Claim now rejects inconsistent pairs and only reclaims both-null released rows or rows whose populated expiry has elapsed; row locking is requested where supported.
 - Added recovery coverage for a crash after lease release but before run-summary persistence. The summary remains RUNNING until it is older than the recovery cutoff, then is marked FAILED/WORKER_INTERRUPTED before a subsequent run. Its counters remain incomplete and are not evidence that no fill work occurred.
 - Remaining architectural question: lease completion and run-summary finalization are separate commits. Decide whether to unify them in a transaction; if not, retain explicit eventual-recovery semantics and test the lost-lease / finish-order edge cases. No broker write, fill promotion, or accounting mutation was added.
+
+
+## Phase 2 atomic lifecycle finalization audit — 2026-10-21
+
+- Exact verified code/test HEAD `8f967adaa2328f16a0a08a104c3ec394e62f9310`: [CI run 39553655005](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553655005) passed 463 backend tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- Replaced separate lease-completion and run-summary commits with `finish_with_lease`, which updates both records in one database transaction. If the run is no longer RUNNING or cannot be updated, rollback preserves the lease record.
+- If a worker's lease token is stale, the run is marked `LEASE_LOST`; the repository does not clear the newer owner's token or expiry. Tests cover both rollback and stale-owner finalization.
+- Worker-level failure coverage verifies the lease remains active when summary finalization fails; after simulated process loss and expiry, stale-run recovery marks the run `WORKER_INTERRUPTED` before a subsequent run. Summary counters remain incomplete and are not evidence that no fill work occurred.
+- Remaining Phase 2 review: cancellation/unexpected exceptions and lease renewal/expiry under concurrent worker activity. No live broker writes, fill promotion, or accounting mutation was added.

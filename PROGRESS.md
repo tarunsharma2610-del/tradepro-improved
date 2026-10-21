@@ -683,3 +683,13 @@ The three files deleted during the temporary rollback have been restored byte-fo
 - Added a crash-window regression test: lease release succeeds, terminal summary persistence fails, the run remains marked RUNNING, and later stale-run recovery marks it WORKER_INTERRUPTED before the next run.
 - Crash-window test commit `cc01b7143bafba57ed20feaa6cef40c57f122c27` passed 459 tests; the latest exact-head run above includes the additional claim-state tests.
 - Next: review whether lease completion and run-summary terminal persistence should be one atomic transaction; add tests for lost-lease / summary ordering before changing lifecycle semantics. Keep recovery metadata-only, preserve separate fill workflows, and keep live submission/accounting promotion disabled.
+
+
+## Phase 2 atomic lifecycle finalization — 2026-10-21
+
+- Current verified code/test HEAD: `8f967adaa2328f16a0a08a104c3ec394e62f9310`.
+- Exact-head [backend CI run 39553655005](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553655005) passed **463 tests, 1 warning**, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
+- Added `LiveReconciliationRunRepository.finish_with_lease`: lease completion and terminal run-summary persistence now share one database transaction. If run finalization fails, the lease release rolls back too.
+- Worker finalization now uses that atomic method. If the lease token is no longer owned, the run is finalized as `LEASE_LOST` without releasing the newer owner's lease.
+- Tests cover atomic rollback on a terminal/missing run, protection of a newer lease, and recovery after a simulated worker crash/finalization failure. The worker leaves the lease intact until expiry if summary finalization fails, then stale-run recovery handles the incomplete run.
+- Next: review cancellation/exception paths and lease renewal/expiry behavior under concurrent worker activity. Keep reconciliation read-only; no automatic broker writes, live submission, accounting promotion, or scheduler.

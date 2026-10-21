@@ -130,3 +130,13 @@ Working branch: `main`
 - [x] Exact-head [CI run 39552821228](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39552821228): 461 tests passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
 - [ ] Decide whether lease completion and run-summary finish should be transactionally atomic; test lost-lease, rollback, and terminal-state ordering before changing implementation.
 - Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.
+
+
+## Phase 2 — atomic run/lease finalization verified (2026-10-21)
+- [x] Finalize terminal run summary and release matching lease in one database transaction.
+- [x] Roll back lease release when run finalization cannot update exactly one RUNNING row.
+- [x] Mark stale-owner completion as `LEASE_LOST` without releasing the current lease owner.
+- [x] Worker regression covers summary-finalization failure, retained lease, expiry, and eventual orphan recovery.
+- [x] Exact-head [CI run 39553655005](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39553655005): 463 tests passed, 1 warning; broker-write guard and SQLite/PostgreSQL 16 migration cycles passed.
+- [ ] Audit cancellation/unexpected exception and lease renewal/expiry paths under concurrent worker activity.
+- Safety remains unchanged: read-only reconciliation only; no live order submission or automatic accounting promotion.

@@ -707,3 +707,50 @@ async def test_worker_cancellation_leaves_recoverable_run_and_lease(db_session, 
     assert recovered.status == "COMPLETED"
     assert recovered.run_id != run.id
 
+
+
+@pytest.mark.asyncio
+async def test_worker_stops_batch_when_lease_is_lost_at_renewal_boundary(
+    db_session, make_user
+):
+    user, _portfolio, connection = _setup(db_session, make_user)
+    trades = [
+        _trade(trade_id=f"trade-{index}", order_id=f"broker-order-{index}")
+        for index in range(26)
+    ]
+    client = _FakeReadClient(trades=trades)
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+    original_renew = worker.lease_repository.renew
+    renew_calls = 0
+    replacement_token = uuid.uuid4()
+
+    def lose_lease_on_second_batch(**kwargs):
+        nonlocal renew_calls
+        renew_calls += 1
+        if renew_calls == 3:
+            lease = db_session.query(LiveReconciliationLease).filter_by(
+                broker_connection_id=connection.id
+            ).one()
+            lease.lease_token = replacement_token
+            lease.claimed_until = datetime.now(timezone.utc) + timedelta(minutes=5)
+            db_session.commit()
+            return False
+        return original_renew(**kwargs)
+
+    worker.lease_repository.renew = lose_lease_on_second_batch
+    result = await worker.run_for_connection(user_id=user.id, broker_connection_id=connection.id)
+
+    assert result.status == "LEASE_LOST"
+    fills = db_session.query(BrokerFillIdentity).filter_by(
+        broker_connection_id=connection.id
+    ).all()
+    assert len(fills) == 5
+    assert {fill.broker_trade_id for fill in fills} == {f"trade-{i}" for i in range(5)}
+    lease = db_session.query(LiveReconciliationLease).filter_by(
+        broker_connection_id=connection.id
+    ).one()
+    assert lease.lease_token == replacement_token
+

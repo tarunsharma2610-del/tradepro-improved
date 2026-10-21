@@ -133,9 +133,9 @@ export default function ReconciliationPage() {
                   <p><span className="text-ink/50 dark:text-paper/50">Started:</span> {dateTime(run.started_at)}</p>
                   <p><span className="text-ink/50 dark:text-paper/50">Completed:</span> {dateTime(run.completed_at)}</p>
                 </div>
-                {run.error_code === "WORKER_INTERRUPTED" && (
+                {(run.error_code === "WORKER_INTERRUPTED" || run.error_code === "LEASE_LOST" || run.status === "LEASE_LOST") && (
                   <p role="alert" className="text-sm text-loss">
-                    This run was interrupted before its summary could be finalized. The counters below may be incomplete; zero values do not prove that no fills were processed.
+                    This run did not finish with a fully authoritative summary. Its counters may be incomplete; zero values do not prove that no fills were processed.
                   </p>
                 )}
                 {run.summary && (

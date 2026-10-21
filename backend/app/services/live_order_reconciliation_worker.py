@@ -56,6 +56,9 @@ class ReconciliationRunResult:
         }
 
 
+_LEASE_RENEWAL_BATCH_SIZE = 5
+
+
 class _WorkerFailure(RuntimeError):
     def __init__(self, code: str):
         super().__init__(code)
@@ -261,7 +264,7 @@ class LiveOrderReconciliationWorker:
         # validated step after an order has been matched to an intent.
         result.trades_seen = len(trade_records)
         for index, record in enumerate(trade_records):
-            if index % 25 == 0:
+            if index % _LEASE_RENEWAL_BATCH_SIZE == 0:
                 self._renew_or_fail(user_id, connection_id, lease_token)
             try:
                 trade = normalize_upstox_trade(record)
@@ -315,7 +318,7 @@ class LiveOrderReconciliationWorker:
                 )
 
         for index, record in enumerate(order_records):
-            if index % 25 == 0:
+            if index % _LEASE_RENEWAL_BATCH_SIZE == 0:
                 self._renew_or_fail(user_id, connection_id, lease_token)
             result.orders_seen += 1
             try:

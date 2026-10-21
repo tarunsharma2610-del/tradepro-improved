@@ -118,6 +118,7 @@ class LiveReconciliationRunRepository:
             LiveReconciliationLease.broker_connection_id == broker_connection_id,
         ).with_for_update().first()
         if lease is not None and lease.lease_token is not None and lease.claimed_until is not None and lease.claimed_until > now:
+            self.db.rollback()
             return 0
 
         result = self.db.execute(

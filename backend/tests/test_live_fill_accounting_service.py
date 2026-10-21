@@ -295,6 +295,43 @@ def test_cumulative_promoted_trades_cannot_exceed_child_fill_quantity(accounting
 
 
 
+def test_cumulative_fills_across_child_orders_cannot_exceed_local_order_quantity(accounting_context):
+    db, user, _portfolio, instrument, connection, order, _child, record, _paper_position = accounting_context
+    first = LiveFillAccountingService(db).promote_trade(user.id, record.id, _charges())
+    assert first.live_position_quantity == 2
+
+    second_child = BrokerOrder(
+        broker_connection_id=connection.id,
+        order_id=order.id,
+        broker_name="upstox",
+        broker_order_id="broker-child-2",
+        requested_quantity=4,
+        filled_quantity=4,
+        status="FILLED",
+    )
+    db.add(second_child)
+    db.flush()
+    second_record = BrokerTradeRecord(
+        broker_connection_id=connection.id,
+        broker_order_ref_id=second_child.id,
+        broker_trade_id="trade-live-002",
+        quantity=4,
+        price=Decimal("101.00"),
+        side="BUY",
+        instrument_token=instrument.instrument_key,
+        exchange_timestamp="2026-10-18T09:21:00+05:30",
+    )
+    db.add(second_record)
+    db.commit()
+
+    with pytest.raises(ValueError, match="Cumulative accounted trade quantity exceeds the local order quantity"):
+        LiveFillAccountingService(db).promote_trade(user.id, second_record.id, _charges())
+
+    assert db.query(Execution).count() == 1
+    live_position = db.query(LivePosition).one()
+    assert live_position.quantity == 2
+
+
 def test_live_fill_promotion_locks_parent_then_child_then_trade_record(accounting_context, monkeypatch):
     from sqlalchemy.orm import Query
 

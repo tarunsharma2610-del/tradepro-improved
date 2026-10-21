@@ -1,8 +1,14 @@
 <!-- Authoritative checkpoint audit: 2026-10-21; supersedes older status notes below. -->
+## Superseding phase-status note — 21 October 2026
+
+- This security audit is a historical requirements inventory, not evidence that all safety-control endpoints or live broker-write protections are implemented. Features for persistent account safety, kill-switch trip/reset, trusted grants, central broker-write authorization, and live preflight remain deferred to the appropriate later phase and are not Phase 2 closure criteria unless explicitly listed in the master roadmap.
+- Latest test commit: [e56bf4c66f74b875a3ba8fe388138a9d688dd1e2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e56bf4c66f74b875a3ba8fe388138a9d688dd1e2). Exact-head CI is unverified; the earlier lease-fencing run does not cover this commit.
+- Phase 2 remains open pending exact-head CI and final roadmap/requirements alignment. Live submission and automatic accounting promotion remain disabled.
+
 ## Current verified checkpoint — 21 October 2026
 
 - The reconciliation crash-recovery/lease-fencing sub-slice is complete; backend CI run 39561621808 passed 470 tests, 1 warning, broker-write boundary guard, and SQLite/PostgreSQL 16 migration cycles.
-- The broader Gate 2 safety-branch port and workflow-boundary work remains open. Gate 3 accounting integration and Gate 4 live-trading release gates remain blocked.
+- The broader Phase 2 safety-branch port and workflow-boundary work remains open. Phase 3 accounting integration and Phase 4 live-trading release gates remain blocked.
 - The current documentation commit's exact-head CI status must be checked in the live [GitHub Actions page](https://github.com/tarunsharma2610-del/tradepro-improved/actions); older commit results are historical evidence, not proof for a newer HEAD.
 - Live broker submission, automatic accounting promotion and automatic scheduling remain disabled.
 

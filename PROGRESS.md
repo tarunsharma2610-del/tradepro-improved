@@ -910,3 +910,10 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - NSE's [revised contract-note FAQs](https://www.nseindia.com/static/trade/contract-note-faqs) describes trade-detail annexures and combined transaction-charge reporting, which does not prove unique per-fill mapping for every levy.
 - Contract: PHASE3_CHARGE_ALLOCATION_CONTRACT.md, updated in commit 6ab4948c6c5978a2d7aadf75ece59f407f605674. Aggregate charges must not be allocated to fills by guessed proportional rules; symbol/date/average-price matching alone is not sufficient.
 - **Current status:** the evidence gate remains open. Next safe work is to add/strengthen tests and interface-level rejection for any attempted use of aggregate charge reports as per-fill actuals, without introducing a production importer or speculative schema. Latest documentation commits still require exact-HEAD CI confirmation.
+
+## Phase 3 negative-source regression coverage — 2026-10-21
+
+- Extended `backend/tests/test_live_fill_accounting_service.py` to explicitly assert that source labels `AGGREGATE_CHARGES`, `TRADE_CHARGES_API`, and `BROKER_ESTIMATE` are rejected by live-fill promotion, alongside the existing estimated-charge rejection. This is regression coverage for the rule that period/segment aggregates and estimates are not per-fill actual-charge evidence.
+- Test change commit: `b8fa3eca4d2f6181a81ac3efd4d714af10cf5a8c`.
+- This is a test-only guard, not an importer or a new allocation mechanism. It does not prove actual-source authenticity; a caller could still mislabel data as `BROKER_REPORTED`, which is part of the outstanding source-provenance design gate.
+- Latest code/test commit requires exact-HEAD CI. Do not claim the new cases passed until GitHub Actions reports success for the exact current HEAD, including pytest, broker-write guard, SQLite migration cycle and PostgreSQL 16 migration cycle.

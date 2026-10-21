@@ -754,3 +754,30 @@ async def test_worker_stops_batch_when_lease_is_lost_at_renewal_boundary(
     ).one()
     assert lease.lease_token == replacement_token
 
+
+
+@pytest.mark.asyncio
+async def test_worker_stops_before_trade_persistence_when_write_fence_is_lost(
+    db_session, make_user
+):
+    user, portfolio, connection = _setup(db_session, make_user)
+    _intent(db_session, user, portfolio, connection)
+    client = _FakeReadClient(orders=[_order()], trades=[_trade()])
+    worker = LiveOrderReconciliationWorker(
+        db_session, client=client, token_provider=lambda _user_id: "test-token",
+        sleeper=_no_sleep,
+    )
+
+    # Simulate the lease being replaced/expired between batch renewal and the
+    # individual persistence transaction. The fence must reject the write.
+    worker.lease_repository.fence_for_write = lambda **_kwargs: False
+
+    result = await worker.run_for_connection(
+        user_id=user.id, broker_connection_id=connection.id
+    )
+
+    assert result.error_code == "LEASE_LOST"
+    assert db_session.query(BrokerFillIdentity).count() == 0
+    assert db_session.query(BrokerTradeRecord).count() == 0
+    assert db_session.query(Execution).count() == 0
+    assert db_session.query(LivePosition).count() == 0

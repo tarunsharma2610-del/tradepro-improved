@@ -95,7 +95,7 @@ def test_rejects_fill_from_different_broker_connection(reviewed_evidence, make_u
     db.refresh(other_connection)
     other_trade = _trade(db, other_connection.id, "trade-other-connection")
 
-    with pytest.raises(ValueError, match="same broker connection"):
+    with pytest.raises(ValueError, match="evidence connection"):
         _allocate(
             db, user, connection, evidence, [other_trade],
             weights={other_trade.id: 1},

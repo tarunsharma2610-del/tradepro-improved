@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.broker_charge_allocation import BrokerChargeAllocation
+from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.services.broker_charge_allocation_service import (
     METHOD_VERSION,
@@ -54,6 +55,18 @@ def allocate_and_persist_component(
         broker_report_reference=broker_report_reference,
         reviewer_user_id=reviewer_user_id,
     )
+    # Serialize allocations for the same source evidence on databases that
+    # support row-level locks (notably PostgreSQL). Locking only target fills
+    # is insufficient: two transactions with disjoint fill sets could both
+    # observe an empty component ledger and each insert a different subset.
+    locked_evidence = (
+        db.query(BrokerChargeEvidence)
+        .filter(BrokerChargeEvidence.id == evidence_id)
+        .with_for_update()
+        .one_or_none()
+    )
+    if locked_evidence is None:
+        raise ValueError("Reviewed broker charge evidence no longer exists.")
     trades = (
         db.query(BrokerTradeRecord)
         .filter(BrokerTradeRecord.id.in_(list(fill_weights)))

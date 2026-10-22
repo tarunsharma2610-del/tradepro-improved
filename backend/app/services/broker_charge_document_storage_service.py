@@ -72,20 +72,10 @@ def delete_document(*, root: str | Path, storage_key: str) -> None:
         pass
 
 
-"""Read-only audit of contract-note files against durable evidence rows.
-
-This module reports inconsistencies only. It never deletes or modifies files.
-"""
-from __future__ import annotations
-
-import hashlib
-import re
-from pathlib import Path
+# Read-only storage audit is implemented below; this module never deletes files.
 from typing import Any
 
 from app.models.broker_charge_evidence import BrokerChargeEvidence
-
-_STORAGE_KEY_RE = re.compile(r"^[0-9a-f]{32}$")
 
 
 def audit_contract_note_storage(*, db: Any, root: str | Path) -> dict[str, list[dict[str, str | int]]]:

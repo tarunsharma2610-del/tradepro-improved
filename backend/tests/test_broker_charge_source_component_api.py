@@ -238,3 +238,52 @@ def test_rejected_component_can_be_corrected_as_new_audited_revision(
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_non_admin_cannot_review_another_users_contract_note(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    owner = make_user(email="source-owner-nonadmin-test@example.com")
+    reviewer = make_user(email="source-reviewer-nonadmin-test@example.com")
+    connection = _connection(db_session, owner)
+    trade = _trade(db_session, connection)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: owner
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        created = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={
+                "component_name": "brokerage",
+                "source_amount": "20.00",
+                "currency": "INR",
+                "source_locator": "page 1, brokerage row",
+            },
+        )
+        assert created.status_code == 201, created.text
+        component_id = UUID(created.json()["id"])
+
+        # A different user is not automatically authorized to review evidence
+        # owned by someone else; only the platform-admin role crosses this boundary.
+        app.dependency_overrides[get_current_user] = lambda: reviewer
+        response = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{component_id}/review",
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(trade.id)],
+            },
+        )
+        assert response.status_code == 404
+        component = db_session.get(BrokerChargeSourceComponent, component_id)
+        assert component.status == "PENDING_REVIEW"
+        assert component.reviewed_by_user_id is None
+        assert component.eligible_fill_ids_json is None
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)

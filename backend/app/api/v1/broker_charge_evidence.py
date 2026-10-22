@@ -80,6 +80,7 @@ async def upload_contract_note(
         storage_key=storage_key,
         source_sha256=digest,
         byte_size=byte_size,
+        received_by_user_id=user.id,
         status="RECEIVED",
     )
     try:

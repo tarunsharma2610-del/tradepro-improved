@@ -56,6 +56,9 @@ def test_concurrent_conflicting_fill_sets_serialize_on_evidence():
                 id=user_id, email=f"race-{suffix}@example.invalid",
                 password_hash="test-hash", full_name="Race Test", is_admin=False,
             ))
+            # Flush the parent row before inserting dependent rows in the same
+            # transaction; these test objects do not declare ORM relationships.
+            db.flush()
             db.add(Portfolio(
                 id=portfolio_id, user_id=user_id, name=f"race-{suffix}",
                 virtual_capital=Decimal("10000.00"), cash_balance=Decimal("10000.00"),

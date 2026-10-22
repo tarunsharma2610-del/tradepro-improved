@@ -113,6 +113,7 @@ def test_source_component_is_pending_until_different_reviewer_confirms_source(
         assert db_component.eligible_fill_ids_json == f'["{trade.id}"]'
         assert len(db_component.eligible_fill_set_sha256) == 64
         assert db_component.rounding_policy == "largest-remainder-v1"
+        assert db_component.allocation_basis == "EXPLICIT_REVIEWED"
         db_evidence = db_session.get(BrokerChargeEvidence, UUID(evidence["id"]))
         db_session.refresh(db_evidence)
         assert db_evidence.status == "REVIEWED"

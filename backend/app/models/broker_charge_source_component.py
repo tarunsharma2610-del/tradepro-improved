@@ -62,6 +62,7 @@ class BrokerChargeSourceComponent(BaseModel):
     eligible_fill_ids_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     eligible_fill_set_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rounding_policy: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    allocation_basis: Mapped[str | None] = mapped_column(String(50), nullable=True)
     extracted_by_user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )

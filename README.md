@@ -445,3 +445,12 @@ This is not a complete live-fill pipeline: the service remains unregistered, ing
 - Alembic revision `202610220011` adds nullable `storage_key` for legacy evidence compatibility. **Exact-head CI and SQLite/PostgreSQL migration upgrade/downgrade/re-upgrade checks remain required.**
 - SHA-256 proves byte continuity with the recorded upload, not broker-origin authenticity. Independent source-component parsing/review, persisted component provenance, exact fill-set/amount/currency/rounding reconciliation, and atomic promotion remain later Phase 3 gates.
 - PR #6 remains draft/unmerged; live broker submission and automatic accounting promotion remain disabled. Work remains exclusively in `tarunsharma2610-del/tradepro-improved`; do not modify original `Tradepro`.
+
+## Phase 3 durable source-component provenance — 22 October 2026
+
+- Added `BrokerChargeSourceComponent` and Alembic revision `202610220012` to persist a charge component's evidence ID, exact source SHA-256, component name, INR amount, source page/row locator, extraction method, parser-version field, extracting user, status, reviewer, review timestamp, and review note.
+- This first workflow is explicitly **manual transcription**, versioned as `manual-transcription-v1`; it does not claim that a broker-specific parser exists or that the amount was machine-extracted. No PDF/CSV parser or broker document format was assumed.
+- Added authenticated endpoints to record a component as `PENDING_REVIEW`, verify the original file's stored fingerprint/size before recording or reviewing, and require a different user to confirm the amount against the original source before it becomes `VERIFIED`. Rejected components remain rejected; duplicate component entries and non-INR currencies fail closed.
+- Added API regression tests for pending-before-review behavior, same-user review rejection, distinct-reviewer verification, tampered-source rejection, invalid currency, and duplicate component prevention.
+- **CI must be checked on the exact latest PR head before this work is considered verified.** This is source-component provenance, not the final reconciliation gate: allocation totals must still match verified source components, exact eligible fill sets, currency, and rounding policy under a transaction before any future promotion is considered.
+- PR #6 stays draft/unmerged. Live broker order submission and automatic accounting promotion remain disabled. All changes target `tarunsharma2610-del/tradepro-improved`, never original `Tradepro`.

@@ -16,6 +16,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 import app.models  # noqa: F401 register every model table
+from app.core.database import Base
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_order import BrokerOrder

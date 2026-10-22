@@ -33,6 +33,9 @@ from app.services.broker_charge_allocation_persistence_service import (
 def test_concurrent_conflicting_fill_sets_serialize_on_evidence():
     url = os.environ["TEST_POSTGRES_URL"]
     engine = create_engine(url, pool_size=5, max_overflow=0, pool_pre_ping=True)
+    # This test runs before the separate migration-check step in CI, so create
+    # the current ORM schema in its dedicated, disposable test database.
+    Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, expire_on_commit=False)
     suffix = uuid4().hex[:10]
     user_id, connection_id, evidence_id = uuid4(), uuid4(), uuid4()

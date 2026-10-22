@@ -193,7 +193,7 @@ def test_source_component_rejects_invalid_currency_and_duplicate_component(
 
 
 
-def test_rejected_component_can_be_corrected_as_new_audited_revision(
+def test_rejected_evidence_cannot_be_corrected_in_place(
     db_session, make_user, monkeypatch, tmp_path
 ):
     extractor = make_user(email="revision-extractor@example.com")
@@ -220,25 +220,30 @@ def test_rejected_component_can_be_corrected_as_new_audited_revision(
         first = client.post(f"/api/v1/broker-charge-evidence/{evidence['id']}/components", json=base)
         assert first.status_code == 201, first.text
         assert first.json()["revision"] == 1
+
         app.dependency_overrides[get_current_user] = lambda: reviewer
         rejected = client.post(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{first.json()['id']}/reject",
             json={"confirm_source_matches": False, "review_note": "Amount did not match source."},
         )
         assert rejected.status_code == 200, rejected.text
+        db_evidence = db_session.get(BrokerChargeEvidence, UUID(evidence["id"]))
+        db_session.refresh(db_evidence)
+        assert db_evidence.status == "REJECTED"
+
+        # Keep rejected source evidence immutable; corrections require a new evidence record.
         app.dependency_overrides[get_current_user] = lambda: extractor
         second = client.post(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
             json={**base, "source_amount": "1.00"},
         )
-        assert second.status_code == 201, second.text
-        assert second.json()["revision"] == 2
-        assert second.json()["id"] != first.json()["id"]
-        assert db_session.query(BrokerChargeSourceComponent).count() == 2
+        assert second.status_code == 409
+        assert db_session.query(BrokerChargeSourceComponent).count() == 1
+        original = db_session.get(BrokerChargeSourceComponent, UUID(first.json()["id"]))
+        assert original.status == "REJECTED"
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
-
 
 def test_non_admin_cannot_review_another_users_contract_note(
     db_session, make_user, monkeypatch, tmp_path

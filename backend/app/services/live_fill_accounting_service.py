@@ -126,6 +126,10 @@ class LiveFillAccountingService:
             ):
                 raise ValueError("Broker child-order mapping changed while acquiring accounting locks.")
 
+            # Do not lock the trade row yet. Charge verification locks evidence,
+            # source components, allocations, then trade records. Taking the trade
+            # lock first here would invert that order and can deadlock against a
+            # concurrent verification/promotion transaction.
             record = (
                 self.db.query(BrokerTradeRecord)
                 .filter(
@@ -133,7 +137,6 @@ class LiveFillAccountingService:
                     BrokerTradeRecord.broker_order_ref_id == child.id,
                     BrokerTradeRecord.broker_connection_id == child.broker_connection_id,
                 )
-                .with_for_update()
                 .populate_existing()
                 .first()
             )
@@ -169,6 +172,16 @@ class LiveFillAccountingService:
             if not price.is_finite() or price <= 0:
                 raise ValueError("Broker trade price is invalid.")
             executed_at = self._parse_exchange_timestamp(record.exchange_timestamp)
+            record_snapshot = (
+                record.broker_connection_id,
+                record.broker_order_ref_id,
+                record.broker_trade_id,
+                record.quantity,
+                Decimal(str(record.price)),
+                record.side,
+                record.instrument_token,
+                record.exchange_timestamp,
+            )
 
             existing = (
                 self.db.query(Execution)
@@ -179,6 +192,31 @@ class LiveFillAccountingService:
                 .first()
             )
             if existing is not None:
+                # Exact replay exits before charge-evidence locks, so it may safely
+                # lock/refresh the trade row here without reversing the ledger lock
+                # order used by source verification.
+                record = (
+                    self.db.query(BrokerTradeRecord)
+                    .filter(
+                        BrokerTradeRecord.id == broker_trade_record_id,
+                        BrokerTradeRecord.broker_order_ref_id == child.id,
+                        BrokerTradeRecord.broker_connection_id == child.broker_connection_id,
+                    )
+                    .with_for_update()
+                    .populate_existing()
+                    .first()
+                )
+                if record is None or (
+                    record.broker_connection_id,
+                    record.broker_order_ref_id,
+                    record.broker_trade_id,
+                    record.quantity,
+                    Decimal(str(record.price)),
+                    record.side,
+                    record.instrument_token,
+                    record.exchange_timestamp,
+                ) != record_snapshot:
+                    raise ValueError("Broker trade changed during existing-execution replay; review required.")
                 if not self._same_execution(existing, record, order, fee_values, charges):
                     raise ValueError("Broker trade already has a conflicting accounted execution.")
                 position = self._get_live_position(connection.id, instrument.id)
@@ -252,6 +290,36 @@ class LiveFillAccountingService:
                 broker_trade_record_id=record.id,
                 supplied_fees=fee_values,
             )
+
+            # The verification path now owns the evidence -> component ->
+            # allocation -> trade lock order. Refresh the trade after those locks
+            # are acquired and fail closed if any intake fields changed meanwhile.
+            locked_record = (
+                self.db.query(BrokerTradeRecord)
+                .filter(
+                    BrokerTradeRecord.id == broker_trade_record_id,
+                    BrokerTradeRecord.broker_order_ref_id == child.id,
+                    BrokerTradeRecord.broker_connection_id == child.broker_connection_id,
+                )
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            if locked_record is None:
+                raise ValueError("Broker trade mapping changed during charge verification.")
+            locked_snapshot = (
+                locked_record.broker_connection_id,
+                locked_record.broker_order_ref_id,
+                locked_record.broker_trade_id,
+                locked_record.quantity,
+                Decimal(str(locked_record.price)),
+                locked_record.side,
+                locked_record.instrument_token,
+                locked_record.exchange_timestamp,
+            )
+            if locked_snapshot != record_snapshot:
+                raise ValueError("Broker trade changed during charge verification; manual reconciliation required.")
+            record = locked_record
 
             portfolio = (
                 self.db.query(Portfolio)

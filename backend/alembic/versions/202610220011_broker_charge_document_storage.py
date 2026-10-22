@@ -18,11 +18,7 @@ def upgrade() -> None:
         "broker_charge_evidence",
         sa.Column("storage_key", sa.String(length=500), nullable=True),
     )
-    op.create_unique_constraint(
-        "uq_charge_evidence_storage_key", "broker_charge_evidence", ["storage_key"]
-    )
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_charge_evidence_storage_key", "broker_charge_evidence", type_="unique")
     op.drop_column("broker_charge_evidence", "storage_key")

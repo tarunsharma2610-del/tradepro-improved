@@ -56,7 +56,9 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
     if evidence is None:
         from datetime import date
         from uuid import uuid4
-        evidence = BrokerChargeEvidence(broker_connection_id=connection.id, source_kind="CONTRACT_NOTE", broker_report_reference=reference.strip(), report_date=date(2026, 10, 18), segment="NSE", source_filename="reviewed-contract-note.pdf", storage_key=uuid4().hex, source_sha256=hashlib.sha256(synthetic_document).hexdigest(), byte_size=len(synthetic_document), parser_version="phase3-test", status="REVIEWED", reviewed_at=datetime.now(timezone.utc), reviewed_by_user_id=reviewer.id)
+        storage_key = uuid4().hex
+        db._synthetic_charge_documents[storage_key] = synthetic_document
+        evidence = BrokerChargeEvidence(broker_connection_id=connection.id, source_kind="CONTRACT_NOTE", broker_report_reference=reference.strip(), report_date=date(2026, 10, 18), segment="NSE", source_filename="reviewed-contract-note.pdf", storage_key=storage_key, source_sha256=hashlib.sha256(synthetic_document).hexdigest(), byte_size=len(synthetic_document), parser_version="phase3-test", status="REVIEWED", reviewed_at=datetime.now(timezone.utc), reviewed_by_user_id=reviewer.id)
         db.add(evidence)
         db.flush()
     else:
@@ -94,10 +96,12 @@ def accounting_context(db_session, make_user, monkeypatch):
     user = make_user()
     reviewer = make_user(email="live-accounting-reviewer@example.com")
     reviewer.is_admin = True
-    synthetic_document = b"synthetic test contract note"
+    # Keep each synthetic document keyed by its opaque storage key so tests
+    # can model distinct uploaded notes without violating the unique source hash.
+    db_session._synthetic_charge_documents = {}
     monkeypatch.setattr(
         "app.services.broker_charge_source_reconciliation_service.read_verified_document",
-        lambda **_kwargs: synthetic_document,
+        lambda **kwargs: db_session._synthetic_charge_documents[kwargs["storage_key"]],
     )
     portfolio = PortfolioRepository(db_session).create(
         user_id=user.id, name="Live accounting", virtual_capital=Decimal("100000")

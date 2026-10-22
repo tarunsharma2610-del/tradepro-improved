@@ -46,6 +46,11 @@ class SourceComponentReviewInput(BaseModel):
     review_note: str | None = Field(default=None, max_length=500)
 
 
+class SourceComponentRejectInput(BaseModel):
+    confirm_source_matches: bool
+    review_note: str | None = Field(default=None, max_length=500)
+
+
 def _safe_filename(filename: str | None) -> str:
     name = Path(filename or "").name
     name = "".join(ch for ch in name if ch.isprintable() and ch not in {'"', "\\", "/"})
@@ -306,7 +311,7 @@ def review_source_component(
 def reject_source_component(
     evidence_id: UUID,
     component_id: UUID,
-    payload: SourceComponentReviewInput,
+    payload: SourceComponentRejectInput,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):

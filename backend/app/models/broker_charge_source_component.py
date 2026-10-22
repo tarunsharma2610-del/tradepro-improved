@@ -6,6 +6,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     Text,
@@ -27,12 +28,13 @@ class BrokerChargeSourceComponent(BaseModel):
 
     __tablename__ = "broker_charge_source_components"
     __table_args__ = (
-        UniqueConstraint("evidence_id", "component_name", name="uq_charge_source_component_evidence_name"),
+        UniqueConstraint("evidence_id", "component_name", "revision", name="uq_charge_source_component_evidence_name_revision"),
         CheckConstraint(
             "component_name IN ('brokerage', 'stt', 'exchange_charges', 'sebi_charges', 'stamp_duty', 'gst')",
             name="ck_charge_source_component_name",
         ),
         CheckConstraint("source_amount >= 0", name="ck_charge_source_component_amount_nonnegative"),
+        CheckConstraint("revision > 0", name="ck_charge_source_component_revision_positive"),
         CheckConstraint("currency = 'INR'", name="ck_charge_source_component_currency_inr"),
         CheckConstraint(
             "extraction_method IN ('MANUAL_TRANSCRIPTION', 'PARSER')",
@@ -49,6 +51,7 @@ class BrokerChargeSourceComponent(BaseModel):
     )
     source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     component_name: Mapped[str] = mapped_column(String(30), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     source_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR", server_default="INR")
     extraction_method: Mapped[str] = mapped_column(

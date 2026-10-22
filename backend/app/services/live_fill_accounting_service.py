@@ -200,15 +200,6 @@ class LiveFillAccountingService:
                 reviewer_user_id=charges.reviewer_user_id,
             )
 
-            # Caller-supplied amounts are only a consistency assertion. The
-            # persisted reconciled per-fill ledger is the accounting source of truth.
-            fee_values = self._load_reconciled_allocation_fees(
-                evidence_id=charges.evidence_id,
-                broker_connection_id=connection.id,
-                broker_trade_record_id=record.id,
-                supplied_fees=fee_values,
-            )
-
             staged_child_quantity = (
                 self.db.query(func.coalesce(func.sum(BrokerTradeRecord.quantity), 0))
                 .filter(
@@ -251,6 +242,16 @@ class LiveFillAccountingService:
                 raise ValueError(
                     "Cumulative accounted trade quantity exceeds the local order quantity."
                 )
+
+            # Validate the allocation ledger after structural quantity/order checks,
+            # but before creating or mutating any accounting rows. Caller-supplied
+            # amounts are only a consistency assertion against the persisted ledger.
+            fee_values = self._load_reconciled_allocation_fees(
+                evidence_id=charges.evidence_id,
+                broker_connection_id=connection.id,
+                broker_trade_record_id=record.id,
+                supplied_fees=fee_values,
+            )
 
             portfolio = (
                 self.db.query(Portfolio)

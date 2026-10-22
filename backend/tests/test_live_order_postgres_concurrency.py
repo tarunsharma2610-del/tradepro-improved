@@ -172,7 +172,7 @@ def test_simultaneous_reconciliation_lease_claims_allow_only_one_worker():
 
 
 
-def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
+def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows(monkeypatch):
     """Two distinct confirmed fills must not race live-position accounting."""
     from datetime import date, datetime, timezone
     from decimal import Decimal
@@ -193,6 +193,12 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
         LiveFillChargeBreakdown,
     )
 
+    # This test isolates PostgreSQL row-lock serialization. The reconciled-ledger
+    # gate is exercised independently in test_live_fill_accounting_service.py.
+    monkeypatch.setattr(
+        LiveFillAccountingService, "_load_reconciled_allocation_fees",
+        lambda self, **kwargs: kwargs["supplied_fees"],
+    )
     engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_pre_ping=True)
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
@@ -364,7 +370,7 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
 
 
 
-def test_concurrent_child_orders_cannot_overfill_one_local_order():
+def test_concurrent_child_orders_cannot_overfill_one_local_order(monkeypatch):
     """Parent-order locking serializes separate children against one quantity cap."""
     from datetime import datetime, timezone
     from decimal import Decimal
@@ -385,6 +391,12 @@ def test_concurrent_child_orders_cannot_overfill_one_local_order():
         LiveFillChargeBreakdown,
     )
 
+    # This test isolates PostgreSQL row-lock serialization. The reconciled-ledger
+    # gate is exercised independently in test_live_fill_accounting_service.py.
+    monkeypatch.setattr(
+        LiveFillAccountingService, "_load_reconciled_allocation_fees",
+        lambda self, **kwargs: kwargs["supplied_fees"],
+    )
     engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_pre_ping=True)
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)

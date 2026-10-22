@@ -10,8 +10,9 @@ from app.core.config import settings
 from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
-from app.models.user import User
+from app.models.broker_connection import BrokerConnection
 from app.models.broker_trade_record import BrokerTradeRecord
+from app.models.user import User
 from app.services.broker_charge_allocation_persistence_service import allocate_and_persist_component
 from app.services.broker_charge_document_storage_service import store_document
 from app.services.broker_charge_source_reconciliation_service import verify_component_allocation_ledger
@@ -34,17 +35,49 @@ def _trade(db, connection_id, trade_id):
     return trade
 
 
-def _setup(reviewed_evidence, monkeypatch, tmp_path, *, component_total="1.00", manifest_count=2):
-    db, user, connection, evidence = reviewed_evidence
+@pytest.fixture
+def reconciliation_context(db_session, make_user, monkeypatch, tmp_path):
+    db = db_session
+    user = make_user()
+    connection = BrokerConnection(
+        user_id=user.id,
+        broker="upstox",
+        api_key_encrypted="encrypted-key",
+        api_secret_encrypted="encrypted-secret",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=True,
+    )
+    db.add(connection)
+    db.commit()
+    db.refresh(connection)
+
     original = b"test contract note"
+    evidence = BrokerChargeEvidence(
+        broker_connection_id=connection.id,
+        source_kind="CONTRACT_NOTE",
+        broker_report_reference="CN-2026-10-21-001",
+        source_filename="contract-note.pdf",
+        source_sha256=hashlib.sha256(original).hexdigest(),
+        byte_size=len(original),
+        received_by_user_id=user.id,
+        status="REVIEWED",
+        reviewed_at=datetime.now(timezone.utc),
+        reviewed_by_user_id=user.id,
+        review_note="Reviewed in test fixture",
+    )
+    db.add(evidence)
+    db.commit()
+    db.refresh(evidence)
     storage_key = evidence.id.hex
-    digest, size = store_document(original, root=tmp_path, storage_key=storage_key)
-    assert digest == evidence.source_sha256
+    store_document(original, root=tmp_path, storage_key=storage_key)
     evidence.storage_key = storage_key
-    evidence.byte_size = size
     db.commit()
     monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+    return db, user, connection, evidence
 
+
+def _setup(context, *, component_total="1.00", manifest_count=2):
+    db, user, connection, evidence = context
     trades = [
         _trade(db, connection.id, "verify-fill-a"),
         _trade(db, connection.id, "verify-fill-b"),
@@ -96,8 +129,8 @@ def _setup(reviewed_evidence, monkeypatch, tmp_path, *, component_total="1.00", 
     return db, evidence, component, trades, rows
 
 
-def test_verified_component_accepts_exact_pending_allocation_ledger(reviewed_evidence, monkeypatch, tmp_path):
-    db, evidence, component, trades, rows = _setup(reviewed_evidence, monkeypatch, tmp_path)
+def test_verified_component_accepts_exact_pending_allocation_ledger(reconciliation_context):
+    db, evidence, component, trades, rows = _setup(reconciliation_context)
 
     result = verify_component_allocation_ledger(
         db, evidence_id=evidence.id, source_component_id=component.id
@@ -108,13 +141,12 @@ def test_verified_component_accepts_exact_pending_allocation_ledger(reviewed_evi
     assert result["source_amount"] == "1.00"
     assert result["allocated_total"] == "1.00"
     assert result["eligible_fill_set_sha256"] == component.eligible_fill_set_sha256
+    assert result["allocation_basis"] == "EXPLICIT_REVIEWED"
     assert {row.status for row in rows} == {"PENDING_RECONCILIATION"}
 
 
-def test_verification_rejects_allocation_fill_set_mismatch(reviewed_evidence, monkeypatch, tmp_path):
-    db, evidence, component, _trades, _rows = _setup(
-        reviewed_evidence, monkeypatch, tmp_path, manifest_count=1
-    )
+def test_verification_rejects_allocation_fill_set_mismatch(reconciliation_context):
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context, manifest_count=1)
 
     with pytest.raises(ValueError, match="fill set does not exactly match"):
         verify_component_allocation_ledger(
@@ -123,10 +155,8 @@ def test_verification_rejects_allocation_fill_set_mismatch(reviewed_evidence, mo
     assert {row.status for row in db.query(BrokerChargeAllocation).all()} == {"PENDING_RECONCILIATION"}
 
 
-def test_verification_rejects_source_component_total_mismatch(reviewed_evidence, monkeypatch, tmp_path):
-    db, evidence, component, _trades, _rows = _setup(
-        reviewed_evidence, monkeypatch, tmp_path, component_total="1.01"
-    )
+def test_verification_rejects_source_component_total_mismatch(reconciliation_context):
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context, component_total="1.01")
 
     with pytest.raises(ValueError, match="does not match the independently reviewed source component"):
         verify_component_allocation_ledger(
@@ -134,8 +164,8 @@ def test_verification_rejects_source_component_total_mismatch(reviewed_evidence,
         )
 
 
-def test_verification_rejects_tampered_source_document(reviewed_evidence, monkeypatch, tmp_path):
-    db, evidence, component, _trades, _rows = _setup(reviewed_evidence, monkeypatch, tmp_path)
+def test_verification_rejects_tampered_source_document(reconciliation_context, tmp_path):
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context)
     (tmp_path / evidence.storage_key).write_bytes(b"tampered contract note")
 
     with pytest.raises(ValueError, match="source integrity check failed"):

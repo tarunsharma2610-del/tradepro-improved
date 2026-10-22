@@ -615,7 +615,7 @@ def test_cumulative_fills_across_child_orders_cannot_exceed_local_order_quantity
     assert live_position.quantity == 2
 
 
-def test_live_fill_promotion_locks_parent_then_child_then_trade_record(accounting_context, monkeypatch):
+def test_live_fill_promotion_uses_consistent_charge_then_trade_lock_order(accounting_context, monkeypatch):
     from sqlalchemy.orm import Query
 
     db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
@@ -624,19 +624,33 @@ def test_live_fill_promotion_locks_parent_then_child_then_trade_record(accountin
 
     def track_lock(query, *args, **kwargs):
         entities = [item.get("entity") for item in query.column_descriptions]
-        if Order in entities:
-            locked_models.append("Order")
-        elif BrokerOrder in entities:
-            locked_models.append("BrokerOrder")
-        elif BrokerTradeRecord in entities:
-            locked_models.append("BrokerTradeRecord")
+        for model, label in (
+            (Order, "Order"),
+            (BrokerOrder, "BrokerOrder"),
+            (BrokerChargeEvidence, "BrokerChargeEvidence"),
+            (BrokerChargeAllocation, "BrokerChargeAllocation"),
+            (BrokerChargeSourceComponent, "BrokerChargeSourceComponent"),
+            (BrokerTradeRecord, "BrokerTradeRecord"),
+        ):
+            if model in entities:
+                locked_models.append(label)
+                break
         return original(query, *args, **kwargs)
 
     monkeypatch.setattr(Query, "with_for_update", track_lock)
 
     LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
-    assert locked_models[:3] == ["Order", "BrokerOrder", "BrokerTradeRecord"]
+    # Charge verification locks evidence and its ledger before the staged trade.
+    # The order/child locks serialize parent-order accounting before this sequence.
+    assert locked_models[:6] == [
+        "Order",
+        "BrokerOrder",
+        "BrokerChargeEvidence",
+        "BrokerChargeAllocation",
+        "BrokerChargeSourceComponent",
+        "BrokerTradeRecord",
+    ]
 
 
 def test_failed_commit_rolls_back_execution_and_live_position(accounting_context, monkeypatch):

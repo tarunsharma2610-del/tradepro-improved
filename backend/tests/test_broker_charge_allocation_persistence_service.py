@@ -1,0 +1,110 @@
+from decimal import Decimal
+from uuid import uuid4
+
+import pytest
+
+from app.models.broker_charge_allocation import BrokerChargeAllocation
+from app.models.broker_connection import BrokerConnection
+from app.models.broker_trade_record import BrokerTradeRecord
+from app.services.broker_charge_allocation_persistence_service import (
+    allocate_and_persist_component,
+)
+
+
+def _trade(db, connection_id, trade_id):
+    trade = BrokerTradeRecord(
+        broker_connection_id=connection_id,
+        broker_order_ref_id=uuid4(),
+        broker_trade_id=trade_id,
+        quantity=1,
+        price=Decimal("100.0000"),
+        side="BUY",
+        instrument_token="NSE_EQ|TEST",
+        exchange_timestamp="2026-10-21T10:00:00+05:30",
+    )
+    db.add(trade)
+    db.commit()
+    db.refresh(trade)
+    return trade
+
+
+def _allocate(db, user, connection, evidence, trades, weights=None, total="1.00"):
+    return allocate_and_persist_component(
+        db,
+        evidence_id=evidence.id,
+        broker_connection_id=connection.id,
+        broker_report_reference="CN-2026-10-21-001",
+        reviewer_user_id=user.id,
+        source_component_total=total,
+        charge_component="brokerage",
+        fill_weights=weights or {trade.id: 1 for trade in trades},
+        allocation_basis="EXPLICIT_REVIEWED",
+    )
+
+
+def test_persists_allocations_and_reconciles_source_total(reviewed_evidence):
+    db, user, connection, evidence = reviewed_evidence
+    trades = [_trade(db, connection.id, "trade-success-a"), _trade(db, connection.id, "trade-success-b")]
+
+    rows = _allocate(db, user, connection, evidence, trades)
+
+    assert len(rows) == 2
+    assert sum((Decimal(row.allocated_amount) for row in rows), Decimal("0")) == Decimal("1.00")
+    assert {row.status for row in rows} == {"RECONCILED"}
+    assert {row.reconciliation_reference for row in rows} == {"CN-2026-10-21-001"}
+    assert db.query(BrokerChargeAllocation).count() == 2
+
+
+def test_identical_replay_returns_existing_rows_without_duplicates(reviewed_evidence):
+    db, user, connection, evidence = reviewed_evidence
+    trades = [_trade(db, connection.id, "trade-replay-a"), _trade(db, connection.id, "trade-replay-b")]
+
+    first = _allocate(db, user, connection, evidence, trades)
+    second = _allocate(db, user, connection, evidence, trades)
+
+    assert {row.id for row in first} == {row.id for row in second}
+    assert db.query(BrokerChargeAllocation).count() == 2
+
+
+def test_conflicting_replay_with_changed_total_fails_closed(reviewed_evidence):
+    db, user, connection, evidence = reviewed_evidence
+    trades = [_trade(db, connection.id, "trade-conflict-a"), _trade(db, connection.id, "trade-conflict-b")]
+    _allocate(db, user, connection, evidence, trades, total="1.00")
+
+    with pytest.raises(ValueError, match="Conflicting replay"):
+        _allocate(db, user, connection, evidence, trades, total="1.10")
+
+
+def test_rejects_fill_from_different_broker_connection(reviewed_evidence, make_user):
+    db, user, connection, evidence = reviewed_evidence
+    other_user = make_user(email="other@example.com")
+    other_connection = BrokerConnection(
+        user_id=other_user.id,
+        broker="upstox",
+        api_key_encrypted="encrypted-key-2",
+        api_secret_encrypted="encrypted-secret-2",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=True,
+    )
+    db.add(other_connection)
+    db.commit()
+    db.refresh(other_connection)
+    other_trade = _trade(db, other_connection.id, "trade-other-connection")
+
+    with pytest.raises(ValueError, match="same broker connection"):
+        _allocate(
+            db, user, connection, evidence, [other_trade],
+            weights={other_trade.id: 1},
+        )
+    assert db.query(BrokerChargeAllocation).count() == 0
+
+
+def test_conflicting_fill_set_is_rejected_without_partial_rows(reviewed_evidence):
+    db, user, connection, evidence = reviewed_evidence
+    trades = [_trade(db, connection.id, "trade-set-a"), _trade(db, connection.id, "trade-set-b")]
+    _allocate(db, user, connection, evidence, trades)
+
+    with pytest.raises(ValueError, match="different fill set"):
+        _allocate(db, user, connection, evidence, trades[:1])
+
+    assert db.query(BrokerChargeAllocation).count() == 2

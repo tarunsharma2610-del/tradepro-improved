@@ -70,3 +70,42 @@ jobs:
           alembic upgrade head
           alembic downgrade 202610170001
           alembic upgrade head
+
+      - name: Exercise isolated synthetic PostgreSQL and document-volume restore
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+          source_db="restore_source_$GITHUB_RUN_ID"
+          target_db="restore_target_$GITHUB_RUN_ID"
+          key="0123456789abcdef0123456789abcdef"
+          mkdir -m 700 "$workdir/source-docs" "$workdir/restored-docs"
+          printf 'synthetic contract-note fixture; no customer data\n' > "$workdir/source-docs/$key"
+          source_hash="$(sha256sum "$workdir/source-docs/$key" | awk '{print $1}')"
+          source_size="$(wc -c < "$workdir/source-docs/$key" | tr -d ' ')"
+          createdb "$source_db"
+          createdb "$target_db"
+          psql -v ON_ERROR_STOP=1 -d "$source_db" -c 'CREATE TABLE restore_drill_evidence (storage_key text PRIMARY KEY, source_sha256 text NOT NULL, byte_size integer NOT NULL)'
+          psql -v ON_ERROR_STOP=1 -d "$source_db" -c "INSERT INTO restore_drill_evidence VALUES ('$key', '$source_hash', $source_size)"
+          pg_dump -Fc "$source_db" > "$workdir/source.dump"
+          tar -C "$workdir/source-docs" -czf "$workdir/documents.tgz" .
+          sha256sum "$workdir/source.dump" "$workdir/documents.tgz" > "$workdir/SHA256SUMS"
+          sha256sum -c "$workdir/SHA256SUMS"
+          tar -C "$workdir/restored-docs" -xzf "$workdir/documents.tgz"
+          pg_restore --exit-on-error -d "$target_db" "$workdir/source.dump"
+          restored_hash="$(sha256sum "$workdir/restored-docs/$key" | awk '{print $1}')"
+          restored_size="$(wc -c < "$workdir/restored-docs/$key" | tr -d ' ')"
+          test "$restored_hash" = "$source_hash"
+          test "$restored_size" = "$source_size"
+          psql -v ON_ERROR_STOP=1 -d "$target_db" -Atc "SELECT storage_key || ':' || source_sha256 || ':' || byte_size FROM restore_drill_evidence" > "$workdir/restored-metadata.txt"
+          printf '%s:%s:%s\n' "$key" "$source_hash" "$source_size" > "$workdir/expected-metadata.txt"
+          diff -u "$workdir/expected-metadata.txt" "$workdir/restored-metadata.txt"
+          test "$(find "$workdir/restored-docs" -maxdepth 1 -type f | wc -l | tr -d ' ')" = "1"
+          dropdb "$target_db"
+          dropdb "$source_db"

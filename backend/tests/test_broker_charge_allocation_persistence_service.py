@@ -186,3 +186,21 @@ def test_conflicting_replay_with_changed_basis_fails_closed(reviewed_evidence):
             weights={trade.id: 1 for trade in trades},
             basis="QUANTITY",
         )
+
+
+def test_reconciled_rows_cannot_be_rewritten_through_allocation_persistence(reviewed_evidence):
+    db, user, connection, evidence = reviewed_evidence
+    trades = [_trade(db, connection.id, "trade-reconciled-a"), _trade(db, connection.id, "trade-reconciled-b")]
+    rows = _allocate(db, user, connection, evidence, trades)
+    for row in rows:
+        row.status = "RECONCILED"
+        row.reconciliation_reference = "verified-source-reference"
+    db.commit()
+
+    with pytest.raises(ValueError, match="already reconciled"):
+        _allocate(db, user, connection, evidence, trades)
+
+    db.refresh(rows[0])
+    assert rows[0].status == "RECONCILED"
+    assert rows[0].reconciliation_reference == "verified-source-reference"
+    assert db.query(BrokerChargeAllocation).count() == 2

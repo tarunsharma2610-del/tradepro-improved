@@ -215,6 +215,8 @@ def record_source_component(
     if not payload.source_locator.strip():
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "A source page/row locator is required.")
     evidence = _owned_evidence(db, evidence_id=evidence_id, user_id=user.id, lock=True)
+    if evidence.status == "REJECTED":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Rejected contract-note evidence cannot accept new source components; upload a new evidence record.")
     _verified_bytes(evidence)
     prior_components = (
         db.query(BrokerChargeSourceComponent)

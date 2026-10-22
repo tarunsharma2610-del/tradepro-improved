@@ -81,3 +81,20 @@ def test_invalid_charge_evidence_metadata_is_rejected(db_session, make_user, ove
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
+
+
+def test_failed_upload_cleanup_logs_os_error_without_masking_primary_failure(monkeypatch, caplog):
+    import logging
+
+    from app.api.v1 import broker_charge_evidence as endpoint
+
+    def fail_delete(**kwargs):
+        raise OSError("simulated storage permission failure")
+
+    monkeypatch.setattr(endpoint, "delete_document", fail_delete)
+    with caplog.at_level(logging.ERROR, logger=endpoint.__name__):
+        # The caller remains responsible for raising its original database error.
+        endpoint._cleanup_failed_upload("a" * 32)
+
+    assert "Failed to clean up contract-note upload" in caplog.text
+    assert "simulated storage permission failure" in caplog.text

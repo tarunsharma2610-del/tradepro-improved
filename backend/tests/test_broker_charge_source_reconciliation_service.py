@@ -259,3 +259,38 @@ def test_promotion_rechecks_admin_role_at_time_of_promotion(reconciliation_conte
         )
     db.rollback()
     assert {row.status for row in db.query(BrokerChargeAllocation).all()} == {"PENDING_RECONCILIATION"}
+
+
+def test_promotion_flush_failure_rolls_back_all_reconciliation_changes(reconciliation_context, monkeypatch):
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context)
+    original_flush = db.flush
+    injected = {"raised": False}
+
+    def fail_when_reconciled(*args, **kwargs):
+        reconciled_dirty = any(
+            isinstance(obj, BrokerChargeAllocation)
+            and obj.status == "RECONCILED"
+            and obj.reconciliation_reference is not None
+            for obj in db.dirty
+        )
+        if reconciled_dirty and not injected["raised"]:
+            injected["raised"] = True
+            raise RuntimeError("injected promotion flush failure")
+        return original_flush(*args, **kwargs)
+
+    monkeypatch.setattr(db, "flush", fail_when_reconciled)
+    with pytest.raises(RuntimeError, match="injected promotion flush failure"):
+        promote_verified_component_allocations(
+            db,
+            evidence_id=evidence.id,
+            source_component_id=component.id,
+            reviewer_user_id=component.reviewed_by_user_id,
+        )
+
+    assert injected["raised"] is True
+    monkeypatch.setattr(db, "flush", original_flush)
+    db.expire_all()
+    rows = db.query(BrokerChargeAllocation).all()
+    assert rows
+    assert {row.status for row in rows} == {"PENDING_RECONCILIATION"}
+    assert {row.reconciliation_reference for row in rows} == {None}

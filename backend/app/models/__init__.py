@@ -4,6 +4,7 @@ from app.models.broker_connection import BrokerConnection  # noqa: F401
 from app.models.broker_order import BrokerOrder  # noqa: F401
 from app.models.broker_trade_record import BrokerTradeRecord  # noqa: F401
 from app.models.broker_charge_evidence import BrokerChargeEvidence  # noqa: F401
+from app.models.broker_charge_allocation import BrokerChargeAllocation  # noqa: F401
 from app.models.live_position import LivePosition  # noqa: F401
 from app.models.platform_setting import PlatformSetting  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401
@@ -27,6 +28,7 @@ __all__ = [
     "BrokerOrder",
     "BrokerTradeRecord",
     "BrokerChargeEvidence",
+    "BrokerChargeAllocation",
     "LivePosition",
     "PlatformSetting",
     "AuditLog",

@@ -14,6 +14,9 @@ Compose declares separate named volumes, `postgres_data` and `broker_charge_docu
 - Confirm the exact Compose project and volume names with `docker compose ls` and `docker volume ls`. Do not guess volume names; Compose prefixes them with the project name unless explicitly named.
 - Ensure adequate protected disk space. Treat both backup artifacts as sensitive contract-note data; encrypt at rest and restrict access.
 - Record UTC start time, Git commit, Compose project name, image IDs, volume names, and operator.
+
+**Secret-handling note:** Do not save the fully resolved output of `docker compose config` in the backup directory: interpolation can expose the database password in a file that may later be copied or retained. Record the checked-in Compose file hash instead, and store the protected `.env` separately only if required by the recovery policy; never commit it to GitHub.
+
 - Stop API and worker writes before the paired backup; keep the database available for the dump. For a consistent recovery point, stop `backend` and `worker` before capturing both datasets, and do not restart them until both captures finish.
 
 ## A. Capture paired backup artifacts
@@ -27,7 +30,7 @@ mkdir -p ./phase3-backup
 date -u +%Y-%m-%dT%H:%M:%SZ > ./phase3-backup/captured-at-utc.txt
 git rev-parse HEAD > ./phase3-backup/git-commit.txt
 docker compose ps > ./phase3-backup/compose-ps.txt
-docker compose config > ./phase3-backup/compose-config.yml
+sha256sum ./docker-compose.yml > ./phase3-backup/compose-file-SHA256SUM.txt
 ```
 
 2. Stop writers and verify they are stopped:

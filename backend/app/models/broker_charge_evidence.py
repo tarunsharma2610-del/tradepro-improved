@@ -54,6 +54,9 @@ class BrokerChargeEvidence(BaseModel):
     storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    received_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     parser_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="RECEIVED", server_default="RECEIVED", index=True

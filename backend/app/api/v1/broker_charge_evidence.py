@@ -43,6 +43,7 @@ class SourceComponentReviewInput(BaseModel):
     confirm_source_matches: bool
     eligible_fill_record_ids: list[UUID] = Field(min_length=1, max_length=500)
     rounding_policy: Literal["largest-remainder-v1"] = "largest-remainder-v1"
+    allocation_basis: Literal["QUANTITY", "NOTIONAL", "EXPLICIT_REVIEWED"] = "EXPLICIT_REVIEWED"
     review_note: str | None = Field(default=None, max_length=500)
 
 
@@ -290,6 +291,7 @@ def review_source_component(
     component.eligible_fill_ids_json = canonical_fill_ids
     component.eligible_fill_set_sha256 = fill_set_sha256
     component.rounding_policy = payload.rounding_policy
+    component.allocation_basis = payload.allocation_basis
     component.status = "VERIFIED"
     component.reviewed_by_user_id = user.id
     component.reviewed_at = datetime.now(timezone.utc)
@@ -310,6 +312,7 @@ def review_source_component(
         "eligible_fill_record_ids": json.loads(component.eligible_fill_ids_json or "[]"),
         "eligible_fill_set_sha256": component.eligible_fill_set_sha256,
         "rounding_policy": component.rounding_policy,
+        "allocation_basis": component.allocation_basis,
         "reviewed_by_user_id": str(component.reviewed_by_user_id),
         "reviewed_at": component.reviewed_at,
     }

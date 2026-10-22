@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
-from app.models.broker_connection import BrokerConnection
+from app.models.user import User
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.services.broker_charge_allocation_persistence_service import allocate_and_persist_component
 from app.services.broker_charge_document_storage_service import store_document
@@ -51,7 +51,7 @@ def _setup(reviewed_evidence, monkeypatch, tmp_path, *, component_total="1.00", 
     ]
     manifest = sorted([str(trade.id) for trade in trades[:manifest_count]])
     canonical = json.dumps(manifest, separators=(",", ":"))
-    extractor = __import__("app.models.user", fromlist=["User"]).User(
+    extractor = User(
         email="component-extractor@example.com",
         password_hash="test-hash",
         full_name="Component Extractor",
@@ -76,6 +76,7 @@ def _setup(reviewed_evidence, monkeypatch, tmp_path, *, component_total="1.00", 
         eligible_fill_ids_json=canonical,
         eligible_fill_set_sha256=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
         rounding_policy="largest-remainder-v1",
+        allocation_basis="EXPLICIT_REVIEWED",
     )
     db.add(component)
     db.commit()

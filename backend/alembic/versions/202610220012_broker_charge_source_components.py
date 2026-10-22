@@ -27,6 +27,7 @@ def upgrade() -> None:
         sa.Column("eligible_fill_ids_json", sa.Text(), nullable=True),
         sa.Column("eligible_fill_set_sha256", sa.String(length=64), nullable=True),
         sa.Column("rounding_policy", sa.String(length=50), nullable=True),
+        sa.Column("allocation_basis", sa.String(length=50), nullable=True),
         sa.Column("extracted_by_user_id", sa.Uuid(), nullable=False),
         sa.Column("status", sa.String(length=20), server_default="PENDING_REVIEW", nullable=False),
         sa.Column("reviewed_by_user_id", sa.Uuid(), nullable=True),

@@ -1,17 +1,20 @@
-"""Authenticated upload and integrity-checked retrieval of contract-note source documents."""
-from datetime import date
+"""Authenticated contract-note intake and source-component review endpoints."""
+from datetime import date, datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import quote
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.broker_charge_evidence import BrokerChargeEvidence
+from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_connection import BrokerConnection
 from app.models.user import User
 from app.services.broker_charge_document_storage_service import (
@@ -22,16 +25,56 @@ from app.services.broker_charge_document_storage_service import (
 
 router = APIRouter(prefix="/broker-charge-evidence", tags=["broker charge evidence"])
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+SUPPORTED_COMPONENTS = {"brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"}
+
+
+class SourceComponentInput(BaseModel):
+    component_name: str
+    source_amount: Decimal = Field(ge=Decimal("0"), max_digits=16, decimal_places=2)
+    currency: str = "INR"
+    source_locator: str = Field(min_length=1, max_length=200)
+
+
+class SourceComponentReviewInput(BaseModel):
+    confirm_source_matches: bool
+    review_note: str | None = Field(default=None, max_length=500)
 
 
 def _safe_filename(filename: str | None) -> str:
-    # Never use the submitted filename as a path or storage key.
     name = Path(filename or "").name
     name = "".join(ch for ch in name if ch.isprintable() and ch not in {'"', "\\", "/"})
     name = name.strip().strip(".")
     if not name or len(name) > 255:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "A valid source filename is required.")
     return name
+
+
+def _owned_evidence(db: Session, *, evidence_id: UUID, user_id: UUID, lock: bool = False):
+    query = (
+        db.query(BrokerChargeEvidence)
+        .join(BrokerConnection, BrokerConnection.id == BrokerChargeEvidence.broker_connection_id)
+        .filter(BrokerChargeEvidence.id == evidence_id, BrokerConnection.user_id == user_id)
+    )
+    if lock:
+        query = query.with_for_update()
+    evidence = query.populate_existing().first()
+    if evidence is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Contract-note evidence not found.")
+    return evidence
+
+
+def _verified_bytes(evidence: BrokerChargeEvidence) -> bytes:
+    if not evidence.storage_key:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Original contract-note document is not available.")
+    try:
+        return read_verified_document(
+            root=settings.BROKER_CHARGE_DOCUMENT_ROOT,
+            storage_key=evidence.storage_key,
+            expected_sha256=evidence.source_sha256,
+            expected_size=evidence.byte_size,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
 
 @router.post("/connections/{broker_connection_id}/contract-notes", status_code=status.HTTP_201_CREATED)
@@ -113,26 +156,8 @@ def download_contract_note(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Return original bytes only to the owner and only after hash/size verification."""
-    evidence = (
-        db.query(BrokerChargeEvidence)
-        .join(BrokerConnection, BrokerConnection.id == BrokerChargeEvidence.broker_connection_id)
-        .filter(BrokerChargeEvidence.id == evidence_id, BrokerConnection.user_id == user.id)
-        .first()
-    )
-    if evidence is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Contract-note evidence not found.")
-    if not evidence.storage_key:
-        raise HTTPException(status.HTTP_410_GONE, "The original contract-note document is not available.")
-    try:
-        content = read_verified_document(
-            root=settings.BROKER_CHARGE_DOCUMENT_ROOT,
-            storage_key=evidence.storage_key,
-            expected_sha256=evidence.source_sha256,
-            expected_size=evidence.byte_size,
-        )
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    evidence = _owned_evidence(db, evidence_id=evidence_id, user_id=user.id)
+    content = _verified_bytes(evidence)
     disposition_name = quote(evidence.source_filename, safe="")
     return Response(
         content=content,
@@ -143,3 +168,146 @@ def download_contract_note(
             "Cache-Control": "no-store",
         },
     )
+
+
+@router.post("/{evidence_id}/components", status_code=status.HTTP_201_CREATED)
+def record_source_component(
+    evidence_id: UUID,
+    payload: SourceComponentInput,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Record a human-transcribed amount as pending; never treat input as verified."""
+    if payload.component_name not in SUPPORTED_COMPONENTS:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unsupported charge component.")
+    if payload.currency != "INR":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Only INR source components are supported.")
+    if not payload.source_locator.strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "A source page/row locator is required.")
+    evidence = _owned_evidence(db, evidence_id=evidence_id, user_id=user.id, lock=True)
+    _verified_bytes(evidence)
+    component = BrokerChargeSourceComponent(
+        evidence_id=evidence.id,
+        source_sha256=evidence.source_sha256,
+        component_name=payload.component_name,
+        source_amount=payload.source_amount,
+        currency="INR",
+        extraction_method="MANUAL_TRANSCRIPTION",
+        parser_version="manual-transcription-v1",
+        source_locator=payload.source_locator.strip(),
+        extracted_by_user_id=user.id,
+        status="PENDING_REVIEW",
+    )
+    try:
+        db.add(component)
+        db.commit()
+        db.refresh(component)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "A source record for this component already exists; use the review workflow.") from exc
+    return {
+        "id": str(component.id),
+        "evidence_id": str(component.evidence_id),
+        "source_sha256": component.source_sha256,
+        "component_name": component.component_name,
+        "source_amount": str(component.source_amount),
+        "currency": component.currency,
+        "extraction_method": component.extraction_method,
+        "parser_version": component.parser_version,
+        "source_locator": component.source_locator,
+        "extracted_by_user_id": str(component.extracted_by_user_id),
+        "status": component.status,
+    }
+
+
+@router.post("/{evidence_id}/components/{component_id}/review")
+def review_source_component(
+    evidence_id: UUID,
+    component_id: UUID,
+    payload: SourceComponentReviewInput,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Second-person review against the original document, with integrity recheck."""
+    if payload.confirm_source_matches is not True:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Explicit source-match confirmation is required.")
+    evidence = _owned_evidence(db, evidence_id=evidence_id, user_id=user.id, lock=True)
+    _verified_bytes(evidence)
+    component = (
+        db.query(BrokerChargeSourceComponent)
+        .filter(
+            BrokerChargeSourceComponent.id == component_id,
+            BrokerChargeSourceComponent.evidence_id == evidence.id,
+        )
+        .with_for_update()
+        .populate_existing()
+        .first()
+    )
+    if component is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source component not found.")
+    if component.status != "PENDING_REVIEW":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Only pending source components can be reviewed.")
+    if component.source_sha256 != evidence.source_sha256:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Source component fingerprint no longer matches evidence.")
+    if component.extracted_by_user_id == user.id:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A different user must independently review this source component.")
+    component.status = "VERIFIED"
+    component.reviewed_by_user_id = user.id
+    component.reviewed_at = datetime.now(timezone.utc)
+    component.review_note = payload.review_note.strip() if payload.review_note else None
+    db.commit()
+    db.refresh(component)
+    return {
+        "id": str(component.id),
+        "evidence_id": str(component.evidence_id),
+        "component_name": component.component_name,
+        "source_amount": str(component.source_amount),
+        "currency": component.currency,
+        "status": component.status,
+        "reviewed_by_user_id": str(component.reviewed_by_user_id),
+        "reviewed_at": component.reviewed_at,
+    }
+
+
+@router.post("/{evidence_id}/components/{component_id}/reject")
+def reject_source_component(
+    evidence_id: UUID,
+    component_id: UUID,
+    payload: SourceComponentReviewInput,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Record a reviewer rejection without changing any allocation status."""
+    if payload.confirm_source_matches is not False:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Explicit mismatch confirmation is required.")
+    evidence = _owned_evidence(db, evidence_id=evidence_id, user_id=user.id, lock=True)
+    _verified_bytes(evidence)
+    component = (
+        db.query(BrokerChargeSourceComponent)
+        .filter(
+            BrokerChargeSourceComponent.id == component_id,
+            BrokerChargeSourceComponent.evidence_id == evidence.id,
+        )
+        .with_for_update()
+        .populate_existing()
+        .first()
+    )
+    if component is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source component not found.")
+    if component.status != "PENDING_REVIEW":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only pending source components can be rejected.")
+    if payload.review_note is not None and not payload.review_note.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Review note must not be whitespace.")
+    component.status = "REJECTED"
+    component.reviewed_by_user_id = user.id
+    component.reviewed_at = datetime.now(timezone.utc)
+    component.review_note = payload.review_note.strip() if payload.review_note else "Source amount did not match."
+    db.commit()
+    db.refresh(component)
+    return {
+        "id": str(component.id),
+        "evidence_id": str(component.evidence_id),
+        "status": component.status,
+        "reviewed_by_user_id": str(component.reviewed_by_user_id),
+        "reviewed_at": component.reviewed_at,
+    }

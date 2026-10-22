@@ -46,10 +46,12 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
     db, user, _portfolio, _instrument, connection, *_rest = accounting_context
     # Keep the synthetic source bytes and reviewer lookup local to this helper;
     # fixture-local variables are not visible in this function scope.
-    synthetic_document = b"synthetic test contract note"
-    reviewer = db.query(User).filter_by(email="live-accounting-reviewer@example.com").one()
     if trade_record_id is not None:
         reference = f"{reference}-{str(trade_record_id)[:8]}"
+    # Evidence has a per-connection unique source hash; distinct synthetic
+    # contract-note references must therefore have distinct source bytes.
+    synthetic_document = f"synthetic test contract note:{reference.strip()}".encode("utf-8")
+    reviewer = db.query(User).filter_by(email="live-accounting-reviewer@example.com").one()
     evidence = db.query(BrokerChargeEvidence).filter_by(broker_connection_id=connection.id, broker_report_reference=reference).one_or_none()
     if evidence is None:
         from datetime import date

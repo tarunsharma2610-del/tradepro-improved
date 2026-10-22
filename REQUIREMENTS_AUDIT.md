@@ -1108,6 +1108,13 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 
 ### CI verification checkpoint — 2026-10-22
 
-- Documentation commit `13a406891b286dd8077ee1430c1d62f3b6086309` passed GitHub Actions run `39753249388`: 555 backend tests passed with 1 warning; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration checks passed.
+- Documentation commit `13a406891b286dd8077ee1430c1d62f3b6086309` passed GitHub Actions run `39753249388` for the backend pytest workflow. That run alone establishes the backend test result; do not attribute broker-write guard or SQLite/PostgreSQL migration checks to it without separate exact-commit job evidence.
 - This CI result applies to that exact commit only. These documentation updates will create a new head and require a fresh CI result before being called verified.
 - Production backup/restore remains unperformed. The required isolated drill must restore PostgreSQL and `broker_charge_documents` together, then validate source hashes/sizes and database/file references; do not infer restore success from CI or volume declarations.
+
+
+### Exact-head CI scope correction — 2026-10-22
+
+- Latest verified head before this note, `bb46a17dd8578ccce1858ed820584a4348c05e8f`, passed GitHub Actions run `39753596786`: **555 passed, 1 warning in 39.40s** in the Backend pytest job.
+- The run queried for that SHA exposes only the Backend pytest job. Therefore this exact-head result does not independently establish the broker-write guard or SQLite/PostgreSQL migration round-trip checks; cite earlier runs for those only at their own SHAs.
+- This note creates a new documentation head; verify CI on the resulting exact head before considering it fully checkpointed. The coordinated database + document-volume restore drill remains unperformed.

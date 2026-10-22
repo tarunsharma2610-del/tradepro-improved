@@ -173,3 +173,58 @@ def verify_component_allocation_ledger(
         "allocated_total": str(allocated_total),
         "status": verification_status,
     }
+
+
+def reconcile_component_allocations(
+    db: Session, *, evidence_id: UUID, source_component_id: UUID
+) -> dict[str, object]:
+    """Atomically verify and promote one complete source component's allocation set.
+
+    This function owns the transaction boundary. Every validation, status change,
+    and durable reconciliation reference is committed together. Any exception
+    rolls the transaction back, so a component can never be partially promoted.
+    Repeated calls are idempotent only when the existing reconciled set still
+    passes all source, fill-set, total, currency, and method checks.
+    """
+    try:
+        verification = verify_component_allocation_ledger(
+            db, evidence_id=evidence_id, source_component_id=source_component_id
+        )
+        if verification["status"] == "ALREADY_RECONCILED":
+            db.commit()
+            return {**verification, "status": "RECONCILED", "idempotent_replay": True}
+
+        reference = str(verification["reconciliation_reference"])
+        allocations = (
+            db.query(BrokerChargeAllocation)
+            .filter(
+                BrokerChargeAllocation.evidence_id == evidence_id,
+                BrokerChargeAllocation.charge_component == verification["component_name"],
+            )
+            .with_for_update()
+            .all()
+        )
+        if not allocations or any(row.status != "PENDING_RECONCILIATION" for row in allocations):
+            raise ValueError("Only a complete pending allocation set can be promoted.")
+        if any(row.reconciliation_reference is not None for row in allocations):
+            raise ValueError("Pending allocations must not carry a stale reconciliation reference.")
+
+        # verify_component_allocation_ledger locked evidence, source component,
+        # allocations, and fills; retain this transaction while promoting.
+        for row in allocations:
+            row.status = "RECONCILED"
+            row.reconciliation_reference = reference
+        db.flush()
+
+        # Validate the persisted state, including every durable reference, before
+        # commit. This is the same verifier, not a second weaker promotion path.
+        final_verification = verify_component_allocation_ledger(
+            db, evidence_id=evidence_id, source_component_id=source_component_id
+        )
+        if final_verification["status"] != "ALREADY_RECONCILED":
+            raise ValueError("Post-promotion verification did not confirm the complete reconciled set.")
+        db.commit()
+        return {**final_verification, "status": "RECONCILED", "idempotent_replay": False}
+    except Exception:
+        db.rollback()
+        raise

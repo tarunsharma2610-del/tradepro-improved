@@ -676,3 +676,10 @@ Working branch: `main`
 - Accounting acceptance remains open pending independent verification of original contract-note source/component amounts, exact fill identities, paise-level totals, replay/conflict behavior and enclosing-transaction rollback/atomic promotion. The code review alone does not close those gates.
 - No local Docker host is assumed; user confirmed Tradepro Improved is GitHub-only. A restore against real retained backup artifacts remains outstanding. All work stays in tarunsharma2610-del/tradepro-improved; original Tradepro is out of scope. PR #6 remains draft/unmerged and live broker order submission remains disabled.
 - This checkpoint changes documentation and must receive fresh CI on the resulting exact head before it can be called CI-verified.
+
+### Phase 3 source-to-ledger review follow-up — 2026-10-22
+
+- The documentation checkpoint commit `0c74960c9b0bb1590aa14ef709f55e691b3ac5e2` passed its exact-head GitHub Actions run `39757964236`: backend pytest, broker-write boundary guard, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document restore, and evidence artifact retention all passed.
+- Further review confirms allocation persistence serializes on the evidence row, checks target trades belong to the broker connection, rejects conflicting replay/fill sets, and keeps rows pending until the separate source-ledger verification and promotion workflow.
+- The endpoint records human transcription and reviewer attestation; it does not automatically parse or independently authenticate the broker's stated component amount. A real contract note and real backup set were not available, so those acceptance gates remain open.
+- PR #6 stays draft/unmerged, live broker writes remain disabled, and all work is confined to `tarunsharma2610-del/tradepro-improved`. This entry is a record of review/CI status, not a claim that real-source reconciliation or real-backup restore is complete.

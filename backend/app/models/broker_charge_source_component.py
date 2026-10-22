@@ -10,7 +10,6 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     Uuid,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -69,4 +68,3 @@ class BrokerChargeSourceComponent(BaseModel):
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     review_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -1,8 +1,11 @@
 """Authenticated contract-note intake and source-component review endpoints."""
 from datetime import date, datetime, timezone
+import hashlib
+import json
 from decimal import Decimal
 from pathlib import Path
 from urllib.parse import quote
+from typing import Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -15,6 +18,7 @@ from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
+from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.broker_connection import BrokerConnection
 from app.models.user import User
 from app.services.broker_charge_document_storage_service import (
@@ -37,6 +41,8 @@ class SourceComponentInput(BaseModel):
 
 class SourceComponentReviewInput(BaseModel):
     confirm_source_matches: bool
+    eligible_fill_record_ids: list[UUID] = Field(min_length=1, max_length=500)
+    rounding_policy: Literal["largest-remainder-v1"] = "largest-remainder-v1"
     review_note: str | None = Field(default=None, max_length=500)
 
 
@@ -257,6 +263,24 @@ def review_source_component(
         raise HTTPException(status.HTTP_409_CONFLICT, "Source component fingerprint no longer matches evidence.")
     if component.extracted_by_user_id == user.id:
         raise HTTPException(status.HTTP_409_CONFLICT, "A different user must independently review this source component.")
+    if len(set(payload.eligible_fill_record_ids)) != len(payload.eligible_fill_record_ids):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Eligible fill IDs must not contain duplicates.")
+    fill_ids = sorted(payload.eligible_fill_record_ids, key=str)
+    trades = (
+        db.query(BrokerTradeRecord)
+        .filter(BrokerTradeRecord.id.in_(fill_ids))
+        .with_for_update()
+        .all()
+    )
+    if {trade.id for trade in trades} != set(fill_ids):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Every eligible fill must be a persisted broker trade record.")
+    if any(trade.broker_connection_id != evidence.broker_connection_id for trade in trades):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Eligible fills must belong to the evidence broker connection.")
+    canonical_fill_ids = json.dumps([str(fill_id) for fill_id in fill_ids], separators=(",", ":"))
+    fill_set_sha256 = hashlib.sha256(canonical_fill_ids.encode("utf-8")).hexdigest()
+    component.eligible_fill_ids_json = canonical_fill_ids
+    component.eligible_fill_set_sha256 = fill_set_sha256
+    component.rounding_policy = payload.rounding_policy
     component.status = "VERIFIED"
     component.reviewed_by_user_id = user.id
     component.reviewed_at = datetime.now(timezone.utc)
@@ -270,6 +294,9 @@ def review_source_component(
         "source_amount": str(component.source_amount),
         "currency": component.currency,
         "status": component.status,
+        "eligible_fill_record_ids": json.loads(component.eligible_fill_ids_json or "[]"),
+        "eligible_fill_set_sha256": component.eligible_fill_set_sha256,
+        "rounding_policy": component.rounding_policy,
         "reviewed_by_user_id": str(component.reviewed_by_user_id),
         "reviewed_at": component.reviewed_at,
     }

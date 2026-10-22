@@ -40,6 +40,8 @@ def _trade(db, connection_id, trade_id):
 def reconciliation_context(db_session, make_user, monkeypatch, tmp_path):
     db = db_session
     user = make_user()
+    user.is_admin = True
+    db.commit()
     connection = BrokerConnection(
         user_id=user.id,
         broker="upstox",
@@ -239,3 +241,21 @@ def test_outer_rollback_reverts_entire_component_promotion(reconciliation_contex
     db.expire_all()
     assert {row.status for row in db.query(BrokerChargeAllocation).all()} == {"PENDING_RECONCILIATION"}
     assert {row.reconciliation_reference for row in db.query(BrokerChargeAllocation).all()} == {None}
+
+
+
+def test_promotion_rechecks_admin_role_at_time_of_promotion(reconciliation_context):
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context)
+    reviewer = db.get(User, component.reviewed_by_user_id)
+    reviewer.is_admin = False
+    db.commit()
+
+    with pytest.raises(ValueError, match="active platform administrator"):
+        promote_verified_component_allocations(
+            db,
+            evidence_id=evidence.id,
+            source_component_id=component.id,
+            reviewer_user_id=component.reviewed_by_user_id,
+        )
+    db.rollback()
+    assert {row.status for row in db.query(BrokerChargeAllocation).all()} == {"PENDING_RECONCILIATION"}

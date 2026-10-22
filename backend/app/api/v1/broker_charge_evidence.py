@@ -49,12 +49,16 @@ def _safe_filename(filename: str | None) -> str:
     return name
 
 
-def _owned_evidence(db: Session, *, evidence_id: UUID, user_id: UUID, lock: bool = False):
-    query = (
-        db.query(BrokerChargeEvidence)
-        .join(BrokerConnection, BrokerConnection.id == BrokerChargeEvidence.broker_connection_id)
-        .filter(BrokerChargeEvidence.id == evidence_id, BrokerConnection.user_id == user_id)
-    )
+def _owned_evidence(
+    db: Session, *, evidence_id: UUID, user_id: UUID, lock: bool = False, allow_admin_review: bool = False
+):
+    query = db.query(BrokerChargeEvidence).join(
+        BrokerConnection, BrokerConnection.id == BrokerChargeEvidence.broker_connection_id
+    ).filter(BrokerChargeEvidence.id == evidence_id)
+    # Only the existing platform-admin role can review another user's evidence.
+    # Ordinary upload/download/transcription operations remain owner-scoped.
+    if not allow_admin_review:
+        query = query.filter(BrokerConnection.user_id == user_id)
     if lock:
         query = query.with_for_update()
     evidence = query.populate_existing().first()
@@ -231,7 +235,9 @@ def review_source_component(
     """Second-person review against the original document, with integrity recheck."""
     if payload.confirm_source_matches is not True:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Explicit source-match confirmation is required.")
-    evidence = _owned_evidence(db, evidence_id=evidence_id, user_id=user.id, lock=True)
+    evidence = _owned_evidence(
+        db, evidence_id=evidence_id, user_id=user.id, lock=True, allow_admin_review=user.is_admin
+    )
     _verified_bytes(evidence)
     component = (
         db.query(BrokerChargeSourceComponent)

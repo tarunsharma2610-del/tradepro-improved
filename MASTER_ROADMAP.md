@@ -614,3 +614,10 @@ Working branch: `main`
 ### Phase 3 restore-drill gate
 
 - Do not mark backup/restore complete based on Compose volume declarations or unit tests. In an isolated environment, take a consistent PostgreSQL backup and a matching snapshot/archive of the `broker_charge_documents` volume, restore both into an isolated stack, run the storage audit, verify representative evidence hashes/sizes and database-to-file references, then record the backup identifiers, timestamps, commands, results, and any missing/mismatched/unreferenced files. No production restore has been performed by this checkpoint.
+
+
+### CI verification checkpoint — 2026-10-22
+
+- Documentation commit `13a406891b286dd8077ee1430c1d62f3b6086309` passed GitHub Actions run `39753249388`: 555 backend tests passed with 1 warning; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration checks passed.
+- This CI result applies to that exact commit only. These documentation updates will create a new head and require a fresh CI result before being called verified.
+- Production backup/restore remains unperformed. The required isolated drill must restore PostgreSQL and `broker_charge_documents` together, then validate source hashes/sizes and database/file references; do not infer restore success from CI or volume declarations.

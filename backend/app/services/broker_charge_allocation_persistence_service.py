@@ -38,10 +38,13 @@ def allocate_and_persist_component(
 ) -> list[BrokerChargeAllocation]:
     """Persist one source charge component across a reviewed set of broker fills.
 
-    Replaying the exact same request returns the existing rows. A replay that
-    changes the total, basis, method, or per-fill amount fails closed. The
-    caller owns the surrounding transaction and must commit only after the
-    complete operation succeeds.
+    Replaying the exact same request returns existing PENDING rows. A replay
+    that changes the total, basis, method, or per-fill amount fails closed.
+    Once rows are RECONCILED, this allocation-writing path refuses replay so it
+    cannot be mistaken for source verification; use the source-verification and
+    promotion workflow for read/verification replay. The caller owns the
+    surrounding transaction and must commit only after the complete operation
+    succeeds.
     """
     if charge_component not in SUPPORTED_COMPONENTS:
         raise ValueError("Unsupported broker charge component.")

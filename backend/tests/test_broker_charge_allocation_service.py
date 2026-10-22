@@ -39,7 +39,19 @@ def test_allocation_is_independent_of_input_mapping_order():
     }
 
 
-def test_zero_weight_targets_receive_no_charge_unless_residual_tie_break_applies():
+def test_zero_weight_targets_receive_no_charge_even_when_residual_is_one_paise():
+    result = allocate_component_total(
+        "0.01", {"fill-a": 0, "fill-b": 1, "fill-c": 1},
+        allocation_basis="NOTIONAL",
+    )
+    assert result == {
+        "fill-a": Decimal("0.00"),
+        "fill-b": Decimal("0.01"),
+        "fill-c": Decimal("0.00"),
+    }
+
+
+def test_zero_weight_targets_receive_no_charge_when_multiple_paise_residuals_exist():
     result = allocate_component_total(
         "0.02", {"fill-a": 0, "fill-b": 1, "fill-c": 1},
         allocation_basis="NOTIONAL",

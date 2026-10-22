@@ -647,8 +647,8 @@ def test_live_fill_promotion_uses_consistent_charge_then_trade_lock_order(accoun
         "Order",
         "BrokerOrder",
         "BrokerChargeEvidence",
-        "BrokerChargeAllocation",
         "BrokerChargeSourceComponent",
+        "BrokerChargeAllocation",
         "BrokerTradeRecord",
     ]
 

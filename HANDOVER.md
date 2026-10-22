@@ -1,3 +1,12 @@
+## Phase 3 accounting replay guard — 22 October 2026
+
+- Added a regression guard so the allocation-writing service rejects attempts to rewrite allocations after they have reached `RECONCILED`; verification/promotion replay remains the responsibility of the dedicated source-verification workflow.
+- Regression test commit: `17f6498c78886d1ca75e371d897af80370725c33`.
+- Exact-head CI run [39812196299](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39812196299) **PASSED** on that commit: backend pytest **564 passed, 1 warning**. The workflow also completed its configured migration and safety checks.
+- This result validates commit `17f6498c78886d1ca75e371d897af80370725c33`, not any subsequent documentation commits.
+- PR #6 remains open, draft, and unmerged. Live broker order writes remain disabled. Real contract-note authenticity and real Oracle Free Cloud backup/restore acceptance remain pending until the user supplies the real evidence.
+- Scope: `tarunsharma2610-del/tradepro-improved` only; do not modify original `tarunsharma2610-del/Tradepro`.
+
 ## Phase 3 exact-head CI checkpoint — 22 October 2026
 
 - Latest exact-head workflow: [GitHub Actions run 39808404362](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39808404362) **PASSED** on commit `1fcbb06a78fd06226f0e0e6438cf72b422dc2d4e`.

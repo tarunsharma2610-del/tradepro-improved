@@ -385,6 +385,13 @@ def reject_source_component(
     component.reviewed_by_user_id = user.id
     component.reviewed_at = datetime.now(timezone.utc)
     component.review_note = payload.review_note.strip() if payload.review_note else "Source amount did not match."
+    # A rejected component makes the evidence unusable for verification until a
+    # future explicit revision/re-upload workflow exists. Keep document-level
+    # status and reviewer provenance consistent with that terminal decision.
+    evidence.status = "REJECTED"
+    evidence.reviewed_by_user_id = user.id
+    evidence.reviewed_at = component.reviewed_at
+    evidence.review_note = component.review_note
     db.commit()
     db.refresh(component)
     return {

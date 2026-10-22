@@ -190,3 +190,51 @@ def test_source_component_rejects_invalid_currency_and_duplicate_component(
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+
+def test_rejected_component_can_be_corrected_as_new_audited_revision(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    extractor = make_user(email="revision-extractor@example.com")
+    reviewer = make_user(email="revision-reviewer@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    connection = _connection(db_session, extractor)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: extractor
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        base = {
+            "component_name": "stt",
+            "source_amount": "10.00",
+            "currency": "INR",
+            "source_locator": "page 1, STT row",
+        }
+        first = client.post(f"/api/v1/broker-charge-evidence/{evidence['id']}/components", json=base)
+        assert first.status_code == 201, first.text
+        assert first.json()["revision"] == 1
+        app.dependency_overrides[get_current_user] = lambda: reviewer
+        rejected = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{first.json()['id']}/reject",
+            json={"confirm_source_matches": False, "review_note": "Amount did not match source."},
+        )
+        assert rejected.status_code == 200, rejected.text
+        app.dependency_overrides[get_current_user] = lambda: extractor
+        second = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={**base, "source_amount": "1.00"},
+        )
+        assert second.status_code == 201, second.text
+        assert second.json()["revision"] == 2
+        assert second.json()["id"] != first.json()["id"]
+        assert db_session.query(BrokerChargeSourceComponent).count() == 2
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)

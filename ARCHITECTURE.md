@@ -1,3 +1,12 @@
+## Phase 3 exact-head CI checkpoint — 22 October 2026
+
+- Backend CI passed on commit `1fcbb06a78fd06226f0e0e6438cf72b422dc2d4e`: **563 passed, 1 warning**. Broker-write boundary guard, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks, and the isolated synthetic database/document-volume restore drill all passed.
+- This result validates that code commit only. Documentation changes require exact-head CI again.
+- Synthetic restore evidence does not prove recovery of real Oracle Free Cloud data or authenticity of a real broker contract note.
+- PR #6 remains draft and unmerged pending accounting/idempotency review and explicit user approval. Live broker writes remain disabled.
+- Real contract-note and retained real-backup/restore evidence remain pending; the user plans to provide these later.
+- Repository scope is `tarunsharma2610-del/tradepro-improved` only. Do not modify the original `tarunsharma2610-del/Tradepro`.
+
 ## Current Phase 3 checkpoint — 21 October 2026
 
 - **Latest verified code/test HEAD:** `3963c2bf4e6ffe2bb33d327b10e2995cd243d003`. Exact-head [Backend CI run 39607630055](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39607630055) passed **484 tests, 1 warning in 29.34s**; the broker-write boundary guard passed, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks passed.

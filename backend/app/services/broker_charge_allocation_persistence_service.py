@@ -143,10 +143,19 @@ def allocate_and_persist_component(
             raise ValueError("Source component total differs across allocation rows.")
         if sum((Decimal(row.allocated_amount) for row in rows), Decimal("0")) != total:
             raise ValueError("Allocated amounts do not reconcile to the source component total.")
+        # Arithmetic equality only proves that the stored allocations sum
+        # to the caller-supplied number. This function does not parse or
+        # independently verify the source document's component total, so it
+        # must not promote rows to RECONCILED. A separate source-verification
+        # workflow must perform that comparison before changing status.
         for row in rows:
             if row.status == "REJECTED":
                 raise ValueError("Rejected allocations cannot be reconciled.")
-            row.status = "RECONCILED"
-            row.reconciliation_reference = broker_report_reference.strip()
+            if row.status == "RECONCILED":
+                raise ValueError(
+                    "Allocation was already reconciled; source verification must not be bypassed."
+                )
+            row.status = "PENDING_RECONCILIATION"
+            row.reconciliation_reference = None
         db.flush()
     return sorted(rows, key=lambda row: str(row.broker_trade_record_id))

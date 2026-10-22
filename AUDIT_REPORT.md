@@ -971,3 +971,14 @@ A crash can leave a durable `LiveReconciliationRun` in `RUNNING`. Added `fail_or
 - Further review confirms allocation persistence serializes on the evidence row, validates that target fills belong to the same broker connection, rejects conflicting replay/fill sets, and keeps allocations pending until separate source-ledger verification and promotion.
 - The workflow records human transcription and reviewer attestation; it does not automatically parse or independently authenticate a broker's component amount. A real contract note and real backup set were not available, so both acceptance gates remain open.
 - PR #6 stays draft/unmerged; live broker writes remain disabled; original `Tradepro` is out of scope. This is a code-review/CI checkpoint, not a claim that real-source reconciliation or real-backup restore is complete.
+
+
+## Phase 3 checkpoint — lock-order regression verified (22 October 2026)
+
+- Latest exact-head CI run [39817017949](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39817017949) passed on commit `7809e8d7981a19625142dc73e689caa2976c97d6`: backend pytest **565 passed, 1 warning**.
+- Live-fill accounting now defers target allocation-row locks until after source-component verification, refreshes target allocations under lock, and fails closed if their state changed. The regression test checks lock-order invariants rather than a brittle exact query prefix.
+- A preceding implementation run failed on an outdated test expectation; the test was corrected and the latest run passed.
+- PostgreSQL concurrency coverage exists for competing allocation requests on one evidence record. Concurrent source verification versus promotion, deadlock/retry handling, and conflicting fill-set replay still need further review.
+- Real contract-note authenticity and a real retained Oracle Cloud database/document restore remain deferred until real evidence is available. Synthetic restore testing does not prove real-data recovery.
+- PR #6 remains open/draft/unmerged pending review and explicit user approval. Live broker order writes remain disabled.
+- Scope remains `tarunsharma2610-del/tradepro-improved` only; do not modify original `tarunsharma2610-del/Tradepro`.

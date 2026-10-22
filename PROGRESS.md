@@ -1358,3 +1358,11 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - Accounting acceptance remains open pending independent verification of original contract-note source/component amounts, exact fill identities, paise-level totals, replay/conflict behavior and enclosing-transaction rollback/atomic promotion. The code review alone does not close those gates.
 - No local Docker host is assumed; user confirmed Tradepro Improved is GitHub-only. A restore against real retained backup artifacts remains outstanding. All work stays in tarunsharma2610-del/tradepro-improved; original Tradepro is out of scope. PR #6 remains draft/unmerged and live broker order submission remains disabled.
 - This checkpoint changes documentation and must receive fresh CI on the resulting exact head before it can be called CI-verified.
+
+### Phase 3 source-to-ledger code review checkpoint — 2026-10-22
+
+- Reviewed contract-note intake/storage, source-component review, per-fill allocation, ledger verification, and transactional promotion on this branch.
+- Confirmed controls: document reads verify SHA-256 and byte size; transcribed components retain source locator and extraction/transcription version; a different authorized reviewer records the canonical eligible-fill manifest; verification checks exact fill set, reviewed source total, INR currency, method/basis, paise-exact sum, and reconciliation reference; promotion rechecks under locks and leaves the outer transaction to its caller.
+- Limitation: this is a human-attestation workflow, not automatic contract-note parsing or cryptographic proof of broker origin. Tests use synthetic fixtures; no actual broker contract note was available for this review. Real source amounts/fill mapping remain unverified.
+- Synthetic paired PostgreSQL/document restore passed on prior exact head `f15b74b3201720a7e40021b9da6a3c066bc85b23` (run 39757022342). Restore against real retained backups remains unexecuted.
+- Documentation checkpoint only; live broker writes remain disabled, PR #6 remains draft/unmerged, and original `Tradepro` is out of scope. Fresh CI is required for any new head.

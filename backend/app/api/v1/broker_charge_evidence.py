@@ -21,6 +21,7 @@ from app.models.broker_charge_source_component import BrokerChargeSourceComponen
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.broker_connection import BrokerConnection
 from app.models.user import User
+from app.services.broker_charge_source_reconciliation_service import reconcile_component_allocations
 from app.services.broker_charge_document_storage_service import (
     delete_document,
     read_verified_document,
@@ -364,3 +365,28 @@ def reject_source_component(
         "reviewed_by_user_id": str(component.reviewed_by_user_id),
         "reviewed_at": component.reviewed_at,
     }
+
+
+@router.post("/{evidence_id}/components/{component_id}/reconcile")
+def reconcile_source_component(
+    evidence_id: UUID,
+    component_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Verify and atomically reconcile one reviewed component's complete fill set."""
+    evidence = _owned_evidence(
+        db, evidence_id=evidence_id, user_id=user.id, lock=True, allow_admin_review=user.is_admin
+    )
+    if not user.is_admin and evidence.reviewed_by_user_id != user.id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only the authorized evidence reviewer or a platform administrator may reconcile this component.",
+        )
+    try:
+        result = reconcile_component_allocations(
+            db, evidence_id=evidence.id, source_component_id=component_id
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return result

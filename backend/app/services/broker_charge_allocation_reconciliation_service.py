@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
+from app.models.user import User
 from app.services.broker_charge_source_reconciliation_service import (
     verify_component_allocation_ledger,
 )
@@ -30,6 +31,15 @@ def promote_verified_component_allocations(
         )
         if verification["reviewed_by_user_id"] != str(reviewer_user_id):
             raise ValueError("Only the authorized source-component reviewer may promote this allocation set.")
+        reviewer = (
+            db.query(User)
+            .filter(User.id == reviewer_user_id)
+            .with_for_update()
+            .populate_existing()
+            .one_or_none()
+        )
+        if reviewer is None or not reviewer.is_active or not reviewer.is_admin:
+            raise ValueError("Only an active platform administrator may promote this allocation set.")
         rows = (
             db.query(BrokerChargeAllocation)
             .filter(

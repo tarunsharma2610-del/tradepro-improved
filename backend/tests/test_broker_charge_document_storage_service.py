@@ -55,3 +55,81 @@ def test_delete_uses_validated_storage_key(tmp_path):
     store_document(b"source", root=tmp_path, storage_key=key)
     delete_document(root=tmp_path, storage_key=key)
     assert not (tmp_path / key).exists()
+
+
+import hashlib
+from types import SimpleNamespace
+
+from app.services.broker_charge_document_storage_service import (
+    audit_contract_note_storage,
+    store_document,
+)
+
+
+def test_storage_audit_reports_clean_store_without_mutating_files(tmp_path, db_session, make_user):
+    from app.models.broker_charge_evidence import BrokerChargeEvidence
+    from app.models.broker_connection import BrokerConnection
+
+    user = make_user()
+    connection = BrokerConnection(user_id=user.id, broker="UPSTOX", name="test")
+    db_session.add(connection)
+    db_session.commit()
+    key = "a" * 32
+    content = b"contract note"
+    digest, size = store_document(content, root=tmp_path, storage_key=key)
+    row = BrokerChargeEvidence(
+        broker_connection_id=connection.id,
+        source_kind="CONTRACT_NOTE",
+        source_filename="note.pdf",
+        storage_key=key,
+        source_sha256=digest,
+        byte_size=size,
+        received_by_user_id=user.id,
+        status="RECEIVED",
+    )
+    db_session.add(row)
+    db_session.commit()
+
+    result = audit_contract_note_storage(db=db_session, root=tmp_path)
+    assert result == {
+        "missing_files": [],
+        "integrity_mismatches": [],
+        "invalid_storage_keys": [],
+        "unreferenced_files": [],
+    }
+    assert (tmp_path / key).read_bytes() == content
+
+
+def test_storage_audit_reports_missing_tampered_and_orphan_files_without_deleting(tmp_path, db_session, make_user):
+    from app.models.broker_charge_evidence import BrokerChargeEvidence
+    from app.models.broker_connection import BrokerConnection
+
+    user = make_user()
+    connection = BrokerConnection(user_id=user.id, broker="UPSTOX", name="test")
+    db_session.add(connection)
+    db_session.commit()
+
+    missing_key = "b" * 32
+    bad_key = "c" * 32
+    orphan_key = "d" * 32
+    (tmp_path / bad_key).write_bytes(b"tampered")
+    (tmp_path / orphan_key).write_bytes(b"orphan")
+    for key, content in ((missing_key, b"missing"), (bad_key, b"original")):
+        db_session.add(BrokerChargeEvidence(
+            broker_connection_id=connection.id,
+            source_kind="CONTRACT_NOTE",
+            source_filename="note.pdf",
+            storage_key=key,
+            source_sha256=hashlib.sha256(content).hexdigest(),
+            byte_size=len(content),
+            received_by_user_id=user.id,
+            status="RECEIVED",
+        ))
+    db_session.commit()
+
+    result = audit_contract_note_storage(db=db_session, root=tmp_path)
+    assert [item["storage_key"] for item in result["missing_files"]] == [missing_key]
+    assert [item["storage_key"] for item in result["integrity_mismatches"]] == [bad_key]
+    assert [item["storage_key"] for item in result["unreferenced_files"]] == [orphan_key]
+    assert (tmp_path / bad_key).read_bytes() == b"tampered"
+    assert (tmp_path / orphan_key).read_bytes() == b"orphan"

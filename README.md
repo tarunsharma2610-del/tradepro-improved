@@ -1,3 +1,12 @@
+## Phase 3 exact-head CI checkpoint — 22 October 2026
+
+- Backend CI passed on commit `1fcbb06a78fd06226f0e0e6438cf72b422dc2d4e`: **563 passed, 1 warning**. Broker-write boundary guard, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks, and the isolated synthetic database/document-volume restore drill all passed.
+- This result validates that code commit only. Documentation changes require exact-head CI again.
+- Synthetic restore evidence does not prove recovery of real Oracle Free Cloud data or authenticity of a real broker contract note.
+- PR #6 remains draft and unmerged pending accounting/idempotency review and explicit user approval. Live broker writes remain disabled.
+- Real contract-note and retained real-backup/restore evidence remain pending; the user plans to provide these later.
+- Repository scope is `tarunsharma2610-del/tradepro-improved` only. Do not modify the original `tarunsharma2610-del/Tradepro`.
+
 ## Phase 3 source-reconciliation safety correction — 22 October 2026
 
 - Code review identified a safety gap in `backend/app/services/broker_charge_allocation_persistence_service.py`: the service previously marked rows `RECONCILED` merely because calculated allocations summed to the caller-provided component total. That is arithmetic reconciliation, not independent verification of a broker contract-note source total.

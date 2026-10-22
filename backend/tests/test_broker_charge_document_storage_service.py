@@ -71,7 +71,7 @@ def test_storage_audit_reports_clean_store_without_mutating_files(tmp_path, db_s
     from app.models.broker_connection import BrokerConnection
 
     user = make_user()
-    connection = BrokerConnection(user_id=user.id, broker="UPSTOX", name="test")
+    connection = BrokerConnection(user_id=user.id, broker="upstox", api_key_encrypted="test-key", api_secret_encrypted="test-secret", redirect_uri="http://localhost/callback")
     db_session.add(connection)
     db_session.commit()
     key = "a" * 32

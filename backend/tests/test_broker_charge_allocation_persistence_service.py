@@ -171,3 +171,15 @@ def test_outer_transaction_rollback_removes_all_new_allocations(reviewed_evidenc
     db.expire_all()
 
     assert db.query(BrokerChargeAllocation).count() == 0
+
+
+def test_conflicting_replay_with_changed_basis_fails_closed(reviewed_evidence):
+    db, user, connection, evidence = reviewed_evidence
+    trades = [_trade(db, connection.id, "trade-basis-a"), _trade(db, connection.id, "trade-basis-b")]
+    _allocate(db, user, connection, evidence, trades)
+
+    with pytest.raises(ValueError, match="Conflicting replay"):
+        _allocate(
+            db, user, connection, evidence, trades,
+            weights={trade.id: 1 for trade in trades},
+        )

@@ -1,9 +1,13 @@
 from datetime import datetime, timezone
+import hashlib
+import json
 from decimal import Decimal
 
 import pytest
 
 from app.models.broker_connection import BrokerConnection
+from app.models.broker_charge_allocation import BrokerChargeAllocation
+from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
@@ -14,6 +18,7 @@ from app.models.position import Position
 from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.services.instrument_service import InstrumentService
+from app.services.broker_charge_allocation_service import METHOD_VERSION
 from app.services.live_fill_accounting_service import (
     LiveFillAccountingService,
     LiveFillChargeBreakdown,
@@ -36,15 +41,44 @@ def _charges(**overrides):
     return LiveFillChargeBreakdown(**values)
 
 
-def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001"):
+def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001", trade_record_id=None):
     db, user, _portfolio, _instrument, connection, *_rest = accounting_context
     evidence = db.query(BrokerChargeEvidence).filter_by(broker_connection_id=connection.id, broker_report_reference=reference).one_or_none()
     if evidence is None:
         from datetime import date
         from uuid import uuid4
-        evidence = BrokerChargeEvidence(broker_connection_id=connection.id, source_kind="CONTRACT_NOTE", broker_report_reference=reference, report_date=date(2026, 10, 18), segment="NSE", source_filename="reviewed-contract-note.pdf", source_sha256=uuid4().hex + uuid4().hex, byte_size=1024, parser_version="phase3-test", status="REVIEWED", reviewed_at=datetime.now(timezone.utc), reviewed_by_user_id=user.id)
+        evidence = BrokerChargeEvidence(broker_connection_id=connection.id, source_kind="CONTRACT_NOTE", broker_report_reference=reference.strip(), report_date=date(2026, 10, 18), segment="NSE", source_filename="reviewed-contract-note.pdf", storage_key="test-only/reviewed-contract-note.pdf", source_sha256=uuid4().hex + uuid4().hex, byte_size=1024, parser_version="phase3-test", status="REVIEWED", reviewed_at=datetime.now(timezone.utc), reviewed_by_user_id=user.id)
         db.add(evidence)
-        db.commit()
+        db.flush()
+    else:
+        evidence.broker_report_reference = reference.strip()
+        if not evidence.storage_key:
+            evidence.storage_key = "test-only/reviewed-contract-note.pdf"
+    record = db.get(BrokerTradeRecord, trade_record_id) if trade_record_id else db.query(BrokerTradeRecord).filter_by(broker_trade_id="trade-live-001").one()
+    expected = {"brokerage": Decimal("20.00"), "stt": Decimal("0.20"), "exchange_charges": Decimal("0.01"), "sebi_charges": Decimal("0.01"), "stamp_duty": Decimal("0.03"), "gst": Decimal("3.61")}
+    existing = db.query(BrokerChargeAllocation).filter_by(evidence_id=evidence.id, broker_trade_record_id=record.id).all()
+    if not existing:
+        manifest = json.dumps([str(record.id)], separators=(",", ":"))
+        manifest_hash = hashlib.sha256(manifest.encode("utf-8")).hexdigest()
+        for name, amount in expected.items():
+            component = BrokerChargeSourceComponent(
+                evidence_id=evidence.id, source_sha256=evidence.source_sha256, component_name=name,
+                revision=1, source_amount=amount, currency="INR", extraction_method="MANUAL_TRANSCRIPTION",
+                parser_version="phase3-test", source_locator="test fixture / page 1",
+                eligible_fill_ids_json=manifest, eligible_fill_set_sha256=manifest_hash,
+                rounding_policy=METHOD_VERSION, allocation_basis="EXPLICIT_REVIEWED",
+                extracted_by_user_id=user.id, status="VERIFIED", reviewed_by_user_id=user.id,
+                reviewed_at=datetime.now(timezone.utc), review_note="Synthetic unit-test fixture",
+            )
+            db.add(component)
+            db.flush()
+            db.add(BrokerChargeAllocation(
+                evidence_id=evidence.id, broker_connection_id=connection.id, broker_trade_record_id=record.id,
+                charge_component=name, source_component_total=amount, allocated_amount=amount,
+                currency="INR", allocation_basis="EXPLICIT_REVIEWED", method_version=METHOD_VERSION,
+                status="RECONCILED", reconciliation_reference=f"charge-component:{component.id}:sha256:{evidence.source_sha256}:fills:{manifest_hash}",
+            ))
+    db.commit()
     return _charges(reference=reference, evidence_id=evidence.id, reviewer_user_id=user.id)
 
 
@@ -363,7 +397,7 @@ def test_earlier_fill_is_rejected_after_later_fill_was_accounted(accounting_cont
     db.commit()
 
     with pytest.raises(ValueError, match="earlier broker trade cannot be promoted after a later trade"):
-        LiveFillAccountingService(db).promote_trade(user.id, earlier.id, _reviewed_charges(accounting_context))
+        LiveFillAccountingService(db).promote_trade(user.id, earlier.id, _reviewed_charges(accounting_context, trade_record_id=earlier.id))
 
     assert db.query(Execution).count() == 1
     live_position = db.query(LivePosition).one()

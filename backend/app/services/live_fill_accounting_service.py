@@ -7,6 +7,8 @@ are mandatory; estimated paper costs are rejected for live promotion.
 """
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
+import json
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from uuid import UUID
 
@@ -15,6 +17,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.broker_connection import BrokerConnection
+from app.models.broker_charge_allocation import BrokerChargeAllocation
+from app.models.broker_charge_evidence import BrokerChargeEvidence
+from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.execution import Execution
@@ -194,6 +199,15 @@ class LiveFillAccountingService:
                 reviewer_user_id=charges.reviewer_user_id,
             )
 
+            # Caller-supplied amounts are only a consistency assertion. The
+            # persisted reconciled per-fill ledger is the accounting source of truth.
+            fee_values = self._load_reconciled_allocation_fees(
+                evidence_id=charges.evidence_id,
+                broker_connection_id=connection.id,
+                broker_trade_record_id=record.id,
+                supplied_fees=fee_values,
+            )
+
             staged_child_quantity = (
                 self.db.query(func.coalesce(func.sum(BrokerTradeRecord.quantity), 0))
                 .filter(
@@ -331,6 +345,107 @@ class LiveFillAccountingService:
         except Exception:
             self.db.rollback()
             raise
+
+    def _load_reconciled_allocation_fees(
+        self,
+        *,
+        evidence_id: UUID,
+        broker_connection_id: UUID,
+        broker_trade_record_id: UUID,
+        supplied_fees: dict[str, Decimal],
+    ) -> dict[str, Decimal]:
+        """Fail closed unless a complete source-reviewed ledger backs this fill."""
+        names = ("brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst")
+        evidence = (
+            self.db.query(BrokerChargeEvidence)
+            .filter(
+                BrokerChargeEvidence.id == evidence_id,
+                BrokerChargeEvidence.broker_connection_id == broker_connection_id,
+                BrokerChargeEvidence.source_kind == "CONTRACT_NOTE",
+                BrokerChargeEvidence.status == "REVIEWED",
+            )
+            .with_for_update()
+            .one_or_none()
+        )
+        if evidence is None or not evidence.storage_key:
+            raise ValueError("Reviewed original contract-note evidence is required for reconciled accounting.")
+        fill_rows = (
+            self.db.query(BrokerChargeAllocation)
+            .filter(
+                BrokerChargeAllocation.evidence_id == evidence_id,
+                BrokerChargeAllocation.broker_connection_id == broker_connection_id,
+                BrokerChargeAllocation.broker_trade_record_id == broker_trade_record_id,
+            )
+            .with_for_update()
+            .all()
+        )
+        if {row.charge_component for row in fill_rows} != set(names) or len(fill_rows) != len(names):
+            raise ValueError("Live accounting requires exactly six reconciled per-fill charge allocations.")
+        if any(row.status != "RECONCILED" or row.currency != "INR" or not row.reconciliation_reference for row in fill_rows):
+            raise ValueError("Pending, rejected, or unreferenced charge allocations cannot enter live accounting.")
+        derived = {row.charge_component: Decimal(str(row.allocated_amount)).quantize(CENT) for row in fill_rows}
+
+        for name in names:
+            component = (
+                self.db.query(BrokerChargeSourceComponent)
+                .filter(
+                    BrokerChargeSourceComponent.evidence_id == evidence_id,
+                    BrokerChargeSourceComponent.component_name == name,
+                )
+                .order_by(BrokerChargeSourceComponent.revision.desc())
+                .with_for_update()
+                .first()
+            )
+            if component is None or component.status != "VERIFIED" or component.reviewed_by_user_id is None or component.reviewed_at is None:
+                raise ValueError("Every live-fill charge component must have a currently verified source component.")
+            if component.source_sha256 != evidence.source_sha256 or component.currency != "INR":
+                raise ValueError("Verified source component fingerprint or currency conflicts with contract-note evidence.")
+            if not component.rounding_policy or not component.allocation_basis:
+                raise ValueError("Verified source component is missing its approved allocation method or basis.")
+            try:
+                manifest_ids = json.loads(component.eligible_fill_ids_json or "")
+            except (TypeError, ValueError):
+                raise ValueError("Verified source component has no valid eligible-fill manifest.") from None
+            if not isinstance(manifest_ids, list) or not manifest_ids or any(not isinstance(value, str) for value in manifest_ids):
+                raise ValueError("Verified source component has no valid eligible-fill manifest.")
+            canonical = json.dumps(sorted(manifest_ids), separators=(",", ":"))
+            manifest_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+            if manifest_ids != sorted(set(manifest_ids)) or component.eligible_fill_ids_json != canonical or component.eligible_fill_set_sha256 != manifest_hash or str(broker_trade_record_id) not in manifest_ids:
+                raise ValueError("Verified source component fill manifest is invalid or excludes this broker trade.")
+            component_rows = (
+                self.db.query(BrokerChargeAllocation)
+                .filter(
+                    BrokerChargeAllocation.evidence_id == evidence_id,
+                    BrokerChargeAllocation.charge_component == name,
+                )
+                .with_for_update()
+                .all()
+            )
+            if {str(row.broker_trade_record_id) for row in component_rows} != set(manifest_ids):
+                raise ValueError("Reconciled allocation fill set does not match the verified source manifest.")
+            source_total = Decimal(str(component.source_amount)).quantize(CENT)
+            if any(
+                row.status != "RECONCILED" or row.broker_connection_id != broker_connection_id
+                or row.currency != component.currency
+                or Decimal(str(row.source_component_total)).quantize(CENT) != source_total
+                or row.method_version != component.rounding_policy
+                or row.allocation_basis != component.allocation_basis
+                or row.reconciliation_reference != (
+                    f"charge-component:{component.id}:sha256:{evidence.source_sha256}:fills:{manifest_hash}"
+                )
+                for row in component_rows
+            ):
+                raise ValueError("Reconciled allocations conflict with their verified source component.")
+            allocated_total = sum((Decimal(str(row.allocated_amount)) for row in component_rows), Decimal("0")).quantize(CENT)
+            if allocated_total != source_total:
+                raise ValueError("Reconciled allocations do not equal the verified source component total.")
+
+        if any(supplied_fees[name] != derived[name] for name in names):
+            raise ValueError("Caller-supplied charge amounts differ from the reconciled per-fill allocation ledger.")
+        total = sum((derived[name] for name in names), Decimal("0")).quantize(CENT)
+        if supplied_fees["total_charges"] != total:
+            raise ValueError("Total charges do not equal the reconciled per-fill allocation ledger.")
+        return {**derived, "total_charges": total}
 
     def _ensure_exchange_order(
         self,

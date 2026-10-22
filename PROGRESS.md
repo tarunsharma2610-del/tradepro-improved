@@ -1,3 +1,12 @@
+
+
+## Phase 3 live-accounting integration gate — 22 October 2026
+
+- Code change prepared to require all six charge components to be backed by a currently VERIFIED source-component record and a complete RECONCILED per-fill allocation ledger for the exact broker trade. It rechecks canonical fill manifests, evidence fingerprints, INR currency, approved allocation method/basis, component sums, and caller-versus-ledger amount consistency under transaction row locks.
+- Accounting tests use synthetic reviewed-source/allocation rows only. They are not evidence from a real Upstox contract note and do not establish broker-document authenticity.
+- Exact-head CI is required after this change; do not call it verified until the latest workflow passes. Keep PR #6 draft/unmerged and live broker write operations disabled.
+- Real contract-note verification and an actual retained PostgreSQL backup/document backup plus an Oracle Free Cloud restore drill remain pending user-provided evidence.
+- Scope: `tarunsharma2610-del/tradepro-improved` only; never modify original `Tradepro`.
 ## Phase 3 source-reconciliation safety correction — 22 October 2026
 
 - Code review identified a safety gap in `backend/app/services/broker_charge_allocation_persistence_service.py`: the service previously marked rows `RECONCILED` merely because calculated allocations summed to the caller-provided component total. That is arithmetic reconciliation, not independent verification of a broker contract-note source total.

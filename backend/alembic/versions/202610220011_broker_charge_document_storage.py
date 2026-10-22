@@ -14,29 +14,24 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "broker_charge_evidence",
-        sa.Column("storage_key", sa.String(length=500), nullable=True),
-    )
-    op.add_column(
-        "broker_charge_evidence",
-        sa.Column("received_by_user_id", sa.Uuid(), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_charge_evidence_received_by_user_id_users",
-        "broker_charge_evidence",
-        "users",
-        ["received_by_user_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    # Batch mode supports adding the FK on SQLite while preserving PostgreSQL
+    # behavior in the migration CI matrix.
+    with op.batch_alter_table("broker_charge_evidence") as batch_op:
+        batch_op.add_column(sa.Column("storage_key", sa.String(length=500), nullable=True))
+        batch_op.add_column(sa.Column("received_by_user_id", sa.Uuid(), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_charge_evidence_received_by_user_id_users",
+            "users",
+            ["received_by_user_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "fk_charge_evidence_received_by_user_id_users",
-        "broker_charge_evidence",
-        type_="foreignkey",
-    )
-    op.drop_column("broker_charge_evidence", "received_by_user_id")
-    op.drop_column("broker_charge_evidence", "storage_key")
+    with op.batch_alter_table("broker_charge_evidence") as batch_op:
+        batch_op.drop_constraint(
+            "fk_charge_evidence_received_by_user_id_users", type_="foreignkey"
+        )
+        batch_op.drop_column("received_by_user_id")
+        batch_op.drop_column("storage_key")

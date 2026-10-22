@@ -439,6 +439,10 @@ class LiveFillAccountingService:
         )
         if evidence is None or not evidence.storage_key:
             raise ValueError("Reviewed original contract-note evidence is required for reconciled accounting.")
+        # Read the target fill's allocations without locking them yet. The
+        # source verifier acquires each component lock before its allocation rows;
+        # locking target allocations here first would invert that order and can
+        # deadlock with concurrent verification/promotion.
         fill_rows = (
             self.db.query(BrokerChargeAllocation)
             .filter(
@@ -446,7 +450,7 @@ class LiveFillAccountingService:
                 BrokerChargeAllocation.broker_connection_id == broker_connection_id,
                 BrokerChargeAllocation.broker_trade_record_id == broker_trade_record_id,
             )
-            .with_for_update()
+            .populate_existing()
             .all()
         )
         if {row.charge_component for row in fill_rows} != set(names) or len(fill_rows) != len(names):
@@ -495,6 +499,7 @@ class LiveFillAccountingService:
                     BrokerChargeAllocation.evidence_id == evidence_id,
                     BrokerChargeAllocation.charge_component == name,
                 )
+                .order_by(BrokerChargeAllocation.broker_trade_record_id, BrokerChargeAllocation.id)
                 .with_for_update()
                 .all()
             )
@@ -516,6 +521,26 @@ class LiveFillAccountingService:
             allocated_total = sum((Decimal(str(row.allocated_amount)) for row in component_rows), Decimal("0")).quantize(CENT)
             if allocated_total != source_total:
                 raise ValueError("Reconciled allocations do not equal the verified source component total.")
+
+        # Refresh and lock the target fill only after source components and
+        # their allocation rows have been locked and verified.
+        fill_rows = (
+            self.db.query(BrokerChargeAllocation)
+            .filter(
+                BrokerChargeAllocation.evidence_id == evidence_id,
+                BrokerChargeAllocation.broker_connection_id == broker_connection_id,
+                BrokerChargeAllocation.broker_trade_record_id == broker_trade_record_id,
+            )
+            .order_by(BrokerChargeAllocation.charge_component, BrokerChargeAllocation.id)
+            .with_for_update()
+            .populate_existing()
+            .all()
+        )
+        if {row.charge_component for row in fill_rows} != set(names) or len(fill_rows) != len(names):
+            raise ValueError("Live accounting allocation ledger changed during verification.")
+        if any(row.status != "RECONCILED" or row.currency != "INR" or not row.reconciliation_reference for row in fill_rows):
+            raise ValueError("Live accounting allocation ledger changed during verification.")
+        derived = {row.charge_component: Decimal(str(row.allocated_amount)).quantize(CENT) for row in fill_rows}
 
         if any(supplied_fees[name] != derived[name] for name in names):
             raise ValueError("Caller-supplied charge amounts differ from the reconciled per-fill allocation ledger.")

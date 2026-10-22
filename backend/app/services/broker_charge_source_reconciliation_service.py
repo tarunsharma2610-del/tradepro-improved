@@ -78,6 +78,8 @@ def verify_component_allocation_ledger(
         raise ValueError("A reviewed INR source component and exact eligible-fill manifest are required.")
     if component.rounding_policy != METHOD_VERSION:
         raise ValueError("Source component rounding policy does not match the supported allocation method.")
+    if component.allocation_basis not in {"QUANTITY", "NOTIONAL", "EXPLICIT_REVIEWED"}:
+        raise ValueError("A reviewer-approved allocation basis is required.")
 
     try:
         manifest_ids = json.loads(component.eligible_fill_ids_json)
@@ -89,6 +91,8 @@ def verify_component_allocation_ledger(
         parsed_ids = [UUID(value) for value in manifest_ids]
     except ValueError as exc:
         raise ValueError("Eligible-fill manifest contains an invalid UUID.") from exc
+    if len(set(parsed_ids)) != len(parsed_ids):
+        raise ValueError("Eligible-fill manifest contains duplicate fill IDs.")
     canonical_json = json.dumps([str(value) for value in sorted(parsed_ids, key=str)], separators=(",", ":"))
     if manifest_ids != [str(value) for value in sorted(parsed_ids, key=str)]:
         raise ValueError("Eligible-fill manifest is not in canonical sorted order.")
@@ -122,6 +126,8 @@ def verify_component_allocation_ledger(
         raise ValueError("Allocation currency does not match the reviewed source component.")
     if any(row.method_version != component.rounding_policy for row in allocations):
         raise ValueError("Allocation method version does not match the reviewed rounding policy.")
+    if any(row.allocation_basis != component.allocation_basis for row in allocations):
+        raise ValueError("Allocation basis does not match the reviewer-approved allocation basis.")
     if any(not row.allocation_basis for row in allocations):
         raise ValueError("Allocation basis is missing.")
     allocated_total = sum((Decimal(row.allocated_amount) for row in allocations), Decimal("0")).quantize(PAISE)
@@ -148,6 +154,7 @@ def verify_component_allocation_ledger(
         "currency": component.currency,
         "eligible_fill_set_sha256": manifest_hash,
         "rounding_policy": component.rounding_policy,
+        "allocation_basis": component.allocation_basis,
         "allocation_count": len(allocations),
         "allocated_total": str(allocated_total),
         "status": "VERIFIED_PENDING_PROMOTION",

@@ -410,3 +410,67 @@ def test_source_rejection_requires_same_reviewer_after_evidence_reviewed(
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_rejecting_component_marks_evidence_rejected_and_blocks_other_reviews(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    owner = make_user(email="source-owner-terminal-reject@example.com")
+    reviewer = make_user(email="source-reviewer-terminal-reject@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    connection = _connection(db_session, owner)
+    trade = _trade(db_session, connection)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: owner
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        components = []
+        for name, amount in (("brokerage", "20.00"), ("gst", "3.60")):
+            created = client.post(
+                f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+                json={
+                    "component_name": name,
+                    "source_amount": amount,
+                    "currency": "INR",
+                    "source_locator": f"page 1, {name} row",
+                },
+            )
+            assert created.status_code == 201, created.text
+            components.append(created.json())
+
+        app.dependency_overrides[get_current_user] = lambda: reviewer
+        rejected = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{components[0]['id']}/reject",
+            json={
+                "confirm_source_matches": False,
+                "review_note": "Source component does not match the note.",
+            },
+        )
+        assert rejected.status_code == 200, rejected.text
+        db_evidence = db_session.get(BrokerChargeEvidence, UUID(evidence["id"]))
+        db_session.refresh(db_evidence)
+        assert db_evidence.status == "REJECTED"
+        assert db_evidence.reviewed_by_user_id == reviewer.id
+
+        blocked = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{components[1]['id']}/review",
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(trade.id)],
+            },
+        )
+        assert blocked.status_code == 409
+        assert "Rejected contract-note evidence" in blocked.text
+        pending = db_session.get(BrokerChargeSourceComponent, UUID(components[1]["id"]))
+        assert pending.status == "PENDING_REVIEW"
+        assert pending.reviewed_by_user_id is None
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)

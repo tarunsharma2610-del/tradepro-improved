@@ -287,3 +287,55 @@ def test_non_admin_cannot_review_another_users_contract_note(
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_source_review_rejects_fill_from_another_broker_connection(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    owner = make_user(email="source-owner-fill-boundary@example.com")
+    reviewer = make_user(email="source-reviewer-fill-boundary@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    connection = _connection(db_session, owner)
+    other_owner = make_user(email="source-other-owner-fill-boundary@example.com")
+    other_connection = _connection(db_session, other_owner)
+    foreign_trade = _trade(db_session, other_connection)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: owner
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        created = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={
+                "component_name": "brokerage",
+                "source_amount": "20.00",
+                "currency": "INR",
+                "source_locator": "page 1, brokerage row",
+            },
+        )
+        assert created.status_code == 201, created.text
+        component_id = UUID(created.json()["id"])
+
+        app.dependency_overrides[get_current_user] = lambda: reviewer
+        response = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{component_id}/review",
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(foreign_trade.id)],
+            },
+        )
+        assert response.status_code == 422
+        assert "evidence broker connection" in response.text
+        component = db_session.get(BrokerChargeSourceComponent, component_id)
+        assert component.status == "PENDING_REVIEW"
+        assert component.reviewed_by_user_id is None
+        assert component.eligible_fill_ids_json is None
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)

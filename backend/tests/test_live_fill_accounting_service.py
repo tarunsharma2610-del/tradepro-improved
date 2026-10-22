@@ -43,6 +43,8 @@ def _charges(**overrides):
 
 def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001", trade_record_id=None):
     db, user, _portfolio, _instrument, connection, *_rest = accounting_context
+    if trade_record_id is not None:
+        reference = f"{reference}-{str(trade_record_id)[:8]}"
     evidence = db.query(BrokerChargeEvidence).filter_by(broker_connection_id=connection.id, broker_report_reference=reference).one_or_none()
     if evidence is None:
         from datetime import date
@@ -236,6 +238,56 @@ def test_invalid_or_estimated_charges_block_live_promotion(accounting_context, c
     with pytest.raises(ValueError, match=message):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
 
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
+@pytest.mark.parametrize("status", ["PENDING_RECONCILIATION", "REJECTED"])
+def test_non_reconciled_charge_allocations_block_live_accounting(accounting_context, status):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, paper_position = accounting_context
+    charges = _reviewed_charges(accounting_context)
+    allocation = db.query(BrokerChargeAllocation).filter_by(
+        evidence_id=charges.evidence_id, broker_trade_record_id=record.id
+    ).first()
+    allocation.status = status
+    db.commit()
+
+    with pytest.raises(ValueError, match="Pending, rejected, or unreferenced"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
+def test_missing_component_allocation_blocks_live_accounting(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, paper_position = accounting_context
+    charges = _reviewed_charges(accounting_context)
+    allocation = db.query(BrokerChargeAllocation).filter_by(
+        evidence_id=charges.evidence_id, broker_trade_record_id=record.id
+    ).first()
+    db.delete(allocation)
+    db.commit()
+
+    with pytest.raises(ValueError, match="exactly six reconciled per-fill"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
+def test_caller_charge_amounts_must_match_reconciled_ledger(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, paper_position = accounting_context
+    charges = _reviewed_charges(accounting_context)
+    mismatched = _charges(
+        brokerage=Decimal("21.00"), total_charges=Decimal("24.86"),
+        evidence_id=charges.evidence_id, reviewer_user_id=charges.reviewer_user_id,
+    )
+    with pytest.raises(ValueError, match="differ from the reconciled per-fill"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, mismatched)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
     db.refresh(paper_position)

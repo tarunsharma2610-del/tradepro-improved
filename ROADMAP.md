@@ -575,3 +575,12 @@ Historical checkpoint superseded: renewal remains every five records; UI marks `
 - This verifies the current test suite, not production backup/restore. Still required: crash/interrupted-upload and database-rollback testing, an isolated coordinated PostgreSQL-plus-document-volume restore drill, and final accounting/idempotency review.
 - Do not automatically delete orphaned files. Cleanup remains a separate approved, audited operation with grace-period safeguards. SHA-256 demonstrates byte continuity against recorded evidence, not broker-origin authenticity.
 - PR #6 remains draft/unmerged pending final review and explicit approval. Live broker order submission remains disabled. Scope is `tarunsharma2610-del/tradepro-improved`; do not modify original `Tradepro`.
+
+
+## Upload cleanup regression checkpoint — 22 October 2026
+
+- Added a regression test for the contract-note cleanup helper when storage deletion raises `OSError`; the failure is logged and does not escape the helper, allowing the upload handler to preserve its original database exception.
+- Exact-head GitHub Actions run [39750696319](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39750696319) passed on commit `279ea3e6f170dc991c243b57372b86e86db065ee`: **554 passed, 1 warning**. Broker-write boundary guard and SQLite/PostgreSQL 16 migration checks passed.
+- Coverage limitation: the regression test currently exercises the cleanup helper, not a full integration path that forces both database commit and file deletion to fail. Add that integration test before treating upload recovery as fully verified.
+- Still outstanding: coordinated PostgreSQL + contract-note-volume restore drill; independently reviewed source-origin evidence; final allocation replay/idempotency and promotion transaction review; exact-final-commit CI.
+- PR #6 remains draft/unmerged. Live broker order submission remains disabled. Scope is `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is not the target.

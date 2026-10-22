@@ -1,9 +1,13 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
+
+import hashlib
 
 import pytest
 
 from app.models.broker_charge_allocation import BrokerChargeAllocation
+from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.services.broker_charge_allocation_persistence_service import (
@@ -108,3 +112,37 @@ def test_conflicting_fill_set_is_rejected_without_partial_rows(reviewed_evidence
         _allocate(db, user, connection, evidence, trades[:1])
 
     assert db.query(BrokerChargeAllocation).count() == 2
+
+
+@pytest.fixture
+def reviewed_evidence(db_session, make_user):
+    """Create a persisted, explicitly reviewed contract-note evidence record."""
+    user = make_user()
+    connection = BrokerConnection(
+        user_id=user.id,
+        broker="upstox",
+        api_key_encrypted="encrypted-key",
+        api_secret_encrypted="encrypted-secret",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=True,
+    )
+    db_session.add(connection)
+    db_session.commit()
+    db_session.refresh(connection)
+
+    evidence = BrokerChargeEvidence(
+        broker_connection_id=connection.id,
+        source_kind="CONTRACT_NOTE",
+        broker_report_reference="CN-2026-10-21-001",
+        source_filename="contract-note.pdf",
+        source_sha256=hashlib.sha256(b"test contract note").hexdigest(),
+        byte_size=len(b"test contract note"),
+        status="REVIEWED",
+        reviewed_at=datetime.now(timezone.utc),
+        reviewed_by_user_id=user.id,
+        review_note="Reviewed in test fixture",
+    )
+    db_session.add(evidence)
+    db_session.commit()
+    db_session.refresh(evidence)
+    return db_session, user, connection, evidence

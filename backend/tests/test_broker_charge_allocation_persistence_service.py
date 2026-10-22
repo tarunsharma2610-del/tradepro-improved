@@ -182,5 +182,5 @@ def test_conflicting_replay_with_changed_basis_fails_closed(reviewed_evidence):
         _allocate(
             db, user, connection, evidence, trades,
             weights={trade.id: 1 for trade in trades},
-            basis="ALTERNATE_REVIEWED",
+            basis="QUANTITY",
         )

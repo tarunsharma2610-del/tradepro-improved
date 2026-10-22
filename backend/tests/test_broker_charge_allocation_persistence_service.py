@@ -32,7 +32,7 @@ def _trade(db, connection_id, trade_id):
     return trade
 
 
-def _allocate(db, user, connection, evidence, trades, weights=None, total="1.00"):
+def _allocate(db, user, connection, evidence, trades, weights=None, total="1.00", basis="EXPLICIT_REVIEWED"):
     return allocate_and_persist_component(
         db,
         evidence_id=evidence.id,
@@ -42,7 +42,7 @@ def _allocate(db, user, connection, evidence, trades, weights=None, total="1.00"
         source_component_total=total,
         charge_component="brokerage",
         fill_weights=weights or {trade.id: 1 for trade in trades},
-        allocation_basis="EXPLICIT_REVIEWED",
+        allocation_basis=basis,
     )
 
 
@@ -182,4 +182,5 @@ def test_conflicting_replay_with_changed_basis_fails_closed(reviewed_evidence):
         _allocate(
             db, user, connection, evidence, trades,
             weights={trade.id: 1 for trade in trades},
+            basis="ALTERNATE_REVIEWED",
         )

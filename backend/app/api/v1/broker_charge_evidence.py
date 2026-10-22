@@ -2,6 +2,7 @@
 from datetime import date, datetime, timezone
 import hashlib
 import json
+import logging
 from decimal import Decimal
 from pathlib import Path
 from urllib.parse import quote
@@ -28,6 +29,7 @@ from app.services.broker_charge_document_storage_service import (
 )
 
 router = APIRouter(prefix="/broker-charge-evidence", tags=["broker charge evidence"])
+logger = logging.getLogger(__name__)
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 SUPPORTED_COMPONENTS = {"brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"}
 
@@ -77,6 +79,18 @@ def _owned_evidence(
     if evidence is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Contract-note evidence not found.")
     return evidence
+
+
+def _cleanup_failed_upload(storage_key: str) -> None:
+    """Best-effort compensation; preserve the original DB error if cleanup fails.
+
+    A failed cleanup can leave an orphaned file, which the read-only storage audit
+    can report. Never hide the primary failure or silently claim cleanup succeeded.
+    """
+    try:
+        delete_document(root=settings.BROKER_CHARGE_DOCUMENT_ROOT, storage_key=storage_key)
+    except OSError:
+        logger.exception("Failed to clean up contract-note upload; storage audit required")
 
 
 def _verified_bytes(evidence: BrokerChargeEvidence) -> bytes:
@@ -148,11 +162,11 @@ async def upload_contract_note(
         db.refresh(evidence)
     except IntegrityError as exc:
         db.rollback()
-        delete_document(root=settings.BROKER_CHARGE_DOCUMENT_ROOT, storage_key=storage_key)
+        _cleanup_failed_upload(storage_key)
         raise HTTPException(status.HTTP_409_CONFLICT, "This contract-note evidence conflicts with an existing record.") from exc
     except Exception:
         db.rollback()
-        delete_document(root=settings.BROKER_CHARGE_DOCUMENT_ROOT, storage_key=storage_key)
+        _cleanup_failed_upload(storage_key)
         raise
     return {
         "id": str(evidence.id),

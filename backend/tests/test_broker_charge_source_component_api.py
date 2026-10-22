@@ -459,6 +459,21 @@ def test_rejecting_component_marks_evidence_rejected_and_blocks_other_reviews(
         assert db_evidence.status == "REJECTED"
         assert db_evidence.reviewed_by_user_id == reviewer.id
 
+        # Rejected evidence is terminal: the owner cannot append a new
+        # component and thereby make this evidence look reviewable again.
+        app.dependency_overrides[get_current_user] = lambda: owner
+        add_after_rejection = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={
+                "component_name": "stt",
+                "source_amount": "10.00",
+                "currency": "INR",
+                "source_locator": "page 1, STT row",
+            },
+        )
+        assert add_after_rejection.status_code == 409
+        app.dependency_overrides[get_current_user] = lambda: reviewer
+
         blocked = client.post(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{components[1]['id']}/review",
             json={

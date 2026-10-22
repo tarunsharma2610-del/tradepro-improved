@@ -36,6 +36,8 @@ def test_source_component_is_pending_until_different_reviewer_confirms_source(
 ):
     extractor = make_user(email="extractor@example.com")
     reviewer = make_user(email="reviewer@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
     connection = _connection(db_session, extractor)
     monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
 

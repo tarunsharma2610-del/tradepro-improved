@@ -70,3 +70,87 @@ def delete_document(*, root: str | Path, storage_key: str) -> None:
         path.unlink()
     except FileNotFoundError:
         pass
+
+
+"""Read-only audit of contract-note files against durable evidence rows.
+
+This module reports inconsistencies only. It never deletes or modifies files.
+"""
+from __future__ import annotations
+
+import hashlib
+import re
+from pathlib import Path
+from typing import Any
+
+from app.models.broker_charge_evidence import BrokerChargeEvidence
+
+_STORAGE_KEY_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def audit_contract_note_storage(*, db: Any, root: str | Path) -> dict[str, list[dict[str, str | int]]]:
+    """Compare storage objects with DB evidence and report findings without mutation.
+
+    Only regular files with validated opaque storage keys are considered objects.
+    Temporary upload files and unrelated files are ignored. An unreferenced object
+    is reported, never deleted; cleanup requires a separate approved workflow.
+    """
+    base = Path(root).expanduser().resolve()
+    findings: dict[str, list[dict[str, str | int]]] = {
+        "missing_files": [],
+        "integrity_mismatches": [],
+        "invalid_storage_keys": [],
+        "unreferenced_files": [],
+    }
+    evidence_rows = db.query(BrokerChargeEvidence).all()
+    referenced: dict[str, BrokerChargeEvidence] = {}
+
+    for row in evidence_rows:
+        key = row.storage_key
+        if not isinstance(key, str) or not _STORAGE_KEY_RE.fullmatch(key):
+            findings["invalid_storage_keys"].append({
+                "evidence_id": str(row.id),
+                "storage_key": str(key or ""),
+            })
+            continue
+        # Duplicate keys are an integrity anomaly; still audit the object once.
+        if key in referenced:
+            findings["integrity_mismatches"].append({
+                "evidence_id": str(row.id),
+                "storage_key": key,
+                "reason": "duplicate_database_storage_key",
+            })
+            continue
+        referenced[key] = row
+
+    for key, row in referenced.items():
+        path = (base / key).resolve()
+        if path.parent != base or not path.is_file():
+            findings["missing_files"].append({
+                "evidence_id": str(row.id),
+                "storage_key": key,
+            })
+            continue
+        try:
+            content = path.read_bytes()
+        except OSError as exc:
+            findings["integrity_mismatches"].append({
+                "evidence_id": str(row.id),
+                "storage_key": key,
+                "reason": f"read_error:{type(exc).__name__}",
+            })
+            continue
+        digest = hashlib.sha256(content).hexdigest()
+        if len(content) != row.byte_size or digest != row.source_sha256:
+            findings["integrity_mismatches"].append({
+                "evidence_id": str(row.id),
+                "storage_key": key,
+                "reason": "size_or_sha256_mismatch",
+            })
+
+    if base.is_dir():
+        for path in base.iterdir():
+            if path.is_file() and _STORAGE_KEY_RE.fullmatch(path.name) and path.name not in referenced:
+                findings["unreferenced_files"].append({"storage_key": path.name})
+
+    return findings

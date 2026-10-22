@@ -286,7 +286,9 @@ def reject_source_component(
     """Record a reviewer rejection without changing any allocation status."""
     if payload.confirm_source_matches is not False:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Explicit mismatch confirmation is required.")
-    evidence = _owned_evidence(db, evidence_id=evidence_id, user_id=user.id, lock=True)
+    evidence = _owned_evidence(
+        db, evidence_id=evidence_id, user_id=user.id, lock=True, allow_admin_review=user.is_admin
+    )
     _verified_bytes(evidence)
     component = (
         db.query(BrokerChargeSourceComponent)

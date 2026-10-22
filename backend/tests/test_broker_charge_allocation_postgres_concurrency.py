@@ -15,12 +15,14 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from app.models import (  # noqa: F401 ensure all model tables are registered
-)
-from app.core.database import Base
+import app.models  # noqa: F401 register every model table
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_connection import BrokerConnection
+from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
+from app.models.instrument import Instrument
+from app.models.order import Order
+from app.models.portfolio import Portfolio
 from app.models.user import User
 from app.services.broker_charge_allocation_persistence_service import (
     allocate_and_persist_component,
@@ -42,16 +44,35 @@ def test_concurrent_conflicting_fill_sets_serialize_on_evidence():
     try:
         # Schema is migrated by CI before tests. Use unique IDs/references so
         # parallel test runs do not collide with existing rows.
+        order_a_id, order_b_id = uuid4(), uuid4()
+        broker_order_a_id, broker_order_b_id = uuid4(), uuid4()
+        portfolio_id, instrument_id = uuid4(), uuid4()
         with Session.begin() as db:
             db.add(User(
                 id=user_id, email=f"race-{suffix}@example.invalid",
                 password_hash="test-hash", full_name="Race Test", is_admin=False,
+            ))
+            db.add(Portfolio(
+                id=portfolio_id, user_id=user_id, name=f"race-{suffix}",
+                virtual_capital=Decimal("10000.00"), cash_balance=Decimal("10000.00"),
+            ))
+            db.add(Instrument(
+                id=instrument_id, instrument_key=f"TEST|{suffix}", exchange="NSE",
+                segment="NSE_EQ", instrument_type="EQUITY", trading_symbol=f"RACE{suffix}",
+                name="Concurrency Test Instrument",
             ))
             db.add(BrokerConnection(
                 id=connection_id, user_id=user_id, broker="upstox",
                 api_key_encrypted="test-key", api_secret_encrypted="test-secret",
                 redirect_uri="https://example.invalid/callback", is_connected=True,
             ))
+            for order_id in (order_a_id, order_b_id):
+                db.add(Order(
+                    id=order_id, portfolio_id=portfolio_id, instrument_id=instrument_id,
+                    side="BUY", order_type="MARKET", segment="EQUITY_INTRADAY",
+                    quantity=1, status="FILLED", trading_mode="PAPER",
+                    execution_reason="MANUAL", placed_at=datetime.now(timezone.utc),
+                ))
         with Session.begin() as db:
             db.add(BrokerChargeEvidence(
                 id=evidence_id, broker_connection_id=connection_id,
@@ -60,12 +81,21 @@ def test_concurrent_conflicting_fill_sets_serialize_on_evidence():
                 status="REVIEWED", reviewed_at=datetime.now(timezone.utc),
                 reviewed_by_user_id=user_id, review_note="PostgreSQL race test",
             ))
-            for trade_id, trade_ref in ((trade_a_id, f"trade-a-{suffix}"), (trade_b_id, f"trade-b-{suffix}")):
+            for broker_order_id, order_id in ((broker_order_a_id, order_a_id), (broker_order_b_id, order_b_id)):
+                db.add(BrokerOrder(
+                    id=broker_order_id, broker_connection_id=connection_id, order_id=order_id,
+                    broker_name="upstox", broker_order_id=f"broker-order-{broker_order_id}",
+                    requested_quantity=1, filled_quantity=1, status="COMPLETE",
+                ))
+            for trade_id, broker_order_id, trade_ref in (
+                (trade_a_id, broker_order_a_id, f"trade-a-{suffix}"),
+                (trade_b_id, broker_order_b_id, f"trade-b-{suffix}"),
+            ):
                 db.add(BrokerTradeRecord(
                     id=trade_id, broker_connection_id=connection_id,
-                    broker_order_id=f"order-{trade_ref}", broker_trade_id=trade_ref,
+                    broker_order_ref_id=broker_order_id, broker_trade_id=trade_ref,
                     quantity=1, price=Decimal("100.00"), side="BUY",
-                    instrument_token="NSE_TEST", exchange_timestamp=datetime.now(timezone.utc),
+                    instrument_token="NSE_TEST", exchange_timestamp=datetime.now(timezone.utc).isoformat(),
                 ))
 
         barrier = threading.Barrier(2)
@@ -115,7 +145,11 @@ def test_concurrent_conflicting_fill_sets_serialize_on_evidence():
         with Session.begin() as db:
             db.execute(text("DELETE FROM broker_charge_allocations WHERE evidence_id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_trade_records WHERE broker_connection_id = :id"), {"id": str(connection_id)})
+            db.execute(text("DELETE FROM broker_orders WHERE broker_connection_id = :id"), {"id": str(connection_id)})
             db.execute(text("DELETE FROM broker_charge_evidence WHERE id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_connections WHERE id = :id"), {"id": str(connection_id)})
+            db.execute(text("DELETE FROM orders WHERE id IN (:a, :b)"), {"a": str(order_a_id), "b": str(order_b_id)})
+            db.execute(text("DELETE FROM instruments WHERE id = :id"), {"id": str(instrument_id)})
+            db.execute(text("DELETE FROM portfolios WHERE id = :id"), {"id": str(portfolio_id)})
             db.execute(text("DELETE FROM users WHERE id = :id"), {"id": str(user_id)})
         engine.dispose()

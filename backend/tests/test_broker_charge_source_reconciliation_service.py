@@ -14,6 +14,7 @@ from app.models.broker_connection import BrokerConnection
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.user import User
 from app.services.broker_charge_allocation_persistence_service import allocate_and_persist_component
+from app.services.broker_charge_allocation_reconciliation_service import promote_verified_component_allocations
 from app.services.broker_charge_document_storage_service import store_document
 from app.services.broker_charge_source_reconciliation_service import verify_component_allocation_ledger
 
@@ -172,3 +173,69 @@ def test_verification_rejects_tampered_source_document(reconciliation_context, t
         verify_component_allocation_ledger(
             db, evidence_id=evidence.id, source_component_id=component.id
         )
+
+
+
+def test_promotion_is_atomic_and_idempotent(reconciliation_context):
+    db, evidence, component, _trades, rows = _setup(reconciliation_context)
+
+    promoted = promote_verified_component_allocations(
+        db,
+        evidence_id=evidence.id,
+        source_component_id=component.id,
+        reviewer_user_id=component.reviewed_by_user_id,
+    )
+    assert {row.status for row in promoted} == {"RECONCILED"}
+    references = {row.reconciliation_reference for row in promoted}
+    assert len(references) == 1
+    assert next(iter(references)).startswith(f"charge-component:{component.id}:sha256:")
+    db.commit()
+
+    replay = promote_verified_component_allocations(
+        db,
+        evidence_id=evidence.id,
+        source_component_id=component.id,
+        reviewer_user_id=component.reviewed_by_user_id,
+    )
+    assert {row.id for row in replay} == {row.id for row in promoted}
+    assert {row.status for row in replay} == {"RECONCILED"}
+    assert {row.reconciliation_reference for row in replay} == references
+    db.commit()
+
+
+def test_promotion_rejects_non_reviewer_and_leaves_allocations_pending(reconciliation_context):
+    from uuid import uuid4
+
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context)
+
+    with pytest.raises(ValueError, match="authorized source-component reviewer"):
+        promote_verified_component_allocations(
+            db,
+            evidence_id=evidence.id,
+            source_component_id=component.id,
+            reviewer_user_id=uuid4(),
+        )
+    db.rollback()
+    assert {row.status for row in db.query(BrokerChargeAllocation).all()} == {"PENDING_RECONCILIATION"}
+    assert {row.reconciliation_reference for row in db.query(BrokerChargeAllocation).all()} == {None}
+
+
+def test_outer_rollback_reverts_entire_component_promotion(reconciliation_context):
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context)
+    db.rollback()
+    outer = db.begin()
+    try:
+        promoted = promote_verified_component_allocations(
+            db,
+            evidence_id=evidence.id,
+            source_component_id=component.id,
+            reviewer_user_id=component.reviewed_by_user_id,
+        )
+        assert {row.status for row in promoted} == {"RECONCILED"}
+        outer.rollback()
+    finally:
+        if outer.is_active:
+            outer.rollback()
+    db.expire_all()
+    assert {row.status for row in db.query(BrokerChargeAllocation).all()} == {"PENDING_RECONCILIATION"}
+    assert {row.reconciliation_reference for row in db.query(BrokerChargeAllocation).all()} == {None}

@@ -15,6 +15,7 @@ from app.models.execution import Execution
 from app.models.live_position import LivePosition
 from app.models.order import Order
 from app.models.position import Position
+from app.models.user import User
 from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.services.instrument_service import InstrumentService
@@ -49,13 +50,11 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
     if evidence is None:
         from datetime import date
         from uuid import uuid4
-        evidence = BrokerChargeEvidence(broker_connection_id=connection.id, source_kind="CONTRACT_NOTE", broker_report_reference=reference.strip(), report_date=date(2026, 10, 18), segment="NSE", source_filename="reviewed-contract-note.pdf", storage_key="test-only/reviewed-contract-note.pdf", source_sha256=uuid4().hex + uuid4().hex, byte_size=1024, parser_version="phase3-test", status="REVIEWED", reviewed_at=datetime.now(timezone.utc), reviewed_by_user_id=user.id)
+        evidence = BrokerChargeEvidence(broker_connection_id=connection.id, source_kind="CONTRACT_NOTE", broker_report_reference=reference.strip(), report_date=date(2026, 10, 18), segment="NSE", source_filename="reviewed-contract-note.pdf", storage_key=uuid4().hex, source_sha256=hashlib.sha256(synthetic_document).hexdigest(), byte_size=len(synthetic_document), parser_version="phase3-test", status="REVIEWED", reviewed_at=datetime.now(timezone.utc), reviewed_by_user_id=reviewer.id)
         db.add(evidence)
         db.flush()
     else:
         evidence.broker_report_reference = reference.strip()
-        if not evidence.storage_key:
-            evidence.storage_key = "test-only/reviewed-contract-note.pdf"
     record = db.get(BrokerTradeRecord, trade_record_id) if trade_record_id else db.query(BrokerTradeRecord).filter_by(broker_trade_id="trade-live-001").one()
     expected = {"brokerage": Decimal("20.00"), "stt": Decimal("0.20"), "exchange_charges": Decimal("0.01"), "sebi_charges": Decimal("0.01"), "stamp_duty": Decimal("0.03"), "gst": Decimal("3.61")}
     existing = db.query(BrokerChargeAllocation).filter_by(evidence_id=evidence.id, broker_trade_record_id=record.id).all()
@@ -69,7 +68,7 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
                 parser_version="phase3-test", source_locator="test fixture / page 1",
                 eligible_fill_ids_json=manifest, eligible_fill_set_sha256=manifest_hash,
                 rounding_policy=METHOD_VERSION, allocation_basis="EXPLICIT_REVIEWED",
-                extracted_by_user_id=user.id, status="VERIFIED", reviewed_by_user_id=user.id,
+                extracted_by_user_id=user.id, status="VERIFIED", reviewed_by_user_id=reviewer.id,
                 reviewed_at=datetime.now(timezone.utc), review_note="Synthetic unit-test fixture",
             )
             db.add(component)
@@ -81,12 +80,19 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
                 status="RECONCILED", reconciliation_reference=f"charge-component:{component.id}:sha256:{evidence.source_sha256}:fills:{manifest_hash}",
             ))
     db.commit()
-    return _charges(reference=reference, evidence_id=evidence.id, reviewer_user_id=user.id)
+    return _charges(reference=reference, evidence_id=evidence.id, reviewer_user_id=reviewer.id)
 
 
 @pytest.fixture()
-def accounting_context(db_session, make_user):
+def accounting_context(db_session, make_user, monkeypatch):
     user = make_user()
+    reviewer = make_user(email="live-accounting-reviewer@example.com")
+    reviewer.is_admin = True
+    synthetic_document = b"synthetic test contract note"
+    monkeypatch.setattr(
+        "app.services.broker_charge_source_reconciliation_service.read_verified_document",
+        lambda **_kwargs: synthetic_document,
+    )
     portfolio = PortfolioRepository(db_session).create(
         user_id=user.id, name="Live accounting", virtual_capital=Decimal("100000")
     )

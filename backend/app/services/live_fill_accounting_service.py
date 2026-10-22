@@ -28,6 +28,7 @@ from app.models.live_position import LivePosition
 from app.models.order import Order
 from app.models.portfolio import Portfolio
 from app.services.broker_charge_evidence_service import require_reviewed_charge_evidence
+from app.services.broker_charge_source_reconciliation_service import verify_component_allocation_ledger
 from app.services.position_math import apply_fill
 from app.services.transaction_costs import Side
 
@@ -398,6 +399,13 @@ class LiveFillAccountingService:
             )
             if component is None or component.status != "VERIFIED" or component.reviewed_by_user_id is None or component.reviewed_at is None:
                 raise ValueError("Every live-fill charge component must have a currently verified source component.")
+            # Re-read and fingerprint-check the original document before accounting;
+            # a historical RECONCILED marker alone is not sufficient if bytes changed.
+            verification = verify_component_allocation_ledger(
+                self.db, evidence_id=evidence_id, source_component_id=component.id
+            )
+            if verification.get("status") != "ALREADY_RECONCILED" or verification.get("component_name") != name:
+                raise ValueError("Charge component is not fully verified and reconciled for accounting.")
             if component.source_sha256 != evidence.source_sha256 or component.currency != "INR":
                 raise ValueError("Verified source component fingerprint or currency conflicts with contract-note evidence.")
             if not component.rounding_policy or not component.allocation_basis:

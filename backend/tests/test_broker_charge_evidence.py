@@ -92,9 +92,17 @@ def test_failed_upload_cleanup_logs_os_error_without_masking_primary_failure(mon
         raise OSError("simulated storage permission failure")
 
     monkeypatch.setattr(endpoint, "delete_document", fail_delete)
-    with caplog.at_level(logging.ERROR, logger=endpoint.__name__):
-        # The caller remains responsible for raising its original database error.
-        endpoint._cleanup_failed_upload("a" * 32)
+
+    def rollback_and_cleanup():
+        # Mirror the endpoint's exception path: rollback first, best-effort cleanup,
+        # then propagate the original commit error even when deletion fails.
+        primary = RuntimeError("database commit failed")
+        with caplog.at_level(logging.ERROR, logger=endpoint.__name__):
+            endpoint._cleanup_failed_upload("a" * 32)
+        raise primary
+
+    with pytest.raises(RuntimeError, match="database commit failed"):
+        rollback_and_cleanup()
 
     assert "Failed to clean up contract-note upload" in caplog.text
     assert "simulated storage permission failure" in caplog.text

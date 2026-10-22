@@ -643,3 +643,10 @@ A first persistence slice adds `broker_charge_evidence` and migration `202610210
 - Accounting acceptance remains open pending independent verification of original contract-note source/component amounts, exact fill identities, paise-level totals, replay/conflict behavior and enclosing-transaction rollback/atomic promotion. The code review alone does not close those gates.
 - No local Docker host is assumed; user confirmed Tradepro Improved is GitHub-only. A restore against real retained backup artifacts remains outstanding. All work stays in tarunsharma2610-del/tradepro-improved; original Tradepro is out of scope. PR #6 remains draft/unmerged and live broker order submission remains disabled.
 - This checkpoint changes documentation and must receive fresh CI on the resulting exact head before it can be called CI-verified.
+
+### Phase 3 source-to-ledger review follow-up — 2026-10-22
+
+- Exact-head GitHub Actions run `39757964236` passed on commit `0c74960c9b0bb1590aa14ef709f55e691b3ac5e2`, covering backend pytest, broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document restore, and evidence artifact retention.
+- Code review confirms evidence-row serialization, broker-connection validation for target fills, conflicting replay rejection, and pending status until source-ledger verification/promotion.
+- Source component values remain human-transcribed; CI fixtures are synthetic and cannot verify real contract-note amounts or real backup recovery. Both real-evidence acceptance gates remain open.
+- PR #6 remains draft/unmerged; live broker writes remain disabled; original `Tradepro` is out of scope. Do not treat this note as approval to merge or enable live trading.

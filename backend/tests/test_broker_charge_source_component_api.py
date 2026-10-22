@@ -339,3 +339,74 @@ def test_source_review_rejects_fill_from_another_broker_connection(
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_source_rejection_requires_same_reviewer_after_evidence_reviewed(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    owner = make_user(email="source-owner-reviewer-consistency@example.com")
+    reviewer_one = make_user(email="source-reviewer-one-consistency@example.com")
+    reviewer_two = make_user(email="source-reviewer-two-consistency@example.com")
+    reviewer_one.is_admin = True
+    reviewer_two.is_admin = True
+    db_session.commit()
+    connection = _connection(db_session, owner)
+    trade = _trade(db_session, connection)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: owner
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        first = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={
+                "component_name": "brokerage",
+                "source_amount": "20.00",
+                "currency": "INR",
+                "source_locator": "page 1, brokerage row",
+            },
+        )
+        second = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={
+                "component_name": "gst",
+                "source_amount": "3.60",
+                "currency": "INR",
+                "source_locator": "page 1, GST row",
+            },
+        )
+        assert first.status_code == 201, first.text
+        assert second.status_code == 201, second.text
+
+        app.dependency_overrides[get_current_user] = lambda: reviewer_one
+        reviewed = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{first.json()['id']}/review",
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(trade.id)],
+                "rounding_policy": "largest-remainder-v1",
+            },
+        )
+        assert reviewed.status_code == 200, reviewed.text
+
+        app.dependency_overrides[get_current_user] = lambda: reviewer_two
+        rejected = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{second.json()['id']}/reject",
+            json={
+                "confirm_source_matches": False,
+                "review_note": "Independent mismatch review.",
+            },
+        )
+        assert rejected.status_code == 409
+        assert "same authorized reviewer" in rejected.text
+        pending = db_session.get(BrokerChargeSourceComponent, UUID(second.json()["id"]))
+        assert pending.status == "PENDING_REVIEW"
+        assert pending.reviewed_by_user_id is None
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)

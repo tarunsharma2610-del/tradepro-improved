@@ -54,8 +54,10 @@ def test_persists_allocations_and_reconciles_source_total(reviewed_evidence):
 
     assert len(rows) == 2
     assert sum((Decimal(row.allocated_amount) for row in rows), Decimal("0")) == Decimal("1.00")
-    assert {row.status for row in rows} == {"RECONCILED"}
-    assert {row.reconciliation_reference for row in rows} == {"CN-2026-10-21-001"}
+    # Arithmetic totals match, but no independent source-document parser or
+    # component-total verifier ran, so this service must not claim reconciliation.
+    assert {row.status for row in rows} == {"PENDING_RECONCILIATION"}
+    assert {row.reconciliation_reference for row in rows} == {None}
     assert db.query(BrokerChargeAllocation).count() == 2
 
 

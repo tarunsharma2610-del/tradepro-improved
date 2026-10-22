@@ -146,3 +146,21 @@ def reviewed_evidence(db_session, make_user):
     db_session.commit()
     db_session.refresh(evidence)
     return db_session, user, connection, evidence
+
+
+def test_outer_transaction_rollback_removes_all_new_allocations(reviewed_evidence):
+    db, user, connection, evidence = reviewed_evidence
+    trades = [
+        _trade(db, connection.id, "trade-rollback-a"),
+        _trade(db, connection.id, "trade-rollback-b"),
+    ]
+
+    rows = _allocate(db, user, connection, evidence, trades)
+    assert len(rows) == 2
+    assert db.query(BrokerChargeAllocation).count() == 2
+
+    # The service deliberately does not commit; the caller owns transaction fate.
+    db.rollback()
+    db.expire_all()
+
+    assert db.query(BrokerChargeAllocation).count() == 0

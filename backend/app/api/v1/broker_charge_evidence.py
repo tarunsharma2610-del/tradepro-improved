@@ -304,6 +304,8 @@ def reject_source_component(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source component not found.")
     if component.status != "PENDING_REVIEW":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only pending source components can be rejected.")
+    if component.extracted_by_user_id == user.id:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="A different user must independently review this source component.")
     if payload.review_note is not None and not payload.review_note.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Review note must not be whitespace.")
     component.status = "REJECTED"

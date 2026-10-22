@@ -65,8 +65,11 @@ def allocate_component_total(
         for fill_id, value in exact_paise.items()
     }
     residual = total_paise - sum(base_paise.values())
+    # Zero-weight fills are excluded from residual distribution. Otherwise a
+    # zero-weight ID that sorts first could receive a paise when all positive
+    # weights have tied fractional remainders.
     ranked = sorted(
-        normalized,
+        (fill_id for fill_id, weight in normalized.items() if weight > 0),
         key=lambda fill_id: (-(exact_paise[fill_id] - base_paise[fill_id]), fill_id),
     )
     for fill_id in ranked[:residual]:

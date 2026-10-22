@@ -116,8 +116,6 @@ def verify_component_allocation_ledger(
         raise ValueError("Allocation ledger fill set does not exactly match the reviewed eligible-fill manifest.")
     if any(row.broker_connection_id != evidence.broker_connection_id for row in allocations):
         raise ValueError("Allocation ledger contains a fill from another broker connection.")
-    if any(row.status != "PENDING_RECONCILIATION" for row in allocations):
-        raise ValueError("Only pending allocations can enter source-component verification.")
 
     expected_total = Decimal(component.source_amount).quantize(PAISE)
     if any(Decimal(row.source_component_total).quantize(PAISE) != expected_total for row in allocations):
@@ -130,6 +128,20 @@ def verify_component_allocation_ledger(
         raise ValueError("Allocation basis does not match the reviewer-approved allocation basis.")
     if any(not row.allocation_basis for row in allocations):
         raise ValueError("Allocation basis is missing.")
+    reconciliation_reference = (
+        f"charge-component:{component.id}:sha256:{evidence.source_sha256}:fills:{manifest_hash}"
+    )
+    statuses = {row.status for row in allocations}
+    if statuses == {"PENDING_RECONCILIATION"}:
+        if any(row.reconciliation_reference is not None for row in allocations):
+            raise ValueError("Pending allocations must not carry a stale reconciliation reference.")
+        verification_status = "VERIFIED_PENDING_PROMOTION"
+    elif statuses == {"RECONCILED"}:
+        if any(row.reconciliation_reference != reconciliation_reference for row in allocations):
+            raise ValueError("Reconciled allocation reference does not match the verified source and fill set.")
+        verification_status = "ALREADY_RECONCILED"
+    else:
+        raise ValueError("Allocation rows have mixed or rejected statuses; component verification fails closed.")
     allocated_total = sum((Decimal(row.allocated_amount) for row in allocations), Decimal("0")).quantize(PAISE)
     if allocated_total != expected_total:
         raise ValueError("Allocated amounts do not reconcile exactly to the reviewed source component total.")
@@ -155,7 +167,9 @@ def verify_component_allocation_ledger(
         "eligible_fill_set_sha256": manifest_hash,
         "rounding_policy": component.rounding_policy,
         "allocation_basis": component.allocation_basis,
+        "reviewed_by_user_id": str(component.reviewed_by_user_id),
+        "reconciliation_reference": reconciliation_reference,
         "allocation_count": len(allocations),
         "allocated_total": str(allocated_total),
-        "status": "VERIFIED_PENDING_PROMOTION",
+        "status": verification_status,
     }

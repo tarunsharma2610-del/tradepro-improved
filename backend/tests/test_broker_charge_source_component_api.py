@@ -1,9 +1,12 @@
 from fastapi.testclient import TestClient
+from decimal import Decimal
+from uuid import uuid4
 
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.main import app
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
+from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.broker_connection import BrokerConnection
 
 
@@ -19,6 +22,23 @@ def _connection(db, user):
     db.commit()
     db.refresh(connection)
     return connection
+
+
+def _trade(db, connection):
+    trade = BrokerTradeRecord(
+        broker_connection_id=connection.id,
+        broker_order_ref_id=uuid4(),
+        broker_trade_id="source-component-fill-1",
+        quantity=1,
+        price=Decimal("100.0000"),
+        side="BUY",
+        instrument_token="NSE_EQ|TEST",
+        exchange_timestamp="2026-10-22T10:00:00+05:30",
+    )
+    db.add(trade)
+    db.commit()
+    db.refresh(trade)
+    return trade
 
 
 def _upload_note(client, connection):
@@ -39,6 +59,7 @@ def test_source_component_is_pending_until_different_reviewer_confirms_source(
     reviewer.is_admin = True
     db_session.commit()
     connection = _connection(db_session, extractor)
+    trade = _trade(db_session, connection)
     monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
 
     def override_db():
@@ -66,7 +87,7 @@ def test_source_component_is_pending_until_different_reviewer_confirms_source(
 
         own_review = client.post(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{component['id']}/review",
-            json={"confirm_source_matches": True},
+            json={"confirm_source_matches": True, "eligible_fill_record_ids": [str(trade.id)]},
         )
         assert own_review.status_code == 409
         db_component = db_session.get(BrokerChargeSourceComponent, __import__("uuid").UUID(component["id"]))
@@ -75,14 +96,24 @@ def test_source_component_is_pending_until_different_reviewer_confirms_source(
         app.dependency_overrides[get_current_user] = lambda: reviewer
         reviewed = client.post(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{component['id']}/review",
-            json={"confirm_source_matches": True, "review_note": "Checked amount against source page 1."},
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(trade.id)],
+                "rounding_policy": "largest-remainder-v1",
+                "review_note": "Checked amount and eligible fill against source page 1.",
+            },
         )
         assert reviewed.status_code == 200, reviewed.text
         assert reviewed.json()["status"] == "VERIFIED"
         assert reviewed.json()["reviewed_by_user_id"] == str(reviewer.id)
         db_session.refresh(db_component)
         assert db_component.reviewed_at is not None
-        assert db_component.review_note == "Checked amount against source page 1."
+        assert db_component.review_note == "Checked amount and eligible fill against source page 1."
+        assert db_component.eligible_fill_ids_json == f'["{trade.id}"]'
+        assert len(db_component.eligible_fill_set_sha256) == 64
+        assert db_component.rounding_policy == "largest-remainder-v1"
+        db_session.refresh(db_session.get(__import__("app.models.broker_charge_evidence", fromlist=["BrokerChargeEvidence"]).BrokerChargeEvidence, __import__("uuid").UUID(evidence["id"])))
+        assert db_session.get(__import__("app.models.broker_charge_evidence", fromlist=["BrokerChargeEvidence"]).BrokerChargeEvidence, __import__("uuid").UUID(evidence["id"])).status == "REVIEWED"
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)

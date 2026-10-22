@@ -19,6 +19,7 @@ def upgrade() -> None:
         sa.Column("evidence_id", sa.Uuid(), nullable=False),
         sa.Column("source_sha256", sa.String(length=64), nullable=False),
         sa.Column("component_name", sa.String(length=30), nullable=False),
+        sa.Column("revision", sa.Integer(), server_default="1", nullable=False),
         sa.Column("source_amount", sa.Numeric(18, 2), nullable=False),
         sa.Column("currency", sa.String(length=3), server_default="INR", nullable=False),
         sa.Column("extraction_method", sa.String(length=30), server_default="MANUAL_TRANSCRIPTION", nullable=False),
@@ -41,6 +42,7 @@ def upgrade() -> None:
             name="ck_charge_source_component_name",
         ),
         sa.CheckConstraint("source_amount >= 0", name="ck_charge_source_component_amount_nonnegative"),
+        sa.CheckConstraint("revision > 0", name="ck_charge_source_component_revision_positive"),
         sa.CheckConstraint("currency = 'INR'", name="ck_charge_source_component_currency_inr"),
         sa.CheckConstraint(
             "extraction_method IN ('MANUAL_TRANSCRIPTION', 'PARSER')",
@@ -54,7 +56,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["extracted_by_user_id"], ["users.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["reviewed_by_user_id"], ["users.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("evidence_id", "component_name", name="uq_charge_source_component_evidence_name"),
+        sa.UniqueConstraint("evidence_id", "component_name", "revision", name="uq_charge_source_component_evidence_name_revision"),
     )
     op.create_index("ix_broker_charge_source_components_evidence_id", "broker_charge_source_components", ["evidence_id"], unique=False)
     op.create_index("ix_broker_charge_source_components_status", "broker_charge_source_components", ["status"], unique=False)

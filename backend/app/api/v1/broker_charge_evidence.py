@@ -360,6 +360,8 @@ def reject_source_component(
     evidence = _owned_evidence(
         db, evidence_id=evidence_id, user_id=user.id, lock=True, allow_admin_review=user.is_admin
     )
+    if evidence.status == "REVIEWED" and evidence.reviewed_by_user_id != user.id:
+        raise HTTPException(status.HTTP_409_CONFLICT, "All components on this evidence must use the same authorized reviewer.")
     _verified_bytes(evidence)
     component = (
         db.query(BrokerChargeSourceComponent)

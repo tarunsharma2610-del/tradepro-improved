@@ -249,6 +249,10 @@ def review_source_component(
     evidence = _owned_evidence(
         db, evidence_id=evidence_id, user_id=user.id, lock=True, allow_admin_review=user.is_admin
     )
+    if evidence.status == "REJECTED":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Rejected contract-note evidence cannot be verified.")
+    if evidence.status == "REVIEWED" and evidence.reviewed_by_user_id != user.id:
+        raise HTTPException(status.HTTP_409_CONFLICT, "All components on this evidence must use the same authorized reviewer.")
     _verified_bytes(evidence)
     component = (
         db.query(BrokerChargeSourceComponent)
@@ -290,6 +294,10 @@ def review_source_component(
     component.reviewed_by_user_id = user.id
     component.reviewed_at = datetime.now(timezone.utc)
     component.review_note = payload.review_note.strip() if payload.review_note else None
+    evidence.status = "REVIEWED"
+    evidence.reviewed_by_user_id = user.id
+    evidence.reviewed_at = component.reviewed_at
+    evidence.review_note = "Source component and eligible fill set independently reviewed."
     db.commit()
     db.refresh(component)
     return {

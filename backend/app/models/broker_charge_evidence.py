@@ -51,7 +51,7 @@ class BrokerChargeEvidence(BaseModel):
     segment: Mapped[str | None] = mapped_column(String(50), nullable=True)
     source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     # Relative opaque key only; never store user-controlled filesystem paths.
-    storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True, unique=True)
+    storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
     parser_version: Mapped[str | None] = mapped_column(String(50), nullable=True)

@@ -202,10 +202,23 @@ def record_source_component(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "A source page/row locator is required.")
     evidence = _owned_evidence(db, evidence_id=evidence_id, user_id=user.id, lock=True)
     _verified_bytes(evidence)
+    prior_components = (
+        db.query(BrokerChargeSourceComponent)
+        .filter(
+            BrokerChargeSourceComponent.evidence_id == evidence.id,
+            BrokerChargeSourceComponent.component_name == payload.component_name,
+        )
+        .with_for_update()
+        .all()
+    )
+    if any(row.status != "REJECTED" for row in prior_components):
+        raise HTTPException(status.HTTP_409_CONFLICT, "A pending or verified record already exists for this component.")
+    revision = max((row.revision for row in prior_components), default=0) + 1
     component = BrokerChargeSourceComponent(
         evidence_id=evidence.id,
         source_sha256=evidence.source_sha256,
         component_name=payload.component_name,
+        revision=revision,
         source_amount=payload.source_amount,
         currency="INR",
         extraction_method="MANUAL_TRANSCRIPTION",
@@ -226,6 +239,7 @@ def record_source_component(
         "evidence_id": str(component.evidence_id),
         "source_sha256": component.source_sha256,
         "component_name": component.component_name,
+        "revision": component.revision,
         "source_amount": str(component.source_amount),
         "currency": component.currency,
         "extraction_method": component.extraction_method,

@@ -1366,3 +1366,13 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - Limitation: this is a human-attestation workflow, not automatic contract-note parsing or cryptographic proof of broker origin. Tests use synthetic fixtures; no actual broker contract note was available for this review. Real source amounts/fill mapping remain unverified.
 - Synthetic paired PostgreSQL/document restore passed on prior exact head `f15b74b3201720a7e40021b9da6a3c066bc85b23` (run 39757022342). Restore against real retained backups remains unexecuted.
 - Documentation checkpoint only; live broker writes remain disabled, PR #6 remains draft/unmerged, and original `Tradepro` is out of scope. Fresh CI is required for any new head.
+
+### Phase 3 continuation checkpoint — 2026-10-22 (pause point)
+
+- Pause point saved after commit `f7c2dc5d402bb157c98ccbfd7e7d26f5c7d67e89` on `phase3/durable-per-fill-charge-allocation`.
+- Added `backend/tests/test_broker_charge_source_component_api.py::test_non_admin_cannot_review_another_users_contract_note`, covering cross-user non-admin review denial and asserting the source component remains pending with no reviewer/fill-set fields recorded after denial.
+- Exact-head GitHub Actions run `39759187947` was `in_progress` at last check for this commit. Do not claim it passed until rechecked: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39759187947
+- Previous documented head `a6ffba6f1eebd370bd945780074d32cfc09f9fb0` had green CI run `39758399828`; that does not verify the newer test commit.
+- Next action on resume: first check run `39759187947` and confirm its head SHA/conclusion, inspect failed steps if any, then continue Phase 3 security/reconciliation acceptance review.
+- Real contract-note/source amount verification and real retained database/document backup restoration remain open; synthetic CI restore is not a real backup restore. Do not fabricate actual-source evidence.
+- PR #6 remains draft/unmerged; live broker order submission remains disabled. All work is confined to `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.

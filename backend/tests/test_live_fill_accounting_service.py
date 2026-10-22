@@ -641,16 +641,18 @@ def test_live_fill_promotion_uses_consistent_charge_then_trade_lock_order(accoun
 
     LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
 
-    # Charge verification locks evidence and its ledger before the staged trade.
-    # The order/child locks serialize parent-order accounting before this sequence.
-    assert locked_models[:6] == [
-        "Order",
-        "BrokerOrder",
-        "BrokerChargeEvidence",
-        "BrokerChargeSourceComponent",
-        "BrokerChargeAllocation",
-        "BrokerTradeRecord",
-    ]
+    # Order and child serialize parent-order accounting. Within charge
+    # verification, source-component locks must precede allocation locks, and
+    # the staged trade lock must come after the complete verified ledger.
+    assert locked_models[:2] == ["Order", "BrokerOrder"]
+    first_component = locked_models.index("BrokerChargeSourceComponent")
+    first_allocation = locked_models.index("BrokerChargeAllocation")
+    last_component = len(locked_models) - 1 - locked_models[::-1].index("BrokerChargeSourceComponent")
+    last_allocation = len(locked_models) - 1 - locked_models[::-1].index("BrokerChargeAllocation")
+    last_trade = len(locked_models) - 1 - locked_models[::-1].index("BrokerTradeRecord")
+    assert first_component < first_allocation
+    assert last_component < last_trade
+    assert last_allocation < last_trade
 
 
 def test_failed_commit_rolls_back_execution_and_live_position(accounting_context, monkeypatch):

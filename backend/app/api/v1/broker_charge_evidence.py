@@ -41,11 +41,17 @@ class SourceComponentInput(BaseModel):
     source_locator: str = Field(min_length=1, max_length=200)
 
 
+class ExplicitFillWeightInput(BaseModel):
+    fill_record_id: UUID
+    weight: Decimal = Field(ge=Decimal("0"), max_digits=24, decimal_places=8)
+
+
 class SourceComponentReviewInput(BaseModel):
     confirm_source_matches: bool
     eligible_fill_record_ids: list[UUID] = Field(min_length=1, max_length=500)
     rounding_policy: Literal["largest-remainder-v1"] = "largest-remainder-v1"
     allocation_basis: Literal["QUANTITY", "NOTIONAL", "EXPLICIT_REVIEWED"] = "EXPLICIT_REVIEWED"
+    eligible_fill_weights: list[ExplicitFillWeightInput] | None = Field(default=None, max_length=500)
     review_note: str | None = Field(default=None, max_length=500)
 
 
@@ -318,8 +324,37 @@ def review_source_component(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Eligible fills must belong to the evidence broker connection.")
     canonical_fill_ids = json.dumps([str(fill_id) for fill_id in fill_ids], separators=(",", ":"))
     fill_set_sha256 = hashlib.sha256(canonical_fill_ids.encode("utf-8")).hexdigest()
+    canonical_weights = None
+    if payload.allocation_basis == "EXPLICIT_REVIEWED":
+        if payload.eligible_fill_weights is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Explicit reviewed allocation requires a reviewed weight for every eligible fill.",
+            )
+        weight_ids = [item.fill_record_id for item in payload.eligible_fill_weights]
+        if len(set(weight_ids)) != len(weight_ids) or set(weight_ids) != set(fill_ids):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Explicit reviewed weights must match the eligible fill set exactly without duplicates.",
+            )
+        if sum((item.weight for item in payload.eligible_fill_weights), Decimal("0")) <= 0:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "At least one reviewed fill weight must be positive.")
+        weights_by_id = {item.fill_record_id: item.weight for item in payload.eligible_fill_weights}
+        canonical_weights = json.dumps(
+            [
+                {"fill_record_id": str(fill_id), "weight": str(weights_by_id[fill_id])}
+                for fill_id in fill_ids
+            ],
+            separators=(",", ":"),
+        )
+    elif payload.eligible_fill_weights is not None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Explicit weights are only accepted with the EXPLICIT_REVIEWED allocation basis.",
+        )
     component.eligible_fill_ids_json = canonical_fill_ids
     component.eligible_fill_set_sha256 = fill_set_sha256
+    component.eligible_fill_weights_json = canonical_weights
     component.rounding_policy = payload.rounding_policy
     component.allocation_basis = payload.allocation_basis
     component.status = "VERIFIED"
@@ -343,6 +378,7 @@ def review_source_component(
         "eligible_fill_set_sha256": component.eligible_fill_set_sha256,
         "rounding_policy": component.rounding_policy,
         "allocation_basis": component.allocation_basis,
+        "eligible_fill_weights": json.loads(component.eligible_fill_weights_json) if component.eligible_fill_weights_json else None,
         "reviewed_by_user_id": str(component.reviewed_by_user_id),
         "reviewed_at": component.reviewed_at,
     }

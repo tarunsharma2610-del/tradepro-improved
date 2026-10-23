@@ -1441,3 +1441,13 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - [ ] Dedicated PostgreSQL concurrency test for simultaneous same-key tariff snapshot persistence and conflicting payloads.
 - [ ] Complete component-aware tariff modeling for order caps/minimums, conditional rates, GST taxable bases and special charge models before approving those rule types.
 - [ ] End-to-end variance-only comparison between estimate snapshots and reviewed actual contract-note components; actual per-fill allocation must continue to derive only from actual evidence.
+
+
+## Requirement status — Task B verification (2026-10-23)
+
+- [x] Canonical estimate-only snapshot persistence, digest, idempotency, exact replay and conflicting-replay rejection.
+- [x] Database-level append-only guards on PostgreSQL and SQLite; direct SQL UPDATE/DELETE regression tests.
+- [x] PostgreSQL concurrency coverage for exact-replay and conflicting-payload snapshot insert races.
+- [x] Exact-code-head CI run 39960409771: 677 passed, 1 warning; broker-write guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore drill passed.
+- [ ] Variance-only comparison of tariff estimates against reviewed actual contract-note components, with no estimate promotion to actual/per-fill ledger.
+- [ ] Explicit component-specific conditional/order-level caps, minimums, GST taxable bases and special tariff models before approving those rule types.

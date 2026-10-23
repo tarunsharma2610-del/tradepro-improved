@@ -13,6 +13,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    dialect = op.get_bind().dialect.name
     op.add_column(
         "tariff_estimate_snapshot_records",
         sa.Column("comparison_scope", sa.String(length=20), server_default="TRADE_FILL", nullable=False),
@@ -25,11 +26,19 @@ def upgrade() -> None:
         "tariff_estimate_snapshot_records",
         sa.Column("source_fill_set_sha256", sa.String(length=64), nullable=True),
     )
-    op.create_check_constraint(
-        "ck_tariff_estimate_snapshot_comparison_scope",
-        "tariff_estimate_snapshot_records",
-        "comparison_scope IN ('TRADE_FILL', 'ORDER_FILL_SET')",
-    )
+    if dialect == "postgresql":
+        op.create_check_constraint(
+            "ck_tariff_estimate_snapshot_comparison_scope",
+            "tariff_estimate_snapshot_records",
+            "comparison_scope IN ('TRADE_FILL', 'ORDER_FILL_SET')",
+        )
+    elif dialect == "sqlite":
+        op.execute("""
+            CREATE TRIGGER trg_tariff_estimate_snapshot_scope_valid
+            BEFORE INSERT ON tariff_estimate_snapshot_records
+            WHEN NEW.comparison_scope NOT IN ('TRADE_FILL', 'ORDER_FILL_SET')
+            BEGIN SELECT RAISE(ABORT, 'invalid tariff estimate comparison scope'); END
+        """)
 
     op.add_column(
         "tariff_estimate_variance_records",
@@ -49,26 +58,42 @@ def upgrade() -> None:
         )
         WHERE source_fill_set_sha256 IS NULL
     """)
-    op.create_check_constraint(
-        "ck_tariff_estimate_variance_comparison_scope",
-        "tariff_estimate_variance_records",
-        "comparison_scope IN ('TRADE_FILL', 'ORDER_FILL_SET')",
-    )
+    if dialect == "postgresql":
+        op.create_check_constraint(
+            "ck_tariff_estimate_variance_comparison_scope",
+            "tariff_estimate_variance_records",
+            "comparison_scope IN ('TRADE_FILL', 'ORDER_FILL_SET')",
+        )
+    elif dialect == "sqlite":
+        op.execute("""
+            CREATE TRIGGER trg_tariff_estimate_variance_scope_valid
+            BEFORE INSERT ON tariff_estimate_variance_records
+            WHEN NEW.comparison_scope NOT IN ('TRADE_FILL', 'ORDER_FILL_SET')
+            BEGIN SELECT RAISE(ABORT, 'invalid tariff variance comparison scope'); END
+        """)
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "ck_tariff_estimate_variance_comparison_scope",
-        "tariff_estimate_variance_records",
-        type_="check",
-    )
+    dialect = op.get_bind().dialect.name
+    if dialect == "postgresql":
+        op.drop_constraint(
+            "ck_tariff_estimate_variance_comparison_scope",
+            "tariff_estimate_variance_records",
+            type_="check",
+        )
+    elif dialect == "sqlite":
+        op.execute("DROP TRIGGER IF EXISTS trg_tariff_estimate_variance_scope_valid")
     op.drop_column("tariff_estimate_variance_records", "source_fill_set_sha256")
     op.drop_column("tariff_estimate_variance_records", "comparison_scope")
-    op.drop_constraint(
-        "ck_tariff_estimate_snapshot_comparison_scope",
-        "tariff_estimate_snapshot_records",
-        type_="check",
-    )
+
+    if dialect == "postgresql":
+        op.drop_constraint(
+            "ck_tariff_estimate_snapshot_comparison_scope",
+            "tariff_estimate_snapshot_records",
+            type_="check",
+        )
+    elif dialect == "sqlite":
+        op.execute("DROP TRIGGER IF EXISTS trg_tariff_estimate_snapshot_scope_valid")
     op.drop_column("tariff_estimate_snapshot_records", "source_fill_set_sha256")
     op.drop_column("tariff_estimate_snapshot_records", "source_fill_ids_json")
     op.drop_column("tariff_estimate_snapshot_records", "comparison_scope")

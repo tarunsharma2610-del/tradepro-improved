@@ -13,7 +13,7 @@ from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_trade_record import BrokerTradeRecord
-from app.services.broker_charge_allocation_service import METHOD_VERSION
+from app.services.broker_charge_allocation_service import METHOD_VERSION, allocate_component_total
 from app.services.broker_charge_document_storage_service import read_verified_document
 
 PAISE = Decimal("0.01")
@@ -156,6 +156,62 @@ def verify_component_allocation_ledger(
         raise ValueError("Reviewed eligible-fill manifest references missing trade records.")
     if any(trade.broker_connection_id != evidence.broker_connection_id for trade in trades):
         raise ValueError("Reviewed eligible-fill manifest contains a trade from another broker connection.")
+
+    trade_by_id = {trade.id: trade for trade in trades}
+    if component.allocation_basis == "QUANTITY":
+        reviewed_weights = {
+            str(fill_id): Decimal(trade_by_id[fill_id].quantity)
+            for fill_id in parsed_ids
+        }
+    elif component.allocation_basis == "NOTIONAL":
+        reviewed_weights = {
+            str(fill_id): Decimal(trade_by_id[fill_id].quantity) * Decimal(trade_by_id[fill_id].price)
+            for fill_id in parsed_ids
+        }
+    else:
+        if not component.eligible_fill_weights_json:
+            raise ValueError("Explicit reviewed allocation weights are missing.")
+        try:
+            weight_items = json.loads(component.eligible_fill_weights_json)
+            if not isinstance(weight_items, list):
+                raise ValueError("Explicit reviewed allocation weights must be a JSON list.")
+            reviewed_weights = {}
+            for item in weight_items:
+                if not isinstance(item, dict) or set(item) != {"fill_record_id", "weight"}:
+                    raise ValueError("Explicit reviewed allocation weight entry is malformed.")
+                fill_id = UUID(item["fill_record_id"])
+                weight = Decimal(str(item["weight"]))
+                if not weight.is_finite() or weight < 0 or str(fill_id) in reviewed_weights:
+                    raise ValueError("Explicit reviewed allocation weights are invalid.")
+                reviewed_weights[str(fill_id)] = weight
+        except (TypeError, KeyError, json.JSONDecodeError, ArithmeticError) as exc:
+            raise ValueError("Explicit reviewed allocation weights are invalid.") from exc
+        if set(reviewed_weights) != {str(fill_id) for fill_id in parsed_ids}:
+            raise ValueError("Explicit reviewed weights do not match the eligible-fill manifest.")
+        canonical_weights = json.dumps(
+            [
+                {"fill_record_id": str(fill_id), "weight": str(reviewed_weights[str(fill_id)])}
+                for fill_id in sorted(parsed_ids, key=str)
+            ],
+            separators=(",", ":"),
+        )
+        if canonical_weights != component.eligible_fill_weights_json:
+            raise ValueError("Explicit reviewed weights are not in canonical order or representation.")
+
+    try:
+        expected_allocations = allocate_component_total(
+            expected_total,
+            reviewed_weights,
+            allocation_basis=component.allocation_basis,
+        )
+    except (ValueError, ArithmeticError) as exc:
+        raise ValueError("Reviewed allocation weights cannot reproduce a valid per-fill ledger.") from exc
+    actual_allocations = {
+        str(row.broker_trade_record_id): Decimal(row.allocated_amount).quantize(PAISE)
+        for row in allocations
+    }
+    if actual_allocations != expected_allocations:
+        raise ValueError("Per-fill allocated amounts do not match the reviewed allocation weights and rounding method.")
 
     return {
         "evidence_id": str(evidence.id),

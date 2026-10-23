@@ -674,3 +674,8 @@ Do not dual-write, copy, or promote one model into the other. Before a future br
 - The append-only guard is an ORM protection, not a database trigger; direct SQL updates outside the ORM are not blocked by this guard. Consider a portable DB-level immutability trigger only if required by the release threat model. The unique key and ESTIMATE_ONLY check remain database-enforced.
 - Latest append-only change CI and this documentation checkpoint's CI are pending. Do not treat them as verified until all jobs complete successfully.
 - PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## Tariff estimate snapshot boundary (2026-10-23)
+
+Tariff estimate snapshots are immutable, append-only audit records. Migration `202610240016` enforces this at the database layer with PostgreSQL and SQLite triggers rejecting UPDATE/DELETE; ORM guards and regression tests provide an additional layer. The snapshot's `ESTIMATE_ONLY` status is constrained separately. This record is not a broker actual and must never be used as the source amount for per-fill allocation. Actual per-fill charge allocation remains grounded in reviewed broker evidence and reconciled source components. Conditional/order-level tariff rules and variance-only estimate-versus-actual integration remain outstanding.

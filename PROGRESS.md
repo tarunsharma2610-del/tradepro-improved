@@ -1573,3 +1573,13 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - Real contract-note authenticity and a real retained Oracle Cloud database/document restore remain deferred until real evidence is available. Synthetic restore testing does not prove real-data recovery.
 - PR #6 remains open/draft/unmerged pending review and explicit user approval. Live broker order writes remain disabled.
 - Scope remains `tarunsharma2610-del/tradepro-improved` only; do not modify original `tarunsharma2610-del/Tradepro`.
+
+
+## 2026-10-23 — live-fill/ledger concurrency checkpoint
+
+- Added PostgreSQL integration test `test_live_fill_promotion_races_with_component_ledger_verification` in `backend/tests/test_broker_charge_allocation_postgres_concurrency.py`.
+- Commit: `66fda569b1e4879d270a970cb5b6d216c2f55f9c`.
+- Exact-head GitHub Actions run `39923699033` completed successfully: **570 passed, 1 warning in 30.89s**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration checks and the synthetic database/document-volume restore drill passed.
+- Run: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39923699033
+- Scope safeguard: work is in `tarunsharma2610-del/tradepro-improved` only. PR #6 remains draft and unmerged; live broker order writes remain disabled.
+- Evidence limitation: the test uses synthetic reviewed-document bytes and synthetic PostgreSQL fixtures. It does not establish authenticity against a real Upstox contract note or a real Oracle-host backup restore.

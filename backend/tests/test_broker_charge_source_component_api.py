@@ -400,6 +400,8 @@ def test_source_rejection_requires_same_reviewer_after_evidence_reviewed(
                 "confirm_source_matches": True,
                 "eligible_fill_record_ids": [str(trade.id)],
                 "rounding_policy": "largest-remainder-v1",
+                "allocation_basis": "EXPLICIT_REVIEWED",
+                "eligible_fill_weights": [{"fill_record_id": str(trade.id), "weight": "1"}],
             },
         )
         assert reviewed.status_code == 200, reviewed.text

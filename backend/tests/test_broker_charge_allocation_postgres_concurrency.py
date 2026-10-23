@@ -20,6 +20,7 @@ import app.models  # noqa: F401 register every model table
 from app.core.config import settings
 from app.core.database import Base
 from app.models.broker_charge_evidence import BrokerChargeEvidence
+from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_order import BrokerOrder

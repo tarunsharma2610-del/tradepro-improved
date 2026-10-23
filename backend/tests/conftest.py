@@ -53,6 +53,23 @@ def db_session():
         connection.exec_driver_sql("BEGIN")
 
     Base.metadata.create_all(engine)
+    # Mirror the migration's SQLite guards so unit tests can prove that direct
+    # SQL cannot mutate/delete snapshots (ORM listeners alone are insufficient).
+    with engine.begin() as connection:
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_tariff_estimate_snapshot_no_update
+            BEFORE UPDATE ON tariff_estimate_snapshot_records
+            BEGIN
+                SELECT RAISE(ABORT, 'tariff estimate snapshots are append-only');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_tariff_estimate_snapshot_no_delete
+            BEFORE DELETE ON tariff_estimate_snapshot_records
+            BEGIN
+                SELECT RAISE(ABORT, 'tariff estimate snapshots are append-only');
+            END
+        """)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSessionLocal()
     try:

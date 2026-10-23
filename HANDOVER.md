@@ -1,3 +1,15 @@
+## Live-fill evidence-identity idempotency fix — 24 October 2026
+
+- Review found that exact replay compared the visible charge reference and amounts but did not persist/compare the reviewed evidence row identity on `Execution`. That could make a different evidence record with the same reference and amounts indistinguishable during replay.
+- Added nullable `executions.charge_evidence_id` with a foreign key to `broker_charge_evidence.id`, plus migration `202610240014` (down revision `202610230013`). Nullable preserves compatibility with paper/history rows.
+- Live-fill promotion persists the reviewed evidence ID. The shared exact-execution comparison now requires evidence-ID equality, which also applies to the concurrent `IntegrityError` recovery path.
+- Added a regression test: a second evidence ID with the same visible reference and identical charge values must be rejected as a conflicting replay; only one execution/position update may remain.
+- Code and migration commits are on `phase3/durable-per-fill-charge-allocation` in `tarunsharma2610-del/tradepro-improved` only. Exact-head CI for the resulting head is pending; do not call this change verified until backend tests, SQLite/PostgreSQL 16 migration round-trips, and the broker-write boundary guard pass on that exact SHA.
+- PR #6 remains open, draft, and unmerged. Live broker order submission remains disabled. The original `tarunsharma2610-del/Tradepro` repository is out of scope.
+- Real contract-note authenticity and an actual paired PostgreSQL/document-volume restore remain separate operational gates; neither is required to continue synthetic engineering tests.
+
+---
+
 ## Current acceptance clarification — 23 October 2026
 
 - **Public contract-note research is complete for development:** third-party examples dated 12 March 2025 and 21 May 2024, plus a sample-note guide, were reviewed for structure and charge categories. See `docs/UPSTOX_CONTRACT_NOTE_AND_API_EVIDENCE.md`.

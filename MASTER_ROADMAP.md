@@ -989,3 +989,7 @@ PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github
 
 ## Aggregate variance design checkpoint — 2026-10-23
 A proposed design is documented for safe `ORDER_FILL_SET` variance alongside existing `TRADE_FILL` variance. It requires exact canonical fill membership, scope-correct tariff computation, transactional evidence/manifest rechecks, idempotent immutable variance, and zero allocation/P&L side effects. Implementation and acceptance tests remain open. Inspect the current code/schema first; do not claim aggregate variance support yet.
+
+
+## Variance validation hardening — 2026-10-23
+Added fail-closed checks for canonical reviewed fill-manifest digest and exact identified fill side/trade date, with regression tests. Latest code head `6ca045e2bbdd71d37dd77baf50df3881db2b1e71` requires exact-head CI verification. Aggregate order/multi-fill variance remains unimplemented. Advanced tariff semantics and reviewed source-backed active rates remain open; supported units are currently percent, INR-per-crore and fixed only.

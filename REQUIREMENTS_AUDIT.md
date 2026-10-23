@@ -1487,3 +1487,11 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - [ ] Run and inspect CI on exact latest code head `6ca045e2bbdd71d37dd77baf50df3881db2b1e71`.
 - [ ] Implement aggregate order/multi-fill variance after design review.
 - [ ] Implement source-backed advanced tariff semantics or reject unsupported rule types; no production tariff registry should be activated prematurely.
+
+
+## Exact-head CI verification — 2026-10-23
+- [x] CI passed for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 passed, 1 warning; broker-write guard passed; SQLite migration round-trip and isolated PostgreSQL 16 synthetic restore drill completed ([run 39968000009](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39968000009)).
+- [ ] Verify CI again on the latest documentation head after this checkpoint.
+- [ ] Implement/test aggregate order/multi-fill variance.
+- [ ] Implement source-backed advanced tariff semantics or reject unsupported shapes explicitly.
+- [ ] Complete accounting replay/conflict/rollback/concurrency review before merge consideration.

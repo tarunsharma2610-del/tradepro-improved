@@ -416,7 +416,7 @@ def test_variance_records_reject_direct_sql_update_and_delete(reconciliation_con
     with pytest.raises(IntegrityError, match="append-only"):
         db.execute(
             text("UPDATE tariff_estimate_variance_records SET variance_amount = :amount WHERE id = :id"),
-            {"amount": Decimal("9.99"), "id": record.id.hex},
+            {"amount": "9.99", "id": record.id.hex},
         )
     db.rollback()
     with pytest.raises(IntegrityError, match="append-only"):

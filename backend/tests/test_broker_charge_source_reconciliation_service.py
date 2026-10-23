@@ -426,3 +426,21 @@ def test_variance_records_reject_direct_sql_update_and_delete(reconciliation_con
         )
     db.rollback()
     assert db.query(TariffEstimateVarianceRecord).filter_by(id=record.id).one().variance_amount == Decimal("0.25")
+
+
+
+def test_variance_comparison_rejects_tampered_fill_manifest_digest(reconciliation_context):
+    db, _evidence, component, trades, _allocations = _setup(reconciliation_context, manifest_count=1)
+    snapshot = _variance_snapshot_for_trade(trades[0])
+    persisted_snapshot, _ = persist_tariff_estimate_snapshot(db, snapshot)
+    db.commit()
+
+    component.eligible_fill_set_sha256 = "0" * 64
+    db.commit()
+
+    with pytest.raises(ValueError, match="manifest digest does not match"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=persisted_snapshot.id, source_component_id=component.id
+        )
+    db.rollback()
+    assert db.query(TariffEstimateVarianceRecord).count() == 0

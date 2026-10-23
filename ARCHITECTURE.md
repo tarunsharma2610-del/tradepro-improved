@@ -686,3 +686,10 @@ Tariff estimate snapshots are immutable, append-only audit records. Migration `2
 `TariffEstimateSnapshotRecord` remains `ESTIMATE_ONLY`, unique by idempotency key, and append-only at both ORM and database layers. Migration `202610240016` installs PostgreSQL/SQLite triggers blocking UPDATE/DELETE. Concurrent PostgreSQL tests validate exact replay convergence and conflicting-payload rejection. CI run 39960409771 passed 677 tests plus broker-write guard, migration round-trips and synthetic restore.
 
 Architecture boundary: estimates can be compared to actuals for variance only. Per-fill actual allocation must originate from reviewed broker-evidenced source components. Conditional/order-level tariff caps, minimums, GST taxable-base composition and special charge models remain unsupported until modeled and tested.
+
+
+## Estimate-versus-actual variance boundary (2026-10-23)
+
+`TariffEstimateVarianceRecord` is a separate append-only audit table. The comparison service requires a valid estimate snapshot, exact broker fill identity, a VERIFIED source component, REVIEWED contract-note evidence with intact bytes, matching reviewer/broker/component/currency, and a manifest containing only that exact fill. It stores signed variance and percentage, but never mutates `BrokerChargeAllocation` rows or changes source/evidence status. CI run 39961777103 passed 680 tests plus broker-write, migration and synthetic restore checks.
+
+Aggregate order-level/multi-fill variance is not supported. A single-fill estimate must not be compared to an aggregate actual amount. Advanced tariff caps, conditional rules and special component bases remain open.

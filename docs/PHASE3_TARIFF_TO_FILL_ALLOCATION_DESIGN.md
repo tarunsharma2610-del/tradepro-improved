@@ -75,3 +75,21 @@ Prefer a dedicated tariff-rule table if operationally managed rules are required
 ## Safety and release status
 
 No active production tariff rates are supplied by this design. Rules need reviewed source extracts and executable examples before approval. PR #6 remains draft/unmerged until acceptance gates and explicit user approval. Live broker order writes remain disabled. Scope is only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.
+
+
+
+## Implementation checkpoint — 2026-10-23
+
+Implemented and verified:
+- Durable canonical estimate-only snapshots with digest and idempotency key.
+- Database-level append-only protections for direct SQL UPDATE/DELETE on PostgreSQL and SQLite (migration `202610240016`).
+- SQLite direct-SQL mutation/deletion tests.
+- PostgreSQL concurrency test for simultaneous same-key exact replay and conflicting-payload rejection.
+- Code checkpoint `fd0e42917611f3b6c3f826cb2e99971fd3e2cce6` passed CI run 39960409771: 677 tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill.
+
+Still not implemented:
+- Variance-only estimate-versus-actual record linking a snapshot to reviewed contract-note source components.
+- Order-scoped brokerage caps/minimums, conditional lesser-of pricing, full GST taxable-base composition, DP/depository charges and other special tariff bases.
+- No live production tariff registry should be activated until each supported rule has reviewed Upstox source evidence and component-specific executable examples.
+
+Safety boundary remains unchanged: an estimate is never an actual broker charge and must not supply a missing source component or enter per-fill actual allocation. PR #6 remains draft/unmerged; live broker order writes remain disabled; original `Tradepro` is out of scope.

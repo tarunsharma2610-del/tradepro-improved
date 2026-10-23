@@ -927,3 +927,7 @@ Stale reconciliation summaries may be marked `FAILED/WORKER_INTERRUPTED` only th
 - Variance records are append-only audit comparisons. Never modify allocation rows or promote estimates to actual charges from this service.
 - Do not compare a single-fill estimate with a multi-fill/order-level actual total. Aggregate variance needs a separately reviewed linkage/aggregation design.
 - PR #6 stays draft/unmerged; live broker order writes remain disabled; work only in `tarunsharma2610-del/tradepro-improved`.
+
+
+## Verified exact PR-head CI 39962196672 — 2026-10-23
+Current PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed; no failed steps. Continue aggregate variance design and tariff-rule coverage; unsupported shapes must fail closed. Re-run CI on the final intended head and synchronize all nine core docs before merge review. Do not merge or enable live broker writes without explicit authorization; only `tarunsharma2610-del/tradepro-improved` is in scope.

@@ -106,7 +106,7 @@ def test_database_rejects_direct_sql_snapshot_update(db_session):
     with pytest.raises(IntegrityError, match="append-only"):
         db_session.execute(
             text("UPDATE tariff_estimate_snapshot_records SET snapshot_json = :payload WHERE id = :id"),
-            {"payload": "tampered", "id": str(record.id)},
+            {"payload": "tampered", "id": record.id.hex},
         )
     db_session.rollback()
 
@@ -121,7 +121,7 @@ def test_database_rejects_direct_sql_snapshot_delete(db_session):
     with pytest.raises(IntegrityError, match="append-only"):
         db_session.execute(
             text("DELETE FROM tariff_estimate_snapshot_records WHERE id = :id"),
-            {"id": str(record.id)},
+            {"id": record.id.hex},
         )
     db_session.rollback()
 

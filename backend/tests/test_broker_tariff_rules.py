@@ -336,8 +336,8 @@ def test_stamp_duty_requires_explicit_buy_side_and_product_base(product, basis, 
     ("rule_changes", "side", "product", "base", "message"),
     [
         ({"component": "stamp_duty", "transaction_side": "SELL"}, "SELL", "OPTIONS", "1000", "BUY side"),
-        ({"component": "stamp_duty", "product": "OPTIONS", "calculation_basis": "FUTURES_TURNOVER"}, "BUY", "OPTIONS", "1000", "requires OPTIONS"),
-        ({"component": "stamp_duty", "product": "OPTIONS", "calculation_basis": "ORDER_NOTIONAL"}, "BUY", "OPTIONS", "1000", "requires OPTIONS"),
+        ({"component": "stamp_duty", "product": "OPTIONS", "transaction_side": "BUY", "calculation_basis": "FUTURES_TURNOVER"}, "BUY", "OPTIONS", "1000", "requires OPTIONS"),
+        ({"component": "stamp_duty", "product": "OPTIONS", "transaction_side": "BUY", "calculation_basis": "ORDER_NOTIONAL"}, "BUY", "OPTIONS", "1000", "requires OPTIONS"),
         ({"component": "brokerage"}, "BUY", "OPTIONS", "1000", "stamp_duty"),
     ],
 )

@@ -1,3 +1,12 @@
+## Upstox contract-note/API research — 23 October 2026
+
+- Public Upstox Help Center documentation explains how to download the user's authentic contract note from My Account → Reports → Miscellaneous reports → report type `CONTRACT`, and says it is emailed within 24 hours.
+- Official authenticated API docs expose historical trade history (`GET /v2/charges/historical-trades`) and an aggregate segment/financial-year charge breakdown (`GET /v2/trade/profit-loss/charges`). These are valuable cross-checks, but neither is a substitute for the original contract-note document; the reviewed public API catalogue did not expose a contract-note PDF endpoint.
+- Research notes and exact source links: `docs/UPSTOX_CONTRACT_NOTE_AND_API_EVIDENCE.md`.
+- No authentic account-specific note has been retrieved. Real-document acceptance is pending user-provided evidence. Do not fabricate this evidence or claim API-only data validates the original note. Do not share credentials/tokens. Keep all broker-write actions disabled.
+
+---
+
 ## Phase 3 allocation-weight integrity checkpoint — 23 October 2026
 
 - Code review found that a charge ledger could sum to the correct source total while its individual per-fill amounts did not follow the reviewed allocation basis. Reconciliation now recomputes and verifies each fill's expected amount before promotion.

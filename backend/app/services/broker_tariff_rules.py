@@ -33,6 +33,8 @@ class TariffRule:
     source_retrieved_on: date
     source_sha256: str
     review_status: str
+    minimum_inr: Decimal | None = None
+    maximum_inr: Decimal | None = None
 
     def __post_init__(self) -> None:
         required = {
@@ -55,6 +57,28 @@ class TariffRule:
         if not rate.is_finite() or rate < 0:
             raise ValueError("Tariff rate must be a finite nonnegative decimal.")
         object.__setattr__(self, "rate", rate)
+        def normalize_cap(value: Decimal | None, field: str) -> Decimal | None:
+            if value is None:
+                return None
+            try:
+                parsed = value if isinstance(value, Decimal) else Decimal(str(value))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise ValueError(f"{field} must be a finite nonnegative decimal.") from exc
+            if not parsed.is_finite() or parsed < 0:
+                raise ValueError(f"{field} must be a finite nonnegative decimal.")
+            if parsed != parsed.quantize(Decimal("0.01")):
+                raise ValueError(f"{field} must be expressed to paise precision.")
+            return parsed
+        minimum = normalize_cap(self.minimum_inr, "Minimum brokerage")
+        maximum = normalize_cap(self.maximum_inr, "Maximum brokerage")
+        if (minimum is not None or maximum is not None) and (
+            self.component.lower() != "brokerage" or self.calculation_basis != "ORDER_NOTIONAL"
+        ):
+            raise ValueError("Minimum and maximum caps are supported only for order-notional brokerage rules.")
+        if minimum is not None and maximum is not None and minimum > maximum:
+            raise ValueError("Minimum brokerage cannot exceed maximum brokerage.")
+        object.__setattr__(self, "minimum_inr", minimum)
+        object.__setattr__(self, "maximum_inr", maximum)
         if self.rate_unit not in RATE_UNITS:
             raise ValueError("Unsupported tariff rate unit.")
         if self.effective_to is not None and self.effective_to < self.effective_from:
@@ -181,15 +205,11 @@ def calculate_order_brokerage(
     rule: TariffRule,
     *,
     order_notional: Decimal | str | int | float,
-    minimum_inr: Decimal | str | int | float | None = None,
-    maximum_inr: Decimal | str | int | float | None = None,
 ) -> Decimal:
-    """Calculate brokerage once at order scope, applying explicit order min/cap.
+    """Calculate order-level brokerage using caps embedded in the approved rule.
 
-    This helper intentionally returns one order-level amount. It does not split
-    that amount among fills; any distribution needs a separately reviewed policy.
-    Minimum and maximum values must come from the selected, reviewed tariff
-    source and must not be inferred from this helper.
+    Caps are tariff provenance, not caller-controlled inputs. This returns one
+    order amount and does not allocate it among fills.
     """
     if (
         not isinstance(rule, TariffRule)
@@ -199,32 +219,11 @@ def calculate_order_brokerage(
     ):
         raise ValueError("Order brokerage requires an approved ORDER_NOTIONAL percent rule.")
     amount = calculate_tariff_amount(rule, calculation_base=order_notional)
-
-    def optional_amount(value: Decimal | str | int | float | None, field: str) -> Decimal | None:
-        if value is None:
-            return None
-        try:
-            parsed = value if isinstance(value, Decimal) else Decimal(str(value))
-        except (InvalidOperation, TypeError, ValueError) as exc:
-            raise ValueError(f"{field} must be a finite nonnegative decimal.") from exc
-        if not parsed.is_finite() or parsed < 0:
-            raise ValueError(f"{field} must be a finite nonnegative decimal.")
-        return parsed
-
-    minimum = optional_amount(minimum_inr, "Minimum brokerage")
-    maximum = optional_amount(maximum_inr, "Maximum brokerage")
-    if minimum is not None and minimum != minimum.quantize(PAISE):
-        raise ValueError("Minimum brokerage must be expressed to paise precision.")
-    if maximum is not None and maximum != maximum.quantize(PAISE):
-        raise ValueError("Maximum brokerage must be expressed to paise precision.")
-    if minimum is not None and maximum is not None and minimum > maximum:
-        raise ValueError("Minimum brokerage cannot exceed maximum brokerage.")
-    if minimum is not None:
-        amount = max(amount, minimum)
-    if maximum is not None:
-        amount = min(amount, maximum)
+    if rule.minimum_inr is not None:
+        amount = max(amount, rule.minimum_inr)
+    if rule.maximum_inr is not None:
+        amount = min(amount, rule.maximum_inr)
     return amount.quantize(PAISE, rounding="ROUND_HALF_UP")
-
 
 def calculate_gst_on_explicit_components(
     rule: TariffRule,

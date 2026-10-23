@@ -709,3 +709,7 @@ Variance comparison now validates the canonical eligible-fill manifest's SHA-256
 
 ## Exact-head CI evidence — 2026-10-23
 CI run 39968000009 passed for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 passed, 1 warning; broker-write guard, SQLite migration round-trip and isolated PostgreSQL 16 synthetic restore drill passed. This run is for the pre-documentation code head. Aggregate order/multi-fill variance is not implemented and tariff models lacking explicit support must fail closed.
+
+
+## Aggregate variance scope implementation — 2026-10-23
+Estimate snapshots now carry `TRADE_FILL` or `ORDER_FILL_SET` scope and canonical fill-set metadata. Variance comparisons require exact equality with the reviewed component manifest and confirm all fills belong to the same broker order, connection, side and trade date. Variance rows persist scope/digest and remain append-only/audit-only. Exact-head CI and migration verification are pending; no allocation or P&L mutation is permitted.

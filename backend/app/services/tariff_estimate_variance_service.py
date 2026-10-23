@@ -36,6 +36,8 @@ def _existing_or_conflict(
     actual: Decimal,
     variance: Decimal,
     variance_percent: Decimal | None,
+    comparison_scope: str,
+    source_fill_set_sha256: str | None,
 ) -> TariffEstimateVarianceRecord:
     expected = (
         component.component_name,
@@ -45,6 +47,8 @@ def _existing_or_conflict(
         actual,
         variance,
         variance_percent,
+        comparison_scope,
+        source_fill_set_sha256,
     )
     actual_values = (
         existing.component_name,
@@ -54,6 +58,8 @@ def _existing_or_conflict(
         Decimal(existing.actual_amount),
         Decimal(existing.variance_amount),
         Decimal(existing.variance_percent) if existing.variance_percent is not None else None,
+        existing.comparison_scope,
+        existing.source_fill_set_sha256,
     )
     if actual_values != expected:
         raise ValueError("Conflicting estimate-versus-actual variance replay; refusing overwrite.")
@@ -150,14 +156,24 @@ def compare_estimate_to_reviewed_actual(
         raise ValueError("Actual source component requires independent review.")
     if not component.eligible_fill_ids_json:
         raise ValueError("Actual source component must have a reviewed eligible-fill manifest.")
+    comparison_scope = str(payload.get("comparison_scope", snapshot.comparison_scope or "TRADE_FILL"))
+    if comparison_scope not in {"TRADE_FILL", "ORDER_FILL_SET"}:
+        raise ValueError("Estimate snapshot comparison scope is unsupported.")
     source_trade_record_id = payload.get("source_trade_record_id")
-    if not isinstance(source_trade_record_id, str):
-        raise ValueError("Estimate snapshot must identify the exact broker fill before variance comparison.")
     try:
-        source_trade_record_id = str(UUID(source_trade_record_id))
         manifest_ids = json.loads(component.eligible_fill_ids_json)
-    except (TypeError, ValueError, json.JSONDecodeError) as exc:
-        raise ValueError("Estimate fill identity or actual eligible-fill manifest is invalid.") from exc
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Actual eligible-fill manifest is invalid.") from exc
+    if (
+        not isinstance(manifest_ids, list)
+        or any(not isinstance(value, str) for value in manifest_ids)
+        or manifest_ids != sorted(set(manifest_ids))
+    ):
+        raise ValueError("Actual eligible-fill manifest must be a canonical sorted unique fill set.")
+    try:
+        manifest_ids = [str(UUID(value)) for value in manifest_ids]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Actual eligible-fill manifest contains an invalid fill ID.") from exc
     canonical_manifest_json = json.dumps(manifest_ids, separators=(",", ":"))
     manifest_digest = hashlib.sha256(canonical_manifest_json.encode("utf-8")).hexdigest()
     if (
@@ -165,37 +181,78 @@ def compare_estimate_to_reviewed_actual(
         or component.eligible_fill_set_sha256 != manifest_digest
     ):
         raise ValueError("Actual eligible-fill manifest digest does not match its canonical fill set.")
-    canonical_manifest = [source_trade_record_id]
-    if manifest_ids != canonical_manifest:
-        raise ValueError(
-            "Variance comparison requires a source component scoped to exactly the estimate's single broker fill."
-        )
 
+    if comparison_scope == "TRADE_FILL":
+        if not isinstance(source_trade_record_id, str):
+            raise ValueError("Single-fill estimate snapshot must identify the exact broker fill.")
+        try:
+            expected_fill_ids = [str(UUID(source_trade_record_id))]
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Estimate fill identity is invalid.") from exc
+        snapshot_fill_json = payload.get("source_fill_ids_json")
+        snapshot_fill_digest = payload.get("source_fill_set_sha256")
+        expected_json = json.dumps(expected_fill_ids, separators=(",", ":"))
+        expected_digest = hashlib.sha256(expected_json.encode("utf-8")).hexdigest()
+        if snapshot_fill_json is not None and snapshot_fill_json != expected_json:
+            raise ValueError("Single-fill estimate snapshot fill manifest is inconsistent.")
+        if snapshot_fill_digest is not None and snapshot_fill_digest != expected_digest:
+            raise ValueError("Single-fill estimate snapshot fill-set digest is invalid.")
+    else:
+        if source_trade_record_id is not None:
+            raise ValueError("Order-fill-set estimate must not identify only one source fill.")
+        try:
+            snapshot_fill_ids = json.loads(payload["source_fill_ids_json"])
+        except (KeyError, TypeError, json.JSONDecodeError) as exc:
+            raise ValueError("Order-fill-set estimate requires a canonical exact fill manifest.") from exc
+        if (
+            not isinstance(snapshot_fill_ids, list)
+            or not snapshot_fill_ids
+            or any(not isinstance(value, str) for value in snapshot_fill_ids)
+            or snapshot_fill_ids != sorted(set(snapshot_fill_ids))
+        ):
+            raise ValueError("Order-fill-set estimate manifest must be sorted, unique, and nonempty.")
+        try:
+            expected_fill_ids = [str(UUID(value)) for value in snapshot_fill_ids]
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Order-fill-set estimate contains an invalid fill ID.") from exc
+        expected_json = json.dumps(expected_fill_ids, separators=(",", ":"))
+        expected_digest = hashlib.sha256(expected_json.encode("utf-8")).hexdigest()
+        if payload["source_fill_ids_json"] != expected_json or payload.get("source_fill_set_sha256") != expected_digest:
+            raise ValueError("Order-fill-set estimate fill manifest or digest is invalid.")
+        if snapshot.comparison_scope != comparison_scope or snapshot.source_fill_ids_json != expected_json or snapshot.source_fill_set_sha256 != expected_digest:
+            raise ValueError("Persisted order-fill-set scope metadata does not match its immutable snapshot.")
+    if manifest_ids != expected_fill_ids:
+        raise ValueError("Actual source component fill set does not exactly match the estimate comparison scope.")
+    source_fill_set_sha256 = manifest_digest
     if evidence.reviewed_by_user_id != component.reviewed_by_user_id:
         raise ValueError("Evidence and source-component reviewer provenance do not match.")
     if connection.broker.casefold() != str(payload.get("broker", "")).casefold():
         raise ValueError("Tariff estimate broker does not match the reviewed actual evidence connection.")
-    trade = (
+    trades = (
         db.query(BrokerTradeRecord)
         .filter(
-            BrokerTradeRecord.id == UUID(source_trade_record_id),
+            BrokerTradeRecord.id.in_([UUID(fill_id) for fill_id in expected_fill_ids]),
             BrokerTradeRecord.broker_connection_id == evidence.broker_connection_id,
         )
+        .order_by(BrokerTradeRecord.id)
         .with_for_update()
         .populate_existing()
-        .one_or_none()
+        .all()
     )
-    if trade is None:
-        raise ValueError("Estimate fill identity is not part of the reviewed evidence broker connection.")
-    if str(payload.get("transaction_side", "")).upper() != trade.side:
-        raise ValueError("Tariff estimate transaction side does not match the identified broker fill.")
+    if len(trades) != len(expected_fill_ids) or {str(trade.id) for trade in trades} != set(expected_fill_ids):
+        raise ValueError("Estimate fill set is not fully present in the reviewed evidence broker connection.")
+    if len({str(trade.broker_order_ref_id) for trade in trades}) != 1:
+        raise ValueError("Order-fill-set estimate contains fills from different broker orders.")
+    expected_side = str(payload.get("transaction_side", "")).upper()
+    if any(trade.side != expected_side for trade in trades):
+        raise ValueError("Tariff estimate transaction side does not match every identified broker fill.")
     try:
         estimate_trade_date = date.fromisoformat(str(payload.get("trade_date", "")))
-        actual_trade_date = datetime.fromisoformat(trade.exchange_timestamp).date()
+        actual_trade_dates = {datetime.fromisoformat(trade.exchange_timestamp).date() for trade in trades}
     except (TypeError, ValueError) as exc:
         raise ValueError("Tariff estimate or broker fill trade date is invalid.") from exc
-    if estimate_trade_date != actual_trade_date:
-        raise ValueError("Tariff estimate trade date does not match the identified broker fill.")
+    if actual_trade_dates != {estimate_trade_date}:
+        raise ValueError("Tariff estimate trade date does not match every identified broker fill.")
     if component.source_sha256 != evidence.source_sha256:
         raise ValueError("Actual source component fingerprint does not match contract-note evidence.")
     if not evidence.storage_key:
@@ -237,6 +294,7 @@ def compare_estimate_to_reviewed_actual(
             existing, snapshot=snapshot, component=component, evidence=evidence,
             estimated=estimated, actual=actual, variance=variance,
             variance_percent=variance_percent,
+            comparison_scope=comparison_scope, source_fill_set_sha256=source_fill_set_sha256,
         ), "EXACT_REPLAY"
 
     record = TariffEstimateVarianceRecord(
@@ -252,6 +310,8 @@ def compare_estimate_to_reviewed_actual(
         variance_percent=variance_percent,
         currency="INR",
         status="VARIANCE_ONLY",
+        comparison_scope=comparison_scope,
+        source_fill_set_sha256=source_fill_set_sha256,
     )
     try:
         with db.begin_nested():

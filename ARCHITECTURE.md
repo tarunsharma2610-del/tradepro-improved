@@ -697,3 +697,7 @@ Aggregate order-level/multi-fill variance is not supported. A single-fill estima
 
 ## Verified exact PR-head CI 39962196672 — 2026-10-23
 PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed; no failed steps. Variance stays append-only and must not mutate allocation rows. Aggregate order/multi-fill actuals need an explicit scope model; advanced tariff shapes must be implemented and tested or fail closed.
+
+
+## Aggregate variance scope proposal — 2026-10-23
+The proposed design distinguishes a single `TRADE_FILL` from an `ORDER_FILL_SET` whose canonical exact member list is hashed and revalidated transactionally. Nonlinear/capped tariff calculations must occur at order scope. Variance records remain append-only and isolated from actual allocation/position/P&L writes. Aggregate support is not implemented yet.

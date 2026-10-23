@@ -7,6 +7,7 @@ from app.models.broker_charge_evidence import BrokerChargeEvidence  # noqa: F401
 from app.models.broker_charge_allocation import BrokerChargeAllocation  # noqa: F401
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent  # noqa: F401
 from app.models.tariff_estimate_snapshot_record import TariffEstimateSnapshotRecord  # noqa: F401
+from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord  # noqa: F401
 from app.models.live_position import LivePosition  # noqa: F401
 from app.models.platform_setting import PlatformSetting  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401
@@ -33,6 +34,7 @@ __all__ = [
     "BrokerChargeAllocation",
     "BrokerChargeSourceComponent",
     "TariffEstimateSnapshotRecord",
+    "TariffEstimateVarianceRecord",
     "LivePosition",
     "PlatformSetting",
     "AuditLog",

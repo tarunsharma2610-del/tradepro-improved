@@ -194,3 +194,30 @@ def transaction_tax_on_explicit_base(
     if rate < 0 or rate > Decimal("100"):
         raise ValueError("Transaction tax rate percent must be between 0 and 100.")
     return (value * rate / Decimal("100")).quantize(PAISE, rounding=ROUND_HALF_UP)
+
+
+def exchange_or_sebi_charge_on_explicit_base(
+    calculation_base: Decimal | str | int | float,
+    rate_percent: Decimal | str | int | float,
+    *,
+    charge_kind: str,
+) -> Decimal:
+    """Calculate exchange/SEBI charge arithmetic from an explicit base and rate.
+
+    Caller must select the verified effective-dated rate and the correct
+    exchange/segment/product-specific calculation base. This helper does not
+    select tariffs, infer applicability, or distribute order-level charges
+    across fills.
+    """
+    kind = charge_kind.strip().upper() if isinstance(charge_kind, str) else ""
+    if kind not in {"EXCHANGE_CHARGES", "SEBI_CHARGES"}:
+        raise ValueError("Charge kind must be EXCHANGE_CHARGES or SEBI_CHARGES.")
+    base = _money(calculation_base)
+    rate = _money(rate_percent)
+    if base < 0:
+        raise ValueError("Charge calculation base cannot be negative.")
+    if base != base.quantize(PAISE):
+        raise ValueError("Charge calculation base must be expressed to paise precision.")
+    if rate < 0 or rate > Decimal("100"):
+        raise ValueError("Charge rate percent must be between 0 and 100.")
+    return (base * rate / Decimal("100")).quantize(PAISE, rounding=ROUND_HALF_UP)

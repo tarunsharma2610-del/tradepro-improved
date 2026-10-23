@@ -309,6 +309,8 @@ def review_source_component(
         raise HTTPException(status.HTTP_409_CONFLICT, "Source component fingerprint no longer matches evidence.")
     if component.extracted_by_user_id == user.id:
         raise HTTPException(status.HTTP_409_CONFLICT, "A different user must independently review this source component.")
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only a platform administrator may review source charge evidence.")
     if len(set(payload.eligible_fill_record_ids)) != len(payload.eligible_fill_record_ids):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Eligible fill IDs must not contain duplicates.")
     fill_ids = sorted(payload.eligible_fill_record_ids, key=str)
@@ -417,6 +419,8 @@ def reject_source_component(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only pending source components can be rejected.")
     if component.extracted_by_user_id == user.id:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="A different user must independently review this source component.")
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only a platform administrator may reject source charge evidence.")
     if payload.review_note is not None and not payload.review_note.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Review note must not be whitespace.")
     component.status = "REJECTED"

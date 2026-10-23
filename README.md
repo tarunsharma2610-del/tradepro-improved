@@ -710,3 +710,7 @@ Current draft PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](
 
 ### Aggregate tariff variance status
 The Phase 3 design now documents a proposed exact-fill-set model for order-level estimate-versus-actual comparisons. This is a design proposal, not a supported feature. Aggregate comparisons remain unavailable until implemented, reviewed and tested. Per-fill accounting and live-order safeguards remain unchanged.
+
+
+### Variance validation update
+Variance comparison now verifies the reviewed fill-manifest digest and checks that the linked broker fill's side and trade date match the estimate. Regression tests were added. The latest code head still requires CI verification; aggregate variance and advanced tariff semantics remain unsupported.

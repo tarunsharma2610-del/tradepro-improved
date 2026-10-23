@@ -445,3 +445,23 @@ def test_brokerage_caps_reject_nonpercentage_rate_units(rate_unit):
             rate_unit=rate_unit,
             minimum_inr=Decimal("1.00"),
         )
+
+
+@pytest.mark.parametrize("rate_unit", ["INR_FIXED", "INR_PER_CRORE"])
+def test_stamp_duty_rejects_nonpercentage_rate_units(rate_unit):
+    from app.services.broker_tariff_rules import calculate_stamp_duty_for_trade
+
+    rule = make_rule(
+        component="stamp_duty",
+        transaction_side="BUY",
+        product="OPTIONS",
+        calculation_basis="OPTION_PREMIUM",
+        rate_unit=rate_unit,
+    )
+    with pytest.raises(ValueError, match="percentage-based"):
+        calculate_stamp_duty_for_trade(
+            rule,
+            transaction_side="BUY",
+            product="OPTIONS",
+            calculation_base="100000",
+        )

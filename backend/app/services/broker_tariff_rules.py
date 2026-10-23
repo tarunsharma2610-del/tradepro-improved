@@ -335,6 +335,8 @@ def calculate_stamp_duty_for_trade(
     }
     if (product, rule.calculation_basis) not in allowed_bases:
         raise ValueError("Stamp duty requires OPTIONS/OPTION_PREMIUM or FUTURES/FUTURES_TURNOVER.")
+    if rule.rate_unit != "PERCENT":
+        raise ValueError("Stamp duty requires an explicitly percentage-based approved rule.")
     if rule.review_status != "APPROVED":
         raise ValueError("Only an approved tariff rule can be calculated.")
     return _calculate_rate_amount(rule, calculation_base)

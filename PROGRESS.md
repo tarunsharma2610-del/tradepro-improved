@@ -1,3 +1,13 @@
+## Latest Phase 3 checkpoint — 23 October 2026
+
+- Exact-head CI [39911091610](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39911091610) passed on code commit `e3eda03b36c616d9655c01f71cc96a2f407fe513`: **566 passed, 1 warning**.
+- Added and verified a PostgreSQL concurrency regression test that races source-component ledger verification against promotion. It confirms verification observes a complete pending or fully reconciled ledger, and final rows share one deterministic reconciliation reference.
+- Broker-write boundary guard, SQLite/PostgreSQL 16 migration checks, and synthetic restore drill passed. Synthetic restore evidence is not proof of actual Oracle Free Cloud recovery.
+- Next: continue accounting idempotency/conflicting-replay review, then run CI on the latest documentation head. PR #6 stays draft/unmerged pending review and explicit user approval. Real Upstox contract note and real backup/restore acceptance remain deferred until user-provided evidence.
+- Safety boundary: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` remains out of scope. Live broker writes remain disabled.
+
+---
+
 ## Phase 3 promotion rollback guard — 22 October 2026
 
 - Exact-head CI run [39813721425](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39813721425) **PASSED** on commit `121741f32ff74c46ccc059f672b3e9f0e020ef14`: backend pytest **565 passed, 1 warning**; configured PostgreSQL 16 migration/safety checks completed successfully.

@@ -213,6 +213,8 @@ def test_order_brokerage_applies_explicit_order_minimum_and_cap(
     [
         {"minimum_inr": "-1"},
         {"maximum_inr": "NaN"},
+        {"minimum_inr": "10.005"},
+        {"maximum_inr": "20.005"},
         {"minimum_inr": "20", "maximum_inr": "10"},
     ],
 )

@@ -149,3 +149,42 @@ def test_gst_arithmetic_rejects_invalid_base_or_rate(
 
     with pytest.raises(ValueError, match=message):
         gst_on_explicit_taxable_base(taxable_base, rate_percent)
+
+
+@pytest.mark.parametrize(
+    ("value", "rate_percent", "side", "expected"),
+    [
+        ("100000.00", "0.015", "BUY", "15.00"),
+        ("0.03", "0.015", "buy", "0.00"),
+        ("100000.00", "0", "BUY", "0.00"),
+    ],
+)
+def test_stamp_duty_arithmetic_requires_buy_side_and_rounds_to_paise(
+    value, rate_percent, side, expected
+):
+    from app.services.broker_charge_allocation_service import stamp_duty_for_explicit_buyer_side
+
+    assert stamp_duty_for_explicit_buyer_side(
+        value, rate_percent, transaction_side=side
+    ) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("value", "rate_percent", "side", "message"),
+    [
+        ("100.00", "0.015", "SELL", "requires an eligible BUY side"),
+        ("100.00", "0.015", "", "requires an eligible BUY side"),
+        ("-0.01", "0.015", "BUY", "cannot be negative"),
+        ("1.001", "0.015", "BUY", "paise precision"),
+        ("100.00", "-0.1", "BUY", "between 0 and 100"),
+    ],
+)
+def test_stamp_duty_rejects_ineligible_side_and_invalid_inputs(
+    value, rate_percent, side, message
+):
+    from app.services.broker_charge_allocation_service import stamp_duty_for_explicit_buyer_side
+
+    with pytest.raises(ValueError, match=message):
+        stamp_duty_for_explicit_buyer_side(
+            value, rate_percent, transaction_side=side
+        )

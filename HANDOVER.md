@@ -1040,3 +1040,12 @@ Next: (1) add PostgreSQL concurrent estimate-persistence tests and confirm DB-tr
 Task B progress is verified on `tarunsharma2610-del/tradepro-improved`, branch `phase3/durable-per-fill-charge-allocation`. Commit `fd0e42917611f3b6c3f826cb2e99971fd3e2cce6` adds the PostgreSQL concurrent estimate persistence test and fixes its fixture imports. CI run [39960409771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39960409771) passed: 677 tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore drill.
 
 Migration `202610240016` enforces append-only tariff snapshots via PostgreSQL/SQLite triggers; direct SQL UPDATE/DELETE regression tests were added. Remaining Task B: integrate variance-only estimate-versus-actual comparison with reviewed contract-note source components, and model/test conditional order-level caps, minimums, GST taxable bases and other special tariff bases before approving those rule types. Do not promote estimates into the per-fill actual ledger. PR #6 remains draft/unmerged; live broker order writes disabled; original `Tradepro` untouched.
+
+
+## Handover update — variance-only comparison (2026-10-23)
+
+Implemented a separate append-only variance record and service. Snapshot schema v2 can retain an exact broker fill UUID. The service requires that identity and an actual source component whose reviewed manifest contains exactly that one fill, plus reviewed/hash-verified contract-note evidence, matching component/currency/reviewer, and the matching broker connection. It calculates signed actual-minus-estimate variance and percentage, but never changes allocation rows or promotes an estimate.
+
+Migration `202610240017` creates the variance table and database-level append-only triggers. Tests cover exact replay, missing identity fail-closed, SQL UPDATE/DELETE rejection, and unchanged allocation statuses. CI run [39961777103](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39961777103) passed 680 tests and all broker-write, migration and synthetic restore checks.
+
+Limit: only one-fill source components are comparable today. Aggregate order-level contract-note components require a separately designed aggregate estimate/linkage model. Tariff caps/minimums and special component bases remain unsupported. PR #6 draft/unmerged; live broker order writes disabled; original `Tradepro` untouched.

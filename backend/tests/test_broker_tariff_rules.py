@@ -107,3 +107,34 @@ def test_future_effective_rule_requires_explicit_approval():
             source_retrieved_on=date(2026, 10, 23),
             review_status="REVIEWED",
         )
+
+
+@pytest.mark.parametrize(
+    ("unit", "rate", "base", "expected"),
+    [
+        ("PERCENT", "0.003", "100000.00", "3.00"),
+        ("INR_PER_CRORE", "10", "100000.00", "0.10"),
+        ("INR_FIXED", "15.50", "0", "15.50"),
+        ("PERCENT", "0", "100000.00", "0.00"),
+    ],
+)
+def test_calculate_tariff_amount_respects_declared_rate_unit(unit, rate, base, expected):
+    from app.services.broker_tariff_rules import calculate_tariff_amount
+
+    rule = make_rule(rate=Decimal(rate), rate_unit=unit)
+    assert calculate_tariff_amount(rule, calculation_base=base) == Decimal(expected)
+
+
+@pytest.mark.parametrize("base", ["-0.01", "NaN", "Infinity", "not-a-number"])
+def test_calculate_tariff_amount_rejects_invalid_bases(base):
+    from app.services.broker_tariff_rules import calculate_tariff_amount
+
+    with pytest.raises(ValueError, match="Calculation base"):
+        calculate_tariff_amount(make_rule(), calculation_base=base)
+
+
+def test_calculate_tariff_amount_rounds_half_up_to_paise():
+    from app.services.broker_tariff_rules import calculate_tariff_amount
+
+    rule = make_rule(rate=Decimal("0.5"), rate_unit="PERCENT")
+    assert calculate_tariff_amount(rule, calculation_base="1.00") == Decimal("0.01")

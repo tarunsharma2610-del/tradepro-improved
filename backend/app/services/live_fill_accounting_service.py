@@ -696,6 +696,7 @@ class LiveFillAccountingService:
             )
             and execution.charge_source == charges.source
             and execution.charge_reference == charges.reference.strip()
+            and execution.charge_evidence_id == charges.evidence_id
             and Decimal(str(execution.brokerage)) == fees["brokerage"]
             and Decimal(str(execution.stt)) == fees["stt"]
             and Decimal(str(execution.exchange_charges)) == fees["exchange_charges"]

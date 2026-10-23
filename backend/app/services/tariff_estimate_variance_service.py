@@ -336,6 +336,7 @@ def compare_estimate_to_reviewed_actual(
             estimated=estimated, actual=actual, variance=variance,
             variance_percent=variance_percent,
             comparison_scope=comparison_scope, source_fill_set_sha256=source_fill_set_sha256,
+            allow_legacy_digest="comparison_scope" not in payload,
         ), "EXACT_REPLAY"
 
     return record, "CREATED"

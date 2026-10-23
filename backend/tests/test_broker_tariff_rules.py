@@ -465,3 +465,28 @@ def test_stamp_duty_rejects_nonpercentage_rate_units(rate_unit):
             product="OPTIONS",
             calculation_base="100000",
         )
+
+
+@pytest.mark.parametrize(
+    "component",
+    [
+        "stt",
+        "ctt",
+        "dp",
+        "dp_charge",
+        "dp_charges",
+        "demat_transaction_charge",
+        "depository_participant_charge",
+    ],
+)
+def test_generic_calculator_rejects_conditional_tax_and_depository_components(component):
+    from app.services.broker_tariff_rules import calculate_tariff_amount
+
+    rule = make_rule(
+        component=component,
+        calculation_basis="NOTIONAL",
+        rate=Decimal("0.1"),
+        rate_unit="PERCENT",
+    )
+    with pytest.raises(ValueError, match="Unsupported tariff calculation shape"):
+        calculate_tariff_amount(rule, calculation_base="100000")

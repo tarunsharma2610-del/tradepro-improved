@@ -141,6 +141,18 @@ PAISE = Decimal("0.01")
 
 GENERIC_CALCULATION_BASES = frozenset({"ORDER_NOTIONAL", "PREMIUM", "NOTIONAL", "TURNOVER"})
 
+# These components require product/event-specific legal or aggregation rules.
+# They must never be treated as a plain rate × base calculation.
+CONDITIONAL_COMPONENTS = frozenset({
+    "stt",
+    "ctt",
+    "dp",
+    "dp_charge",
+    "dp_charges",
+    "demat_transaction_charge",
+    "depository_participant_charge",
+})
+
 
 def _calculate_rate_amount(
     rule: TariffRule,
@@ -180,11 +192,15 @@ def calculate_tariff_amount(
         raise ValueError("A validated tariff rule is required.")
     if rule.review_status != "APPROVED":
         raise ValueError("Only an approved tariff rule can be calculated.")
+    normalized_component = rule.component.strip().lower()
     if (
         rule.calculation_basis not in GENERIC_CALCULATION_BASES
-        or rule.component.lower() in {"gst", "stamp_duty"}
+        or normalized_component in {"gst", "stamp_duty"}
+        or normalized_component in CONDITIONAL_COMPONENTS
     ):
-        raise ValueError("Unsupported tariff calculation shape; use its specialized guarded entry point.")
+        raise ValueError(
+            "Unsupported tariff calculation shape; use its specialized guarded entry point."
+        )
     return _calculate_rate_amount(rule, calculation_base)
 
 

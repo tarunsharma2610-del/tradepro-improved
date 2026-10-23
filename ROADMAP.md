@@ -954,3 +954,7 @@ Exact PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://
 
 ## Aggregate variance design milestone — 2026-10-23
 Design proposal recorded for exact `ORDER_FILL_SET` variance. Next: audit current schema/services/tests, resolve design differences, implement migration/service only after review, add aggregate/cap/concurrency/replay/conflict/rollback/immutability tests, run exact-head CI, then sync all docs. No aggregate variance support is claimed yet.
+
+
+## Variance validation fix — 2026-10-23
+Implemented canonical manifest-digest validation and estimate-versus-fill side/date matching, with regression tests. Next: verify CI on head `6ca045e2bbdd71d37dd77baf50df3881db2b1e71`; review schema and design for aggregate order/multi-fill variance; implement/test advanced tariff semantics or fail closed; rerun exact-head CI and sync docs. Aggregate variance is not implemented yet.

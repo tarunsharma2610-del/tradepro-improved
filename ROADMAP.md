@@ -958,3 +958,7 @@ Design proposal recorded for exact `ORDER_FILL_SET` variance. Next: audit curren
 
 ## Variance validation fix — 2026-10-23
 Implemented canonical manifest-digest validation and estimate-versus-fill side/date matching, with regression tests. Next: verify CI on head `6ca045e2bbdd71d37dd77baf50df3881db2b1e71`; review schema and design for aggregate order/multi-fill variance; implement/test advanced tariff semantics or fail closed; rerun exact-head CI and sync docs. Aggregate variance is not implemented yet.
+
+
+## Verified code CI — 2026-10-23
+Code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e` passed run 39968000009: 683 tests passed, 1 warning; broker-write guard passed; SQLite migration round-trip and isolated PostgreSQL 16 synthetic restore drill completed. Next: (1) verify CI on this documentation checkpoint's resulting head; (2) implement/test aggregate variance; (3) finish advanced tariff semantics or fail-closed rules; (4) run final accounting acceptance and sync docs. PR #6 remains draft/unmerged.

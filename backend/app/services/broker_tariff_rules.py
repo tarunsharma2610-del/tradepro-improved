@@ -176,3 +176,94 @@ def calculate_charge_for_trade(
         trade_date=trade_date,
     )
     return rule, calculate_tariff_amount(rule, calculation_base=calculation_base)
+
+def calculate_order_brokerage(
+    rule: TariffRule,
+    *,
+    order_notional: Decimal | str | int | float,
+    minimum_inr: Decimal | str | int | float | None = None,
+    maximum_inr: Decimal | str | int | float | None = None,
+) -> Decimal:
+    """Calculate brokerage once at order scope, applying explicit order min/cap.
+
+    This helper intentionally returns one order-level amount. It does not split
+    that amount among fills; any distribution needs a separately reviewed policy.
+    Minimum and maximum values must come from the selected, reviewed tariff
+    source and must not be inferred from this helper.
+    """
+    if (
+        not isinstance(rule, TariffRule)
+        or rule.component.lower() != "brokerage"
+        or rule.calculation_basis != "ORDER_NOTIONAL"
+        or rule.rate_unit != "PERCENT"
+    ):
+        raise ValueError("Order brokerage requires an approved ORDER_NOTIONAL percent rule.")
+    amount = calculate_tariff_amount(rule, calculation_base=order_notional)
+
+    def optional_amount(value: Decimal | str | int | float | None, field: str) -> Decimal | None:
+        if value is None:
+            return None
+        try:
+            parsed = value if isinstance(value, Decimal) else Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError(f"{field} must be a finite nonnegative decimal.") from exc
+        if not parsed.is_finite() or parsed < 0:
+            raise ValueError(f"{field} must be a finite nonnegative decimal.")
+        return parsed
+
+    minimum = optional_amount(minimum_inr, "Minimum brokerage")
+    maximum = optional_amount(maximum_inr, "Maximum brokerage")
+    if minimum is not None and maximum is not None and minimum > maximum:
+        raise ValueError("Minimum brokerage cannot exceed maximum brokerage.")
+    if minimum is not None:
+        amount = max(amount, minimum)
+    if maximum is not None:
+        amount = min(amount, maximum)
+    return amount.quantize(PAISE, rounding="ROUND_HALF_UP")
+
+
+def calculate_gst_on_explicit_components(
+    rule: TariffRule,
+    *,
+    taxable_components: dict[str, Decimal | str | int | float],
+    approved_taxable_component_names: tuple[str, ...] | list[str],
+) -> tuple[Decimal, Decimal]:
+    """Calculate GST only from an explicit, caller-approved component set.
+
+    Returns (taxable_base, GST amount). The caller must source and review the
+    included component names and GST rate; this function does not determine tax
+    law, add excluded components, or allocate the resulting GST across fills.
+    """
+    if (
+        not isinstance(rule, TariffRule)
+        or rule.component.lower() != "gst"
+        or rule.calculation_basis != "GST_TAXABLE_COMPONENT_SUM"
+        or rule.rate_unit != "PERCENT"
+    ):
+        raise ValueError("GST requires an approved GST_TAXABLE_COMPONENT_SUM percent rule.")
+    if not isinstance(taxable_components, dict) or not taxable_components:
+        raise ValueError("An explicit nonempty taxable component mapping is required.")
+    if not isinstance(approved_taxable_component_names, (tuple, list)) or not approved_taxable_component_names:
+        raise ValueError("An explicit approved taxable component set is required.")
+    names = list(approved_taxable_component_names)
+    if any(not isinstance(name, str) or not name.strip() for name in names):
+        raise ValueError("Approved taxable component names must be nonempty strings.")
+    if len(names) != len(set(names)):
+        raise ValueError("Approved taxable component names must be unique.")
+    if set(taxable_components) != set(names):
+        raise ValueError("Taxable components must exactly match the approved component set.")
+
+    taxable_base = Decimal("0")
+    for name in names:
+        value = taxable_components[name]
+        try:
+            amount = value if isinstance(value, Decimal) else Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError(f"Taxable component {name} must be a finite nonnegative decimal.") from exc
+        if not amount.is_finite() or amount < 0:
+            raise ValueError(f"Taxable component {name} must be a finite nonnegative decimal.")
+        taxable_base += amount
+    taxable_base = taxable_base.quantize(PAISE, rounding="ROUND_HALF_UP")
+    gst_amount = calculate_tariff_amount(rule, calculation_base=taxable_base)
+    return taxable_base, gst_amount
+

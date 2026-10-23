@@ -1,3 +1,13 @@
+## Phase 3 checkpoint — concurrency, idempotency and rollback — 23 October 2026
+
+- Exact-head CI passed on code commit `e3eda03b36c616d9655c01f71cc96a2f407fe513`: **566 passed, 1 warning** ([run 39911091610](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39911091610)).
+- PostgreSQL verification-versus-promotion race regression passed. Existing regression coverage also checks idempotent promotion replay, changed totals/bases/fill sets, rejected mutation of reconciled rows, caller/accounting replay conflicts, outer-transaction rollback, and injected flush failure rollback.
+- Documentation is being synchronized; exact-head CI must be rerun on the resulting latest documentation commit before the checkpoint is considered fully verified.
+- Remaining Phase 3 gates: broader accounting review; real Upstox contract-note evidence and actual retained PostgreSQL/document backup plus Oracle Free Cloud restore proof are deferred until user has those records. Synthetic fixtures and CI restore artifacts are not substitutes for real evidence.
+- PR #6 remains draft/unmerged pending review and explicit user approval. Live broker writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` must remain untouched.
+
+---
+
 ## Phase 3 promotion rollback guard — 22 October 2026
 
 - Exact-head CI run [39813721425](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39813721425) **PASSED** on commit `121741f32ff74c46ccc059f672b3e9f0e020ef14`: backend pytest **565 passed, 1 warning**; configured PostgreSQL 16 migration/safety checks completed successfully.

@@ -1,3 +1,14 @@
+## Phase 3 live-fill / ledger-promotion concurrency checkpoint — 23 October 2026
+
+- Strengthened `backend/tests/test_broker_charge_allocation_postgres_concurrency.py::test_live_fill_promotion_races_with_component_ledger_verification` to race the actual `LiveFillAccountingService.promote_trade` path against `promote_verified_component_allocations` with one component initially `PENDING_RECONCILIATION`.
+- The PostgreSQL integration test now checks that an accounting attempt blocked by pending allocation rows leaves no partial execution/position writes, retries after ledger promotion, verifies exact replay returns `inserted=False`, rejects conflicting charge amounts, and ends with one execution, one live position, and all six charge components reconciled.
+- Code/test commit `9f064c5e7e4b946bda4f9e7bc3c92253bbcec913` passed exact-head GitHub Actions run [39970567823](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39970567823): **688 passed, 1 warning**. The broker-write boundary guard, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill, and evidence-retention step also passed.
+- This is synthetic PostgreSQL test evidence, not validation of an authentic personal Upstox contract note or restoration of the user's actual Oracle Cloud backup. Do not overstate either.
+- This note is a documentation update after the green code/test head; run CI again on the resulting latest documentation head before treating the checkpoint as fully current.
+- PR #6 remains draft/unmerged pending full accounting/idempotency review and explicit user approval. Live broker order submission remains disabled. All work is confined to `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope.
+
+---
+
 ## PostgreSQL CI execution confirmation — 24 October 2026
 
 - Inspected `.github/workflows/backend-tests.yml` and successful Backend pytest run [39921411680](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39921411680) on commit `db1053d7f7c53e1c57016f153f11c9897fa59682`. The workflow provisions PostgreSQL 16, sets `TEST_POSTGRES_URL` for `python -m pytest -q`, and the Backend pytest job completed successfully. Thus the `skipif(not TEST_POSTGRES_URL)` PostgreSQL-only tests were enabled for that run (job logs/test output should be consulted if exact per-test counts are needed).

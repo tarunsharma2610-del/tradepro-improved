@@ -1659,3 +1659,11 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - This verifies the checkpoint head only. Component-specific tariff-derived allocation is still not implemented or approved. The fail-closed source-reconciliation gate and tests for all six supported component names across `QUANTITY` and `NOTIONAL` bases remain the current safeguard.
 - Next engineering gate: inspect and implement tariff rules as effective-dated, component-specific calculations with provenance and regression fixtures before enabling any automatic allocation basis. Preserve pending reconciliation for unknown or ambiguous scope.
 - PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains outside scope.
+
+
+## Exchange/SEBI arithmetic regression checkpoint — 23 October 2026
+
+- Commit `b37e6cab7c9cbba0897e5c02161812d121ba2c7e` passed the full GitHub Actions backend workflow [run 39933579727](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39933579727). Pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore, evidence retention, and cleanup succeeded.
+- Added explicit-base arithmetic helpers and regression tests for exchange and SEBI charges. These helpers do not select official tariffs or prove applicability; effective-dated exchange/segment/product-specific rules and per-fill attribution remain outstanding.
+- Brokerage-cap, GST, stamp-duty, and STT/CTT arithmetic checkpoints have also passed their respective full CI runs. The current source-reconciliation gate remains fail-closed for automatic `QUANTITY`/`NOTIONAL` allocation pending approved component-specific rules.
+- PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched/out of scope.

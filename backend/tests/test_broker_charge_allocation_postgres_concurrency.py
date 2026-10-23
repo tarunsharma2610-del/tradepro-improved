@@ -623,11 +623,5 @@ def test_concurrent_tariff_estimate_persistence_exact_replay_and_conflict(confli
                 idempotency_key=snapshots[0].idempotency_key
             ).all()
             assert len(rows) == 1
-            assert rows[0].snapshot_json == snapshots[0].canonical_json()
-    finally:
-        # The test uses a unique source identity and only deletes its own snapshot.
-        with Session.begin() as db:
-            from app.models.tariff_estimate_snapshot_record import TariffEstimateSnapshotRecord
-            db.query(TariffEstimateSnapshotRecord).filter_by(
-                idempotency_key=snapshots[0].idempotency_key
-            ).delete(synchronize_session=False)
+            assert rows[0].snapshot_sha256 == successes[0][3]
+            assert rows[0].snapshot_json in {candidate.canonical_json() for candidate in snapshots}

@@ -1478,3 +1478,12 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - [x] Defined order-scope calculation for caps/nonlinear tariffs, immutable variance-only behavior and required concurrency/replay/rollback tests.
 - [ ] Review design against current implementation/schema; implement and test aggregate comparison only after review.
 - [ ] Keep advanced tariff models unsupported until source-backed rules and executable examples pass.
+
+
+## Variance validation hardening — 2026-10-23
+- [x] Compare canonical actual eligible-fill manifest SHA-256 to stored digest before variance calculation.
+- [x] Verify identified broker fill side and trade date match estimate scope.
+- [x] Add regression tests for tampered digest and side/date mismatch; require zero variance writes on rejection.
+- [ ] Run and inspect CI on exact latest code head `6ca045e2bbdd71d37dd77baf50df3881db2b1e71`.
+- [ ] Implement aggregate order/multi-fill variance after design review.
+- [ ] Implement source-backed advanced tariff semantics or reject unsupported rule types; no production tariff registry should be activated prematurely.

@@ -993,3 +993,7 @@ A proposed design is documented for safe `ORDER_FILL_SET` variance alongside exi
 
 ## Variance validation hardening — 2026-10-23
 Added fail-closed checks for canonical reviewed fill-manifest digest and exact identified fill side/trade date, with regression tests. Latest code head `6ca045e2bbdd71d37dd77baf50df3881db2b1e71` requires exact-head CI verification. Aggregate order/multi-fill variance remains unimplemented. Advanced tariff semantics and reviewed source-backed active rates remain open; supported units are currently percent, INR-per-crore and fixed only.
+
+
+## Exact-head CI verified — 2026-10-23
+CI run 39968000009 passed for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 passed, 1 warning, broker-write guard passed, SQLite migration round-trip and isolated PostgreSQL 16 synthetic restore drill completed. This validates that code head, not subsequent documentation commits. Remaining gates: aggregate order/multi-fill variance implementation and tests; advanced tariff semantics/source-backed rules or fail-closed rejection; final integration review; exact-head CI and document synchronization.

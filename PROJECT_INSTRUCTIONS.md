@@ -935,3 +935,7 @@ Current PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https:
 
 ## Aggregate variance implementation guard — 2026-10-23
 The proposed design in `docs/PHASE3_TARIFF_TO_FILL_ALLOCATION_DESIGN.md` is not implementation approval. First inspect existing tariff snapshot models, variance service, migration chain, and tests. Preserve single-fill compatibility; order-level comparisons require exact canonical fill-set identity and scope-correct tariff calculations. Fail closed on ambiguous evidence and never mutate actual allocations or P&L from variance comparison.
+
+
+## Variance scope validation guard — 2026-10-23
+Before recording estimate-versus-actual variance, validate the canonical eligible-fill manifest against its stored SHA-256 and match the linked broker fill's side/trade date to the estimate. Keep tests for tampered digest and mismatched scope. Verify CI for the exact current code head before proceeding. Aggregate variance and advanced tariff rule shapes remain unsupported until implemented/tested; do not activate unreviewed production rates.

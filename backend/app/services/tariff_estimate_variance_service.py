@@ -333,6 +333,7 @@ def compare_estimate_to_reviewed_actual(
             existing, snapshot=snapshot, component=component, evidence=evidence,
             estimated=estimated, actual=actual, variance=variance,
             variance_percent=variance_percent,
+            comparison_scope=comparison_scope, source_fill_set_sha256=source_fill_set_sha256,
         ), "EXACT_REPLAY"
 
     return record, "CREATED"

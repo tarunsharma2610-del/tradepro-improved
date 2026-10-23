@@ -692,3 +692,8 @@ This is not a complete live-fill pipeline: the service remains unregistered, ing
 ### Phase 3 tariff-estimate audit safeguards
 
 Tariff estimates are persisted as `ESTIMATE_ONLY` snapshots and are not broker-confirmed actual charges. The Phase 3 branch now adds database triggers on PostgreSQL and SQLite to reject direct SQL updates/deletes of these snapshots. The latest exact-head CI run passed. Conditional/order-level tariff caps and estimate-versus-actual variance integration remain in progress; do not rely on simplified rates as production-approved charges. PR #6 remains draft/unmerged, and live broker order writes remain disabled.
+
+
+### Tariff-estimate audit controls
+
+Tariff snapshots are estimate-only and append-only. PostgreSQL and SQLite triggers block direct SQL updates/deletes, and PostgreSQL race tests cover exact replay versus conflicting payloads. The code checkpoint passed 677 tests and migration/restore checks in [CI run 39960409771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39960409771). Conditional/order-level tariff caps and estimate-versus-actual variance integration remain incomplete; estimates must never be treated as actual charges. PR #6 remains draft/unmerged and live broker order writes remain disabled.

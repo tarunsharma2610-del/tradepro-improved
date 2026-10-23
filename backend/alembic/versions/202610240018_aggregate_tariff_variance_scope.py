@@ -48,16 +48,8 @@ def upgrade() -> None:
         "tariff_estimate_variance_records",
         sa.Column("source_fill_set_sha256", sa.String(length=64), nullable=True),
     )
-    # Backfill the newly recorded scope digest for existing single-fill variance rows.
-    op.execute("""
-        UPDATE tariff_estimate_variance_records
-        SET source_fill_set_sha256 = (
-            SELECT eligible_fill_set_sha256
-            FROM broker_charge_source_components
-            WHERE broker_charge_source_components.id = tariff_estimate_variance_records.source_component_id
-        )
-        WHERE source_fill_set_sha256 IS NULL
-    """)
+    # Preserve append-only guarantees for existing variance rows. Legacy rows
+    # remain NULL here; replay validation handles pre-scope single-fill rows.
     if dialect == "postgresql":
         op.create_check_constraint(
             "ck_tariff_estimate_variance_comparison_scope",

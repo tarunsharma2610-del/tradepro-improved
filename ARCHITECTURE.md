@@ -693,3 +693,7 @@ Architecture boundary: estimates can be compared to actuals for variance only. P
 `TariffEstimateVarianceRecord` is a separate append-only audit table. The comparison service requires a valid estimate snapshot, exact broker fill identity, a VERIFIED source component, REVIEWED contract-note evidence with intact bytes, matching reviewer/broker/component/currency, and a manifest containing only that exact fill. It stores signed variance and percentage, but never mutates `BrokerChargeAllocation` rows or changes source/evidence status. CI run 39961777103 passed 680 tests plus broker-write, migration and synthetic restore checks.
 
 Aggregate order-level/multi-fill variance is not supported. A single-fill estimate must not be compared to an aggregate actual amount. Advanced tariff caps, conditional rules and special component bases remain open.
+
+
+## Verified exact PR-head CI 39962196672 — 2026-10-23
+PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed; no failed steps. Variance stays append-only and must not mutate allocation rows. Aggregate order/multi-fill actuals need an explicit scope model; advanced tariff shapes must be implemented and tested or fail closed.

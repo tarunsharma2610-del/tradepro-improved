@@ -1,4 +1,5 @@
 import hashlib
+from dataclasses import replace
 import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -439,6 +440,30 @@ def test_variance_comparison_rejects_tampered_fill_manifest_digest(reconciliatio
     db.commit()
 
     with pytest.raises(ValueError, match="manifest digest does not match"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=persisted_snapshot.id, source_component_id=component.id
+        )
+    db.rollback()
+    assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("transaction_side", "SELL", "transaction side does not match"),
+        ("trade_date", "2026-10-21", "trade date does not match"),
+    ],
+)
+def test_variance_comparison_rejects_estimate_fill_scope_mismatch(
+    reconciliation_context, field, value, message
+):
+    db, _evidence, component, trades, _allocations = _setup(reconciliation_context, manifest_count=1)
+    snapshot = _variance_snapshot_for_trade(trades[0])
+    snapshot = replace(snapshot, **{field: value})
+    persisted_snapshot, _ = persist_tariff_estimate_snapshot(db, snapshot)
+    db.commit()
+
+    with pytest.raises(ValueError, match=message):
         compare_estimate_to_reviewed_actual(
             db, estimate_snapshot_id=persisted_snapshot.id, source_component_id=component.id
         )

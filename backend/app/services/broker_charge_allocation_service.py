@@ -167,3 +167,30 @@ def stamp_duty_for_explicit_buyer_side(
     if rate < 0 or rate > Decimal("100"):
         raise ValueError("Stamp duty rate percent must be between 0 and 100.")
     return (value * rate / Decimal("100")).quantize(PAISE, rounding=ROUND_HALF_UP)
+
+
+def transaction_tax_on_explicit_base(
+    taxable_value: Decimal | str | int | float,
+    rate_percent: Decimal | str | int | float,
+    *,
+    tax_kind: str,
+) -> Decimal:
+    """Calculate a supplied-rate transaction tax amount without inferring tariffs.
+
+    The caller must determine whether STT or CTT applies, the correct product,
+    transaction side, value basis, exemption and effective-dated rate. This
+    helper only validates and performs percentage arithmetic; it does not
+    allocate order-level tax to fills or authorize accounting promotion.
+    """
+    kind = tax_kind.strip().upper() if isinstance(tax_kind, str) else ""
+    if kind not in {"STT", "CTT"}:
+        raise ValueError("Transaction tax kind must be STT or CTT.")
+    value = _money(taxable_value)
+    rate = _money(rate_percent)
+    if value < 0:
+        raise ValueError("Transaction tax value cannot be negative.")
+    if value != value.quantize(PAISE):
+        raise ValueError("Transaction tax value must be expressed to paise precision.")
+    if rate < 0 or rate > Decimal("100"):
+        raise ValueError("Transaction tax rate percent must be between 0 and 100.")
+    return (value * rate / Decimal("100")).quantize(PAISE, rounding=ROUND_HALF_UP)

@@ -925,3 +925,10 @@ Historical checkpoint superseded: renewal remains every five records; UI marks `
 - The append-only guard is an ORM protection, not a database trigger; direct SQL updates outside the ORM are not blocked by this guard. Consider a portable DB-level immutability trigger only if required by the release threat model. The unique key and ESTIMATE_ONLY check remain database-enforced.
 - Latest append-only change CI and this documentation checkpoint's CI are pending. Do not treat them as verified until all jobs complete successfully.
 - PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## Phase 3 — tariff snapshot checkpoint (2026-10-23)
+
+Completed in current branch: PostgreSQL/SQLite database-level append-only triggers for tariff estimate snapshots and direct-SQL UPDATE/DELETE regression tests. Exact-head CI run 39959332425 passed.
+
+Remaining: dedicated PostgreSQL persistence race test; explicit conditional/order-scoped tariff rule models and tests; variance-only comparison of approved-rule estimates against reviewed actual contract-note components; final synchronization/verification of all nine core docs. No merge yet; live broker order writes remain disabled.

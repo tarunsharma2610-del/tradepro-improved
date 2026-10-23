@@ -1431,3 +1431,13 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - The append-only guard is an ORM protection, not a database trigger; direct SQL updates outside the ORM are not blocked by this guard. Consider a portable DB-level immutability trigger only if required by the release threat model. The unique key and ESTIMATE_ONLY check remain database-enforced.
 - Latest append-only change CI and this documentation checkpoint's CI are pending. Do not treat them as verified until all jobs complete successfully.
 - PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## Requirement status addendum — tariff snapshots (2026-10-23)
+
+- [x] Durable estimate-only snapshot storage with canonical payload, digest, stable idempotency key and exact-replay/conflict checks.
+- [x] Database-enforced append-only behavior for direct SQL UPDATE/DELETE on PostgreSQL and SQLite (migration `202610240016`); regression tests added.
+- [x] Exact-head CI run 39959332425 passed pytest, broker-write guard, SQLite/PostgreSQL migration round-trips, and synthetic restore drill.
+- [ ] Dedicated PostgreSQL concurrency test for simultaneous same-key tariff snapshot persistence and conflicting payloads.
+- [ ] Complete component-aware tariff modeling for order caps/minimums, conditional rates, GST taxable bases and special charge models before approving those rule types.
+- [ ] End-to-end variance-only comparison between estimate snapshots and reviewed actual contract-note components; actual per-fill allocation must continue to derive only from actual evidence.

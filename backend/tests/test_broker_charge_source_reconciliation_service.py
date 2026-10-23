@@ -110,6 +110,7 @@ def _setup(context, *, component_total="1.00", manifest_count=2):
         reviewed_at=datetime.now(timezone.utc),
         review_note="Independently reviewed test fixture",
         eligible_fill_ids_json=canonical,
+        eligible_fill_weights_json=json.dumps([{"fill_record_id": fill_id, "weight": "1"} for fill_id in manifest], separators=(",", ":")),
         eligible_fill_set_sha256=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
         rounding_policy="largest-remainder-v1",
         allocation_basis="EXPLICIT_REVIEWED",

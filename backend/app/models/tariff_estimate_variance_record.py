@@ -1,4 +1,6 @@
 """Append-only variance-only comparisons between estimates and reviewed actuals."""
+import uuid
+from decimal import Decimal
 from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,25 +26,25 @@ class TariffEstimateVarianceRecord(BaseModel):
         CheckConstraint("status = 'VARIANCE_ONLY'", name="ck_tariff_estimate_variance_status"),
     )
 
-    estimate_snapshot_id: Mapped[object] = mapped_column(
+    estimate_snapshot_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("tariff_estimate_snapshot_records.id", ondelete="RESTRICT"),
         nullable=False, index=True,
     )
-    source_component_id: Mapped[object] = mapped_column(
+    source_component_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("broker_charge_source_components.id", ondelete="RESTRICT"),
         nullable=False, index=True,
     )
-    evidence_id: Mapped[object] = mapped_column(
+    evidence_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("broker_charge_evidence.id", ondelete="RESTRICT"),
         nullable=False, index=True,
     )
     component_name: Mapped[str] = mapped_column(String(30), nullable=False)
     estimate_snapshot_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     evidence_source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    estimated_amount: Mapped[object] = mapped_column(Numeric(18, 2), nullable=False)
-    actual_amount: Mapped[object] = mapped_column(Numeric(18, 2), nullable=False)
-    variance_amount: Mapped[object] = mapped_column(Numeric(18, 2), nullable=False)
-    variance_percent: Mapped[object | None] = mapped_column(Numeric(18, 6), nullable=True)
+    estimated_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    actual_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    variance_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    variance_percent: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR", server_default="INR")
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="VARIANCE_ONLY", server_default="VARIANCE_ONLY"

@@ -981,3 +981,7 @@ Remaining Phase 3 accounting work: variance-only estimate-versus-actual integrat
 Added snapshot schema v2 exact-fill identity, append-only variance model/migration (`202610240017`), and variance-only service. It accepts only reviewed contract-note actuals and a source component whose reviewed fill manifest is exactly the estimate's one fill. It records the variance without mutating allocation rows. CI run 39961777103 passed 680 tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore.
 
 Remaining: design aggregate variance for order-level/multi-fill source components; implement/test conditional/order-scoped caps, minimums, GST taxable-base composition and special charge bases. Do not compare single-fill estimates against aggregate actuals. PR #6 remains draft/unmerged and live broker order writes remain disabled.
+
+
+## Verified exact PR-head CI 39962196672 — 2026-10-23
+PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning, broker-write guard passed, no failed steps. Remaining Phase 3 gates: define/test aggregate order-level or multi-fill variance; implement/test advanced tariff semantics or explicitly reject unsupported rule shapes; complete accounting replay/conflict/rollback/concurrency integration review; rerun CI on final head and sync docs before merge consideration.

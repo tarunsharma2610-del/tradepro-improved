@@ -117,3 +117,26 @@ def capped_order_brokerage_total(
 
     uncapped_total = sum(charges.values(), Decimal("0"))
     return min(uncapped_total, cap).quantize(PAISE)
+
+
+def gst_on_explicit_taxable_base(
+    taxable_base: Decimal | str | int | float,
+    gst_rate_percent: Decimal | str | int | float,
+) -> Decimal:
+    """Calculate GST on an explicitly established taxable service-charge base.
+
+    This is arithmetic only: callers must determine the legally applicable
+    taxable base and effective-dated rate from verified tariff/tax rules.
+    The helper does not infer which components are taxable or authorize
+    allocation of the resulting order-level amount across fills.
+    """
+    base = _money(taxable_base)
+    rate = _money(gst_rate_percent)
+    if base < 0:
+        raise ValueError("GST taxable base cannot be negative.")
+    if base != base.quantize(PAISE):
+        raise ValueError("GST taxable base must be expressed to paise precision.")
+    if rate < 0 or rate > Decimal("100"):
+        raise ValueError("GST rate percent must be between 0 and 100.")
+    tax = (base * rate / Decimal("100")).quantize(PAISE, rounding=ROUND_HALF_UP)
+    return tax

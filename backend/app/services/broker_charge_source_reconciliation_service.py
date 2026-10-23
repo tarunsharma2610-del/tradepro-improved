@@ -80,6 +80,15 @@ def verify_component_allocation_ledger(
         raise ValueError("Source component rounding policy does not match the supported allocation method.")
     if component.allocation_basis not in {"QUANTITY", "NOTIONAL", "EXPLICIT_REVIEWED"}:
         raise ValueError("A reviewer-approved allocation basis is required.")
+    # Until effective-dated, component-specific tariff rules are implemented,
+    # only explicit second-person-reviewed per-fill weights are promotable.
+    # Generic QUANTITY/NOTIONAL arithmetic does not prove the economic basis
+    # is correct for brokerage caps, GST, stamp duty, STT, or exchange levies.
+    if component.allocation_basis != "EXPLICIT_REVIEWED":
+        raise ValueError(
+            "Automatic quantity/notional allocation is disabled until "
+            "component-specific effective-dated rules are approved."
+        )
 
     try:
         manifest_ids = json.loads(component.eligible_fill_ids_json)

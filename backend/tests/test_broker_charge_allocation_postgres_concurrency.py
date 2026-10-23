@@ -271,6 +271,7 @@ def test_concurrent_source_verification_and_promotion_serialize_on_evidence(
                 status="VERIFIED", reviewed_by_user_id=user_id,
                 reviewed_at=datetime.now(timezone.utc), review_note="Independent synthetic review",
                 eligible_fill_ids_json=manifest_json,
+                eligible_fill_weights_json=json.dumps([{"fill_record_id": fill_id, "weight": "1"} for fill_id in manifest], separators=(",", ":")),
                 eligible_fill_set_sha256=hashlib.sha256(manifest_json.encode("utf-8")).hexdigest(),
                 rounding_policy="largest-remainder-v1", allocation_basis="EXPLICIT_REVIEWED",
             ))

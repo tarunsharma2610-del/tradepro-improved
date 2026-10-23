@@ -696,7 +696,9 @@ class LiveFillAccountingService:
             )
             and execution.charge_source == charges.source
             and execution.charge_reference == charges.reference.strip()
-            and execution.charge_evidence_id == charges.evidence_id
+            # A replay may omit evidence metadata; if supplied, its identity must
+            # match. New promotions separately require reviewed evidence below.
+            and (charges.evidence_id is None or execution.charge_evidence_id == charges.evidence_id)
             and Decimal(str(execution.brokerage)) == fees["brokerage"]
             and Decimal(str(execution.stt)) == fees["stt"]
             and Decimal(str(execution.exchange_charges)) == fees["exchange_charges"]

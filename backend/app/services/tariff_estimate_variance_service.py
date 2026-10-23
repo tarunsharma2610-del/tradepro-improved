@@ -157,6 +157,13 @@ def compare_estimate_to_reviewed_actual(
         manifest_ids = json.loads(component.eligible_fill_ids_json)
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
         raise ValueError("Estimate fill identity or actual eligible-fill manifest is invalid.") from exc
+    canonical_manifest_json = json.dumps(manifest_ids, separators=(",", ":"))
+    manifest_digest = hashlib.sha256(canonical_manifest_json.encode("utf-8")).hexdigest()
+    if (
+        canonical_manifest_json != component.eligible_fill_ids_json
+        or component.eligible_fill_set_sha256 != manifest_digest
+    ):
+        raise ValueError("Actual eligible-fill manifest digest does not match its canonical fill set.")
     canonical_manifest = [source_trade_record_id]
     if manifest_ids != canonical_manifest:
         raise ValueError(

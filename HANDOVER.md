@@ -1061,3 +1061,7 @@ Recorded a non-implemented proposal in `docs/PHASE3_TARIFF_TO_FILL_ALLOCATION_DE
 
 ## Variance validation hardening — 2026-10-23
 The variance service now checks the canonical eligible-fill manifest digest against `eligible_fill_set_sha256` and validates the identified broker fill's side and trade date against the estimate. Regression tests cover digest tampering and scope mismatch. Latest code head: `6ca045e2bbdd71d37dd77baf50df3881db2b1e71`; exact-head CI has not yet been verified. Aggregate variance is still design-only. Tariff calculator supports only percent, INR-per-crore and fixed units; no production rates or advanced cap/minimum/conditional/GST-base models are enabled.
+
+
+## Exact-head CI verified — 2026-10-23
+[CI run 39968000009](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39968000009) passed for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 tests passed, 1 warning; broker-write guard passed; SQLite migration checks and isolated PostgreSQL 16 synthetic restore drill completed. The warning is a Starlette TestClient/AnyIO deprecation; Node action deprecation notices also appeared. This run precedes the documentation-only updates. Continue aggregate variance and tariff-rule coverage, then verify CI on the new docs head. PR remains draft/unmerged; live writes disabled.

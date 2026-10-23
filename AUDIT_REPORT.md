@@ -1282,3 +1282,7 @@ Residual: the tariff calculator supports only PERCENT, INR_PER_CRORE and INR_FIX
 Added append-only variance records and a fail-closed comparison service. A comparison requires an ESTIMATE_ONLY snapshot with exact fill identity, VERIFIED source component, REVIEWED contract-note evidence, intact stored document, matching broker connection/component/currency/reviewer and a source manifest containing exactly the same single fill. Variance records are immutable in PostgreSQL/SQLite and do not touch allocation rows. CI run 39961777103 passed 680 tests and all safety/migration/restore checks.
 
 Residual limitations: aggregate order-level/multi-fill variance is deliberately unsupported; do not compare a per-fill estimate with a report-level aggregate. Conditional/order-level tariff caps/minimums, GST taxable-base composition, DP/depository and other special models remain unimplemented.
+
+
+## Verified exact PR-head CI 39962196672 — 2026-10-23
+Current PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed; no failed steps. This is not merge approval. Aggregate multi-fill variance and advanced tariff semantics remain risks and must be implemented/tested or fail closed.

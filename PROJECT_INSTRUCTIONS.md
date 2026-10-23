@@ -918,3 +918,12 @@ Stale reconciliation summaries may be marked `FAILED/WORKER_INTERRUPTED` only th
 - Tariff rules support only PERCENT, INR_PER_CRORE and INR_FIXED today. Do not approve unsupported order-level caps/minimums, conditional lesser-of logic, GST taxable bases or special charge models until represented and tested.
 - Keep estimate snapshots separate from reviewed actual contract-note source components. Estimates may support variance analysis only and must never be promoted into the actual per-fill allocation ledger.
 - Scope remains `tarunsharma2610-del/tradepro-improved`; PR #6 stays draft/unmerged and live broker order writes remain disabled.
+
+
+## Variance comparison safety rules (2026-10-23)
+
+- Use snapshot schema v2 exact `source_trade_record_id` when comparing an estimate to actual evidence. Missing identity must fail closed.
+- Variance comparison is permitted only against a VERIFIED component from REVIEWED, hash-verified contract-note evidence, with matching broker connection, component, currency and reviewer and an exact one-fill manifest.
+- Variance records are append-only audit comparisons. Never modify allocation rows or promote estimates to actual charges from this service.
+- Do not compare a single-fill estimate with a multi-fill/order-level actual total. Aggregate variance needs a separately reviewed linkage/aggregation design.
+- PR #6 stays draft/unmerged; live broker order writes remain disabled; work only in `tarunsharma2610-del/tradepro-improved`.

@@ -106,6 +106,7 @@ def verify_component_allocation_ledger(
             BrokerChargeAllocation.evidence_id == evidence_id,
             BrokerChargeAllocation.charge_component == component.component_name,
         )
+        .order_by(BrokerChargeAllocation.broker_trade_record_id, BrokerChargeAllocation.id)
         .with_for_update()
         .all()
     )
@@ -149,6 +150,7 @@ def verify_component_allocation_ledger(
     trades = (
         db.query(BrokerTradeRecord)
         .filter(BrokerTradeRecord.id.in_(list(parsed_ids)))
+        .order_by(BrokerTradeRecord.id)
         .with_for_update()
         .all()
     )

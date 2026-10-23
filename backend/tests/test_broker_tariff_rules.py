@@ -138,3 +138,12 @@ def test_calculate_tariff_amount_rounds_half_up_to_paise():
 
     rule = make_rule(rate=Decimal("0.5"), rate_unit="PERCENT")
     assert calculate_tariff_amount(rule, calculation_base="1.00") == Decimal("0.01")
+
+
+@pytest.mark.parametrize("status", ["DRAFT", "REVIEWED", "REJECTED"])
+def test_calculate_tariff_amount_rejects_non_approved_rule(status):
+    from app.services.broker_tariff_rules import calculate_tariff_amount
+
+    rule = make_rule(review_status=status)
+    with pytest.raises(ValueError, match="Only an approved tariff rule"):
+        calculate_tariff_amount(rule, calculation_base="100000")

@@ -515,9 +515,12 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
                         owner_id, trade_id, charge_payload,
                     )
                     outcome = ("live_fill", "ok", result.inserted, str(result.execution_id))
-                except Exception as exc:
+                except ValueError as exc:
                     db.rollback()
                     outcome = ("live_fill", "blocked", type(exc).__name__, str(exc))
+                except Exception as exc:
+                    db.rollback()
+                    outcome = ("error", "live_fill", type(exc).__name__, str(exc))
                 with outcomes_lock:
                     outcomes.append(outcome)
 
@@ -529,11 +532,16 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
         # Ledger promotion must succeed. Live accounting may safely win after the
         # row is reconciled, or fail closed while it is still pending; it must
         # never leave partial execution/position writes on that failed attempt.
+        assert not [item for item in outcomes if item[0] == "error"], outcomes
         ledger_results = [item for item in outcomes if item[0] == "ledger_promotion"]
         assert ledger_results == [("ledger_promotion", "ok", 1)], outcomes
         fill_results = [item for item in outcomes if item[0] == "live_fill"]
         assert len(fill_results) == 1, outcomes
         if fill_results[0][1] == "blocked":
+            assert fill_results[0][2] == "ValueError", outcomes
+            assert "six reconciled per-fill charge allocations" in fill_results[0][3] or (
+                "Pending, rejected, or unreferenced charge allocations" in fill_results[0][3]
+            ), outcomes
             with Session() as db:
                 assert db.query(Execution).filter_by(
                     broker_connection_id=connection_id, broker_trade_id=f"live-trade-{suffix}"

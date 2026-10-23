@@ -931,3 +931,7 @@ Stale reconciliation summaries may be marked `FAILED/WORKER_INTERRUPTED` only th
 
 ## Verified exact PR-head CI 39962196672 — 2026-10-23
 Current PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed; no failed steps. Continue aggregate variance design and tariff-rule coverage; unsupported shapes must fail closed. Re-run CI on the final intended head and synchronize all nine core docs before merge review. Do not merge or enable live broker writes without explicit authorization; only `tarunsharma2610-del/tradepro-improved` is in scope.
+
+
+## Aggregate variance implementation guard — 2026-10-23
+The proposed design in `docs/PHASE3_TARIFF_TO_FILL_ALLOCATION_DESIGN.md` is not implementation approval. First inspect existing tariff snapshot models, variance service, migration chain, and tests. Preserve single-fill compatibility; order-level comparisons require exact canonical fill-set identity and scope-correct tariff calculations. Fail closed on ambiguous evidence and never mutate actual allocations or P&L from variance comparison.

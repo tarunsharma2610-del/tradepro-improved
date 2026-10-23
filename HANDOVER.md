@@ -1,3 +1,14 @@
+## Phase 3 latest exact-head CI — 23 October 2026
+
+- Exact-head CI run [39911091610](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39911091610) **PASSED** on commit `e3eda03b36c616d9655c01f71cc96a2f407fe513`.
+- Backend pytest: **566 passed, 1 warning**. The PostgreSQL concurrency regression test for simultaneous source-ledger verification and promotion passed. Broker-write boundary guard, SQLite and PostgreSQL 16 migration checks, and the isolated synthetic restore drill all passed.
+- The new race test uses synthetic records/document content. It improves software concurrency coverage but does not validate a real Upstox contract note or restore the user's actual Oracle Free Cloud database.
+- This CI result applies only to the stated commit. Documentation commits or later code changes need a fresh exact-head run.
+- PR #6 remains open, draft, and unmerged. Continue transaction/idempotency review before recommending merge; live broker write operations remain disabled.
+- Repository scope remains exclusively `tarunsharma2610-del/tradepro-improved`; do not modify original `tarunsharma2610-del/Tradepro`.
+
+---
+
 ## Phase 3 promotion rollback guard — 22 October 2026
 
 - Exact-head CI run [39813721425](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39813721425) **PASSED** on commit `121741f32ff74c46ccc059f672b3e9f0e020ef14`: backend pytest **565 passed, 1 warning**; configured PostgreSQL 16 migration/safety checks completed successfully.

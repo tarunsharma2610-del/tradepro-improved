@@ -1897,3 +1897,16 @@ Added `backend/tests/test_tariff_estimate_variance_service.py` with database-bac
 
 ## Latest tariff-safety correction checkpoint — 2026-10-23
 Tariff calculator CI initially failed on commits `137b61a` and `55fc427`. Follow-up fix `68dc2b6fa0a729cc77180725e581de61a88e9de1` adds the missing APPROVED-status guard for explicit GST composition and rejects non-BUY stamp-duty requests before rule selection; it also aligns the GST guard message. Exact-head CI run [39982723294](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39982723294) passed: pytest, broker-write boundary guard, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore drill. This documentation commit still requires its own exact-head CI. Tariff/accounting acceptance remains pending further rule coverage review; PR #6 remains draft/unmerged and live broker writes disabled.
+
+
+## Tariff safety + Upstox charge-source research — 2026-10-23
+
+Code commit `ce0b4bc17eaf1656334e10ca8d6e32a68f50593b` adds a fail-closed stamp-duty unit guard: the specialized stamp-duty calculator accepts only percentage-based approved rules; regression tests reject `INR_FIXED` and `INR_PER_CRORE`. Exact-head CI [39987357989](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39987357989) passed backend tests, broker-write boundary guard, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore drill.
+
+Official Upstox sources reviewed:
+- Brokerage calculator API: https://upstox.com/developer/api-documentation/get-brokerage/ — order-scoped estimate with brokerage, taxes, transaction/clearing/IPFT/SEBI charges and DP-plan metadata; `dp_plan.min_expense` is a daily per-scrip sell minimum outside the brokerage calculation.
+- Trade charges API: https://upstox.com/developer/api-documentation/get-trade-charges/ — segment/date-range charge breakdown, including brokerage, GST, STT, stamp duty, transaction, clearing, IPFT, SEBI turnover and demat transaction charges.
+- Historical trades API: https://upstox.com/developer/api-documentation/get-historical-trades/ — trade ID, exchange, segment, quantity, amount, side and trade date.
+- Public tariff page: https://upstox.com/brokerage-charges/ — includes historical and newer effective-date rows; never activate rates from a flattened scrape without preserving effective periods and source snapshot.
+
+API charge breakdowns are reconciliation/reference inputs, not automatically contract-note evidence and not a substitute for reviewed actual source components. Do not store tokens. DP per-scrip/day minimums, STT/CTT tax-event cases, and other conditional models remain unsupported until represented and tested explicitly. No active production tariff registry is enabled. PR #6 stays draft/unmerged; live broker writes remain disabled; original `Tradepro` remains out of scope.

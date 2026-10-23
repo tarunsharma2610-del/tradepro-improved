@@ -213,6 +213,10 @@ def calculate_order_brokerage(
 
     minimum = optional_amount(minimum_inr, "Minimum brokerage")
     maximum = optional_amount(maximum_inr, "Maximum brokerage")
+    if minimum is not None and minimum != minimum.quantize(PAISE):
+        raise ValueError("Minimum brokerage must be expressed to paise precision.")
+    if maximum is not None and maximum != maximum.quantize(PAISE):
+        raise ValueError("Maximum brokerage must be expressed to paise precision.")
     if minimum is not None and maximum is not None and minimum > maximum:
         raise ValueError("Minimum brokerage cannot exceed maximum brokerage.")
     if minimum is not None:

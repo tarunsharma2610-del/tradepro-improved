@@ -1294,3 +1294,7 @@ The design document now proposes exact fill-set scope for order-level actuals, n
 
 ## Variance service audit addendum — 2026-10-23
 Found and corrected two validation gaps: the service did not validate `eligible_fill_set_sha256` against canonical manifest JSON and did not compare the linked trade's side/date with estimate scope. Added fail-closed checks and regression tests. CI on latest code head `6ca045e2bbdd71d37dd77baf50df3881db2b1e71` remains unverified. Order/multi-fill aggregation and advanced tariff semantics are still unsupported.
+
+
+## Exact-head CI evidence — 2026-10-23
+Verified [run 39968000009](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39968000009) for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: successful, 683 passed, 1 warning; broker-write boundary guard passed; SQLite migration and isolated PostgreSQL 16 synthetic restore checks completed. The test warning concerns deprecated AnyIO BlockingPortal alias use in Starlette TestClient. This is not evidence for later documentation commits or unfinished aggregate variance/tariff work.

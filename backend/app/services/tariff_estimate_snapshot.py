@@ -13,11 +13,12 @@ from dataclasses import asdict, dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from uuid import UUID
 
 from app.services.broker_tariff_rules import TariffRule, calculate_tariff_amount
 
 
-SNAPSHOT_SCHEMA_VERSION = "tariff-estimate-snapshot-v1"
+SNAPSHOT_SCHEMA_VERSION = "tariff-estimate-snapshot-v2"
 
 
 def _decimal_string(value: Decimal | str | int | float, field: str) -> str:
@@ -38,6 +39,7 @@ def _sha256(value: str) -> str:
 class TariffEstimateSnapshot:
     schema_version: str
     idempotency_key: str
+    source_trade_record_id: str | None
     rule_fingerprint: str
     component: str
     broker: str
@@ -74,6 +76,7 @@ def build_tariff_estimate_snapshot(
     trade_date: date,
     calculation_base: Decimal | str | int | float,
     source_identity: str,
+    source_trade_record_id: UUID | str | None = None,
 ) -> TariffEstimateSnapshot:
     """Build a stable snapshot; source_identity must identify the same trade/event on replay."""
     if not isinstance(rule, TariffRule):
@@ -84,6 +87,12 @@ def build_tariff_estimate_snapshot(
         raise ValueError("Stable source_identity is required for idempotency.")
     if trade_date < rule.effective_from or (rule.effective_to and trade_date > rule.effective_to):
         raise ValueError("Tariff rule is not effective on the trade date.")
+
+    if source_trade_record_id is not None:
+        try:
+            source_trade_record_id = str(UUID(str(source_trade_record_id)))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("source_trade_record_id must be a valid UUID when provided.") from exc
 
     base = _decimal_string(calculation_base, "Calculation base")
     amount = calculate_tariff_amount(rule, calculation_base=Decimal(base))
@@ -112,6 +121,7 @@ def build_tariff_estimate_snapshot(
     return TariffEstimateSnapshot(
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         idempotency_key=idempotency_key,
+        source_trade_record_id=source_trade_record_id,
         rule_fingerprint=rule_fingerprint,
         component=rule.component,
         broker=rule.broker,

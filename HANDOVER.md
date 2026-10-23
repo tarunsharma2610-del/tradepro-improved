@@ -1065,3 +1065,7 @@ The variance service now checks the canonical eligible-fill manifest digest agai
 
 ## Exact-head CI verified — 2026-10-23
 [CI run 39968000009](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39968000009) passed for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 tests passed, 1 warning; broker-write guard passed; SQLite migration checks and isolated PostgreSQL 16 synthetic restore drill completed. The warning is a Starlette TestClient/AnyIO deprecation; Node action deprecation notices also appeared. This run precedes the documentation-only updates. Continue aggregate variance and tariff-rule coverage, then verify CI on the new docs head. PR remains draft/unmerged; live writes disabled.
+
+
+## Aggregate variance implementation checkpoint — 2026-10-23
+Implemented the first pass of `TRADE_FILL` / `ORDER_FILL_SET` variance scope in snapshot schema v3, persistence, migration `202610240018`, and variance comparison. Aggregate scope requires exact canonical fill IDs/digest and all fills to belong to the same broker order, connection, side and trade date. New tests cover canonicalization, duplicate/empty fill sets, aggregate comparison/replay and manifest mismatch. Exact-head CI/migration verification is pending. See `docs/PHASE3_TARIFF_TO_FILL_ALLOCATION_DESIGN.md`; keep PR draft and live writes disabled.

@@ -4,6 +4,20 @@
 
 Public Upstox documentation provides instructions to download a user's real contract note and authenticated APIs for trade history, brokerage calculation, and aggregate charges. The public documentation reviewed does not provide a genuine contract note belonging to this account, and we found no documented contract-note PDF download endpoint. Do not treat generated fixtures, sample JSON, or an API response as an authentic original contract note.
 
+## Publicly shared examples reviewed
+
+1. [Upstox contract note dated 12 March 2025 (third-party Scribd copy)](https://www.scribd.com/document/971660843/CW-T-3JCTYG-20250312-NSE-66319975-1). The indexed text shows contract-note header, trade rows, brokerage, IGST on brokerage, STT and net payable/receivable summary. It says trade-wise levies are available on request, so the displayed summary is not per-fill proof for all charges.
+2. [Upstox contract note dated 21 May 2024 (third-party Scribd copy)](https://www.scribd.com/document/735902961/CW-T-842243-20240521-NSE-35749411). Useful as a second historical layout example.
+3. [Quicko guide with an Upstox sample image](https://learn.quicko.com/download-contract-note-upstox-trader). Useful for field names/layout, but older and not a source for current rates.
+
+These third-party copies purport to be Upstox-issued; authenticity has not been independently verified. They contain or may expose personal identifiers. Do not reproduce identifiers or commit raw copies. Use them only to review layout and guide synthetic fixtures; historical amounts are not current tariff evidence.
+
+## Acceptance decision
+
+**Completed for development scope:** public-format research and field/category review. A personal contract note is not required to continue Phase 3, and no new trade is required. Synthetic fixtures remain the repeatable automated test input.
+
+**Still distinct and not claimed complete:** broker-origin authenticity verification, account-specific API reconciliation, and per-fill attribution of any charge shown only in aggregate. An aggregate total alone cannot prove per-fill allocations.
+
 ## Official sources
 
 1. [Accessing and downloading the contract note (Upstox Help Center)](https://upstox.com/help-center/how-can-i-access-and-download-the-contract-note-248457/)
@@ -50,4 +64,4 @@ These use invented trades and identifiers plus illustrative public-rate assumpti
 
 ## Status
 
-The synthetic fixtures are available for development tests. They do not prove authenticity of a real broker note or successful recovery of the user's real Oracle Free Cloud database. PR #6 remains draft/unmerged pending exact-head CI and final accounting/idempotency review; live broker writes remain disabled.
+Public-format review is complete using the linked third-party examples; no personal note is required to proceed. The examples are not independently authenticated and are not copied into the repository. Synthetic fixtures are available for repeatable tests. Account-specific verification is optional future validation, not a Phase 3 development blocker. The synthetic fixtures are available for development tests. They do not prove authenticity of a real broker note or successful recovery of the user's real Oracle Free Cloud database. PR #6 remains draft/unmerged pending exact-head CI and final accounting/idempotency review; live broker writes remain disabled.

@@ -1,3 +1,13 @@
+## Public Upstox contract-note example review — 23 October 2026
+
+- Located publicly shared examples purporting to be Upstox contract notes: [12 March 2025 example on Scribd](https://www.scribd.com/document/971660843/CW-T-3JCTYG-20250312-NSE-66319975-1), [21 May 2024 example on Scribd](https://www.scribd.com/document/735902961/CW-T-842243-20240521-NSE-35749411), and [Quicko's sample-note guide](https://learn.quicko.com/download-contract-note-upstox-trader). These are third-party/public copies; broker-origin authenticity is not independently verified. They may expose personal information, so do not copy raw documents or identifiers into this repository.
+- Structural review supports fields for trade/order identifiers and timestamps, instrument, buy/sell, quantity, rate/WAP, brokerage, net rate, trade obligation, and charge/tax summary. One public example says trade-wise levies are available on request, so its aggregate summary cannot independently prove the correct charge amount for each fill.
+- Public examples are sufficient for document-layout/field coverage and synthetic parser/accounting tests. A personal note is NOT a prerequisite for continuing Phase 3. Real source-origin verification and account-specific API comparisons remain optional future validation; do not label a public copy or synthetic fixture as authenticated account evidence.
+- Exact-head CI run [39914355718](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39914355718) completed successfully on head `b79c52b03d97c46da9df5a575f79fee581802ff6`: backend tests, broker-write boundary guard, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore, and evidence-retention steps passed. This is synthetic CI coverage, not a real-data restore or broker-origin verification.
+- Scope remains `tarunsharma2610-del/tradepro-improved` only. PR #6 remains draft/unmerged; live broker write operations remain disabled.
+
+---
+
 ## Upstox contract-note/API research — 23 October 2026
 
 - Public Upstox Help Center documentation explains how to download the user's authentic contract note from My Account → Reports → Miscellaneous reports → report type `CONTRACT`, and says it is emailed within 24 hours.

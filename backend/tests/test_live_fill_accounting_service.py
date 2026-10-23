@@ -75,6 +75,7 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
                 revision=1, source_amount=amount, currency="INR", extraction_method="MANUAL_TRANSCRIPTION",
                 parser_version="phase3-test", source_locator="test fixture / page 1",
                 eligible_fill_ids_json=manifest, eligible_fill_set_sha256=manifest_hash,
+                eligible_fill_weights_json=json.dumps([{"fill_record_id": str(record.id), "weight": "1"}], separators=(",", ":")),
                 rounding_policy=METHOD_VERSION, allocation_basis="EXPLICIT_REVIEWED",
                 extracted_by_user_id=user.id, status="VERIFIED", reviewed_by_user_id=reviewer.id,
                 reviewed_at=datetime.now(timezone.utc), review_note="Synthetic unit-test fixture",

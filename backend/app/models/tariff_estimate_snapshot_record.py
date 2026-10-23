@@ -18,6 +18,9 @@ class TariffEstimateSnapshotRecord(BaseModel):
     snapshot_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="ESTIMATE_ONLY", server_default="ESTIMATE_ONLY")
+    comparison_scope: Mapped[str] = mapped_column(String(20), nullable=False, default="TRADE_FILL", server_default="TRADE_FILL")
+    source_fill_ids_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_fill_set_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 @event.listens_for(TariffEstimateSnapshotRecord, "before_update")

@@ -186,26 +186,19 @@ def test_trade_charge_entrypoint_fails_closed_without_approved_match():
         )
 
 @pytest.mark.parametrize(
-    ("order_notional", "minimum", "maximum", "expected"),
+    ("order_notional", "rule_changes", "expected"),
     [
-        ("100000", None, None, "50.00"),
-        ("100", "20", None, "20.00"),
-        ("1000000", None, "100", "100.00"),
-        ("100000", "10", "100", "50.00"),
+        ("100000", {}, "50.00"),
+        ("100", {"minimum_inr": Decimal("20.00")}, "20.00"),
+        ("1000000", {"maximum_inr": Decimal("100.00")}, "100.00"),
+        ("100000", {"minimum_inr": Decimal("10.00"), "maximum_inr": Decimal("100.00")}, "50.00"),
     ],
 )
-def test_order_brokerage_applies_explicit_order_minimum_and_cap(
-    order_notional, minimum, maximum, expected
-):
+def test_order_brokerage_applies_caps_bound_to_approved_rule(order_notional, rule_changes, expected):
     from app.services.broker_tariff_rules import calculate_order_brokerage
 
-    rule = make_rule(calculation_basis="ORDER_NOTIONAL")
-    assert calculate_order_brokerage(
-        rule,
-        order_notional=order_notional,
-        minimum_inr=minimum,
-        maximum_inr=maximum,
-    ) == Decimal(expected)
+    rule = make_rule(calculation_basis="ORDER_NOTIONAL", **rule_changes)
+    assert calculate_order_brokerage(rule, order_notional=order_notional) == Decimal(expected)
 
 
 @pytest.mark.parametrize(
@@ -216,15 +209,12 @@ def test_order_brokerage_applies_explicit_order_minimum_and_cap(
         {"minimum_inr": "10.005"},
         {"maximum_inr": "20.005"},
         {"minimum_inr": "20", "maximum_inr": "10"},
+        {"minimum_inr": "10", "calculation_basis": "PREMIUM"},
     ],
 )
-def test_order_brokerage_rejects_invalid_caps(changes):
-    from app.services.broker_tariff_rules import calculate_order_brokerage
-
-    args = {"order_notional": "1000"}
-    args.update(changes)
+def test_tariff_rule_rejects_invalid_or_inapplicable_brokerage_caps(changes):
     with pytest.raises(ValueError):
-        calculate_order_brokerage(make_rule(), **args)
+        make_rule(**changes)
 
 
 def test_order_brokerage_requires_order_scope_and_percent_rule():

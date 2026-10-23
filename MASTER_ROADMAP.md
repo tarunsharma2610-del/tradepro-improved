@@ -967,3 +967,10 @@ Working branch: `main`
 Tariff-estimate snapshots now have database-enforced append-only guards in PostgreSQL and SQLite via migration `202610240016`, with direct SQL UPDATE/DELETE regression tests. Exact-head CI run 39959332425 passed. PR #6 remains draft/unmerged and live broker order writes remain disabled.
 
 Still required before Phase 3 acceptance: PostgreSQL concurrent tariff snapshot persistence tests; implement/validate conditional order-scoped tariff caps and additional component-specific bases (including GST taxable base) before approving applicable rules; build variance-only estimate-versus-actual reconciliation using reviewed contract-note source components; preserve the rule that estimates are never actuals and cannot feed per-fill actual allocation. Keep original `Tradepro` out of scope.
+
+
+## Phase 3 checkpoint — tariff snapshots (2026-10-23)
+
+Verified code checkpoint `fd0e42917611f3b6c3f826cb2e99971fd3e2cce6`: CI run [39960409771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39960409771) passed 677 tests plus broker-write guard, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill. PostgreSQL concurrency tests now cover exact replay and conflicting payloads for durable estimate persistence. Migration `202610240016` adds database-level append-only guards for PostgreSQL/SQLite.
+
+Remaining Phase 3 accounting work: variance-only estimate-versus-actual integration from approved tariff snapshots to reviewed actual contract-note source components; component-aware modeling for order-level caps/minimums, conditional rules, GST taxable bases and special charge models. Estimates are never actual charges. PR #6 stays draft/unmerged and live broker order writes remain disabled.

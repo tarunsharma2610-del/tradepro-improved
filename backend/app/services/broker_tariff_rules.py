@@ -202,6 +202,10 @@ def calculate_charge_for_trade(
     This is the safe composition entry point for callers that have an explicit
     trade scope. It does not persist a charge or allocate it across fills.
     """
+    # Reject forbidden sides before selection so the caller cannot hide an
+    # ineligible stamp-duty request behind a generic "no matching rule" error.
+    if component.lower() == "stamp_duty" and transaction_side != "BUY":
+        raise ValueError("Stamp duty calculation requires an explicitly eligible BUY side.")
     rule = select_tariff_rule(
         rules,
         component=component,
@@ -224,7 +228,7 @@ def calculate_charge_for_trade(
         )
     elif rule.component.lower() == "gst":
         raise ValueError(
-            "GST composition requires calculate_gst_on_explicit_components with an approved component set."
+            "GST composition requires calculate_gst_on_explicit_components with an explicit component set that is approved."
         )
     else:
         amount = calculate_tariff_amount(rule, calculation_base=calculation_base)
@@ -273,6 +277,8 @@ def calculate_gst_on_explicit_components(
         or rule.rate_unit != "PERCENT"
     ):
         raise ValueError("GST requires an approved GST_TAXABLE_COMPONENT_SUM percent rule.")
+    if rule.review_status != "APPROVED":
+        raise ValueError("Only an approved tariff rule can be calculated.")
     if not isinstance(taxable_components, dict) or not taxable_components:
         raise ValueError("An explicit nonempty taxable component mapping is required.")
     if not isinstance(approved_taxable_component_names, (tuple, list)) or not approved_taxable_component_names:

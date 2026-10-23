@@ -93,3 +93,10 @@ Still not implemented:
 - No live production tariff registry should be activated until each supported rule has reviewed Upstox source evidence and component-specific executable examples.
 
 Safety boundary remains unchanged: an estimate is never an actual broker charge and must not supply a missing source component or enter per-fill actual allocation. PR #6 remains draft/unmerged; live broker order writes remain disabled; original `Tradepro` is out of scope.
+
+
+## Variance service implementation update — 2026-10-23
+
+A variance-only comparison service and append-only table are now implemented. Snapshot schema v2 optionally stores exact `source_trade_record_id`; comparison fails closed without it and currently requires the reviewed actual source component manifest to contain exactly that one fill. The service validates reviewed contract-note evidence, source bytes/hash, reviewer provenance, broker connection, component and currency. It records estimate, actual, signed variance and percentage only; it does not touch the allocation ledger.
+
+Migration `202610240017` and direct-SQL immutability tests are included. CI run 39961777103 passed 680 tests and the broker-write/migration/restore gates. Multi-fill/order-level aggregate variance remains intentionally unsupported; a per-fill estimate must not be compared to an aggregate source total. Conditional caps/minimums, GST taxable-base composition and special charge models remain open.

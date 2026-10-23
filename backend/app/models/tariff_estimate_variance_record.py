@@ -49,3 +49,5 @@ class TariffEstimateVarianceRecord(BaseModel):
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="VARIANCE_ONLY", server_default="VARIANCE_ONLY"
     )
+    comparison_scope: Mapped[str] = mapped_column(String(20), nullable=False, default="TRADE_FILL", server_default="TRADE_FILL")
+    source_fill_set_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)

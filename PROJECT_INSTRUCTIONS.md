@@ -1005,3 +1005,7 @@ CI run 39968000009 passed on code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e
 
 ## Aggregate variance implementation guard — 2026-10-23
 Explicit `TRADE_FILL` / `ORDER_FILL_SET` scope is implemented with exact canonical fill identity, same-order/connection/side/date validation, replay/conflict handling, and migration `202610240018`. Snapshot builder is schema v4; disregard older v3 references. Aggregate success, exact replay, and mismatched-manifest regression tests passed in backend CI run [39979772325](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39979772325) on commit `e54e405b74feee90e4658a6992fa208a3e2da5d3`. That run also passed the broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore drill. Documentation commits made afterward require their own exact-head CI. Preserve append-only evidence and variance records; do not merge or enable live writes.
+
+
+## Latest tariff-safety correction checkpoint — 2026-10-23
+The first tariff safety patch had failing CI; do not report it as green. Follow-up commit `68dc2b6fa0a729cc77180725e581de61a88e9de1` adds the missing APPROVED-status guard to GST explicit composition and early rejection for stamp-duty SELL requests. CI run [39982723294](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39982723294) passed all backend, broker-write boundary, SQLite/PostgreSQL 16 migration, and restore-drill steps. Run CI again on the final docs head; preserve draft PR status and keep live broker writes disabled.

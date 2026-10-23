@@ -1024,3 +1024,7 @@ Code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e` passed run 39968000009: 683
 
 ## Aggregate variance implementation checkpoint — 2026-10-23
 Implemented explicit fill-set scope, canonical fill-set digest, migration `202610240018`, aggregate variance validation, and regression tests for successful comparison, exact replay, and mismatched manifest. Backend CI run [39979772325](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39979772325) passed on code/test commit `e54e405b74feee90e4658a6992fa208a3e2da5d3`; SQLite/PostgreSQL 16 migration round-trips and broker-write boundary guard passed. Next: exact-head CI for the nine-document synchronization, then review additional concurrency/immutability cases, advanced tariff-rule coverage, and final accounting acceptance. PR remains draft.
+
+
+## Latest tariff-safety correction checkpoint — 2026-10-23
+Tariff guard corrections are on `68dc2b6fa0a729cc77180725e581de61a88e9de1`: GST composition requires an approved GST rule and explicit approved component inputs; stamp-duty SELL requests fail before selection. CI run [39982723294](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39982723294) passed backend pytest, broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, and restore drill. Next: verify CI on this documentation commit, then continue the advanced tariff rule coverage/fail-closed audit and final accounting acceptance. PR remains draft.

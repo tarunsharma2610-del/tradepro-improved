@@ -1563,3 +1563,12 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - [x] Verify backend CI on code/test commit `e54e405b74feee90e4658a6992fa208a3e2da5d3`: test suite, broker-write guard, SQLite/PostgreSQL 16 migration round-trips, synthetic restore drill (run [39979772325](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39979772325)).
 - [ ] Verify exact-head CI after the nine-document synchronization.
 - [ ] Complete advanced tariff rule coverage/fail-closed review and final accounting acceptance.
+
+
+## Latest tariff-safety correction checkpoint — 2026-10-23
+- [x] Add APPROVED-status enforcement inside explicit GST component composition.
+- [x] Reject stamp-duty SELL requests before generic rule selection.
+- [x] Correct regression expectation to match the explicit GST component-set guard message.
+- [x] Verify code commit `68dc2b6fa0a729cc77180725e581de61a88e9de1` in CI run [39982723294](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39982723294): pytest, broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore drill all passed.
+- [ ] Verify CI on the following nine-document synchronization commit.
+- [ ] Complete remaining advanced tariff-rule review and final accounting acceptance.

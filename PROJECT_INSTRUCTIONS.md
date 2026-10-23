@@ -900,3 +900,12 @@ Stale reconciliation summaries may be marked `FAILED/WORKER_INTERRUPTED` only th
 - The append-only guard is an ORM protection, not a database trigger; direct SQL updates outside the ORM are not blocked by this guard. Consider a portable DB-level immutability trigger only if required by the release threat model. The unique key and ESTIMATE_ONLY check remain database-enforced.
 - Latest append-only change CI and this documentation checkpoint's CI are pending. Do not treat them as verified until all jobs complete successfully.
 - PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## Tariff snapshot safety rules (2026-10-23)
+
+- Work only in `tarunsharma2610-del/tradepro-improved`; never change the original `Tradepro` repository.
+- Tariff snapshots are append-only: preserve migration `202610240016` and its PostgreSQL/SQLite triggers and tests.
+- A tariff estimate is never an actual broker charge. Do not use an estimate to fill a missing contract-note component or promote it into per-fill actual allocation.
+- Do not approve/ship tariff rules that need order-level caps, minimums, conditional lesser-of logic, GST taxable-base composition, or special charge models until those behaviors are explicitly represented and tested.
+- PR #6 stays draft/unmerged pending Task B acceptance and explicit user approval. Live broker order writes stay disabled.

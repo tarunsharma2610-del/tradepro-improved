@@ -1,3 +1,12 @@
+## Lock-order review follow-up — 24 October 2026
+
+- After the evidence-identity fix passed exact-head CI, a further lock-order review found that live-fill accounting selected a source-component row with `FOR UPDATE` before calling the verifier, while the verifier locks evidence first and then the component/allocation/trade rows. This could invert the documented lock order under concurrent verification and promotion.
+- Updated live-fill accounting to discover the candidate component without a row lock, invoke the verifier to acquire locks in canonical evidence-first order, then refresh the already-locked component before reading mutable fields. This is a targeted deadlock-risk correction, not yet verified until exact-head CI completes.
+- Exact-head CI prior to this follow-up passed pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, and the synthetic restore drill. New CI must validate this lock-order change.
+- PR #6 remains draft/unmerged; live broker order submission remains disabled; original `Tradepro` remains out of scope.
+
+---
+
 ## CI failure correction — 24 October 2026
 
 - The first evidence-identity CI attempt passed the pytest suite and broker-write boundary guard but failed the SQLite Alembic upgrade/downgrade/re-upgrade step. The migration was corrected to use Alembic batch mode for adding/dropping the nullable evidence foreign key, column, and index on SQLite.

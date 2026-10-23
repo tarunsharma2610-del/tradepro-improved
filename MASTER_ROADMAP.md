@@ -974,3 +974,10 @@ Still required before Phase 3 acceptance: PostgreSQL concurrent tariff snapshot 
 Verified code checkpoint `fd0e42917611f3b6c3f826cb2e99971fd3e2cce6`: CI run [39960409771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39960409771) passed 677 tests plus broker-write guard, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill. PostgreSQL concurrency tests now cover exact replay and conflicting payloads for durable estimate persistence. Migration `202610240016` adds database-level append-only guards for PostgreSQL/SQLite.
 
 Remaining Phase 3 accounting work: variance-only estimate-versus-actual integration from approved tariff snapshots to reviewed actual contract-note source components; component-aware modeling for order-level caps/minimums, conditional rules, GST taxable bases and special charge models. Estimates are never actual charges. PR #6 stays draft/unmerged and live broker order writes remain disabled.
+
+
+## Phase 3 update — estimate-versus-actual variance (2026-10-23)
+
+Added snapshot schema v2 exact-fill identity, append-only variance model/migration (`202610240017`), and variance-only service. It accepts only reviewed contract-note actuals and a source component whose reviewed fill manifest is exactly the estimate's one fill. It records the variance without mutating allocation rows. CI run 39961777103 passed 680 tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore.
+
+Remaining: design aggregate variance for order-level/multi-fill source components; implement/test conditional/order-scoped caps, minimums, GST taxable-base composition and special charge bases. Do not compare single-fill estimates against aggregate actuals. PR #6 remains draft/unmerged and live broker order writes remain disabled.

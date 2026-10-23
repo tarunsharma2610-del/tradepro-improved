@@ -1,3 +1,12 @@
+## Concurrent exact-replay regression — 24 October 2026
+
+- Adversarial review found that PostgreSQL concurrency coverage exercised two distinct fills racing for the same parent/child order, but did not explicitly exercise two simultaneous calls promoting the exact same broker trade with identical evidence.
+- Extended the existing PostgreSQL-only live-fill concurrency test to launch three concurrent promotions: two distinct confirmed fills plus a duplicate call for the first trade using the same evidence. Expected outcome is exactly two inserted executions and one idempotent replay, with the live position and execution count reflecting only the two distinct fills.
+- Test change committed as `f8441f6d11b863e3ad173282664663cd4985eeb2`. Exact-head CI is pending; do not consider this race covered until the PostgreSQL concurrency test passes on the final head.
+- PR #6 remains draft/unmerged; live broker order submission remains disabled; all work is limited to `tradepro-improved`.
+
+---
+
 ## Deterministic row-lock ordering follow-up — 24 October 2026
 
 - Latest documentation CI runs `39918605262`, `39918611978`, and `39918618265` completed successfully on their respective commits.

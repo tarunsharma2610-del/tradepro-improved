@@ -701,3 +701,7 @@ PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github
 
 ## Aggregate variance scope proposal — 2026-10-23
 The proposed design distinguishes a single `TRADE_FILL` from an `ORDER_FILL_SET` whose canonical exact member list is hashed and revalidated transactionally. Nonlinear/capped tariff calculations must occur at order scope. Variance records remain append-only and isolated from actual allocation/position/P&L writes. Aggregate support is not implemented yet.
+
+
+## Variance scope integrity checks — 2026-10-23
+Variance comparison now validates the canonical eligible-fill manifest's SHA-256 and confirms the linked broker fill side and trade date match the estimate snapshot. These checks fail closed before a variance record is written. Regression tests were added. Aggregate scope is still design-only; the current tariff calculator does not model caps/minimums, conditional rules or GST taxable-base composition.

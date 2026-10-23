@@ -1,3 +1,13 @@
+## Deterministic row-lock ordering follow-up — 24 October 2026
+
+- Latest documentation CI runs `39918605262`, `39918611978`, and `39918618265` completed successfully on their respective commits.
+- Continued adversarial review found that the allocation verifier locked allocation rows and trade rows without explicit deterministic ordering, while live-fill accounting locks component allocation rows in sorted fill-ID order. Although the PostgreSQL concurrency suite passes, making lock acquisition order explicit reduces avoidable deadlock risk across verifier/promotion paths.
+- Updated the source reconciliation verifier to lock allocation rows by `broker_trade_record_id, id` and trade rows by `BrokerTradeRecord.id`. This is a targeted concurrency hardening change; exact-head CI is pending and required before claiming it verified.
+- PR #6 remains draft/unmerged. Live broker order submission remains disabled. All work stays in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` remains untouched.
+- Real account-specific contract-note authenticity and restoration of an actual retained Oracle PostgreSQL/document backup remain separate operational checks, not synthetic CI claims.
+
+---
+
 ## Current accounting review status — 24 October 2026
 
 - Exact-head CI for the latest PR head `fe723b6929e4a8ce429470b339519e4ee9616e4c` passed in [run 39918318386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39918318386): backend pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore, and evidence-retention steps all succeeded.

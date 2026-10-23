@@ -932,3 +932,10 @@ Historical checkpoint superseded: renewal remains every five records; UI marks `
 Completed in current branch: PostgreSQL/SQLite database-level append-only triggers for tariff estimate snapshots and direct-SQL UPDATE/DELETE regression tests. Exact-head CI run 39959332425 passed.
 
 Remaining: dedicated PostgreSQL persistence race test; explicit conditional/order-scoped tariff rule models and tests; variance-only comparison of approved-rule estimates against reviewed actual contract-note components; final synchronization/verification of all nine core docs. No merge yet; live broker order writes remain disabled.
+
+
+## Task B checkpoint — verified code tests (2026-10-23)
+
+Completed: database-level snapshot immutability triggers for PostgreSQL/SQLite, direct-SQL mutation/deletion tests, and PostgreSQL concurrent estimate persistence tests for exact replay/conflicting payloads. Code checkpoint `fd0e42917611f3b6c3f826cb2e99971fd3e2cce6` passed CI run 39960409771 (677 passed; broker-write guard; SQLite/PostgreSQL 16 migration round-trips; synthetic restore).
+
+Still required: variance-only estimate-versus-actual comparison with reviewed contract-note components; component-aware conditional/order-level caps, minimums, GST taxable-base composition and special tariff models. Do not promote estimates as actuals. No merge or live order writes.

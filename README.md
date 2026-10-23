@@ -687,3 +687,8 @@ This is not a complete live-fill pipeline: the service remains unregistered, ing
 - This is a conservative fail-closed safeguard, not completion of component-specific tariff automation. Still required: reviewed tests/rules for brokerage caps and multi-fill orders, GST taxable base, buy-side stamp duty, side/product-specific STT/CTT, exchange/segment charges and effective-date transitions. Ambiguous source scope must remain pending.
 - Publicly shared Upstox contract-note examples are for layout/research only and are not independently authenticated. Actual Oracle Cloud backup recovery remains separate from synthetic restore CI.
 - PR #6 remains draft and unmerged until acceptance gates are reviewed and the user explicitly approves. Live broker order writes remain disabled. Changes are confined to `tarunsharma2610-del/tradepro-improved`; original `Tradepro` remains out of scope.
+
+
+### Phase 3 tariff-estimate audit safeguards
+
+Tariff estimates are persisted as `ESTIMATE_ONLY` snapshots and are not broker-confirmed actual charges. The Phase 3 branch now adds database triggers on PostgreSQL and SQLite to reject direct SQL updates/deletes of these snapshots. The latest exact-head CI run passed. Conditional/order-level tariff caps and estimate-versus-actual variance integration remain in progress; do not rely on simplified rates as production-approved charges. PR #6 remains draft/unmerged, and live broker order writes remain disabled.

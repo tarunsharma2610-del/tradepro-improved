@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.broker_charge_evidence import BrokerChargeEvidence
+from app.models.broker_connection import BrokerConnection
+from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.tariff_estimate_snapshot_record import TariffEstimateSnapshotRecord
 from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
@@ -142,6 +144,27 @@ def compare_estimate_to_reviewed_actual(
         raise ValueError("Reviewed contract-note evidence is required for variance comparison.")
     if evidence.reviewed_by_user_id != component.reviewed_by_user_id:
         raise ValueError("Evidence and source-component reviewer provenance do not match.")
+    connection = (
+        db.query(BrokerConnection)
+        .filter(BrokerConnection.id == evidence.broker_connection_id)
+        .with_for_update()
+        .populate_existing()
+        .one_or_none()
+    )
+    if connection is None or connection.broker.casefold() != str(payload.get("broker", "")).casefold():
+        raise ValueError("Tariff estimate broker does not match the reviewed actual evidence connection.")
+    trade = (
+        db.query(BrokerTradeRecord)
+        .filter(
+            BrokerTradeRecord.id == UUID(source_trade_record_id),
+            BrokerTradeRecord.broker_connection_id == evidence.broker_connection_id,
+        )
+        .with_for_update()
+        .populate_existing()
+        .one_or_none()
+    )
+    if trade is None:
+        raise ValueError("Estimate fill identity is not part of the reviewed evidence broker connection.")
     if component.source_sha256 != evidence.source_sha256:
         raise ValueError("Actual source component fingerprint does not match contract-note evidence.")
     if not evidence.storage_key:

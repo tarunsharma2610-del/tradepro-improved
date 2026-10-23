@@ -939,3 +939,10 @@ Remaining: dedicated PostgreSQL persistence race test; explicit conditional/orde
 Completed: database-level snapshot immutability triggers for PostgreSQL/SQLite, direct-SQL mutation/deletion tests, and PostgreSQL concurrent estimate persistence tests for exact replay/conflicting payloads. Code checkpoint `fd0e42917611f3b6c3f826cb2e99971fd3e2cce6` passed CI run 39960409771 (677 passed; broker-write guard; SQLite/PostgreSQL 16 migration round-trips; synthetic restore).
 
 Still required: variance-only estimate-versus-actual comparison with reviewed contract-note components; component-aware conditional/order-level caps, minimums, GST taxable-base composition and special tariff models. Do not promote estimates as actuals. No merge or live order writes.
+
+
+## Task B variance checkpoint (2026-10-23)
+
+Completed: exact-fill identity in snapshot schema v2; append-only variance record/migration; reviewed actual evidence validation; single-fill-only variance comparison; replay, fail-closed scope, immutability and no-allocation-side-effect tests. CI run 39961777103 passed 680 tests and all safety/migration/restore checks.
+
+Remaining: safe aggregate variance for multi-fill/order-level components and richer conditional/order-level tariff models. No estimate-to-actual promotion; no PR merge or live broker order writes.

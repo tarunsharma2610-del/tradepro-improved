@@ -1275,3 +1275,10 @@ Residual risks: concurrency semantics for tariff estimate persistence still need
 Resolved the gap where ORM-only protection could be bypassed by direct SQL: migration `202610240016` adds PostgreSQL and SQLite triggers rejecting UPDATE/DELETE on `tariff_estimate_snapshot_records`, with direct-SQL regression tests. A PostgreSQL concurrency test now exercises concurrent same-key exact replay and conflicting-payload rejection. CI run [39960409771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39960409771) passed 677 tests, broker-write guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore.
 
 Residual: the tariff calculator supports only PERCENT, INR_PER_CRORE and INR_FIXED. Conditional/order-level caps, minimums, GST taxable-base composition, DP/depository models and other special bases are not implemented. Estimate-versus-actual variance integration remains open. Only reviewed broker actual source components may feed per-fill actual allocations.
+
+
+## Variance integration audit addendum — 2026-10-23
+
+Added append-only variance records and a fail-closed comparison service. A comparison requires an ESTIMATE_ONLY snapshot with exact fill identity, VERIFIED source component, REVIEWED contract-note evidence, intact stored document, matching broker connection/component/currency/reviewer and a source manifest containing exactly the same single fill. Variance records are immutable in PostgreSQL/SQLite and do not touch allocation rows. CI run 39961777103 passed 680 tests and all safety/migration/restore checks.
+
+Residual limitations: aggregate order-level/multi-fill variance is deliberately unsupported; do not compare a per-fill estimate with a report-level aggregate. Conditional/order-level tariff caps/minimums, GST taxable-base composition, DP/depository and other special models remain unimplemented.

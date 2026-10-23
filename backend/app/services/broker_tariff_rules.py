@@ -199,7 +199,11 @@ def calculate_charge_for_trade(
         calculation_basis=calculation_basis,
         trade_date=trade_date,
     )
-    return rule, calculate_tariff_amount(rule, calculation_base=calculation_base)
+    if rule.component.lower() == "brokerage" and rule.calculation_basis == "ORDER_NOTIONAL":
+        amount = calculate_order_brokerage(rule, order_notional=calculation_base)
+    else:
+        amount = calculate_tariff_amount(rule, calculation_base=calculation_base)
+    return rule, amount
 
 def calculate_order_brokerage(
     rule: TariffRule,

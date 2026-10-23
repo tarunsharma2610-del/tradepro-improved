@@ -469,3 +469,79 @@ def test_variance_comparison_rejects_estimate_fill_scope_mismatch(
         )
     db.rollback()
     assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+
+def test_order_fill_set_variance_requires_exact_same_order_and_fill_manifest(reconciliation_context):
+    db, _user, _connection, _evidence = reconciliation_context
+    db, evidence, component, trades, _allocations = _setup(reconciliation_context, manifest_count=2)
+    trades[1].broker_order_ref_id = trades[0].broker_order_ref_id
+    db.commit()
+    rule = TariffRule(
+        component="brokerage", broker="Upstox", exchange="NSE", segment="FO",
+        product="FUTURES", transaction_side="BUY", calculation_basis="ORDER_NOTIONAL",
+        rate=Decimal("0.05"), rate_unit="PERCENT",
+        effective_from=date(2026, 4, 1), effective_to=None,
+        source_url="https://upstox.com/brokerage-charges/",
+        source_retrieved_on=date(2026, 10, 23),
+        source_sha256=hashlib.sha256(b"aggregate-variance-tariff").hexdigest(),
+        review_status="APPROVED",
+    )
+    snapshot = build_tariff_estimate_snapshot(
+        rule,
+        trade_date=date(2026, 10, 22),
+        calculation_base="1000.00",
+        source_identity=f"broker-order:{trades[0].broker_order_ref_id}:brokerage",
+        comparison_scope="ORDER_FILL_SET",
+        source_fill_record_ids=[trade.id for trade in trades],
+    )
+    persisted, _ = persist_tariff_estimate_snapshot(db, snapshot)
+    db.commit()
+
+    record, status = compare_estimate_to_reviewed_actual(
+        db, estimate_snapshot_id=persisted.id, source_component_id=component.id
+    )
+    assert status == "CREATED"
+    assert record.comparison_scope == "ORDER_FILL_SET"
+    assert record.source_fill_set_sha256 == component.eligible_fill_set_sha256
+    assert record.actual_amount == Decimal("1.00")
+    assert record.estimated_amount == Decimal("0.50")
+    assert record.variance_amount == Decimal("0.50")
+    db.commit()
+
+    replay, replay_status = compare_estimate_to_reviewed_actual(
+        db, estimate_snapshot_id=persisted.id, source_component_id=component.id
+    )
+    assert replay_status == "EXACT_REPLAY"
+    assert replay.id == record.id
+
+
+def test_order_fill_set_variance_rejects_component_from_different_fill_set(reconciliation_context):
+    db, _user, _connection, _evidence = reconciliation_context
+    db, evidence, component, trades, _allocations = _setup(reconciliation_context, manifest_count=1)
+    rule = TariffRule(
+        component="brokerage", broker="Upstox", exchange="NSE", segment="FO",
+        product="FUTURES", transaction_side="BUY", calculation_basis="ORDER_NOTIONAL",
+        rate=Decimal("0.05"), rate_unit="PERCENT",
+        effective_from=date(2026, 4, 1), effective_to=None,
+        source_url="https://upstox.com/brokerage-charges/",
+        source_retrieved_on=date(2026, 10, 23),
+        source_sha256=hashlib.sha256(b"aggregate-variance-tariff-mismatch").hexdigest(),
+        review_status="APPROVED",
+    )
+    snapshot = build_tariff_estimate_snapshot(
+        rule,
+        trade_date=date(2026, 10, 22),
+        calculation_base="1000.00",
+        source_identity=f"broker-order:{trades[0].broker_order_ref_id}:brokerage",
+        comparison_scope="ORDER_FILL_SET",
+        source_fill_record_ids=[trade.id for trade in trades],
+    )
+    persisted, _ = persist_tariff_estimate_snapshot(db, snapshot)
+    db.commit()
+
+    with pytest.raises(ValueError, match="does not exactly match the estimate comparison scope"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=persisted.id, source_component_id=component.id
+        )
+    db.rollback()
+    assert db.query(TariffEstimateVarianceRecord).count() == 0

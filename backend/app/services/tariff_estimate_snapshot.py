@@ -105,9 +105,10 @@ def build_tariff_estimate_snapshot(
         "review_status": rule.review_status,
     }
     rule_fingerprint = _sha256(json.dumps(rule_payload, sort_keys=True, separators=(",", ":")))
-    # Identity is intentionally separate from the content fingerprint: same identity
-    # + changed snapshot must conflict at persistence, never overwrite silently.
-    idempotency_key = _sha256("|".join((source_identity.strip(), rule_fingerprint, trade_date.isoformat())))
+    # Keep event identity independent of mutable rule content and calculation inputs.
+    # If a tariff rule/base changes for the same event, the same key must collide so
+    # persistence can detect a conflicting replay rather than create a second estimate.
+    idempotency_key = _sha256("|".join((source_identity.strip(), rule.component, trade_date.isoformat())))
     return TariffEstimateSnapshot(
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         idempotency_key=idempotency_key,

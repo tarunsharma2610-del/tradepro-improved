@@ -1033,3 +1033,10 @@ Current target is only `tarunsharma2610-del/tradepro-improved`, branch `phase3/d
 Latest head `bf9b3bc74cfa4047bc084bf6136e12c0a93a65c0` adds direct-SQL snapshot immutability tests. Migration `202610240016` installs PostgreSQL and SQLite triggers rejecting UPDATE/DELETE for `tariff_estimate_snapshot_records`. Exact-head CI run [39959332425](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39959332425) passed pytest, broker-write guard, SQLite and PostgreSQL migration round-trips, and synthetic restore drill.
 
 Next: (1) add PostgreSQL concurrent estimate-persistence tests and confirm DB-trigger behavior on both dialects; (2) extend tariff model for order-scoped caps/conditional rules before using such rules; (3) compare approved-rule estimates against reviewed actual source components as variance-only records; (4) never promote an estimate into the per-fill actual ledger; (5) verify final docs and CI before requesting merge approval. Real broker-note authenticity and retained Oracle backup restore remain separate operational checks.
+
+
+## Handover update — 2026-10-23
+
+Task B progress is verified on `tarunsharma2610-del/tradepro-improved`, branch `phase3/durable-per-fill-charge-allocation`. Commit `fd0e42917611f3b6c3f826cb2e99971fd3e2cce6` adds the PostgreSQL concurrent estimate persistence test and fixes its fixture imports. CI run [39960409771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39960409771) passed: 677 tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore drill.
+
+Migration `202610240016` enforces append-only tariff snapshots via PostgreSQL/SQLite triggers; direct SQL UPDATE/DELETE regression tests were added. Remaining Task B: integrate variance-only estimate-versus-actual comparison with reviewed contract-note source components, and model/test conditional order-level caps, minimums, GST taxable bases and other special tariff bases before approving those rule types. Do not promote estimates into the per-fill actual ledger. PR #6 remains draft/unmerged; live broker order writes disabled; original `Tradepro` untouched.

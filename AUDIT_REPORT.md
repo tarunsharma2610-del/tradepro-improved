@@ -1290,3 +1290,7 @@ Current PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https:
 
 ## Aggregate variance design proposal — 2026-10-23
 The design document now proposes exact fill-set scope for order-level actuals, non-linear/capped tariffs calculated at order scope, transactional revalidation and append-only variance. No aggregate support is claimed as implemented. Residual risks include advanced tariff semantics and the need to verify design compatibility with current snapshot/schema/migrations before implementation.
+
+
+## Variance service audit addendum — 2026-10-23
+Found and corrected two validation gaps: the service did not validate `eligible_fill_set_sha256` against canonical manifest JSON and did not compare the linked trade's side/date with estimate scope. Added fail-closed checks and regression tests. CI on latest code head `6ca045e2bbdd71d37dd77baf50df3881db2b1e71` remains unverified. Order/multi-fill aggregation and advanced tariff semantics are still unsupported.

@@ -603,25 +603,26 @@ def test_concurrent_tariff_estimate_persistence_exact_replay_and_conflict(confli
             with outcome_lock:
                 outcomes.append(outcome)
 
-    try:
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            futures = [pool.submit(persist, candidate) for candidate in snapshots]
-            for future in futures:
-                future.result(timeout=30)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(persist, candidate) for candidate in snapshots]
+        for future in futures:
+            future.result(timeout=30)
 
-        successes = [row for row in outcomes if row[0] == "ok"]
-        errors = [row for row in outcomes if row[0] == "error"]
-        assert len(successes) == 2 if not conflicting_payload else len(successes) == 1, outcomes
-        if not conflicting_payload:
-            assert sorted(row[1] for row in successes) == ["CREATED", "EXACT_REPLAY"], outcomes
-        else:
-            assert len(errors) == 1 and "Conflicting tariff estimate replay" in errors[0][2], outcomes
+    successes = [row for row in outcomes if row[0] == "ok"]
+    errors = [row for row in outcomes if row[0] == "error"]
+    if not conflicting_payload:
+        assert len(successes) == 2, outcomes
+        assert not errors, outcomes
+        assert sorted(row[1] for row in successes) == ["CREATED", "EXACT_REPLAY"], outcomes
+    else:
+        assert len(successes) == 1, outcomes
+        assert len(errors) == 1 and "Conflicting tariff estimate replay" in errors[0][2], outcomes
 
-        with Session() as db:
-            from app.models.tariff_estimate_snapshot_record import TariffEstimateSnapshotRecord
-            rows = db.query(TariffEstimateSnapshotRecord).filter_by(
-                idempotency_key=snapshots[0].idempotency_key
-            ).all()
-            assert len(rows) == 1
-            assert rows[0].snapshot_sha256 == successes[0][3]
-            assert rows[0].snapshot_json in {candidate.canonical_json() for candidate in snapshots}
+    with Session() as db:
+        from app.models.tariff_estimate_snapshot_record import TariffEstimateSnapshotRecord
+        rows = db.query(TariffEstimateSnapshotRecord).filter_by(
+            idempotency_key=snapshots[0].idempotency_key
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].snapshot_sha256 == successes[0][3]
+        assert rows[0].snapshot_json in {candidate.canonical_json() for candidate in snapshots}

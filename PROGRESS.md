@@ -1,3 +1,13 @@
+## CI failure correction — 24 October 2026
+
+- The first evidence-identity CI attempt passed the pytest suite and broker-write boundary guard but failed the SQLite Alembic upgrade/downgrade/re-upgrade step. The migration was corrected to use Alembic batch mode for adding/dropping the nullable evidence foreign key, column, and index on SQLite.
+- Review also found a replay contract mismatch: replay comparisons required evidence identity even when a retry omitted evidence metadata, despite the existing comment saying retries need not resubmit it. Exact replay now accepts omitted evidence ID only when all other execution/charge details match; when an evidence ID is supplied, it must match. New promotions still require reviewed evidence.
+- Added a regression test for exact replay without resubmitted evidence metadata. The distinct-evidence-ID conflict test remains in place.
+- Latest exact-head CI after these fixes is pending; do not mark this gate green until pytest, SQLite/PostgreSQL 16 migration round-trips, and safety checks complete on the same SHA.
+- PR #6 remains draft/unmerged; live broker order submission remains disabled. All work remains confined to `tradepro-improved`.
+
+---
+
 ## Live-fill evidence-identity idempotency fix — 24 October 2026
 
 - Review found that exact replay compared the visible charge reference and amounts but did not persist/compare the reviewed evidence row identity on `Execution`. That could make a different evidence record with the same reference and amounts indistinguishable during replay.

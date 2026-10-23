@@ -12,6 +12,7 @@ class TariffEstimateSnapshotRecord(BaseModel):
         CheckConstraint("length(idempotency_key) = 64", name="ck_tariff_estimate_snapshot_key_sha256"),
         CheckConstraint("length(snapshot_sha256) = 64", name="ck_tariff_estimate_snapshot_digest_sha256"),
         CheckConstraint("status = 'ESTIMATE_ONLY'", name="ck_tariff_estimate_snapshot_estimate_only"),
+        CheckConstraint("comparison_scope IN ('TRADE_FILL', 'ORDER_FILL_SET')", name="ck_tariff_estimate_snapshot_comparison_scope"),
     )
 
     idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)

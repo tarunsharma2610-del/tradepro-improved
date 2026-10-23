@@ -1451,3 +1451,14 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - [x] Exact-code-head CI run 39960409771: 677 passed, 1 warning; broker-write guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore drill passed.
 - [ ] Variance-only comparison of tariff estimates against reviewed actual contract-note components, with no estimate promotion to actual/per-fill ledger.
 - [ ] Explicit component-specific conditional/order-level caps, minimums, GST taxable bases and special tariff models before approving those rule types.
+
+
+## Task B variance requirements — 2026-10-23
+
+- [x] Snapshot schema v2 can retain an exact broker fill identity; missing identity fails closed for comparison.
+- [x] Append-only variance record/migration stores estimate, reviewed actual, signed difference and percentage without changing accounting allocations.
+- [x] Variance service validates reviewed contract-note evidence, stored document integrity, source/component hashes, reviewer provenance, broker connection, component/currency and exact single-fill scope.
+- [x] Exact replay, missing-identity rejection, direct SQL immutability and no-allocation-side-effect tests.
+- [x] CI run 39961777103: 680 passed, 1 warning; broker-write guard, SQLite/PostgreSQL 16 migration round-trips and synthetic restore passed.
+- [ ] Aggregate variance comparison for multi-fill/order-level actual components.
+- [ ] Conditional/order-level caps, minimums, GST taxable base and special tariff models before approving those rule types.

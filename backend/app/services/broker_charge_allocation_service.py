@@ -82,3 +82,38 @@ def allocate_component_total(
     if sum(result.values(), Decimal("0")) != total:
         raise RuntimeError("Allocation arithmetic failed source-total reconciliation.")
     return result
+
+
+def capped_order_brokerage_total(
+    per_fill_uncapped_charges: Mapping[str, Decimal | str | int | float],
+    order_cap: Decimal | str | int | float,
+) -> Decimal:
+    """Return the order-level brokerage total after applying a supplied cap.
+
+    This helper performs arithmetic only. The caller must supply per-fill
+    uncapped brokerage amounts calculated from the correct effective-dated
+    tariff and a cap applicable to that exact order/product. It deliberately
+    does not split the capped total back across fills or authorize promotion.
+    """
+    if not per_fill_uncapped_charges:
+        raise ValueError("At least one fill charge is required.")
+    if any(not isinstance(fill_id, str) or not fill_id.strip() for fill_id in per_fill_uncapped_charges):
+        raise ValueError("Every fill requires a non-empty stable fill ID.")
+
+    charges = {
+        fill_id: _money(charge)
+        for fill_id, charge in per_fill_uncapped_charges.items()
+    }
+    if any(charge < 0 for charge in charges.values()):
+        raise ValueError("Uncapped brokerage charges cannot be negative.")
+    if any(charge != charge.quantize(PAISE) for charge in charges.values()):
+        raise ValueError("Uncapped brokerage charges must be expressed to paise precision.")
+
+    cap = _money(order_cap)
+    if cap < 0:
+        raise ValueError("Order brokerage cap cannot be negative.")
+    if cap != cap.quantize(PAISE):
+        raise ValueError("Order brokerage cap must be expressed to paise precision.")
+
+    uncapped_total = sum(charges.values(), Decimal("0"))
+    return min(uncapped_total, cap).quantize(PAISE)

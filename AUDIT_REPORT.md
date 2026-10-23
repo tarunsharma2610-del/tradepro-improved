@@ -1298,3 +1298,7 @@ Found and corrected two validation gaps: the service did not validate `eligible_
 
 ## Exact-head CI evidence — 2026-10-23
 Verified [run 39968000009](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39968000009) for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: successful, 683 passed, 1 warning; broker-write boundary guard passed; SQLite migration and isolated PostgreSQL 16 synthetic restore checks completed. The test warning concerns deprecated AnyIO BlockingPortal alias use in Starlette TestClient. This is not evidence for later documentation commits or unfinished aggregate variance/tariff work.
+
+
+## Aggregate variance implementation audit addendum — 2026-10-23
+First-pass order-fill-set scope now exists in code: canonical fill-set snapshot fields, persisted scope metadata, migration `202610240018`, exact reviewed manifest comparison, same broker order/connection/side/trade-date validation, and variance scope/digest replay identity. New aggregate tests have been added. CI on the resulting head is pending; do not claim feature acceptance until tests and migrations pass. Existing records remain immutable; migration intentionally does not update legacy variance rows.

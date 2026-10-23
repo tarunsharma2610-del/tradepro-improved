@@ -1,9 +1,10 @@
-## Lock-order review follow-up — 24 October 2026
+## Current accounting review status — 24 October 2026
 
-- After the evidence-identity fix passed exact-head CI, a further lock-order review found that live-fill accounting selected a source-component row with `FOR UPDATE` before calling the verifier, while the verifier locks evidence first and then the component/allocation/trade rows. This could invert the documented lock order under concurrent verification and promotion.
-- Updated live-fill accounting to discover the candidate component without a row lock, invoke the verifier to acquire locks in canonical evidence-first order, then refresh the already-locked component before reading mutable fields. This is a targeted deadlock-risk correction, not yet verified until exact-head CI completes.
-- Exact-head CI prior to this follow-up passed pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, and the synthetic restore drill. New CI must validate this lock-order change.
-- PR #6 remains draft/unmerged; live broker order submission remains disabled; original `Tradepro` remains out of scope.
+- Exact-head CI for the latest PR head `fe723b6929e4a8ce429470b339519e4ee9616e4c` passed in [run 39918318386](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39918318386): backend pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore, and evidence-retention steps all succeeded.
+- The evidence-identity migration and replay regression passed in an earlier successful exact-head run; the subsequent lock-order correction also passed in run `39918291052`, and all three documentation commits passed their respective CI runs. This is CI evidence for the current code/doc heads, not a proof of all possible concurrency behavior.
+- Accounting review remains open for final adversarial review and merge approval. PR #6 remains draft and unmerged; live broker order submission remains disabled.
+- The synthetic restore drill does not prove recovery of actual Oracle Free Cloud data. Real retained backup/restore acceptance and authentic account-specific broker evidence remain separate future operational checks.
+- All changes remain confined to `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository is out of scope.
 
 ---
 

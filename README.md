@@ -714,3 +714,7 @@ The Phase 3 design now documents a proposed exact-fill-set model for order-level
 
 ### Variance validation update
 Variance comparison now verifies the reviewed fill-manifest digest and checks that the linked broker fill's side and trade date match the estimate. Regression tests were added. The latest code head still requires CI verification; aggregate variance and advanced tariff semantics remain unsupported.
+
+
+### Latest verified code CI
+CI run [39968000009](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39968000009) passed for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 passed, 1 warning; broker-write guard passed; SQLite migration and isolated PostgreSQL 16 synthetic restore checks passed. This run predates the latest documentation-only updates. Aggregate variance and advanced tariff semantics remain open.

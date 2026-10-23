@@ -306,3 +306,50 @@ def test_gst_rejects_nonapproved_rule_and_invalid_component_amount():
             approved_taxable_component_names=("brokerage",),
         )
 
+@pytest.mark.parametrize(
+    ("product", "basis", "base", "expected"),
+    [
+        ("OPTIONS", "OPTION_PREMIUM", "100000", "1.00"),
+        ("FUTURES", "FUTURES_TURNOVER", "100000", "1.00"),
+    ],
+)
+def test_stamp_duty_requires_explicit_buy_side_and_product_base(product, basis, base, expected):
+    from app.services.broker_tariff_rules import calculate_stamp_duty_for_trade
+
+    rule = make_rule(
+        component="stamp_duty",
+        product=product,
+        transaction_side="BUY",
+        calculation_basis=basis,
+        rate=Decimal("0.001"),
+        rate_unit="PERCENT",
+    )
+    assert calculate_stamp_duty_for_trade(
+        rule,
+        transaction_side="BUY",
+        product=product,
+        calculation_base=base,
+    ) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("rule_changes", "side", "product", "base", "message"),
+    [
+        ({"component": "stamp_duty", "transaction_side": "SELL"}, "SELL", "OPTIONS", "1000", "BUY side"),
+        ({"component": "stamp_duty", "product": "OPTIONS", "calculation_basis": "FUTURES_TURNOVER"}, "BUY", "OPTIONS", "1000", "Product must"),
+        ({"component": "stamp_duty", "product": "OPTIONS", "calculation_basis": "ORDER_NOTIONAL"}, "BUY", "OPTIONS", "1000", "requires OPTIONS"),
+        ({"component": "brokerage"}, "BUY", "OPTIONS", "1000", "stamp_duty"),
+    ],
+)
+def test_stamp_duty_rejects_wrong_side_product_basis_or_component(rule_changes, side, product, base, message):
+    from app.services.broker_tariff_rules import calculate_stamp_duty_for_trade
+
+    rule = make_rule(**rule_changes)
+    with pytest.raises(ValueError, match=message):
+        calculate_stamp_duty_for_trade(
+            rule,
+            transaction_side=side,
+            product=product,
+            calculation_base=base,
+        )
+

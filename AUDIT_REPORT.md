@@ -1286,3 +1286,7 @@ Residual limitations: aggregate order-level/multi-fill variance is deliberately 
 
 ## Verified exact PR-head CI 39962196672 — 2026-10-23
 Current PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed; no failed steps. This is not merge approval. Aggregate multi-fill variance and advanced tariff semantics remain risks and must be implemented/tested or fail closed.
+
+
+## Aggregate variance design proposal — 2026-10-23
+The design document now proposes exact fill-set scope for order-level actuals, non-linear/capped tariffs calculated at order scope, transactional revalidation and append-only variance. No aggregate support is claimed as implemented. Residual risks include advanced tariff semantics and the need to verify design compatibility with current snapshot/schema/migrations before implementation.

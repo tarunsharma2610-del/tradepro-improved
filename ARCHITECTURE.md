@@ -1,3 +1,13 @@
+## Latest documentation-head CI confirmation — 23 October 2026
+
+- The documentation-head commit `f0a933bdf69488de770556ec9b5a4c520744c598` has now passed GitHub Actions run [39972012921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39972012921): **688 passed, 1 warning** in 44.82 seconds.
+- All workflow steps completed successfully: backend pytest, broker-write boundary guard, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill, and retention of restore evidence.
+- The warning is a deprecation warning from the test dependency stack; GitHub also notes Node.js 20 action deprecation. These are maintenance warnings, not failed test steps, and should be tracked separately.
+- This verifies commit `f0a933bdf69488de770556ec9b5a4c520744c598` only. Any later documentation edits require their own exact-head CI check. Synthetic restore remains distinct from restoring the user's actual Oracle Cloud backup; no authentic Upstox note was supplied or verified.
+- PR #6 remains draft and unmerged. Live broker order writes remain disabled. Work stays exclusively in `tarunsharma2610-del/tradepro-improved`; the original `Tradepro` repository is out of scope.
+
+---
+
 ## Phase 3 — durable per-fill charge allocation verification — 23 October 2026
 
 - Latest test refinement commit: [e73c9cbb8b5c4e34abe9874b548dbae5cbf762af](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e73c9cbb8b5c4e34abe9874b548dbae5cbf762af). The PostgreSQL concurrency test now only treats the expected `ValueError` for pending/unreconciled allocation rows as a valid fail-closed outcome; unexpected exceptions fail the test.

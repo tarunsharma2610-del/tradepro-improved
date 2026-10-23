@@ -985,3 +985,7 @@ Remaining: design aggregate variance for order-level/multi-fill source component
 
 ## Verified exact PR-head CI 39962196672 — 2026-10-23
 PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning, broker-write guard passed, no failed steps. Remaining Phase 3 gates: define/test aggregate order-level or multi-fill variance; implement/test advanced tariff semantics or explicitly reject unsupported rule shapes; complete accounting replay/conflict/rollback/concurrency integration review; rerun CI on final head and sync docs before merge consideration.
+
+
+## Aggregate variance design checkpoint — 2026-10-23
+A proposed design is documented for safe `ORDER_FILL_SET` variance alongside existing `TRADE_FILL` variance. It requires exact canonical fill membership, scope-correct tariff computation, transactional evidence/manifest rechecks, idempotent immutable variance, and zero allocation/P&L side effects. Implementation and acceptance tests remain open. Inspect the current code/schema first; do not claim aggregate variance support yet.

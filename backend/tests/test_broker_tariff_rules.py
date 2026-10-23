@@ -434,3 +434,14 @@ def test_trade_entrypoint_rejects_gst_without_explicit_taxable_component_set():
             trade_date=date(2026, 10, 23),
             calculation_base="100000",
         )
+
+
+@pytest.mark.parametrize("rate_unit", ["INR_FIXED", "INR_PER_CRORE"])
+def test_brokerage_caps_reject_nonpercentage_rate_units(rate_unit):
+    with pytest.raises(ValueError, match="order-notional percentage brokerage"):
+        make_rule(
+            component="brokerage",
+            calculation_basis="ORDER_NOTIONAL",
+            rate_unit=rate_unit,
+            minimum_inr=Decimal("1.00"),
+        )

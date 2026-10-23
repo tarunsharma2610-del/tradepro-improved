@@ -72,9 +72,13 @@ class TariffRule:
         minimum = normalize_cap(self.minimum_inr, "Minimum brokerage")
         maximum = normalize_cap(self.maximum_inr, "Maximum brokerage")
         if (minimum is not None or maximum is not None) and (
-            self.component.lower() != "brokerage" or self.calculation_basis != "ORDER_NOTIONAL"
+            self.component.lower() != "brokerage"
+            or self.calculation_basis != "ORDER_NOTIONAL"
+            or self.rate_unit != "PERCENT"
         ):
-            raise ValueError("Minimum and maximum caps are supported only for order-notional brokerage rules.")
+            raise ValueError(
+                "Minimum and maximum caps are supported only for order-notional percentage brokerage rules."
+            )
         if minimum is not None and maximum is not None and minimum > maximum:
             raise ValueError("Minimum brokerage cannot exceed maximum brokerage.")
         object.__setattr__(self, "minimum_inr", minimum)

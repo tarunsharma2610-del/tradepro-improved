@@ -661,3 +661,11 @@ A first persistence slice adds `broker_charge_evidence` and migration `202610210
 - Code review confirms evidence-row serialization, broker-connection validation for target fills, conflicting replay rejection, and pending status until source-ledger verification/promotion.
 - Source component values remain human-transcribed; CI fixtures are synthetic and cannot verify real contract-note amounts or real backup recovery. Both real-evidence acceptance gates remain open.
 - PR #6 remains draft/unmerged; live broker writes remain disabled; original `Tradepro` is out of scope. Do not treat this note as approval to merge or enable live trading.
+
+
+## Follow-up verification — 23 October 2026 (supersedes stale pending wording)
+
+- Exact current head `3c592de0bb2262ec4753196dfba26d7a31c70986` passed GitHub Actions Backend tests in [run 39927573489](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39927573489). The job passed pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, synthetic PostgreSQL/document-volume restore, and restore-evidence retention.
+- Code inspection confirms `backend/tests/test_broker_charge_allocation_postgres_concurrency.py::test_live_fill_promotion_races_with_component_ledger_verification` exists. It races `LiveFillAccountingService.promote_trade` against `verify_component_allocation_ledger` using synthetic persisted evidence and asserts no errors, one inserted execution, one live position, and reconciled component allocations. The CI job passed this PostgreSQL-enabled integration suite.
+- Therefore, earlier checkpoint text describing this exact integrated race test as still absent is superseded. Remaining Phase 3 acceptance is broader review of charge-component allocation policy and evidence provenance, source authenticity limits for public examples, plus separate real Oracle backup/restore validation; synthetic tests do not prove real-account authenticity or actual backup recovery.
+- PR #6 remains draft/open/unmerged until all acceptance gates are reviewed and the user explicitly approves. Live broker order writes remain disabled. Scope remains only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` remains outside scope.

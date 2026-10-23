@@ -1,12 +1,14 @@
-## Latest documentation-head CI confirmation — 23 October 2026
+## Latest Phase 3 CI checkpoint — 23 October 2026
 
-- The documentation-head commit `f0a933bdf69488de770556ec9b5a4c520744c598` has now passed GitHub Actions run [39972012921](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39972012921): **688 passed, 1 warning** in 44.82 seconds.
-- All workflow steps completed successfully: backend pytest, broker-write boundary guard, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill, and retention of restore evidence.
-- The warning is a deprecation warning from the test dependency stack; GitHub also notes Node.js 20 action deprecation. These are maintenance warnings, not failed test steps, and should be tracked separately.
-- This verifies commit `f0a933bdf69488de770556ec9b5a4c520744c598` only. Any later documentation edits require their own exact-head CI check. Synthetic restore remains distinct from restoring the user's actual Oracle Cloud backup; no authentic Upstox note was supplied or verified.
-- PR #6 remains draft and unmerged. Live broker order writes remain disabled. Work stays exclusively in `tarunsharma2610-del/tradepro-improved`; the original `Tradepro` repository is out of scope.
+- Stamp-duty regression setup was corrected in commit [c98d13d86031ffe173546dbbc9c8b0234e02456e](https://github.com/tarunsharma2610-del/tradepro-improved/commit/c98d13d86031ffe173546dbbc9c8b0234e02456e): invalid-basis test cases now explicitly select the intended `BUY` transaction side so each case reaches the basis guard it is designed to exercise.
+- Exact-head GitHub Actions run [39974055917](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39974055917) passed on that code/test commit: **707 passed, 1 warning**. Broker-write boundary guard, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill, and evidence retention all passed.
+- Existing tests already cover inclusive effective-date boundaries, expiry of old tariff rules, overlapping approved-rule rejection, deterministic largest-remainder paise allocation, input-order independence, zero-weight residual handling, and exact source-total reconciliation. Do not duplicate these tests; review whether the rules are wired into real reviewed component-specific tariff selection before enabling automatic allocation.
+- Brokerage and GST calculation helpers and stamp-duty side/product/base guards are arithmetic safeguards only. They do not establish official Upstox tariff rates or tax-law applicability. Authentic contract-note verification and actual Oracle Cloud backup recovery remain separate evidence/deployment gates.
+- The documentation files are being synchronized after this green code/test head. Rerun CI on the resulting latest documentation commit before claiming the complete latest head is green.
+- PR #6 remains draft/unmerged pending accounting acceptance review and explicit user approval. Live broker order writes remain disabled. Work is exclusively in `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository is out of scope.
 
 ---
+
 
 ## Phase 3 — durable per-fill charge allocation verification — 23 October 2026
 

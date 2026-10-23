@@ -81,3 +81,16 @@ def test_record_is_not_promoted_to_actual_charge(db_session):
         record.status = "VERIFIED_ACTUAL"
         db_session.flush()
     db_session.rollback()
+
+
+def test_persisted_snapshot_is_append_only(db_session):
+    record, _ = persist_tariff_estimate_snapshot(db_session, make_snapshot())
+    db_session.commit()
+
+    record.snapshot_json = record.snapshot_json + " "
+    with pytest.raises(ValueError, match="snapshots are immutable"):
+        db_session.flush()
+    db_session.rollback()
+
+    persisted = db_session.query(type(record)).filter_by(id=record.id).one()
+    assert persisted.snapshot_json == make_snapshot().canonical_json()

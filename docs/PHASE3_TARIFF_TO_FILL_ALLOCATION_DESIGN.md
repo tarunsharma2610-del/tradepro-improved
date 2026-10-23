@@ -100,3 +100,48 @@ Safety boundary remains unchanged: an estimate is never an actual broker charge 
 A variance-only comparison service and append-only table are now implemented. Snapshot schema v2 optionally stores exact `source_trade_record_id`; comparison fails closed without it and currently requires the reviewed actual source component manifest to contain exactly that one fill. The service validates reviewed contract-note evidence, source bytes/hash, reviewer provenance, broker connection, component and currency. It records estimate, actual, signed variance and percentage only; it does not touch the allocation ledger.
 
 Migration `202610240017` and direct-SQL immutability tests are included. CI run 39961777103 passed 680 tests and the broker-write/migration/restore gates. Multi-fill/order-level aggregate variance remains intentionally unsupported; a per-fill estimate must not be compared to an aggregate source total. Conditional caps/minimums, GST taxable-base composition and special charge models remain open.
+
+
+## Aggregate estimate-versus-actual variance design proposal — 2026-10-23
+
+Status: proposed design only; not implemented or approved for accounting promotion.
+
+### Scope identity
+
+Do not overload a single-fill snapshot by treating an order-level actual as equivalent. Add an explicit immutable comparison scope with one of:
+
+- `TRADE_FILL`: exactly one stable broker trade/fill ID.
+- `ORDER_FILL_SET`: a broker order identity plus a canonical, sorted set of stable fill IDs and a digest of that exact set.
+
+The scope record must retain broker connection identity, exchange/segment/product, trade date, component, currency, rule snapshot digest, calculation basis, source/evidence ID, reviewer identity, and calculation version. A comparison is valid only if the estimate scope and reviewed actual source-component manifest identify the same scope and exact fill set. Missing/ambiguous order IDs, incomplete fill sets, duplicate fill IDs, currency/component mismatch, or changed fill-set digest must fail closed.
+
+### Calculation rule
+
+- Compute order-scoped charges at order scope using the approved rule (for example, a brokerage cap/minimum) before comparing with the contract-note total. Never sum per-fill calculations when the tariff is nonlinear or capped.
+- For additive per-fill components, aggregation may sum independently calculated fill estimates only if the approved tariff rule explicitly declares that aggregation method and units.
+- Store estimate, actual, signed variance (actual minus estimate), absolute variance, percentage with a documented zero-estimate policy, rounding/version, and the exact member-fill digest in an append-only variance record.
+- The variance path is audit-only: it must not mutate source components, allocations, positions, realized P&L, or estimate snapshots, and must never create a missing actual charge.
+- A single source component cannot be compared to a partial fill set or to a different set with the same count. Exact member identity—not only quantity/count/total—is required.
+
+### Idempotency and concurrency
+
+Use a stable unique comparison key over estimate snapshot/version, actual source component ID/hash, scope type, and fill-set digest. Exact replay returns the existing identical record. Same key with different payload rejects as a conflict. Lock/recheck the estimate, source component, evidence review/hash state, and current fill manifest within one transaction; insert the variance record atomically. Concurrent retries must produce one record, and any evidence/manifest mismatch must produce no write. Database immutability protections should reject direct UPDATE/DELETE in PostgreSQL and SQLite.
+
+### Required acceptance tests before implementation is considered complete
+
+1. Exact one-fill comparison remains unchanged and backward-compatible.
+2. Exact order fill-set matches; reordered input canonicalizes to the same digest.
+3. Missing, incomplete, extra, duplicate, or changed fill IDs reject.
+4. Same fill count but different members rejects.
+5. Order-scoped brokerage cap/minimum is calculated once at order scope, not multiplied per fill.
+6. Additive component aggregation only works when the rule explicitly opts in.
+7. Component, currency, connection, trade-date, source hash, reviewer, or rule-version mismatch rejects.
+8. Exact replay is idempotent; conflicting replay rejects; concurrent same-key calls create one row.
+9. Evidence review revoked or manifest changed before transaction recheck causes rollback/no variance write.
+10. Failed comparison leaves actual allocations, positions, P&L and estimate snapshots byte-for-byte/logically unchanged.
+11. Direct SQL UPDATE/DELETE against variance records fails on PostgreSQL and SQLite.
+12. Migration upgrade/downgrade/re-upgrade and broker-write guard remain green.
+
+### Explicit exclusions until separately designed
+
+Do not infer order membership from timestamp/quantity/symbol alone. Do not use aggregate totals from public examples as verified evidence for a real account. Do not allocate an aggregate estimate into per-fill actual accounting. Multi-component GST composition, conditional lesser-of pricing, DP/depository fee bases and other unsupported tariff models remain separately gated; each needs an approved source-backed rule and executable examples.

@@ -1589,3 +1589,12 @@ API charge breakdowns are reconciliation/reference inputs, not automatically con
 - [x] Add exact-head CI result for stamp-duty unit guard.
 - [x] Record official Upstox charge API source contracts and keep API estimates distinct from actual contract-note evidence.
 - [ ] Implement and test unsupported DP per-scrip/day and STT/CTT tax-event models before enabling them.
+
+
+## Generic conditional-charge guard — 2026-10-23
+The next audit found that the generic rate calculator could apply plain rate×base arithmetic to STT/CTT and DP/demat components, despite these requiring event- or day/scrip-specific semantics. Commit `ee09183e5b8eeff0311431faa90b807d9b561ce7` adds an explicit fail-closed block for STT, CTT, DP, DP charges and demat/depository transaction charges in the generic calculator, with parameterized regression tests. Exact-head CI run [39988242077](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39988242077) is running; do not call the commit verified until it completes.
+
+Audit note: the implementation constant is `tariff-estimate-snapshot-v4`; older design text saying snapshot v3 is stale and is corrected in the accompanying design-document update. Remaining gated models include STT/CTT event-specific rules, DP daily per-scrip minimums, conditional lesser-of pricing, and reviewed source-backed effective-date rates. No live tariff registry or live broker order writes are enabled.
+
+- [x] Block generic arithmetic for STT/CTT and DP/demat components; parameterized regression tests added.
+- [ ] Verify CI on the exact code commit and synchronized documentation commit.

@@ -1636,3 +1636,11 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - This is a fail-closed safeguard, not completion of tariff automation. Still required: tests/rules for brokerage caps and multi-fill orders, GST taxable base, buy-side stamp duty, side/product-specific STT/CTT, exchange/segment charges and effective-date transitions. Ambiguous source scope must remain pending.
 - Public Upstox contract-note examples are not independently authenticated. Actual Oracle Cloud backup recovery remains separate from synthetic restore CI.
 - PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains out of scope.
+
+
+## Component-wide fail-closed regression coverage — 23 October 2026
+
+- Commit `b976d29c8c20542ec155fe34337e110e9a7dc1db` passed GitHub Actions [run 39930456526](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39930456526). All job steps succeeded: backend pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore, evidence retention and cleanup.
+- Expanded the source-reconciliation regression test across all six currently supported source component types (brokerage, STT, exchange charges, SEBI charges, stamp duty and GST) and both automatic bases (`QUANTITY`, `NOTIONAL`). Each unsupported basis is rejected and allocation rows remain `PENDING_RECONCILIATION`.
+- This verifies fail-closed handling only. It does not implement or approve automatic tariff-derived allocation. Component-specific rules and tests remain required for brokerage caps/multi-fill orders, GST taxable base, buyer-side stamp duty, side/product-specific STT/CTT, exchange/segment charges, and effective-date transitions.
+- PR #6 remains draft and unmerged pending acceptance review and explicit user approval. Live broker order writes remain disabled. Work remains confined to `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.

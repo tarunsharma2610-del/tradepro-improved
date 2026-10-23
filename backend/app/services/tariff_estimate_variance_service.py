@@ -111,6 +111,19 @@ def compare_estimate_to_reviewed_actual(
         raise ValueError("Actual source component requires independent review.")
     if not component.eligible_fill_ids_json:
         raise ValueError("Actual source component must have a reviewed eligible-fill manifest.")
+    source_trade_record_id = payload.get("source_trade_record_id")
+    if not isinstance(source_trade_record_id, str):
+        raise ValueError("Estimate snapshot must identify the exact broker fill before variance comparison.")
+    try:
+        source_trade_record_id = str(UUID(source_trade_record_id))
+        manifest_ids = json.loads(component.eligible_fill_ids_json)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("Estimate fill identity or actual eligible-fill manifest is invalid.") from exc
+    canonical_manifest = [source_trade_record_id]
+    if manifest_ids != canonical_manifest:
+        raise ValueError(
+            "Variance comparison requires a source component scoped to exactly the estimate's single broker fill."
+        )
 
     evidence = (
         db.query(BrokerChargeEvidence)

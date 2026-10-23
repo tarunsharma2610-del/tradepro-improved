@@ -1,3 +1,13 @@
+## Concurrent exact-replay verification — 24 October 2026
+
+- The PostgreSQL concurrency regression for two distinct fills plus a concurrent duplicate promotion passed in implementation CI run `39919563611` on commit `f8441f6d11b863e3ad173282664663cd4985eeb2`.
+- The latest documentation checkpoint also passed in run `39919590316` on head `c99e4972cf4c2c902bddc076af6327c3bfd25fa7`. PR #6 currently points to that exact head, remains draft and unmerged.
+- Reviewed existing regression coverage includes changed execution detail rejection, changed evidence rejection, omitted evidence metadata on exact replay, conflicting evidence IDs, failed-commit rollback, non-reconciled/missing per-fill allocations, charge-ledger mismatch, exchange-time ordering, and cumulative quantity caps.
+- This supports the reviewed replay/rollback behaviors but does not establish live operational readiness. Real retained Oracle backup restore and account-specific authentic contract-note validation remain outstanding operational checks.
+- Live broker order submission remains disabled. All changes are confined to `tarunsharma2610-del/tradepro-improved`; original `Tradepro` remains untouched.
+
+---
+
 ## Concurrent exact-replay regression — 24 October 2026
 
 - Adversarial review found that PostgreSQL concurrency coverage exercised two distinct fills racing for the same parent/child order, but did not explicitly exercise two simultaneous calls promoting the exact same broker trade with identical evidence.

@@ -145,3 +145,16 @@ Use a stable unique comparison key over estimate snapshot/version, actual source
 ### Explicit exclusions until separately designed
 
 Do not infer order membership from timestamp/quantity/symbol alone. Do not use aggregate totals from public examples as verified evidence for a real account. Do not allocate an aggregate estimate into per-fill actual accounting. Multi-component GST composition, conditional lesser-of pricing, DP/depository fee bases and other unsupported tariff models remain separately gated; each needs an approved source-backed rule and executable examples.
+
+
+## Implementation checkpoint: explicit fill-set variance scope — 2026-10-23
+
+Implementation has started on the proposed `TRADE_FILL` / `ORDER_FILL_SET` scope:
+
+- Snapshot schema v3 now captures canonical sorted fill IDs and SHA-256 for single-fill and order-fill-set estimates.
+- Persistence stores scope metadata with the immutable snapshot; migration `202610240018` adds scope fields and database scope validation for PostgreSQL and SQLite.
+- Variance comparison now requires the actual reviewed component manifest to match the exact estimate fill set, validates all identified fills are present on the same broker connection and same broker order, and requires side/trade-date consistency across the set.
+- Variance records retain scope and fill-set digest; replay checks include those fields. Existing variance rows are not mutated during migration; legacy single-fill replay tolerates their absent digest.
+- Added builder tests for canonical fill-set ordering, duplicate IDs, empty sets, plus aggregate comparison/replay and mismatched-manifest tests.
+
+Status: implementation is in progress and exact-head CI is pending. Do not claim aggregate variance is accepted until CI, migration downgrade/re-upgrade, and all tests pass. The current design intentionally rejects cross-order fill sets and does not yet implement advanced nonlinear tariff models beyond the existing rule calculator.

@@ -380,6 +380,21 @@ def test_replay_with_changed_charge_evidence_is_rejected(accounting_context):
     assert live_position.avg_price == Decimal("100.2500")
 
 
+def test_exact_replay_without_resubmitted_evidence_metadata_is_idempotent(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
+    service = LiveFillAccountingService(db)
+    first = service.promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
+    assert first.inserted is True
+
+    # Evidence is mandatory for a new promotion, but an exact retry can safely
+    # reuse the already-accounted execution when the caller omits evidence ID.
+    replay = service.promote_trade(user.id, record.id, _charges())
+    assert replay.inserted is False
+    assert replay.execution_id == first.execution_id
+    assert db.query(Execution).count() == 1
+    assert db.query(LivePosition).one().quantity == 2
+
+
 def test_replay_rejects_different_evidence_id_with_same_reference_and_charges(accounting_context):
     from uuid import uuid4
 

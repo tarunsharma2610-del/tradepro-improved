@@ -311,9 +311,12 @@ def test_promotion_flush_failure_rolls_back_all_reconciliation_changes(reconcili
     assert {row.reconciliation_reference for row in rows} == {None}
 
 
-def test_verification_fails_closed_for_automatic_notional_basis_until_tariff_rules_exist(reconciliation_context):
+@pytest.mark.parametrize("allocation_basis", ["QUANTITY", "NOTIONAL"])
+def test_verification_fails_closed_for_automatic_basis_until_tariff_rules_exist(
+    reconciliation_context, allocation_basis
+):
     db, evidence, component, _trades, _rows = _setup(reconciliation_context)
-    component.allocation_basis = "NOTIONAL"
+    component.allocation_basis = allocation_basis
     db.commit()
 
     with pytest.raises(ValueError, match="Automatic quantity/notional allocation is disabled"):

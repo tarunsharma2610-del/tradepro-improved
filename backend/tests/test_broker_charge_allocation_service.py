@@ -113,3 +113,39 @@ def test_order_brokerage_cap_rejects_invalid_inputs(charges, cap, message):
 
     with pytest.raises(ValueError, match=message):
         capped_order_brokerage_total(charges, cap)
+
+
+@pytest.mark.parametrize(
+    ("taxable_base", "rate_percent", "expected"),
+    [
+        ("100.00", "18", "18.00"),
+        ("0.03", "18", "0.01"),
+        ("0.02", "18", "0.00"),
+        ("100.00", "0", "0.00"),
+    ],
+)
+def test_gst_arithmetic_uses_explicit_base_and_paise_rounding(
+    taxable_base, rate_percent, expected
+):
+    from app.services.broker_charge_allocation_service import gst_on_explicit_taxable_base
+
+    assert gst_on_explicit_taxable_base(taxable_base, rate_percent) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("taxable_base", "rate_percent", "message"),
+    [
+        ("-0.01", "18", "base cannot be negative"),
+        ("1.001", "18", "paise precision"),
+        ("100.00", "-1", "between 0 and 100"),
+        ("100.00", "101", "between 0 and 100"),
+        ("NaN", "18", "finite decimal"),
+    ],
+)
+def test_gst_arithmetic_rejects_invalid_base_or_rate(
+    taxable_base, rate_percent, message
+):
+    from app.services.broker_charge_allocation_service import gst_on_explicit_taxable_base
+
+    with pytest.raises(ValueError, match=message):
+        gst_on_explicit_taxable_base(taxable_base, rate_percent)

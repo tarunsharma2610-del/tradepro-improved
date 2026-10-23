@@ -139,3 +139,27 @@ def test_order_fill_set_snapshot_requires_exact_fill_set():
             comparison_scope="ORDER_FILL_SET",
             source_fill_record_ids=[],
         )
+
+def test_order_brokerage_snapshot_applies_rule_bound_cap_and_fingerprints_it():
+    capped_rule = make_rule(maximum_inr=Decimal("25.00"))
+    snapshot = build(capped_rule)
+
+    assert snapshot.calculated_amount == "25.00"
+    assert snapshot.maximum_inr == "25.00"
+    assert snapshot.minimum_inr is None
+    assert snapshot.schema_version == "tariff-estimate-snapshot-v4"
+
+    changed_cap = build(make_rule(maximum_inr=Decimal("30.00")))
+    assert snapshot.idempotency_key == changed_cap.idempotency_key
+    with pytest.raises(ValueError, match="Conflicting tariff estimate replay"):
+        compare_estimate_replay(snapshot, changed_cap)
+
+
+def test_order_brokerage_snapshot_applies_rule_bound_minimum():
+    snapshot = build(
+        make_rule(minimum_inr=Decimal("20.00")),
+        calculation_base="100",
+    )
+    assert snapshot.calculated_amount == "20.00"
+    assert snapshot.minimum_inr == "20.00"
+

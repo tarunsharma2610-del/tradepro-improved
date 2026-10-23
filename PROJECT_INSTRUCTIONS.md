@@ -943,3 +943,7 @@ Before recording estimate-versus-actual variance, validate the canonical eligibl
 
 ## Exact-head CI checkpoint — 2026-10-23
 CI run 39968000009 passed on code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 passed, 1 warning; broker-write boundary guard passed; SQLite migration and isolated PostgreSQL 16 synthetic restore checks completed. Run CI on the latest docs head before treating the whole checkpoint as green. Aggregate variance remains unimplemented; advanced tariff shapes must be implemented/tested or fail closed. Keep PR draft and live writes disabled.
+
+
+## Aggregate variance implementation guard — 2026-10-23
+Snapshot v3 and migration `202610240018` now introduce explicit `TRADE_FILL` / `ORDER_FILL_SET` scope. Review exact canonical fill identity, same-order/connection/side/date validation, replay/conflict handling, and SQLite/PostgreSQL migration round-trips. Exact-head CI is pending; do not call aggregate variance complete until the new tests and migrations pass. Preserve append-only evidence and variance records; do not merge or enable live writes.

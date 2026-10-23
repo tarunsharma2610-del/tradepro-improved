@@ -444,6 +444,7 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
 
         manifest = json.dumps([str(trade_id)], separators=(",", ":"))
         manifest_hash = hashlib.sha256(manifest.encode()).hexdigest()
+        brokerage_component_id = None
         with Session.begin() as db:
             for component_name, amount in amounts.items():
                 component = BrokerChargeSourceComponent(
@@ -466,13 +467,16 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
                 )
                 db.add(component)
                 db.flush()
+                if component_name == "brokerage":
+                    brokerage_component_id = component.id
+                is_pending = component_name == "brokerage"
                 db.add(BrokerChargeAllocation(
                     evidence_id=evidence_id, broker_connection_id=connection_id,
                     broker_trade_record_id=trade_id, charge_component=component_name,
                     source_component_total=amount, allocated_amount=amount, currency="INR",
                     allocation_basis="EXPLICIT_REVIEWED", method_version="largest-remainder-v1",
-                    status="RECONCILED",
-                    reconciliation_reference=(
+                    status="PENDING_RECONCILIATION" if is_pending else "RECONCILED",
+                    reconciliation_reference=None if is_pending else (
                         f"charge-component:{component.id}:sha256:{digest}:fills:{manifest_hash}"
                     ),
                 ))
@@ -480,22 +484,26 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
         barrier = threading.Barrier(2)
         outcomes = []
         outcomes_lock = threading.Lock()
+        charge_payload = LiveFillChargeBreakdown(
+            **amounts, total_charges=sum(amounts.values(), Decimal("0.00")),
+            source="BROKER_REPORTED", reference=report_ref,
+            evidence_id=evidence_id, reviewer_user_id=reviewer_id,
+        )
 
-        def verify_ledger():
+        def promote_component():
             with Session() as db:
                 barrier.wait(timeout=10)
                 try:
-                    component = db.query(BrokerChargeSourceComponent).filter_by(
-                        evidence_id=evidence_id, component_name="brokerage"
-                    ).one()
-                    result = verify_component_allocation_ledger(
-                        db, evidence_id=evidence_id, source_component_id=component.id
+                    rows = promote_verified_component_allocations(
+                        db, evidence_id=evidence_id,
+                        source_component_id=brokerage_component_id,
+                        reviewer_user_id=reviewer_id,
                     )
                     db.commit()
-                    outcome = ("verify", result["status"])
+                    outcome = ("ledger_promotion", "ok", len(rows))
                 except Exception as exc:
                     db.rollback()
-                    outcome = ("error", "verify", type(exc).__name__, str(exc))
+                    outcome = ("error", "ledger_promotion", type(exc).__name__, str(exc))
                 with outcomes_lock:
                     outcomes.append(outcome)
 
@@ -504,31 +512,61 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
                 barrier.wait(timeout=10)
                 try:
                     result = LiveFillAccountingService(db).promote_trade(
-                        owner_id,
-                        trade_id,
-                        LiveFillChargeBreakdown(
-                            **amounts, total_charges=sum(amounts.values(), Decimal("0.00")),
-                            source="BROKER_REPORTED", reference=report_ref,
-                            evidence_id=evidence_id, reviewer_user_id=reviewer_id,
-                        ),
+                        owner_id, trade_id, charge_payload,
                     )
-                    outcome = ("promote", result.inserted, result.execution_id)
+                    outcome = ("live_fill", "ok", result.inserted, str(result.execution_id))
                 except Exception as exc:
                     db.rollback()
-                    outcome = ("error", "promote", type(exc).__name__, str(exc))
+                    outcome = ("live_fill", "blocked", type(exc).__name__, str(exc))
                 with outcomes_lock:
                     outcomes.append(outcome)
 
         with ThreadPoolExecutor(max_workers=2) as pool:
-            futures = [pool.submit(verify_ledger), pool.submit(promote_fill)]
+            futures = [pool.submit(promote_component), pool.submit(promote_fill)]
             for future in futures:
                 future.result(timeout=60)
 
-        errors = [item for item in outcomes if item[0] == "error"]
-        assert not errors, outcomes
-        assert ("verify", "ALREADY_RECONCILED") in outcomes, outcomes
-        promotions = [item for item in outcomes if item[0] == "promote"]
-        assert len(promotions) == 1 and promotions[0][1] is True, outcomes
+        # Ledger promotion must succeed. Live accounting may safely win after the
+        # row is reconciled, or fail closed while it is still pending; it must
+        # never leave partial execution/position writes on that failed attempt.
+        ledger_results = [item for item in outcomes if item[0] == "ledger_promotion"]
+        assert ledger_results == [("ledger_promotion", "ok", 1)], outcomes
+        fill_results = [item for item in outcomes if item[0] == "live_fill"]
+        assert len(fill_results) == 1, outcomes
+        if fill_results[0][1] == "blocked":
+            with Session() as db:
+                assert db.query(Execution).filter_by(
+                    broker_connection_id=connection_id, broker_trade_id=f"live-trade-{suffix}"
+                ).count() == 0
+                assert db.query(LivePosition).filter_by(
+                    broker_connection_id=connection_id, instrument_id=instrument_id
+                ).count() == 0
+            with Session() as db:
+                retry = LiveFillAccountingService(db).promote_trade(owner_id, trade_id, charge_payload)
+                assert retry.inserted is True
+                db.commit()
+        else:
+            assert fill_results[0][2] is True, outcomes
+
+        # A durable exact replay must be idempotent; conflicting charges must
+        # be rejected without changing the single execution/position.
+        with Session() as db:
+            replay = LiveFillAccountingService(db).promote_trade(owner_id, trade_id, charge_payload)
+            assert replay.inserted is False
+            db.commit()
+        with Session() as db:
+            with pytest.raises(ValueError, match="conflict|match|charge|evidence"):
+                LiveFillAccountingService(db).promote_trade(
+                    owner_id, trade_id,
+                    LiveFillChargeBreakdown(
+                        **{**amounts, "brokerage": Decimal("19.99")},
+                        total_charges=Decimal("23.85"),
+                        source="BROKER_REPORTED", reference=report_ref,
+                        evidence_id=evidence_id, reviewer_user_id=reviewer_id,
+                    ),
+                )
+            db.rollback()
+
         with Session() as db:
             executions = db.query(Execution).filter_by(
                 broker_connection_id=connection_id, broker_trade_id=f"live-trade-{suffix}"

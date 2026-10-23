@@ -184,3 +184,125 @@ def test_trade_charge_entrypoint_fails_closed_without_approved_match():
             trade_date=date(2026, 10, 23),
             calculation_base="100000",
         )
+
+@pytest.mark.parametrize(
+    ("order_notional", "minimum", "maximum", "expected"),
+    [
+        ("100000", None, None, "50.00"),
+        ("100", "20", None, "20.00"),
+        ("1000000", None, "100", "100.00"),
+        ("100000", "10", "100", "50.00"),
+    ],
+)
+def test_order_brokerage_applies_explicit_order_minimum_and_cap(
+    order_notional, minimum, maximum, expected
+):
+    from app.services.broker_tariff_rules import calculate_order_brokerage
+
+    rule = make_rule(calculation_basis="ORDER_NOTIONAL")
+    assert calculate_order_brokerage(
+        rule,
+        order_notional=order_notional,
+        minimum_inr=minimum,
+        maximum_inr=maximum,
+    ) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"minimum_inr": "-1"},
+        {"maximum_inr": "NaN"},
+        {"minimum_inr": "20", "maximum_inr": "10"},
+    ],
+)
+def test_order_brokerage_rejects_invalid_caps(changes):
+    from app.services.broker_tariff_rules import calculate_order_brokerage
+
+    args = {"order_notional": "1000"}
+    args.update(changes)
+    with pytest.raises(ValueError):
+        calculate_order_brokerage(make_rule(), **args)
+
+
+def test_order_brokerage_requires_order_scope_and_percent_rule():
+    from app.services.broker_tariff_rules import calculate_order_brokerage
+
+    with pytest.raises(ValueError, match="ORDER_NOTIONAL"):
+        calculate_order_brokerage(
+            make_rule(calculation_basis="PREMIUM"),
+            order_notional="1000",
+        )
+
+
+def test_gst_uses_only_exact_explicitly_approved_taxable_component_set():
+    from app.services.broker_tariff_rules import calculate_gst_on_explicit_components
+
+    rule = make_rule(
+        component="gst",
+        calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+        rate=Decimal("18"),
+        rate_unit="PERCENT",
+    )
+    base, amount = calculate_gst_on_explicit_components(
+        rule,
+        taxable_components={"brokerage": "100.00", "exchange_charges": "20.00"},
+        approved_taxable_component_names=("brokerage", "exchange_charges"),
+    )
+    assert base == Decimal("120.00")
+    assert amount == Decimal("21.60")
+
+
+@pytest.mark.parametrize(
+    ("components", "approved"),
+    [
+        ({"brokerage": "100"}, ("brokerage", "exchange_charges")),
+        ({"brokerage": "100", "stt": "5"}, ("brokerage",)),
+        ({"brokerage": "100"}, ("brokerage", "brokerage")),
+    ],
+)
+def test_gst_rejects_missing_extra_or_duplicate_taxable_component_names(components, approved):
+    from app.services.broker_tariff_rules import calculate_gst_on_explicit_components
+
+    rule = make_rule(
+        component="gst",
+        calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+        rate=Decimal("18"),
+        rate_unit="PERCENT",
+    )
+    with pytest.raises(ValueError):
+        calculate_gst_on_explicit_components(
+            rule,
+            taxable_components=components,
+            approved_taxable_component_names=approved,
+        )
+
+
+def test_gst_rejects_nonapproved_rule_and_invalid_component_amount():
+    from app.services.broker_tariff_rules import calculate_gst_on_explicit_components
+
+    rule = make_rule(
+        component="gst",
+        calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+        rate=Decimal("18"),
+        rate_unit="PERCENT",
+    )
+    with pytest.raises(ValueError, match="finite nonnegative"):
+        calculate_gst_on_explicit_components(
+            rule,
+            taxable_components={"brokerage": "NaN"},
+            approved_taxable_component_names=("brokerage",),
+        )
+    with pytest.raises(ValueError, match="Only an approved"):
+        calculate_gst_on_explicit_components(
+            make_rule(
+                component="gst",
+                calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+                rate=Decimal("18"),
+                rate_unit="PERCENT",
+                review_status="REVIEWED",
+            ),
+            taxable_components={"brokerage": "100"},
+            approved_taxable_component_names=("brokerage",),
+        )
+

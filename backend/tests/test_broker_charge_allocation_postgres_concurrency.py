@@ -556,3 +556,78 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
             db.execute(text("DELETE FROM users WHERE id IN (:owner, :reviewer, :extractor)"),
                         {"owner": str(owner_id), "reviewer": str(reviewer_id), "extractor": str(extractor_id)})
         engine.dispose()
+
+
+
+@pytest.mark.skipif(not os.getenv("TEST_POSTGRES_URL"), reason="requires dedicated PostgreSQL test database")
+@pytest.mark.parametrize("conflicting_payload", [False, True], ids=["exact-replay", "conflicting-payload"])
+def test_concurrent_tariff_estimate_persistence_exact_replay_and_conflict(conflicting_payload):
+    """The unique DB key arbitrates concurrent estimate inserts without overwrites."""
+    url = os.environ["TEST_POSTGRES_URL"]
+    engine = create_engine(url, pool_size=2, max_overflow=0, pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    suffix = uuid4().hex
+    today = datetime.now(timezone.utc).date()
+    rule = TariffRule(
+        component="brokerage", broker="Upstox", exchange="NSE", segment="FO",
+        product="FUTURES", transaction_side="SELL", calculation_basis="ORDER_NOTIONAL",
+        rate=Decimal("0.05"), rate_unit="PERCENT",
+        effective_from=date(2026, 4, 1), effective_to=None,
+        source_url="https://upstox.com/brokerage-charges/",
+        source_retrieved_on=date(2026, 10, 23), source_sha256=hashlib.sha256(b"test-tariff").hexdigest(),
+        review_status="APPROVED",
+    )
+
+    def snapshot(base):
+        return build_tariff_estimate_snapshot(
+            rule, trade_date=today, calculation_base=base,
+            source_identity=f"postgres-race:{suffix}:brokerage",
+        )
+
+    snapshots = [snapshot("100000"), snapshot("200000" if conflicting_payload else "100000")]
+    barrier = threading.Barrier(2)
+    outcomes = []
+    outcome_lock = threading.Lock()
+
+    def persist(candidate):
+        with Session() as db:
+            barrier.wait(timeout=10)
+            try:
+                record, status = persist_tariff_estimate_snapshot(db, candidate)
+                db.commit()
+                outcome = ("ok", status, record.idempotency_key, record.snapshot_sha256)
+            except Exception as exc:
+                db.rollback()
+                outcome = ("error", type(exc).__name__, str(exc))
+            with outcome_lock:
+                outcomes.append(outcome)
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(persist, candidate) for candidate in snapshots]
+            for future in futures:
+                future.result(timeout=30)
+
+        successes = [row for row in outcomes if row[0] == "ok"]
+        errors = [row for row in outcomes if row[0] == "error"]
+        assert len(successes) == 2 if not conflicting_payload else len(successes) == 1, outcomes
+        if not conflicting_payload:
+            assert sorted(row[1] for row in successes) == ["CREATED", "EXACT_REPLAY"], outcomes
+        else:
+            assert len(errors) == 1 and "Conflicting tariff estimate replay" in errors[0][2], outcomes
+
+        with Session() as db:
+            from app.models.tariff_estimate_snapshot_record import TariffEstimateSnapshotRecord
+            rows = db.query(TariffEstimateSnapshotRecord).filter_by(
+                idempotency_key=snapshots[0].idempotency_key
+            ).all()
+            assert len(rows) == 1
+            assert rows[0].snapshot_json == snapshots[0].canonical_json()
+    finally:
+        # The test uses a unique source identity and only deletes its own snapshot.
+        with Session.begin() as db:
+            from app.models.tariff_estimate_snapshot_record import TariffEstimateSnapshotRecord
+            db.query(TariffEstimateSnapshotRecord).filter_by(
+                idempotency_key=snapshots[0].idempotency_key
+            ).delete(synchronize_session=False)

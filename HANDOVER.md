@@ -1049,3 +1049,7 @@ Implemented a separate append-only variance record and service. Snapshot schema 
 Migration `202610240017` creates the variance table and database-level append-only triggers. Tests cover exact replay, missing identity fail-closed, SQL UPDATE/DELETE rejection, and unchanged allocation statuses. CI run [39961777103](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39961777103) passed 680 tests and all broker-write, migration and synthetic restore checks.
 
 Limit: only one-fill source components are comparable today. Aggregate order-level contract-note components require a separately designed aggregate estimate/linkage model. Tariff caps/minimums and special component bases remain unsupported. PR #6 draft/unmerged; live broker order writes disabled; original `Tradepro` untouched.
+
+
+## Verified exact PR-head CI 39962196672 — 2026-10-23
+Verified PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7`: [CI completed successfully](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672), 680 passed and 1 warning; broker-write guard passed and no steps failed. Continue with aggregate variance design, advanced tariff-rule support/fail-closed validation, and final accounting integration review. PR remains draft/unmerged; live writes disabled; only Tradepro Improved is in scope.

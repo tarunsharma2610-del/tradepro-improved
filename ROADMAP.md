@@ -962,3 +962,7 @@ Implemented canonical manifest-digest validation and estimate-versus-fill side/d
 
 ## Verified code CI — 2026-10-23
 Code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e` passed run 39968000009: 683 tests passed, 1 warning; broker-write guard passed; SQLite migration round-trip and isolated PostgreSQL 16 synthetic restore drill completed. Next: (1) verify CI on this documentation checkpoint's resulting head; (2) implement/test aggregate variance; (3) finish advanced tariff semantics or fail-closed rules; (4) run final accounting acceptance and sync docs. PR #6 remains draft/unmerged.
+
+
+## Aggregate variance implementation checkpoint — 2026-10-23
+First pass added explicit fill-set scope, canonical fill-set digest, migration `202610240018`, aggregate variance validation and regression tests. Next: verify exact-head CI; fix any failures; verify SQLite/PostgreSQL migration downgrade/re-upgrade; add missing concurrency/immutability cases if indicated; then complete advanced tariff-rule review and final accounting acceptance. Feature remains pending CI.

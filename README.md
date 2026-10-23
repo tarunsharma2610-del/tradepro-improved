@@ -702,3 +702,7 @@ Tariff snapshots are estimate-only and append-only. PostgreSQL and SQLite trigge
 ### Estimate-versus-actual variance
 
 Tradepro Improved now stores variance-only comparisons separately from actual charge allocation. The comparison requires reviewed contract-note evidence and an exact single-fill scope; it records estimate, actual, difference and percentage without modifying allocation rows. Aggregate/multi-fill variance and advanced tariff caps/special charge bases remain unsupported. The code checkpoint passed 680 tests and safety/migration/restore checks in [CI run 39961777103](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39961777103). PR #6 remains draft/unmerged; live broker order writes disabled.
+
+
+### Verified exact PR-head CI 39962196672
+Current draft PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed, no failed steps. Phase 3 remains open for aggregate variance, advanced tariff semantics, and final accounting review. PR remains draft/unmerged and live broker order writes disabled.

@@ -1057,3 +1057,7 @@ Verified PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7`: [CI completed su
 
 ## Aggregate variance design proposal — 2026-10-23
 Recorded a non-implemented proposal in `docs/PHASE3_TARIFF_TO_FILL_ALLOCATION_DESIGN.md`: explicit single-fill/order-fill-set scopes; canonical exact member-fill digest; order-scope computation for caps/nonlinear tariffs; exact replay/conflict/concurrency protections; immutable variance-only records; no accounting side effects. This is not yet implemented or approved. Next inspect actual tariff snapshot/service/schema and migration conventions before coding; retain draft PR and disabled live writes.
+
+
+## Variance validation hardening — 2026-10-23
+The variance service now checks the canonical eligible-fill manifest digest against `eligible_fill_set_sha256` and validates the identified broker fill's side and trade date against the estimate. Regression tests cover digest tampering and scope mismatch. Latest code head: `6ca045e2bbdd71d37dd77baf50df3881db2b1e71`; exact-head CI has not yet been verified. Aggregate variance is still design-only. Tariff calculator supports only percent, INR-per-crore and fixed units; no production rates or advanced cap/minimum/conditional/GST-base models are enabled.

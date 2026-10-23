@@ -147,3 +147,40 @@ def test_calculate_tariff_amount_rejects_non_approved_rule(status):
     rule = make_rule(review_status=status)
     with pytest.raises(ValueError, match="Only an approved tariff rule"):
         calculate_tariff_amount(rule, calculation_base="100000")
+
+
+def test_trade_charge_entrypoint_selects_then_calculates_exact_rule():
+    from app.services.broker_tariff_rules import calculate_charge_for_trade
+
+    rule, amount = calculate_charge_for_trade(
+        [make_rule()],
+        component="brokerage",
+        broker="Upstox",
+        exchange="NSE",
+        segment="FO",
+        product="FUTURES",
+        transaction_side="SELL",
+        calculation_basis="ORDER_NOTIONAL",
+        trade_date=date(2026, 10, 23),
+        calculation_base="100000",
+    )
+    assert rule is not None
+    assert amount == Decimal("50.00")
+
+
+def test_trade_charge_entrypoint_fails_closed_without_approved_match():
+    from app.services.broker_tariff_rules import calculate_charge_for_trade
+
+    with pytest.raises(ValueError, match="No approved tariff rule"):
+        calculate_charge_for_trade(
+            [make_rule(review_status="REVIEWED")],
+            component="brokerage",
+            broker="Upstox",
+            exchange="NSE",
+            segment="FO",
+            product="FUTURES",
+            transaction_side="SELL",
+            calculation_basis="ORDER_NOTIONAL",
+            trade_date=date(2026, 10, 23),
+            calculation_base="100000",
+        )

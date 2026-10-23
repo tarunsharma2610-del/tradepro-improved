@@ -135,25 +135,16 @@ def select_tariff_rule(
 PAISE = Decimal("0.01")
 
 
-def calculate_tariff_amount(
+GENERIC_CALCULATION_BASES = frozenset({"ORDER_NOTIONAL", "PREMIUM", "NOTIONAL", "TURNOVER"})
+
+
+def _calculate_rate_amount(
     rule: TariffRule,
-    *,
-    calculation_base: Decimal | str | int | float,
+    base_value: Decimal | str | int | float,
 ) -> Decimal:
-    """Calculate one rule's amount using its declared unit and explicit base.
-
-    The caller must already have selected an approved rule for the trade scope.
-    INR_PER_CRORE means rate rupees per INR 10,000,000 of base; it is deliberately
-    distinct from PERCENT to prevent silent unit confusion. Fixed rules ignore
-    the base magnitude but still require a finite nonnegative explicit base.
-    """
-    if not isinstance(rule, TariffRule):
-        raise ValueError("A validated tariff rule is required.")
-    if rule.review_status != "APPROVED":
-        raise ValueError("Only an approved tariff rule can be calculated.")
-
+    """Apply a validated rule's unit to a finite nonnegative base."""
     try:
-        base = calculation_base if isinstance(calculation_base, Decimal) else Decimal(str(calculation_base))
+        base = base_value if isinstance(base_value, Decimal) else Decimal(str(base_value))
     except (InvalidOperation, TypeError, ValueError) as exc:
         raise ValueError("Calculation base must be a finite nonnegative decimal.") from exc
     if not base.is_finite() or base < 0:
@@ -168,6 +159,29 @@ def calculate_tariff_amount(
     else:  # Defensive guard if a rule object is mutated or deserialized unsafely.
         raise ValueError("Unsupported tariff rate unit.")
     return amount.quantize(PAISE, rounding="ROUND_HALF_UP")
+
+
+def calculate_tariff_amount(
+    rule: TariffRule,
+    *,
+    calculation_base: Decimal | str | int | float,
+) -> Decimal:
+    """Calculate a simple rule only when its basis is explicitly supported.
+
+    Conditional, order-capped, stamp-duty, and GST-composition rules must use
+    their specialized guarded entry points. Treating an unfamiliar basis as a
+    generic percentage would silently apply the wrong tariff semantics.
+    """
+    if not isinstance(rule, TariffRule):
+        raise ValueError("A validated tariff rule is required.")
+    if rule.review_status != "APPROVED":
+        raise ValueError("Only an approved tariff rule can be calculated.")
+    if (
+        rule.calculation_basis not in GENERIC_CALCULATION_BASES
+        or rule.component.lower() in {"gst", "stamp_duty"}
+    ):
+        raise ValueError("Unsupported tariff calculation shape; use its specialized guarded entry point.")
+    return _calculate_rate_amount(rule, calculation_base)
 
 
 def calculate_charge_for_trade(
@@ -201,6 +215,17 @@ def calculate_charge_for_trade(
     )
     if rule.component.lower() == "brokerage" and rule.calculation_basis == "ORDER_NOTIONAL":
         amount = calculate_order_brokerage(rule, order_notional=calculation_base)
+    elif rule.component.lower() == "stamp_duty":
+        amount = calculate_stamp_duty_for_trade(
+            rule,
+            transaction_side=transaction_side,
+            product=product,
+            calculation_base=calculation_base,
+        )
+    elif rule.component.lower() == "gst":
+        raise ValueError(
+            "GST composition requires calculate_gst_on_explicit_components with an approved component set."
+        )
     else:
         amount = calculate_tariff_amount(rule, calculation_base=calculation_base)
     return rule, amount
@@ -271,7 +296,7 @@ def calculate_gst_on_explicit_components(
             raise ValueError(f"Taxable component {name} must be a finite nonnegative decimal.")
         taxable_base += amount
     taxable_base = taxable_base.quantize(PAISE, rounding="ROUND_HALF_UP")
-    gst_amount = calculate_tariff_amount(rule, calculation_base=taxable_base)
+    gst_amount = _calculate_rate_amount(rule, taxable_base)
     return taxable_base, gst_amount
 
 def calculate_stamp_duty_for_trade(
@@ -300,5 +325,7 @@ def calculate_stamp_duty_for_trade(
     }
     if (product, rule.calculation_basis) not in allowed_bases:
         raise ValueError("Stamp duty requires OPTIONS/OPTION_PREMIUM or FUTURES/FUTURES_TURNOVER.")
-    return calculate_tariff_amount(rule, calculation_base=calculation_base)
+    if rule.review_status != "APPROVED":
+        raise ValueError("Only an approved tariff rule can be calculated.")
+    return _calculate_rate_amount(rule, calculation_base)
 

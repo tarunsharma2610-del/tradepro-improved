@@ -38,6 +38,7 @@ def _existing_or_conflict(
     variance_percent: Decimal | None,
     comparison_scope: str,
     source_fill_set_sha256: str | None,
+    allow_legacy_digest: bool = False,
 ) -> TariffEstimateVarianceRecord:
     expected = (
         component.component_name,
@@ -59,7 +60,7 @@ def _existing_or_conflict(
         Decimal(existing.variance_amount),
         Decimal(existing.variance_percent) if existing.variance_percent is not None else None,
         existing.comparison_scope,
-        existing.source_fill_set_sha256,
+        (source_fill_set_sha256 if allow_legacy_digest and existing.source_fill_set_sha256 is None else existing.source_fill_set_sha256),
     )
     if actual_values != expected:
         raise ValueError("Conflicting estimate-versus-actual variance replay; refusing overwrite.")
@@ -295,6 +296,7 @@ def compare_estimate_to_reviewed_actual(
             estimated=estimated, actual=actual, variance=variance,
             variance_percent=variance_percent,
             comparison_scope=comparison_scope, source_fill_set_sha256=source_fill_set_sha256,
+            allow_legacy_digest="comparison_scope" not in payload,
         ), "EXACT_REPLAY"
 
     record = TariffEstimateVarianceRecord(

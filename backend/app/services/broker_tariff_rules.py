@@ -123,6 +123,11 @@ def calculate_tariff_amount(
     distinct from PERCENT to prevent silent unit confusion. Fixed rules ignore
     the base magnitude but still require a finite nonnegative explicit base.
     """
+    if not isinstance(rule, TariffRule):
+        raise ValueError("A validated tariff rule is required.")
+    if rule.review_status != "APPROVED":
+        raise ValueError("Only an approved tariff rule can be calculated.")
+
     try:
         base = calculation_base if isinstance(calculation_base, Decimal) else Decimal(str(calculation_base))
     except (InvalidOperation, TypeError, ValueError) as exc:

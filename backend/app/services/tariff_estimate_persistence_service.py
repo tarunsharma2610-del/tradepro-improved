@@ -44,6 +44,9 @@ def persist_tariff_estimate_snapshot(
         snapshot_sha256=snapshot.snapshot_sha256,
         snapshot_json=snapshot.canonical_json(),
         status="ESTIMATE_ONLY",
+        comparison_scope=snapshot.comparison_scope,
+        source_fill_ids_json=snapshot.source_fill_ids_json,
+        source_fill_set_sha256=snapshot.source_fill_set_sha256,
     )
     try:
         with db.begin_nested():

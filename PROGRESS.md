@@ -1793,3 +1793,12 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - Tariff calculator remains intentionally limited to PERCENT, INR_PER_CRORE, and INR_FIXED. Conditional/order-scoped caps, full GST taxable-base composition, and other special charge models are not yet implemented; do not treat simplified rates as production-approved.
 - Remaining Task B: add explicit PostgreSQL concurrent persistence/direct-SQL immutability coverage; finish tariff-to-estimate-versus-actual variance integration; keep actual contract-note components as the only source for per-fill actual allocation; sync all nine core docs at final acceptance.
 - PR #6 remains draft/unmerged. Live broker order writes remain disabled. Original `Tradepro` repository remains out of scope.
+
+
+## Task B verification addendum — 2026-10-23 (supersedes older pending/ORM-only notes)
+
+- Database-level tariff snapshot immutability is implemented by migration `202610240016_immutable_tariff_estimate_snapshots.py`: PostgreSQL and SQLite reject direct SQL UPDATE/DELETE on `tariff_estimate_snapshot_records`. Direct-SQL SQLite regression tests cover both operations.
+- Added a PostgreSQL race test for concurrent tariff snapshot persistence. It checks exact-replay convergence to one row and conflicting-payload fail-closed behavior. Latest code commit: `fd0e42917611f3b6c3f826cb2e99971fd3e2cce6`.
+- Exact-code-head CI run [39960409771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39960409771) passed: **677 passed, 1 warning**; broker-write guard passed; SQLite and PostgreSQL 16 migration downgrade/re-upgrade passed; synthetic PostgreSQL/document-volume restore passed.
+- Tariff rules remain intentionally limited to PERCENT, INR_PER_CRORE, and INR_FIXED. Do not approve rules needing order-scoped caps/minimums, lesser-of conditions, full GST taxable-base composition, DP/depository models, or other unsupported bases until modeled and tested.
+- Still open: variance-only integration between estimate snapshots and reviewed actual contract-note source components; estimates must never become actuals or source amounts for per-fill allocation. Keep PR #6 draft/unmerged, live broker order writes disabled, and original `Tradepro` out of scope.

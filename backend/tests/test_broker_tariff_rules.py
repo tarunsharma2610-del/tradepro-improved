@@ -345,3 +345,25 @@ def test_stamp_duty_rejects_wrong_side_product_basis_or_component(rule_changes, 
             calculation_base=base,
         )
 
+def test_trade_charge_entrypoint_applies_caps_from_selected_brokerage_rule():
+    from app.services.broker_tariff_rules import calculate_charge_for_trade
+
+    rule = make_rule(
+        calculation_basis="ORDER_NOTIONAL",
+        maximum_inr=Decimal("25.00"),
+    )
+    selected, amount = calculate_charge_for_trade(
+        [rule],
+        component="brokerage",
+        broker="Upstox",
+        exchange="NSE",
+        segment="FO",
+        product="FUTURES",
+        transaction_side="SELL",
+        calculation_basis="ORDER_NOTIONAL",
+        trade_date=date(2026, 10, 23),
+        calculation_base="100000",
+    )
+    assert selected.maximum_inr == Decimal("25.00")
+    assert amount == Decimal("25.00")
+

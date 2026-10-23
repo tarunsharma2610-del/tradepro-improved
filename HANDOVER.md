@@ -1053,3 +1053,7 @@ Limit: only one-fill source components are comparable today. Aggregate order-lev
 
 ## Verified exact PR-head CI 39962196672 — 2026-10-23
 Verified PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7`: [CI completed successfully](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672), 680 passed and 1 warning; broker-write guard passed and no steps failed. Continue with aggregate variance design, advanced tariff-rule support/fail-closed validation, and final accounting integration review. PR remains draft/unmerged; live writes disabled; only Tradepro Improved is in scope.
+
+
+## Aggregate variance design proposal — 2026-10-23
+Recorded a non-implemented proposal in `docs/PHASE3_TARIFF_TO_FILL_ALLOCATION_DESIGN.md`: explicit single-fill/order-fill-set scopes; canonical exact member-fill digest; order-scope computation for caps/nonlinear tariffs; exact replay/conflict/concurrency protections; immutable variance-only records; no accounting side effects. This is not yet implemented or approved. Next inspect actual tariff snapshot/service/schema and migration conventions before coding; retain draft PR and disabled live writes.

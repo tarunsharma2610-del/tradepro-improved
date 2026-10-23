@@ -68,13 +68,7 @@ def compare_estimate_to_reviewed_actual(
     a REVIEWED contract note is accepted. The estimate and actual remain separate
     records; this function never changes evidence/component/allocation status.
     """
-    snapshot = (
-        db.query(TariffEstimateSnapshotRecord)
-        .filter(TariffEstimateSnapshotRecord.id == estimate_snapshot_id)
-        .with_for_update()
-        .populate_existing()
-        .one_or_none()
-    )
+    snapshot = db.query(TariffEstimateSnapshotRecord).filter(TariffEstimateSnapshotRecord.id == estimate_snapshot_id).one_or_none()
     if snapshot is None or snapshot.status != "ESTIMATE_ONLY":
         raise ValueError("An existing ESTIMATE_ONLY tariff snapshot is required.")
     try:
@@ -94,9 +88,37 @@ def compare_estimate_to_reviewed_actual(
     if not estimated.is_finite() or estimated < 0:
         raise ValueError("Tariff estimate amount must be finite and nonnegative.")
 
-    component = (
+    # Match the shared evidence -> source component -> fill lock order used by
+    # ledger verification/promotion; the initial component read only discovers
+    # the evidence parent ID and is rechecked after acquiring locks.
+    component_hint = (
         db.query(BrokerChargeSourceComponent)
         .filter(BrokerChargeSourceComponent.id == source_component_id)
+        .first()
+    )
+    if component_hint is None:
+        raise ValueError("A VERIFIED broker source component is required for variance comparison.")
+    evidence = (
+        db.query(BrokerChargeEvidence)
+        .filter(BrokerChargeEvidence.id == component_hint.evidence_id)
+        .with_for_update()
+        .populate_existing()
+        .one_or_none()
+    )
+    if (
+        evidence is None
+        or evidence.source_kind != "CONTRACT_NOTE"
+        or evidence.status != "REVIEWED"
+        or evidence.reviewed_by_user_id is None
+        or evidence.reviewed_at is None
+    ):
+        raise ValueError("Reviewed contract-note evidence is required for variance comparison.")
+    component = (
+        db.query(BrokerChargeSourceComponent)
+        .filter(
+            BrokerChargeSourceComponent.id == source_component_id,
+            BrokerChargeSourceComponent.evidence_id == evidence.id,
+        )
         .with_for_update()
         .populate_existing()
         .one_or_none()
@@ -127,21 +149,6 @@ def compare_estimate_to_reviewed_actual(
             "Variance comparison requires a source component scoped to exactly the estimate's single broker fill."
         )
 
-    evidence = (
-        db.query(BrokerChargeEvidence)
-        .filter(BrokerChargeEvidence.id == component.evidence_id)
-        .with_for_update()
-        .populate_existing()
-        .one_or_none()
-    )
-    if (
-        evidence is None
-        or evidence.source_kind != "CONTRACT_NOTE"
-        or evidence.status != "REVIEWED"
-        or evidence.reviewed_by_user_id is None
-        or evidence.reviewed_at is None
-    ):
-        raise ValueError("Reviewed contract-note evidence is required for variance comparison.")
     if evidence.reviewed_by_user_id != component.reviewed_by_user_id:
         raise ValueError("Evidence and source-component reviewer provenance do not match.")
     connection = (

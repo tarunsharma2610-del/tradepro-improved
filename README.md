@@ -706,3 +706,7 @@ Tradepro Improved now stores variance-only comparisons separately from actual ch
 
 ### Verified exact PR-head CI 39962196672
 Current draft PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed, no failed steps. Phase 3 remains open for aggregate variance, advanced tariff semantics, and final accounting review. PR remains draft/unmerged and live broker order writes disabled.
+
+
+### Aggregate tariff variance status
+The Phase 3 design now documents a proposed exact-fill-set model for order-level estimate-versus-actual comparisons. This is a design proposal, not a supported feature. Aggregate comparisons remain unavailable until implemented, reviewed and tested. Per-fill accounting and live-order safeguards remain unchanged.

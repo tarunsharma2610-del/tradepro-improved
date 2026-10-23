@@ -679,3 +679,10 @@ Do not dual-write, copy, or promote one model into the other. Before a future br
 ## Tariff estimate snapshot boundary (2026-10-23)
 
 Tariff estimate snapshots are immutable, append-only audit records. Migration `202610240016` enforces this at the database layer with PostgreSQL and SQLite triggers rejecting UPDATE/DELETE; ORM guards and regression tests provide an additional layer. The snapshot's `ESTIMATE_ONLY` status is constrained separately. This record is not a broker actual and must never be used as the source amount for per-fill allocation. Actual per-fill charge allocation remains grounded in reviewed broker evidence and reconciled source components. Conditional/order-level tariff rules and variance-only estimate-versus-actual integration remain outstanding.
+
+
+## Tariff snapshot transaction and audit guarantees (2026-10-23)
+
+`TariffEstimateSnapshotRecord` remains `ESTIMATE_ONLY`, unique by idempotency key, and append-only at both ORM and database layers. Migration `202610240016` installs PostgreSQL/SQLite triggers blocking UPDATE/DELETE. Concurrent PostgreSQL tests validate exact replay convergence and conflicting-payload rejection. CI run 39960409771 passed 677 tests plus broker-write guard, migration round-trips and synthetic restore.
+
+Architecture boundary: estimates can be compared to actuals for variance only. Per-fill actual allocation must originate from reviewed broker-evidenced source components. Conditional/order-level tariff caps, minimums, GST taxable-base composition and special charge models remain unsupported until modeled and tested.

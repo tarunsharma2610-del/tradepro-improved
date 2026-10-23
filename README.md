@@ -1,3 +1,14 @@
+## Phase 3 live-fill / ledger-promotion concurrency checkpoint — 23 October 2026
+
+- Strengthened `backend/tests/test_broker_charge_allocation_postgres_concurrency.py::test_live_fill_promotion_races_with_component_ledger_verification` to race the actual `LiveFillAccountingService.promote_trade` path against `promote_verified_component_allocations` with one component initially `PENDING_RECONCILIATION`.
+- The PostgreSQL integration test now checks that an accounting attempt blocked by pending allocation rows leaves no partial execution/position writes, retries after ledger promotion, verifies exact replay returns `inserted=False`, rejects conflicting charge amounts, and ends with one execution, one live position, and all six charge components reconciled.
+- Code/test commit `9f064c5e7e4b946bda4f9e7bc3c92253bbcec913` passed exact-head GitHub Actions run [39970567823](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39970567823): **688 passed, 1 warning**. The broker-write boundary guard, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill, and evidence-retention step also passed.
+- This is synthetic PostgreSQL test evidence, not validation of an authentic personal Upstox contract note or restoration of the user's actual Oracle Cloud backup. Do not overstate either.
+- This note is a documentation update after the green code/test head; run CI again on the resulting latest documentation head before treating the checkpoint as fully current.
+- PR #6 remains draft/unmerged pending full accounting/idempotency review and explicit user approval. Live broker order submission remains disabled. All work is confined to `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope.
+
+---
+
 ## Current acceptance clarification — 23 October 2026
 
 - **Public contract-note research is complete for development:** third-party examples dated 12 March 2025 and 21 May 2024, plus a sample-note guide, were reviewed for structure and charge categories. See `docs/UPSTOX_CONTRACT_NOTE_AND_API_EVIDENCE.md`.

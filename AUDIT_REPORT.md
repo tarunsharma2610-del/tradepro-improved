@@ -1268,3 +1268,10 @@ A crash can leave a durable `LiveReconciliationRun` in `RUNNING`. Added `fail_or
 Finding: ORM-level immutability did not protect against direct SQL mutation. Addressed on the Phase 3 branch by migration `202610240016_immutable_tariff_estimate_snapshots.py`: PostgreSQL trigger rejects UPDATE/DELETE; SQLite triggers reject UPDATE/DELETE. Direct-SQL regression tests were added. Exact-head CI run 39959332425 passed pytest and the SQLite/PostgreSQL migration round-trip checks.
 
 Residual risks: concurrency semantics for tariff estimate persistence still need a dedicated PostgreSQL race test. Tariff calculation currently supports only percentage, INR-per-crore and fixed amounts; order-level caps/minimums, conditional “lesser-of” rules, GST taxable-base composition and other special charge bases require explicit modeling and tests. Estimate-versus-actual variance integration remains incomplete. Estimates must remain separate from reviewed broker actuals and the per-fill allocation ledger.
+
+
+## Audit addendum — tariff snapshot safeguards (2026-10-23)
+
+Resolved the gap where ORM-only protection could be bypassed by direct SQL: migration `202610240016` adds PostgreSQL and SQLite triggers rejecting UPDATE/DELETE on `tariff_estimate_snapshot_records`, with direct-SQL regression tests. A PostgreSQL concurrency test now exercises concurrent same-key exact replay and conflicting-payload rejection. CI run [39960409771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39960409771) passed 677 tests, broker-write guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore.
+
+Residual: the tariff calculator supports only PERCENT, INR_PER_CRORE and INR_FIXED. Conditional/order-level caps, minimums, GST taxable-base composition, DP/depository models and other special bases are not implemented. Estimate-versus-actual variance integration remains open. Only reviewed broker actual source components may feed per-fill actual allocations.

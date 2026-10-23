@@ -705,3 +705,7 @@ The proposed design distinguishes a single `TRADE_FILL` from an `ORDER_FILL_SET`
 
 ## Variance scope integrity checks — 2026-10-23
 Variance comparison now validates the canonical eligible-fill manifest's SHA-256 and confirms the linked broker fill side and trade date match the estimate snapshot. These checks fail closed before a variance record is written. Regression tests were added. Aggregate scope is still design-only; the current tariff calculator does not model caps/minimums, conditional rules or GST taxable-base composition.
+
+
+## Exact-head CI evidence — 2026-10-23
+CI run 39968000009 passed for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 passed, 1 warning; broker-write guard, SQLite migration round-trip and isolated PostgreSQL 16 synthetic restore drill passed. This run is for the pre-documentation code head. Aggregate order/multi-fill variance is not implemented and tariff models lacking explicit support must fail closed.

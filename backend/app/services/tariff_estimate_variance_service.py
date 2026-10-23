@@ -98,9 +98,23 @@ def compare_estimate_to_reviewed_actual(
     )
     if component_hint is None:
         raise ValueError("A VERIFIED broker source component is required for variance comparison.")
+    evidence_hint = db.query(BrokerChargeEvidence).filter(
+        BrokerChargeEvidence.id == component_hint.evidence_id
+    ).one_or_none()
+    if evidence_hint is None:
+        raise ValueError("Reviewed contract-note evidence is required for variance comparison.")
+    connection = (
+        db.query(BrokerConnection)
+        .filter(BrokerConnection.id == evidence_hint.broker_connection_id)
+        .with_for_update()
+        .populate_existing()
+        .one_or_none()
+    )
+    if connection is None:
+        raise ValueError("Reviewed actual evidence broker connection was not found.")
     evidence = (
         db.query(BrokerChargeEvidence)
-        .filter(BrokerChargeEvidence.id == component_hint.evidence_id)
+        .filter(BrokerChargeEvidence.id == evidence_hint.id)
         .with_for_update()
         .populate_existing()
         .one_or_none()
@@ -151,14 +165,7 @@ def compare_estimate_to_reviewed_actual(
 
     if evidence.reviewed_by_user_id != component.reviewed_by_user_id:
         raise ValueError("Evidence and source-component reviewer provenance do not match.")
-    connection = (
-        db.query(BrokerConnection)
-        .filter(BrokerConnection.id == evidence.broker_connection_id)
-        .with_for_update()
-        .populate_existing()
-        .one_or_none()
-    )
-    if connection is None or connection.broker.casefold() != str(payload.get("broker", "")).casefold():
+    if connection.broker.casefold() != str(payload.get("broker", "")).casefold():
         raise ValueError("Tariff estimate broker does not match the reviewed actual evidence connection.")
     trade = (
         db.query(BrokerTradeRecord)

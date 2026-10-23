@@ -31,6 +31,7 @@ from app.models.user import User
 from app.services.broker_charge_allocation_persistence_service import (
     allocate_and_persist_component,
 )
+from app.services.broker_charge_document_storage_service import store_document
 
 
 @pytest.mark.skipif(not os.getenv("TEST_POSTGRES_URL"), reason="requires dedicated PostgreSQL test database")

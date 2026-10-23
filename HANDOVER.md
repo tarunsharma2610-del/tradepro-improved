@@ -1,11 +1,12 @@
-## Phase 3 live-fill / ledger-promotion concurrency checkpoint — 23 October 2026
+## Phase 3 — durable per-fill charge allocation verification — 23 October 2026
 
-- Strengthened `backend/tests/test_broker_charge_allocation_postgres_concurrency.py::test_live_fill_promotion_races_with_component_ledger_verification` to race the actual `LiveFillAccountingService.promote_trade` path against `promote_verified_component_allocations` with one component initially `PENDING_RECONCILIATION`.
-- The PostgreSQL integration test now checks that an accounting attempt blocked by pending allocation rows leaves no partial execution/position writes, retries after ledger promotion, verifies exact replay returns `inserted=False`, rejects conflicting charge amounts, and ends with one execution, one live position, and all six charge components reconciled.
-- Code/test commit `9f064c5e7e4b946bda4f9e7bc3c92253bbcec913` passed exact-head GitHub Actions run [39970567823](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39970567823): **688 passed, 1 warning**. The broker-write boundary guard, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill, and evidence-retention step also passed.
-- This is synthetic PostgreSQL test evidence, not validation of an authentic personal Upstox contract note or restoration of the user's actual Oracle Cloud backup. Do not overstate either.
-- This note is a documentation update after the green code/test head; run CI again on the resulting latest documentation head before treating the checkpoint as fully current.
-- PR #6 remains draft/unmerged pending full accounting/idempotency review and explicit user approval. Live broker order submission remains disabled. All work is confined to `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope.
+- Latest test refinement commit: [e73c9cbb8b5c4e34abe9874b548dbae5cbf762af](https://github.com/tarunsharma2610-del/tradepro-improved/commit/e73c9cbb8b5c4e34abe9874b548dbae5cbf762af). The PostgreSQL concurrency test now only treats the expected `ValueError` for pending/unreconciled allocation rows as a valid fail-closed outcome; unexpected exceptions fail the test.
+- Exact-head GitHub Actions run [39971530839](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39971530839) passed: **688 passed, 1 warning**. Broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill, and retained restore evidence all passed.
+- This run validates synthetic test fixtures and restore mechanics only. It does not validate an authentic personal Upstox contract note or prove restoration of the user's actual Oracle Cloud backup.
+- The nine required project documents are being synchronized after this green code/test head; rerun CI on the resulting latest documentation commit before calling the documentation checkpoint current.
+- PR #6 remains draft/unmerged pending complete accounting/idempotency review and explicit user approval. Live broker order submission remains disabled. All work is limited to `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository is out of scope.
+
+---
 
 ---
 

@@ -1651,3 +1651,11 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - Exact commit `e5ade9dd831ff57efe8b33ba7014d5393b36ef4c` passed GitHub Actions [run 39930865283](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39930865283). Backend pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore, evidence retention, and cleanup all completed successfully.
 - The fail-closed allocation safeguard remains active. Component-wide tests for the six currently supported charge types and both `QUANTITY`/`NOTIONAL` automatic bases passed on earlier code commit `b976d29c8c20542ec155fe34337e110e9a7dc1db` (run 39930456526).
 - Next gate is actual component-specific tariff-rule implementation and tests; the current safeguards do not yet prove tariff correctness or complete Phase 3. PR #6 stays draft/unmerged pending acceptance review and explicit user approval. Live broker order writes remain disabled; only `tradepro-improved` is in scope.
+
+
+## Exact-head CI confirmation — 23 October 2026
+
+- Exact commit `ed6e88bc8f419496c83d1235da94cebeb2791f1e` passed GitHub Actions [run 39931215564](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39931215564). The complete backend job succeeded: pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade, synthetic PostgreSQL/document-volume restore, evidence retention and cleanup.
+- This verifies the checkpoint head only. Component-specific tariff-derived allocation is still not implemented or approved. The fail-closed source-reconciliation gate and tests for all six supported component names across `QUANTITY` and `NOTIONAL` bases remain the current safeguard.
+- Next engineering gate: inspect and implement tariff rules as effective-dated, component-specific calculations with provenance and regression fixtures before enabling any automatic allocation basis. Preserve pending reconciliation for unknown or ambiguous scope.
+- PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains outside scope.

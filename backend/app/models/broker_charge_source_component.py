@@ -63,6 +63,8 @@ class BrokerChargeSourceComponent(BaseModel):
     source_locator: Mapped[str] = mapped_column(String(200), nullable=False)
     # Canonical JSON array of reviewed BrokerTradeRecord UUIDs, sorted lexically.
     eligible_fill_ids_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Canonical reviewed per-fill weights for EXPLICIT_REVIEWED allocations.
+    eligible_fill_weights_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     eligible_fill_set_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rounding_policy: Mapped[str | None] = mapped_column(String(50), nullable=True)
     allocation_basis: Mapped[str | None] = mapped_column(String(50), nullable=True)

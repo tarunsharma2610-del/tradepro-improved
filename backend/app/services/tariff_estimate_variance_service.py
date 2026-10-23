@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
@@ -186,6 +187,15 @@ def compare_estimate_to_reviewed_actual(
     )
     if trade is None:
         raise ValueError("Estimate fill identity is not part of the reviewed evidence broker connection.")
+    if str(payload.get("transaction_side", "")).upper() != trade.side:
+        raise ValueError("Tariff estimate transaction side does not match the identified broker fill.")
+    try:
+        estimate_trade_date = date.fromisoformat(str(payload.get("trade_date", "")))
+        actual_trade_date = datetime.fromisoformat(trade.exchange_timestamp).date()
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Tariff estimate or broker fill trade date is invalid.") from exc
+    if estimate_trade_date != actual_trade_date:
+        raise ValueError("Tariff estimate trade date does not match the identified broker fill.")
     if component.source_sha256 != evidence.source_sha256:
         raise ValueError("Actual source component fingerprint does not match contract-note evidence.")
     if not evidence.storage_key:

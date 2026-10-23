@@ -188,3 +188,42 @@ def test_stamp_duty_rejects_ineligible_side_and_invalid_inputs(
         stamp_duty_for_explicit_buyer_side(
             value, rate_percent, transaction_side=side
         )
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "rate_percent", "expected"),
+    [
+        ("STT", "100000.00", "0.1", "100.00"),
+        ("CTT", "100000.00", "0.05", "50.00"),
+        ("stt", "0.03", "0.1", "0.00"),
+        ("CTT", "100.00", "0", "0.00"),
+    ],
+)
+def test_transaction_tax_arithmetic_uses_explicit_base_and_rate(
+    kind, value, rate_percent, expected
+):
+    from app.services.broker_charge_allocation_service import transaction_tax_on_explicit_base
+
+    assert transaction_tax_on_explicit_base(
+        value, rate_percent, tax_kind=kind
+    ) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "rate_percent", "message"),
+    [
+        ("GST", "100.00", "0.1", "must be STT or CTT"),
+        ("STT", "-0.01", "0.1", "cannot be negative"),
+        ("CTT", "1.001", "0.1", "paise precision"),
+        ("STT", "100.00", "-0.1", "between 0 and 100"),
+    ],
+)
+def test_transaction_tax_arithmetic_rejects_invalid_inputs(
+    kind, value, rate_percent, message
+):
+    from app.services.broker_charge_allocation_service import transaction_tax_on_explicit_base
+
+    with pytest.raises(ValueError, match=message):
+        transaction_tax_on_explicit_base(
+            value, rate_percent, tax_kind=kind
+        )

@@ -24,6 +24,7 @@ class TariffEstimateVarianceRecord(BaseModel):
         CheckConstraint("estimated_amount >= 0", name="ck_tariff_estimate_variance_estimated_nonnegative"),
         CheckConstraint("actual_amount >= 0", name="ck_tariff_estimate_variance_actual_nonnegative"),
         CheckConstraint("status = 'VARIANCE_ONLY'", name="ck_tariff_estimate_variance_status"),
+        CheckConstraint("comparison_scope IN ('TRADE_FILL', 'ORDER_FILL_SET')", name="ck_tariff_estimate_variance_comparison_scope"),
     )
 
     estimate_snapshot_id: Mapped[uuid.UUID] = mapped_column(

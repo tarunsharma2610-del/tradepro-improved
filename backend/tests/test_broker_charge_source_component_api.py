@@ -101,6 +101,10 @@ def test_source_component_is_pending_until_different_reviewer_confirms_source(
                 "confirm_source_matches": True,
                 "eligible_fill_record_ids": [str(trade.id)],
                 "rounding_policy": "largest-remainder-v1",
+                "allocation_basis": "EXPLICIT_REVIEWED",
+                "eligible_fill_weights": [{"fill_record_id": str(trade.id), "weight": "1"}],
+                "allocation_basis": "EXPLICIT_REVIEWED",
+                "eligible_fill_weights": [{"fill_record_id": str(trade.id), "weight": "1"}],
                 "review_note": "Checked amount and eligible fill against source page 1.",
             },
         )
@@ -114,6 +118,7 @@ def test_source_component_is_pending_until_different_reviewer_confirms_source(
         assert len(db_component.eligible_fill_set_sha256) == 64
         assert db_component.rounding_policy == "largest-remainder-v1"
         assert db_component.allocation_basis == "EXPLICIT_REVIEWED"
+        assert db_component.eligible_fill_weights_json == f'[{{"fill_record_id":"{trade.id}","weight":"1"}}]'
         db_evidence = db_session.get(BrokerChargeEvidence, UUID(evidence["id"]))
         db_session.refresh(db_evidence)
         assert db_evidence.status == "REVIEWED"

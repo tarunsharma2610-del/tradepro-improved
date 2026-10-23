@@ -70,6 +70,20 @@ def db_session():
                 SELECT RAISE(ABORT, 'tariff estimate snapshots are append-only');
             END
         """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_tariff_estimate_variance_no_update
+            BEFORE UPDATE ON tariff_estimate_variance_records
+            BEGIN
+                SELECT RAISE(ABORT, 'tariff estimate variance records are append-only');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_tariff_estimate_variance_no_delete
+            BEFORE DELETE ON tariff_estimate_variance_records
+            BEGIN
+                SELECT RAISE(ABORT, 'tariff estimate variance records are append-only');
+            END
+        """)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSessionLocal()
     try:

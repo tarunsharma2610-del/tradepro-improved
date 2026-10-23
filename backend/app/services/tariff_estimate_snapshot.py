@@ -15,10 +15,10 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
-from app.services.broker_tariff_rules import TariffRule, calculate_tariff_amount
+from app.services.broker_tariff_rules import TariffRule, calculate_order_brokerage, calculate_tariff_amount
 
 
-SNAPSHOT_SCHEMA_VERSION = "tariff-estimate-snapshot-v3"
+SNAPSHOT_SCHEMA_VERSION = "tariff-estimate-snapshot-v4"
 
 
 def _decimal_string(value: Decimal | str | int | float, field: str) -> str:
@@ -61,6 +61,8 @@ class TariffEstimateSnapshot:
     source_retrieved_on: str
     source_sha256: str
     review_status: str
+    minimum_inr: str | None
+    maximum_inr: str | None
     comparison_scope: str = "TRADE_FILL"
     source_fill_ids_json: str | None = None
     source_fill_set_sha256: str | None = None
@@ -122,7 +124,10 @@ def build_tariff_estimate_snapshot(
     fill_set_sha256 = _sha256(fill_ids_json) if fill_ids_json is not None else None
 
     base = _decimal_string(calculation_base, "Calculation base")
-    amount = calculate_tariff_amount(rule, calculation_base=Decimal(base))
+    if rule.component.lower() == "brokerage" and rule.calculation_basis == "ORDER_NOTIONAL":
+        amount = calculate_order_brokerage(rule, order_notional=Decimal(base))
+    else:
+        amount = calculate_tariff_amount(rule, calculation_base=Decimal(base))
     rule_payload: dict[str, Any] = {
         "component": rule.component,
         "broker": rule.broker,
@@ -133,6 +138,8 @@ def build_tariff_estimate_snapshot(
         "calculation_basis": rule.calculation_basis,
         "rate": format(rule.rate, "f"),
         "rate_unit": rule.rate_unit,
+        "minimum_inr": format(rule.minimum_inr, "f") if rule.minimum_inr is not None else None,
+        "maximum_inr": format(rule.maximum_inr, "f") if rule.maximum_inr is not None else None,
         "effective_from": rule.effective_from.isoformat(),
         "effective_to": rule.effective_to.isoformat() if rule.effective_to else None,
         "source_url": rule.source_url,
@@ -170,6 +177,8 @@ def build_tariff_estimate_snapshot(
         source_retrieved_on=rule.source_retrieved_on.isoformat(),
         source_sha256=rule.source_sha256.lower(),
         review_status=rule.review_status,
+        minimum_inr=format(rule.minimum_inr, "f") if rule.minimum_inr is not None else None,
+        maximum_inr=format(rule.maximum_inr, "f") if rule.maximum_inr is not None else None,
         comparison_scope=comparison_scope,
         source_fill_ids_json=fill_ids_json,
         source_fill_set_sha256=fill_set_sha256,

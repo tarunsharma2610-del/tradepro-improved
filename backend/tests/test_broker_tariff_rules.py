@@ -367,3 +367,70 @@ def test_trade_charge_entrypoint_applies_caps_from_selected_brokerage_rule():
     assert selected.maximum_inr == Decimal("25.00")
     assert amount == Decimal("25.00")
 
+
+
+def test_generic_calculator_rejects_special_or_unknown_calculation_shapes():
+    from app.services.broker_tariff_rules import calculate_tariff_amount
+
+    special_rules = [
+        make_rule(component="gst", calculation_basis="GST_TAXABLE_COMPONENT_SUM"),
+        make_rule(component="stamp_duty", transaction_side="BUY", product="OPTIONS",
+                  calculation_basis="OPTION_PREMIUM"),
+        make_rule(calculation_basis="LESSER_OF_PREMIUM_OR_NOTIONAL"),
+    ]
+    for rule in special_rules:
+        with pytest.raises(ValueError, match="Unsupported tariff calculation shape"):
+            calculate_tariff_amount(rule, calculation_base="100000")
+
+
+def test_trade_entrypoint_routes_stamp_duty_through_side_and_product_guards():
+    from app.services.broker_tariff_rules import calculate_charge_for_trade
+
+    rule = make_rule(
+        component="stamp_duty",
+        transaction_side="BUY",
+        product="OPTIONS",
+        calculation_basis="OPTION_PREMIUM",
+        rate=Decimal("0.001"),
+    )
+    common = dict(
+        rules=[rule],
+        component="stamp_duty",
+        broker="Upstox",
+        exchange="NSE",
+        segment="FO",
+        product="OPTIONS",
+        calculation_basis="OPTION_PREMIUM",
+        trade_date=date(2026, 10, 23),
+        calculation_base="100000",
+    )
+    selected, amount = calculate_charge_for_trade(transaction_side="BUY", **common)
+    assert selected is rule
+    assert amount == Decimal("1.00")
+
+    with pytest.raises(ValueError, match="BUY side"):
+        calculate_charge_for_trade(transaction_side="SELL", **common)
+
+
+def test_trade_entrypoint_rejects_gst_without_explicit_taxable_component_set():
+    from app.services.broker_tariff_rules import calculate_charge_for_trade
+
+    rule = make_rule(
+        component="gst",
+        calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+        rate=Decimal("18"),
+        rate_unit="PERCENT",
+    )
+    with pytest.raises(ValueError, match="explicit component set"):
+        calculate_charge_for_trade(
+            [rule],
+            component="gst",
+            broker="Upstox",
+            exchange="NSE",
+            segment="FO",
+            product="FUTURES",
+            transaction_side="SELL",
+            calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+            trade_date=date(2026, 10, 23),
+            calculation_base="100000",
+        )

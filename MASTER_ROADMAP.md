@@ -997,3 +997,7 @@ Added fail-closed checks for canonical reviewed fill-manifest digest and exact i
 
 ## Exact-head CI verified — 2026-10-23
 CI run 39968000009 passed for code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 passed, 1 warning, broker-write guard passed, SQLite migration round-trip and isolated PostgreSQL 16 synthetic restore drill completed. This validates that code head, not subsequent documentation commits. Remaining gates: aggregate order/multi-fill variance implementation and tests; advanced tariff semantics/source-backed rules or fail-closed rejection; final integration review; exact-head CI and document synchronization.
+
+
+## Aggregate variance implementation checkpoint — 2026-10-23
+First-pass `ORDER_FILL_SET` variance support is now being implemented alongside `TRADE_FILL`: snapshot v3 scope/fill manifest/digest, persistence, migration `202610240018`, transactional exact-manifest validation, same-order/connection/side/date validation, and scoped variance replay. Regression tests were added. Exact-head CI and migration round-trip are pending; aggregate variance is not accepted until they pass. Advanced tariff semantics remain a separate gate.

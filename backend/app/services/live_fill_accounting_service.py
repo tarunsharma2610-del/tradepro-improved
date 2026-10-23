@@ -461,6 +461,10 @@ class LiveFillAccountingService:
         derived = {row.charge_component: Decimal(str(row.allocated_amount)).quantize(CENT) for row in fill_rows}
 
         for name in names:
+            # Discover the candidate component without taking its row lock.
+            # The verifier must acquire locks in evidence -> component ->
+            # allocations -> trade-record order; locking the component first
+            # here would invert that order and could deadlock with verification.
             component = (
                 self.db.query(BrokerChargeSourceComponent)
                 .filter(
@@ -468,18 +472,28 @@ class LiveFillAccountingService:
                     BrokerChargeSourceComponent.component_name == name,
                 )
                 .order_by(BrokerChargeSourceComponent.revision.desc())
-                .with_for_update()
                 .first()
             )
-            if component is None or component.status != "VERIFIED" or component.reviewed_by_user_id is None or component.reviewed_at is None:
+            if component is None:
                 raise ValueError("Every live-fill charge component must have a currently verified source component.")
             # Re-read and fingerprint-check the original document before accounting;
-            # a historical RECONCILED marker alone is not sufficient if bytes changed.
+            # the verifier refreshes and locks evidence/component in canonical order.
             verification = verify_component_allocation_ledger(
                 self.db, evidence_id=evidence_id, source_component_id=component.id
             )
             if verification.get("status") != "ALREADY_RECONCILED" or verification.get("component_name") != name:
                 raise ValueError("Charge component is not fully verified and reconciled for accounting.")
+            # The verifier now owns this component lock; refresh the ORM instance
+            # before consulting mutable reviewer/source fields below.
+            component = (
+                self.db.query(BrokerChargeSourceComponent)
+                .filter(BrokerChargeSourceComponent.id == component.id)
+                .with_for_update()
+                .populate_existing()
+                .one_or_none()
+            )
+            if component is None or component.status != "VERIFIED" or component.reviewed_by_user_id is None or component.reviewed_at is None:
+                raise ValueError("Every live-fill charge component must have a currently verified source component.")
             if component.source_sha256 != evidence.source_sha256 or component.currency != "INR":
                 raise ValueError("Verified source component fingerprint or currency conflicts with contract-note evidence.")
             if not component.rounding_policy or not component.allocation_basis:

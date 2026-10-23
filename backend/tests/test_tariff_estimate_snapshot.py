@@ -62,11 +62,11 @@ def test_same_identity_and_rule_but_changed_base_conflicts():
         compare_estimate_replay(first, second)
 
 
-def test_changed_rule_fingerprint_changes_idempotency_key():
+def test_changed_rule_for_same_event_is_a_conflicting_replay():
     first = build()
     second = build(make_rule(rate=Decimal("0.06")))
-    assert first.idempotency_key != second.idempotency_key
-    with pytest.raises(ValueError, match="keys do not match"):
+    assert first.idempotency_key == second.idempotency_key
+    with pytest.raises(ValueError, match="Conflicting tariff estimate replay"):
         compare_estimate_replay(first, second)
 
 

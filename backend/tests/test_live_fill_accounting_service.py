@@ -380,6 +380,31 @@ def test_replay_with_changed_charge_evidence_is_rejected(accounting_context):
     assert live_position.avg_price == Decimal("100.2500")
 
 
+def test_replay_rejects_different_evidence_id_with_same_reference_and_charges(accounting_context):
+    from uuid import uuid4
+
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
+    service = LiveFillAccountingService(db)
+    original = _reviewed_charges(accounting_context)
+    first = service.promote_trade(user.id, record.id, original)
+    assert first.inserted is True
+
+    # Same visible reference and same charge amounts must not make a different
+    # source-evidence identity look like an exact replay.
+    conflicting = _charges(
+        reference=original.reference,
+        evidence_id=uuid4(),
+        reviewer_user_id=original.reviewer_user_id,
+    )
+    with pytest.raises(ValueError, match="conflicting accounted execution"):
+        service.promote_trade(user.id, record.id, conflicting)
+
+    execution = db.query(Execution).one()
+    assert execution.charge_evidence_id == original.evidence_id
+    assert db.query(Execution).count() == 1
+    assert db.query(LivePosition).one().quantity == 2
+
+
 def test_charge_audit_reference_is_trimmed_and_replay_stays_idempotent(accounting_context):
     db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
     service = LiveFillAccountingService(db)

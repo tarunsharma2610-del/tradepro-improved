@@ -106,3 +106,36 @@ def select_tariff_rule(
     if len(matches) != 1:
         raise ValueError("Multiple approved tariff rules overlap for the same trade scope and date.")
     return matches[0]
+
+
+PAISE = Decimal("0.01")
+
+
+def calculate_tariff_amount(
+    rule: TariffRule,
+    *,
+    calculation_base: Decimal | str | int | float,
+) -> Decimal:
+    """Calculate one rule's amount using its declared unit and explicit base.
+
+    The caller must already have selected an approved rule for the trade scope.
+    INR_PER_CRORE means rate rupees per INR 10,000,000 of base; it is deliberately
+    distinct from PERCENT to prevent silent unit confusion. Fixed rules ignore
+    the base magnitude but still require a finite nonnegative explicit base.
+    """
+    try:
+        base = calculation_base if isinstance(calculation_base, Decimal) else Decimal(str(calculation_base))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("Calculation base must be a finite nonnegative decimal.") from exc
+    if not base.is_finite() or base < 0:
+        raise ValueError("Calculation base must be a finite nonnegative decimal.")
+
+    if rule.rate_unit == "PERCENT":
+        amount = base * rule.rate / Decimal("100")
+    elif rule.rate_unit == "INR_PER_CRORE":
+        amount = base * rule.rate / Decimal("10000000")
+    elif rule.rate_unit == "INR_FIXED":
+        amount = rule.rate
+    else:  # Defensive guard if a rule object is mutated or deserialized unsafely.
+        raise ValueError("Unsupported tariff rate unit.")
+    return amount.quantize(PAISE, rounding="ROUND_HALF_UP")

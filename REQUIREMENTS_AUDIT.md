@@ -1462,3 +1462,11 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - [x] CI run 39961777103: 680 passed, 1 warning; broker-write guard, SQLite/PostgreSQL 16 migration round-trips and synthetic restore passed.
 - [ ] Aggregate variance comparison for multi-fill/order-level actual components.
 - [ ] Conditional/order-level caps, minimums, GST taxable base and special tariff models before approving those rule types.
+
+
+## Verified exact PR-head CI 39962196672 — 2026-10-23
+- [x] Exact PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` CI passed: 680 tests, 1 warning; broker-write guard passed; no failed steps ([run](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672)).
+- [ ] Design/test safe aggregate variance for order-level/multi-fill contract-note components.
+- [ ] Implement/test advanced conditional tariffs, caps/minimums, GST bases and special charge bases, or reject unsupported shapes explicitly.
+- [ ] Complete final accounting replay/conflict/rollback/concurrency integration review.
+- [ ] Re-run exact-head CI and synchronize all nine docs before a human merge gate. Keep PR draft and live writes disabled until explicitly approved.

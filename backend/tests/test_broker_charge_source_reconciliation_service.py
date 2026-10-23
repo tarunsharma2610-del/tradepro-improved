@@ -168,6 +168,20 @@ def test_verification_rejects_source_component_total_mismatch(reconciliation_con
         )
 
 
+def test_verification_rejects_per_fill_amounts_that_do_not_match_reviewed_weights(reconciliation_context):
+    db, evidence, component, _trades, rows = _setup(reconciliation_context)
+    assert len(rows) == 2
+    # Preserve the correct component total while tampering with the per-fill split.
+    rows[0].allocated_amount = Decimal("0.99")
+    rows[1].allocated_amount = Decimal("0.01")
+    db.commit()
+
+    with pytest.raises(ValueError, match="Per-fill allocated amounts do not match"):
+        verify_component_allocation_ledger(
+            db, evidence_id=evidence.id, source_component_id=component.id
+        )
+
+
 def test_verification_rejects_tampered_source_document(reconciliation_context, tmp_path):
     db, evidence, component, _trades, _rows = _setup(reconciliation_context)
     (tmp_path / evidence.storage_key).write_bytes(b"tampered contract note")

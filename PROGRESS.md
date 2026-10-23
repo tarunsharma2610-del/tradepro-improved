@@ -1815,3 +1815,7 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 
 ## Verified exact PR-head CI 39962196672 — 2026-10-23
 Current PR #6 head at verification: `c47bc3e3eeb4c8da4415132735d2d4ef457551f7`. [GitHub Actions](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672) completed successfully: 680 passed, 1 warning; broker-write guard passed; no failed steps. Next work: design aggregate/order-level variance safely, close advanced tariff-rule semantics or fail closed, complete final accounting integration review, then rerun exact-head CI. PR stays draft/unmerged; live writes disabled; original Tradepro untouched.
+
+
+## Aggregate variance design proposal recorded — 2026-10-23
+Added a proposal to `docs/PHASE3_TARIFF_TO_FILL_ALLOCATION_DESIGN.md` for explicit `TRADE_FILL` versus `ORDER_FILL_SET` comparison scope. It requires canonical exact fill-set identity, source/reviewer/hash revalidation inside one transaction, order-scope calculation for capped/nonlinear fees, idempotent append-only variance, and no mutation of allocations/positions/P&L. This is design only, not implementation or approval. Required test matrix is in the design doc. Next: review proposal against actual tariff snapshot/schema implementation, then implement only after confirming existing types and migration conventions. PR #6 stays draft; live writes disabled.

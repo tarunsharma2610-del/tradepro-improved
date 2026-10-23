@@ -140,3 +140,30 @@ def gst_on_explicit_taxable_base(
         raise ValueError("GST rate percent must be between 0 and 100.")
     tax = (base * rate / Decimal("100")).quantize(PAISE, rounding=ROUND_HALF_UP)
     return tax
+
+
+def stamp_duty_for_explicit_buyer_side(
+    transaction_value: Decimal | str | int | float,
+    stamp_duty_rate_percent: Decimal | str | int | float,
+    *,
+    transaction_side: str,
+) -> Decimal:
+    """Calculate stamp duty only when the caller establishes buyer-side eligibility.
+
+    The caller must supply the correct transaction value basis and effective-
+    dated segment/product rate. This helper rejects non-buy-side transactions;
+    it does not infer eligibility from order metadata or authorize fill-level
+    allocation of the resulting order-level charge.
+    """
+    side = transaction_side.strip().upper() if isinstance(transaction_side, str) else ""
+    if side != "BUY":
+        raise ValueError("Stamp duty calculation requires an eligible BUY side.")
+    value = _money(transaction_value)
+    rate = _money(stamp_duty_rate_percent)
+    if value < 0:
+        raise ValueError("Stamp duty transaction value cannot be negative.")
+    if value != value.quantize(PAISE):
+        raise ValueError("Stamp duty transaction value must be expressed to paise precision.")
+    if rate < 0 or rate > Decimal("100"):
+        raise ValueError("Stamp duty rate percent must be between 0 and 100.")
+    return (value * rate / Decimal("100")).quantize(PAISE, rounding=ROUND_HALF_UP)

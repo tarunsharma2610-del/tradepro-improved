@@ -1495,3 +1495,12 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - [ ] Implement/test aggregate order/multi-fill variance.
 - [ ] Implement source-backed advanced tariff semantics or reject unsupported shapes explicitly.
 - [ ] Complete accounting replay/conflict/rollback/concurrency review before merge consideration.
+
+
+## Aggregate variance implementation — pending CI — 2026-10-23
+- [x] Add explicit `TRADE_FILL` / `ORDER_FILL_SET` snapshot scope and canonical fill-set digest.
+- [x] Persist comparison scope and digest on variance records; compare these on replay.
+- [x] Require exact reviewed fill manifest and same broker order/connection/side/trade date for order-fill-set comparison.
+- [x] Add tests for fill-set canonicalization, duplicates, empty set, aggregate comparison/replay and mismatched manifest.
+- [ ] Verify exact-head CI and migration upgrade/downgrade/re-upgrade on SQLite and PostgreSQL 16.
+- [ ] Complete advanced tariff rule coverage/fail-closed review and final accounting acceptance.

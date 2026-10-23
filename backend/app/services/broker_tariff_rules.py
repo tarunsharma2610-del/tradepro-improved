@@ -144,3 +144,35 @@ def calculate_tariff_amount(
     else:  # Defensive guard if a rule object is mutated or deserialized unsafely.
         raise ValueError("Unsupported tariff rate unit.")
     return amount.quantize(PAISE, rounding="ROUND_HALF_UP")
+
+
+def calculate_charge_for_trade(
+    rules: Iterable[TariffRule],
+    *,
+    component: str,
+    broker: str,
+    exchange: str,
+    segment: str,
+    product: str,
+    transaction_side: str,
+    calculation_basis: str,
+    trade_date: date,
+    calculation_base: Decimal | str | int | float,
+) -> tuple[TariffRule, Decimal]:
+    """Select exactly one approved effective tariff and calculate its amount.
+
+    This is the safe composition entry point for callers that have an explicit
+    trade scope. It does not persist a charge or allocate it across fills.
+    """
+    rule = select_tariff_rule(
+        rules,
+        component=component,
+        broker=broker,
+        exchange=exchange,
+        segment=segment,
+        product=product,
+        transaction_side=transaction_side,
+        calculation_basis=calculation_basis,
+        trade_date=trade_date,
+    )
+    return rule, calculate_tariff_amount(rule, calculation_base=calculation_base)

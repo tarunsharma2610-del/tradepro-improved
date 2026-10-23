@@ -1555,10 +1555,11 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - [ ] Complete accounting replay/conflict/rollback/concurrency review before merge consideration.
 
 
-## Aggregate variance implementation — pending CI — 2026-10-23
+## Aggregate variance coverage — 2026-10-23
 - [x] Add explicit `TRADE_FILL` / `ORDER_FILL_SET` snapshot scope and canonical fill-set digest.
 - [x] Persist comparison scope and digest on variance records; compare these on replay.
 - [x] Require exact reviewed fill manifest and same broker order/connection/side/trade date for order-fill-set comparison.
-- [x] Add tests for fill-set canonicalization, duplicates, empty set, aggregate comparison/replay and mismatched manifest.
-- [ ] Verify exact-head CI and migration upgrade/downgrade/re-upgrade on SQLite and PostgreSQL 16.
+- [x] Test fill-set canonicalization, duplicates, empty set, successful aggregate comparison, exact replay, and mismatched manifest.
+- [x] Verify backend CI on code/test commit `e54e405b74feee90e4658a6992fa208a3e2da5d3`: test suite, broker-write guard, SQLite/PostgreSQL 16 migration round-trips, synthetic restore drill (run [39979772325](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39979772325)).
+- [ ] Verify exact-head CI after the nine-document synchronization.
 - [ ] Complete advanced tariff rule coverage/fail-closed review and final accounting acceptance.

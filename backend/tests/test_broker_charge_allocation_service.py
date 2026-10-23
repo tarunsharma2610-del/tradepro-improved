@@ -227,3 +227,42 @@ def test_transaction_tax_arithmetic_rejects_invalid_inputs(
         transaction_tax_on_explicit_base(
             value, rate_percent, tax_kind=kind
         )
+
+
+@pytest.mark.parametrize(
+    ("kind", "base", "rate_percent", "expected"),
+    [
+        ("EXCHANGE_CHARGES", "100000.00", "0.003", "3.00"),
+        ("SEBI_CHARGES", "100000.00", "0.0001", "0.10"),
+        ("sebi_charges", "0.03", "0.0001", "0.00"),
+        ("EXCHANGE_CHARGES", "100.00", "0", "0.00"),
+    ],
+)
+def test_exchange_and_sebi_arithmetic_uses_explicit_base_and_rate(
+    kind, base, rate_percent, expected
+):
+    from app.services.broker_charge_allocation_service import exchange_or_sebi_charge_on_explicit_base
+
+    assert exchange_or_sebi_charge_on_explicit_base(
+        base, rate_percent, charge_kind=kind
+    ) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("kind", "base", "rate_percent", "message"),
+    [
+        ("GST", "100.00", "0.1", "must be EXCHANGE_CHARGES or SEBI_CHARGES"),
+        ("SEBI_CHARGES", "-0.01", "0.1", "cannot be negative"),
+        ("EXCHANGE_CHARGES", "1.001", "0.1", "paise precision"),
+        ("SEBI_CHARGES", "100.00", "-0.1", "between 0 and 100"),
+    ],
+)
+def test_exchange_and_sebi_arithmetic_rejects_invalid_inputs(
+    kind, base, rate_percent, message
+):
+    from app.services.broker_charge_allocation_service import exchange_or_sebi_charge_on_explicit_base
+
+    with pytest.raises(ValueError, match=message):
+        exchange_or_sebi_charge_on_explicit_base(
+            base, rate_percent, charge_kind=kind
+        )

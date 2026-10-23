@@ -18,7 +18,7 @@ from uuid import UUID
 from app.services.broker_tariff_rules import TariffRule, calculate_tariff_amount
 
 
-SNAPSHOT_SCHEMA_VERSION = "tariff-estimate-snapshot-v2"
+SNAPSHOT_SCHEMA_VERSION = "tariff-estimate-snapshot-v3"
 
 
 def _decimal_string(value: Decimal | str | int | float, field: str) -> str:
@@ -61,6 +61,9 @@ class TariffEstimateSnapshot:
     source_retrieved_on: str
     source_sha256: str
     review_status: str
+    comparison_scope: str = "TRADE_FILL"
+    source_fill_ids_json: str | None = None
+    source_fill_set_sha256: str | None = None
 
     def canonical_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -77,6 +80,8 @@ def build_tariff_estimate_snapshot(
     calculation_base: Decimal | str | int | float,
     source_identity: str,
     source_trade_record_id: UUID | str | None = None,
+    comparison_scope: str = "TRADE_FILL",
+    source_fill_record_ids: list[UUID | str] | tuple[UUID | str, ...] | None = None,
 ) -> TariffEstimateSnapshot:
     """Build a stable snapshot; source_identity must identify the same trade/event on replay."""
     if not isinstance(rule, TariffRule):
@@ -93,6 +98,28 @@ def build_tariff_estimate_snapshot(
             source_trade_record_id = str(UUID(str(source_trade_record_id)))
         except (TypeError, ValueError) as exc:
             raise ValueError("source_trade_record_id must be a valid UUID when provided.") from exc
+
+    if comparison_scope not in {"TRADE_FILL", "ORDER_FILL_SET"}:
+        raise ValueError("Unsupported tariff estimate comparison scope.")
+    fill_ids: list[str] | None = None
+    if comparison_scope == "TRADE_FILL":
+        if source_fill_record_ids is not None:
+            raise ValueError("TRADE_FILL scope uses source_trade_record_id, not a fill-set argument.")
+        if source_trade_record_id is not None:
+            fill_ids = [source_trade_record_id]
+    else:
+        if source_trade_record_id is not None:
+            raise ValueError("ORDER_FILL_SET scope must not set a single source_trade_record_id.")
+        if not source_fill_record_ids:
+            raise ValueError("ORDER_FILL_SET scope requires a nonempty exact fill set.")
+        try:
+            fill_ids = sorted({str(UUID(str(value))) for value in source_fill_record_ids})
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Order fill set must contain valid UUIDs.") from exc
+        if len(fill_ids) != len(source_fill_record_ids):
+            raise ValueError("Order fill set must not contain duplicate fill IDs.")
+    fill_ids_json = json.dumps(fill_ids, separators=(",", ":")) if fill_ids is not None else None
+    fill_set_sha256 = _sha256(fill_ids_json) if fill_ids_json is not None else None
 
     base = _decimal_string(calculation_base, "Calculation base")
     amount = calculate_tariff_amount(rule, calculation_base=Decimal(base))
@@ -143,6 +170,9 @@ def build_tariff_estimate_snapshot(
         source_retrieved_on=rule.source_retrieved_on.isoformat(),
         source_sha256=rule.source_sha256.lower(),
         review_status=rule.review_status,
+        comparison_scope=comparison_scope,
+        source_fill_ids_json=fill_ids_json,
+        source_fill_set_sha256=fill_set_sha256,
     )
 
 

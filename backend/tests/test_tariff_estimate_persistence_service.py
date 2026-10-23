@@ -2,6 +2,8 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from app.services.broker_tariff_rules import TariffRule
 from app.services.tariff_estimate_persistence_service import persist_tariff_estimate_snapshot
@@ -94,3 +96,33 @@ def test_persisted_snapshot_is_append_only(db_session):
 
     persisted = db_session.query(type(record)).filter_by(id=record.id).one()
     assert persisted.snapshot_json == make_snapshot().canonical_json()
+
+
+
+def test_database_rejects_direct_sql_snapshot_update(db_session):
+    record, _ = persist_tariff_estimate_snapshot(db_session, make_snapshot())
+    db_session.commit()
+
+    with pytest.raises(IntegrityError, match="append-only"):
+        db_session.execute(
+            text("UPDATE tariff_estimate_snapshot_records SET snapshot_json = :payload WHERE id = :id"),
+            {"payload": "tampered", "id": str(record.id)},
+        )
+    db_session.rollback()
+
+    persisted = db_session.query(type(record)).filter_by(id=record.id).one()
+    assert persisted.snapshot_json == make_snapshot().canonical_json()
+
+
+def test_database_rejects_direct_sql_snapshot_delete(db_session):
+    record, _ = persist_tariff_estimate_snapshot(db_session, make_snapshot())
+    db_session.commit()
+
+    with pytest.raises(IntegrityError, match="append-only"):
+        db_session.execute(
+            text("DELETE FROM tariff_estimate_snapshot_records WHERE id = :id"),
+            {"id": str(record.id)},
+        )
+    db_session.rollback()
+
+    assert db_session.query(type(record)).filter_by(id=record.id).one()

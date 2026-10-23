@@ -697,3 +697,8 @@ Tariff estimates are persisted as `ESTIMATE_ONLY` snapshots and are not broker-c
 ### Tariff-estimate audit controls
 
 Tariff snapshots are estimate-only and append-only. PostgreSQL and SQLite triggers block direct SQL updates/deletes, and PostgreSQL race tests cover exact replay versus conflicting payloads. The code checkpoint passed 677 tests and migration/restore checks in [CI run 39960409771](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39960409771). Conditional/order-level tariff caps and estimate-versus-actual variance integration remain incomplete; estimates must never be treated as actual charges. PR #6 remains draft/unmerged and live broker order writes remain disabled.
+
+
+### Estimate-versus-actual variance
+
+Tradepro Improved now stores variance-only comparisons separately from actual charge allocation. The comparison requires reviewed contract-note evidence and an exact single-fill scope; it records estimate, actual, difference and percentage without modifying allocation rows. Aggregate/multi-fill variance and advanced tariff caps/special charge bases remain unsupported. The code checkpoint passed 680 tests and safety/migration/restore checks in [CI run 39961777103](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39961777103). PR #6 remains draft/unmerged; live broker order writes disabled.

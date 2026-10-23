@@ -35,7 +35,6 @@ def aggregate_variance_case(db_session, make_user, tmp_path, monkeypatch):
     db_session.add(connection)
     db_session.flush()
 
-    order_id = uuid4()
     broker_order = BrokerOrder(
         broker_connection_id=connection.id,
         order_id=uuid4(),
@@ -174,19 +173,40 @@ def test_order_fill_set_variance_exact_replay_is_idempotent(aggregate_variance_c
 
 
 def test_order_fill_set_variance_rejects_different_manifest(aggregate_variance_case):
-    db, snapshot, component, fill_ids = aggregate_variance_case
-    replacement_id = uuid4()
-    component.eligible_fill_ids_json = json.dumps([str(replacement_id)], separators=(",", ":"))
-    component.eligible_fill_set_sha256 = hashlib.sha256(
-        component.eligible_fill_ids_json.encode("utf-8")
-    ).hexdigest()
+    db, _snapshot, component, fill_ids = aggregate_variance_case
+    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
+
+    rule = TariffRule(
+        component="brokerage",
+        broker="Upstox",
+        exchange="NSE",
+        segment="FO",
+        product="FUTURES",
+        transaction_side="SELL",
+        calculation_basis="ORDER_NOTIONAL",
+        rate=Decimal("0.05"),
+        rate_unit="PERCENT",
+        effective_from=date(2026, 4, 1),
+        effective_to=None,
+        source_url="https://upstox.com/brokerage-charges/",
+        source_retrieved_on=date(2026, 10, 23),
+        source_sha256="a" * 64,
+        review_status="APPROVED",
+    )
+    mismatched_snapshot = build_tariff_estimate_snapshot(
+        rule,
+        trade_date=date(2026, 10, 23),
+        calculation_base="100000",
+        source_identity="aggregate-variance-test:order-2:brokerage",
+        comparison_scope="ORDER_FILL_SET",
+        source_fill_record_ids=[fill_ids[0], uuid4()],
+    )
+    estimate_record, _ = persist_tariff_estimate_snapshot(db, mismatched_snapshot)
     db.commit()
 
     with pytest.raises(ValueError, match="does not exactly match"):
         compare_estimate_to_reviewed_actual(
-            db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
+            db, estimate_snapshot_id=estimate_record.id, source_component_id=component.id
         )
 
-    assert db.query(__import__(
-        "app.models.tariff_estimate_variance_record", fromlist=["TariffEstimateVarianceRecord"]
-    ).TariffEstimateVarianceRecord).count() == 0
+    assert db.query(TariffEstimateVarianceRecord).count() == 0

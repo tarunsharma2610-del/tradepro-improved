@@ -946,3 +946,7 @@ Still required: variance-only estimate-versus-actual comparison with reviewed co
 Completed: exact-fill identity in snapshot schema v2; append-only variance record/migration; reviewed actual evidence validation; single-fill-only variance comparison; replay, fail-closed scope, immutability and no-allocation-side-effect tests. CI run 39961777103 passed 680 tests and all safety/migration/restore checks.
 
 Remaining: safe aggregate variance for multi-fill/order-level components and richer conditional/order-level tariff models. No estimate-to-actual promotion; no PR merge or live broker order writes.
+
+
+## Verified exact PR-head CI 39962196672 — 2026-10-23
+Exact PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed; no failed steps. Next: (1) design/test aggregate variance scope; (2) support advanced tariff semantics or fail closed; (3) finish accounting integration/replay/conflict/rollback/concurrency review; (4) rerun exact-head CI; (5) sync docs and review all gates before merge consideration. No merge/live writes yet.

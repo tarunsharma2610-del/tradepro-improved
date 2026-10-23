@@ -909,3 +909,12 @@ Stale reconciliation summaries may be marked `FAILED/WORKER_INTERRUPTED` only th
 - A tariff estimate is never an actual broker charge. Do not use an estimate to fill a missing contract-note component or promote it into per-fill actual allocation.
 - Do not approve/ship tariff rules that need order-level caps, minimums, conditional lesser-of logic, GST taxable-base composition, or special charge models until those behaviors are explicitly represented and tested.
 - PR #6 stays draft/unmerged pending Task B acceptance and explicit user approval. Live broker order writes stay disabled.
+
+
+## Task B checkpoint rules (2026-10-23)
+
+- Database-level tariff snapshot immutability is required; preserve migration `202610240016` and PostgreSQL/SQLite direct-SQL protections/tests.
+- PostgreSQL concurrency tests must retain exact-replay and conflicting-payload race coverage.
+- Tariff rules support only PERCENT, INR_PER_CRORE and INR_FIXED today. Do not approve unsupported order-level caps/minimums, conditional lesser-of logic, GST taxable bases or special charge models until represented and tested.
+- Keep estimate snapshots separate from reviewed actual contract-note source components. Estimates may support variance analysis only and must never be promoted into the actual per-fill allocation ledger.
+- Scope remains `tarunsharma2610-del/tradepro-improved`; PR #6 stays draft/unmerged and live broker order writes remain disabled.

@@ -939,3 +939,7 @@ The proposed design in `docs/PHASE3_TARIFF_TO_FILL_ALLOCATION_DESIGN.md` is not 
 
 ## Variance scope validation guard — 2026-10-23
 Before recording estimate-versus-actual variance, validate the canonical eligible-fill manifest against its stored SHA-256 and match the linked broker fill's side/trade date to the estimate. Keep tests for tampered digest and mismatched scope. Verify CI for the exact current code head before proceeding. Aggregate variance and advanced tariff rule shapes remain unsupported until implemented/tested; do not activate unreviewed production rates.
+
+
+## Exact-head CI checkpoint — 2026-10-23
+CI run 39968000009 passed on code head `f5092df1d27a28006dccba929fdc41e9a1d63f1e`: 683 passed, 1 warning; broker-write boundary guard passed; SQLite migration and isolated PostgreSQL 16 synthetic restore checks completed. Run CI on the latest docs head before treating the whole checkpoint as green. Aggregate variance remains unimplemented; advanced tariff shapes must be implemented/tested or fail closed. Keep PR draft and live writes disabled.

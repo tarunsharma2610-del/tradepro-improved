@@ -1470,3 +1470,11 @@ The latest verified main-branch Phase 2 checkpoint is summarized at the top of t
 - [ ] Implement/test advanced conditional tariffs, caps/minimums, GST bases and special charge bases, or reject unsupported shapes explicitly.
 - [ ] Complete final accounting replay/conflict/rollback/concurrency integration review.
 - [ ] Re-run exact-head CI and synchronize all nine docs before a human merge gate. Keep PR draft and live writes disabled until explicitly approved.
+
+
+## Aggregate variance scope — design only — 2026-10-23
+- [x] Documented proposed `TRADE_FILL` versus `ORDER_FILL_SET` scope and exact fill-set digest requirements.
+- [x] Defined fail-closed behavior for missing/extra/duplicate/changed fill identities and source/reviewer/hash mismatch.
+- [x] Defined order-scope calculation for caps/nonlinear tariffs, immutable variance-only behavior and required concurrency/replay/rollback tests.
+- [ ] Review design against current implementation/schema; implement and test aggregate comparison only after review.
+- [ ] Keep advanced tariff models unsupported until source-backed rules and executable examples pass.

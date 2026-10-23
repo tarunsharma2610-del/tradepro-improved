@@ -372,6 +372,7 @@ class LiveFillAccountingService:
                 total_charges=fee_values["total_charges"],
                 charge_source=charges.source,
                 charge_reference=charges.reference.strip(),
+                charge_evidence_id=charges.evidence_id,
                 realized_pnl=update.realized_pnl,
                 strategy_realized_pnl=None,
                 broker_order_ref_id=child.id,

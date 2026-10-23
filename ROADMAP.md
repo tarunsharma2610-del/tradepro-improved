@@ -950,3 +950,7 @@ Remaining: safe aggregate variance for multi-fill/order-level components and ric
 
 ## Verified exact PR-head CI 39962196672 — 2026-10-23
 Exact PR #6 head `c47bc3e3eeb4c8da4415132735d2d4ef457551f7` passed [CI](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39962196672): 680 passed, 1 warning; broker-write guard passed; no failed steps. Next: (1) design/test aggregate variance scope; (2) support advanced tariff semantics or fail closed; (3) finish accounting integration/replay/conflict/rollback/concurrency review; (4) rerun exact-head CI; (5) sync docs and review all gates before merge consideration. No merge/live writes yet.
+
+
+## Aggregate variance design milestone — 2026-10-23
+Design proposal recorded for exact `ORDER_FILL_SET` variance. Next: audit current schema/services/tests, resolve design differences, implement migration/service only after review, add aggregate/cap/concurrency/replay/conflict/rollback/immutability tests, run exact-head CI, then sync all docs. No aggregate variance support is claimed yet.

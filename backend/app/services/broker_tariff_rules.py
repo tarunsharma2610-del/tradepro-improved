@@ -267,3 +267,31 @@ def calculate_gst_on_explicit_components(
     gst_amount = calculate_tariff_amount(rule, calculation_base=taxable_base)
     return taxable_base, gst_amount
 
+def calculate_stamp_duty_for_trade(
+    rule: TariffRule,
+    *,
+    transaction_side: str,
+    product: str,
+    calculation_base: Decimal | str | int | float,
+) -> Decimal:
+    """Calculate stamp duty only for an explicit eligible buy-side trade base.
+
+    This guards the calculation shape, not the legal tariff itself. The rate and
+    effective date must come from a reviewed, approved source rule. Options use
+    an explicitly identified premium base; futures use an explicitly identified
+    turnover base. No side, product, or base is inferred.
+    """
+    if not isinstance(rule, TariffRule) or rule.component.lower() != "stamp_duty":
+        raise ValueError("A stamp_duty tariff rule is required.")
+    if transaction_side != "BUY" or rule.transaction_side != "BUY":
+        raise ValueError("Stamp duty calculation requires an explicitly eligible BUY side.")
+    if product != rule.product:
+        raise ValueError("Product must exactly match the selected stamp duty rule.")
+    allowed_bases = {
+        ("OPTIONS", "OPTION_PREMIUM"),
+        ("FUTURES", "FUTURES_TURNOVER"),
+    }
+    if (product, rule.calculation_basis) not in allowed_bases:
+        raise ValueError("Stamp duty requires OPTIONS/OPTION_PREMIUM or FUTURES/FUTURES_TURNOVER.")
+    return calculate_tariff_amount(rule, calculation_base=calculation_base)
+

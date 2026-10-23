@@ -95,3 +95,47 @@ def test_snapshot_rejects_invalid_calculation_base(base):
 def test_replay_comparison_rejects_different_idempotency_key():
     with pytest.raises(ValueError, match="keys do not match"):
         compare_estimate_replay(build(), build(source_identity="different-trade"))
+
+
+def test_order_fill_set_snapshot_canonicalizes_exact_fill_identity():
+    from uuid import uuid4
+    fill_a, fill_b = uuid4(), uuid4()
+    first = build(
+        source_identity="broker-order:order-123:brokerage",
+        source_trade_record_id=None,
+        comparison_scope="ORDER_FILL_SET",
+        source_fill_record_ids=[fill_b, fill_a],
+    )
+    second = build(
+        source_identity="broker-order:order-123:brokerage",
+        source_trade_record_id=None,
+        comparison_scope="ORDER_FILL_SET",
+        source_fill_record_ids=[fill_a, fill_b],
+    )
+    assert first.source_trade_record_id is None
+    assert first.comparison_scope == "ORDER_FILL_SET"
+    assert first.source_fill_ids_json == second.source_fill_ids_json
+    assert first.source_fill_set_sha256 == second.source_fill_set_sha256
+    assert first.canonical_json() == second.canonical_json()
+
+
+def test_order_fill_set_snapshot_rejects_duplicate_fill_ids():
+    from uuid import uuid4
+    fill_id = uuid4()
+    with pytest.raises(ValueError, match="must not contain duplicate"):
+        build(
+            source_identity="broker-order:duplicate:brokerage",
+            source_trade_record_id=None,
+            comparison_scope="ORDER_FILL_SET",
+            source_fill_record_ids=[fill_id, fill_id],
+        )
+
+
+def test_order_fill_set_snapshot_requires_exact_fill_set():
+    with pytest.raises(ValueError, match="requires a nonempty exact fill set"):
+        build(
+            source_identity="broker-order:missing:brokerage",
+            source_trade_record_id=None,
+            comparison_scope="ORDER_FILL_SET",
+            source_fill_record_ids=[],
+        )

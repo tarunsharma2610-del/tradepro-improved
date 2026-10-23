@@ -1,3 +1,15 @@
+## Current acceptance clarification — 23 October 2026
+
+- **Public contract-note research is complete for development:** third-party examples dated 12 March 2025 and 21 May 2024, plus a sample-note guide, were reviewed for structure and charge categories. See `docs/UPSTOX_CONTRACT_NOTE_AND_API_EVIDENCE.md`.
+- The examples are not independently authenticated. No raw public document, personal identifier, or invented “real” evidence is stored in this repository. The checked-in Upstox-style fixture remains explicitly synthetic.
+- **A personal/account-specific contract note is not required to continue or complete Phase 3 engineering.** It remains optional future validation for account-specific source authenticity and charge comparison; public aggregate figures must not be treated as proof of per-fill amounts.
+- A separate real retained database/document backup and restore test remains a deployment/operational acceptance gate for the Oracle Free Cloud environment. Synthetic CI restore results do not prove recovery of real user data.
+- Exact-head CI on commit `18c897a282ea5f8e7c6a55707ad24b6cf8da5b27` passed in [run 39915983869](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39915983869). This does not substitute for the next CI run after this documentation clarification.
+- This section supersedes older checkpoint wording below that may imply a personal contract note is required before Phase 3 engineering can proceed. Historical notes remain for audit traceability.
+- Scope: `tarunsharma2610-del/tradepro-improved` only. PR #6 remains draft/unmerged; live broker order writes remain disabled.
+
+---
+
 ## Public Upstox contract-note example review — 23 October 2026
 
 - Located publicly shared examples purporting to be Upstox contract notes: [12 March 2025 example on Scribd](https://www.scribd.com/document/971660843/CW-T-3JCTYG-20250312-NSE-66319975-1), [21 May 2024 example on Scribd](https://www.scribd.com/document/735902961/CW-T-842243-20240521-NSE-35749411), and [Quicko's sample-note guide](https://learn.quicko.com/download-contract-note-upstox-trader). These are third-party/public copies; broker-origin authenticity is not independently verified. They may expose personal information, so do not copy raw documents or identifiers into this repository.

@@ -1783,3 +1783,13 @@ CI: backend run https://github.com/tarunsharma2610-del/tradepro-improved/actions
 - The append-only guard is an ORM protection, not a database trigger; direct SQL updates outside the ORM are not blocked by this guard. Consider a portable DB-level immutability trigger only if required by the release threat model. The unique key and ESTIMATE_ONLY check remain database-enforced.
 - Latest append-only change CI and this documentation checkpoint's CI are pending. Do not treat them as verified until all jobs complete successfully.
 - PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## 2026-10-23 — Task B tariff snapshot checkpoint
+
+- Added migration `202610240016_immutable_tariff_estimate_snapshots.py` after `202610240015`; PostgreSQL and SQLite reject direct SQL UPDATE/DELETE on `tariff_estimate_snapshot_records`.
+- Added direct-SQL mutation/deletion regression tests and SQLite test-fixture triggers. Commit `bf9b3bc74cfa4047bc084bf6136e12c0a93a65c0` is the current PR #6 head.
+- Exact-head GitHub Actions run 39959332425 passed: pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, and synthetic restore drill.
+- Tariff calculator remains intentionally limited to PERCENT, INR_PER_CRORE, and INR_FIXED. Conditional/order-scoped caps, full GST taxable-base composition, and other special charge models are not yet implemented; do not treat simplified rates as production-approved.
+- Remaining Task B: add explicit PostgreSQL concurrent persistence/direct-SQL immutability coverage; finish tariff-to-estimate-versus-actual variance integration; keep actual contract-note components as the only source for per-fill actual allocation; sync all nine core docs at final acceptance.
+- PR #6 remains draft/unmerged. Live broker order writes remain disabled. Original `Tradepro` repository remains out of scope.

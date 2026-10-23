@@ -501,3 +501,68 @@ def test_rejecting_component_marks_evidence_rejected_and_blocks_other_reviews(
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+def test_non_admin_owner_cannot_review_or_reject_component_transcribed_by_other_user(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    owner = make_user(email="source-owner-admin-gate-test@example.com")
+    transcriber = make_user(email="source-transcriber-admin-gate-test@example.com")
+    connection = _connection(db_session, owner)
+    trade = _trade(db_session, connection)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: owner
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        created = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={
+                "component_name": "brokerage",
+                "source_amount": "20.00",
+                "currency": "INR",
+                "source_locator": "page 1, brokerage row",
+            },
+        )
+        assert created.status_code == 201, created.text
+        component_id = UUID(created.json()["id"])
+
+        # Simulate a previously transcribed record whose transcriber differs
+        # from the current owner/reviewer. The documented policy still requires
+        # a platform administrator for either approval or rejection.
+        component = db_session.get(BrokerChargeSourceComponent, component_id)
+        component.extracted_by_user_id = transcriber.id
+        db_session.commit()
+
+        review = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{component_id}/review",
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(trade.id)],
+            },
+        )
+        assert review.status_code == 403, review.text
+
+        rejection = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{component_id}/reject",
+            json={
+                "confirm_source_matches": False,
+                "review_note": "Source amount needs independent administrator review.",
+            },
+        )
+        assert rejection.status_code == 403, rejection.text
+
+        db_session.refresh(component)
+        assert component.status == "PENDING_REVIEW"
+        assert component.reviewed_by_user_id is None
+        evidence_row = db_session.get(BrokerChargeEvidence, UUID(evidence["id"]))
+        assert evidence_row.status == "RECEIVED"
+        assert evidence_row.reviewed_by_user_id is None
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
+

@@ -1261,3 +1261,10 @@ A crash can leave a durable `LiveReconciliationRun` in `RUNNING`. Added `fail_or
 - The append-only guard is an ORM protection, not a database trigger; direct SQL updates outside the ORM are not blocked by this guard. Consider a portable DB-level immutability trigger only if required by the release threat model. The unique key and ESTIMATE_ONLY check remain database-enforced.
 - Latest append-only change CI and this documentation checkpoint's CI are pending. Do not treat them as verified until all jobs complete successfully.
 - PR #6 remains draft and unmerged pending acceptance gates and explicit user approval. Live broker order writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## Addendum — tariff snapshot immutability audit (2026-10-23)
+
+Finding: ORM-level immutability did not protect against direct SQL mutation. Addressed on the Phase 3 branch by migration `202610240016_immutable_tariff_estimate_snapshots.py`: PostgreSQL trigger rejects UPDATE/DELETE; SQLite triggers reject UPDATE/DELETE. Direct-SQL regression tests were added. Exact-head CI run 39959332425 passed pytest and the SQLite/PostgreSQL migration round-trip checks.
+
+Residual risks: concurrency semantics for tariff estimate persistence still need a dedicated PostgreSQL race test. Tariff calculation currently supports only percentage, INR-per-crore and fixed amounts; order-level caps/minimums, conditional “lesser-of” rules, GST taxable-base composition and other special charge bases require explicit modeling and tests. Estimate-versus-actual variance integration remains incomplete. Estimates must remain separate from reviewed broker actuals and the per-fill allocation ledger.

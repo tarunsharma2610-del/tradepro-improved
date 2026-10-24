@@ -17,33 +17,6 @@ RETRIEVED_ON = date(2026, 10, 24)
 def upstox_tariff_candidate_rules() -> tuple[TariffRule, ...]:
     """Return effective-dated research candidates, all DRAFT and non-selectable."""
     rules = [
-        # Brokerage source rows: order-level charges, still DRAFT. For intraday/futures,
-        # maximum_inr encodes the published "fixed amount or percentage, whichever is lower".
-        TariffRule("brokerage", "Upstox", "NSE", "EQ", "DELIVERY", "BUY", "ORDER_FIXED",
-                   "20", "INR_FIXED", date(2026, 10, 24), None, UPSTOX_CHARGES_URL,
-                   RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT"),
-        TariffRule("brokerage", "Upstox", "NSE", "EQ", "DELIVERY", "SELL", "ORDER_FIXED",
-                   "20", "INR_FIXED", date(2026, 10, 24), None, UPSTOX_CHARGES_URL,
-                   RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT"),
-        TariffRule("brokerage", "Upstox", "NSE", "EQ", "INTRADAY", "BUY", "ORDER_NOTIONAL",
-                   "0.1", "PERCENT", date(2026, 10, 24), None, UPSTOX_CHARGES_URL,
-                   RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT", maximum_inr="20"),
-        TariffRule("brokerage", "Upstox", "NSE", "EQ", "INTRADAY", "SELL", "ORDER_NOTIONAL",
-                   "0.1", "PERCENT", date(2026, 10, 24), None, UPSTOX_CHARGES_URL,
-                   RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT", maximum_inr="20"),
-        TariffRule("brokerage", "Upstox", "NSE", "FO", "FUTURES", "BUY", "ORDER_NOTIONAL",
-                   "0.05", "PERCENT", date(2026, 10, 24), None, UPSTOX_CHARGES_URL,
-                   RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT", maximum_inr="20"),
-        TariffRule("brokerage", "Upstox", "NSE", "FO", "FUTURES", "SELL", "ORDER_NOTIONAL",
-                   "0.05", "PERCENT", date(2026, 10, 24), None, UPSTOX_CHARGES_URL,
-                   RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT", maximum_inr="20"),
-        TariffRule("brokerage", "Upstox", "NSE", "FO", "OPTIONS", "BUY", "ORDER_FIXED",
-                   "20", "INR_FIXED", date(2026, 10, 24), None, UPSTOX_CHARGES_URL,
-                   RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT"),
-        TariffRule("brokerage", "Upstox", "NSE", "FO", "OPTIONS", "SELL", "ORDER_FIXED",
-                   "20", "INR_FIXED", date(2026, 10, 24), None, UPSTOX_CHARGES_URL,
-                   RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT"),
-
         # STT rows corroborated by the NSE derivatives STT page and Upstox tariff page.
         TariffRule("stt", "Upstox", "NSE", "EQ", "DELIVERY", "BUY", "TURNOVER",
                    "0.1", "PERCENT", date(2026, 4, 1), None, UPSTOX_CHARGES_URL,

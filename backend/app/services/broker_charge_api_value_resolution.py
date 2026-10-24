@@ -65,11 +65,11 @@ def resolve_charge_api_value(
         raise ValueError("Aggregate-only broker endpoint cannot provide per-fill actual evidence.")
     if intended_use == "PER_FILL_ACTUAL" and (broker, endpoint) in ESTIMATE_ONLY_ENDPOINTS:
         raise ValueError("Estimate-only broker endpoint cannot provide per-fill actual evidence.")
+    if intended_use == "ESTIMATE" and (broker, endpoint) in AGGREGATE_ONLY_ENDPOINTS:
+        raise ValueError("Aggregate-only broker endpoint cannot provide estimate evidence.")
     if intended_use == "AGGREGATE_SUMMARY" and (broker, endpoint) in ESTIMATE_ONLY_ENDPOINTS:
         raise ValueError("Estimate-only broker endpoint cannot provide actual aggregate evidence.")
-    if intended_use == "AGGREGATE_SUMMARY" and mapping.semantic not in {
-        "AGGREGATE_ACTUAL_SUMMARY", "STATUTORY_CHARGE_ESTIMATE", "BROKERAGE_ESTIMATE"
-    }:
+    if intended_use == "AGGREGATE_SUMMARY" and mapping.semantic != "AGGREGATE_ACTUAL_SUMMARY":
         raise ValueError("Mapping semantics do not permit aggregate summary use.")
     if intended_use == "ESTIMATE" and mapping.semantic not in {
         "BROKERAGE_ESTIMATE", "STATUTORY_CHARGE_ESTIMATE"

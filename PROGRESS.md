@@ -2347,3 +2347,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - These tests validate fail-closed workflow and internal consistency, not correctness of a real account's charge allocation basis or live broker tariff. Automatic QUANTITY/NOTIONAL allocation remains disabled; explicit reviewed weights are required. Tariff candidates remain DRAFT/non-selectable.
 - Remaining Phase 3 gates: (1) independent accounting acceptance of the component-by-component policy and rounding/residual semantics; (2) authoritative, effective-dated tariff evidence for each supported exchange/segment/product and approved GST component mapping; (3) independent review of the completed acceptance matrix; (4) final PR review/merge decision. The FY 2022–23 annual statement screenshot does not establish per-fill API semantics or IPFT inclusion.
 - Safety/scope unchanged: PR #6 stays draft/unmerged; live broker order submission stays disabled; only `tarunsharma2610-del/tradepro-improved` is in scope. Original `tarunsharma2610-del/Tradepro` must remain untouched.
+
+
+## 2026-10-24 — Charge component acceptance matrix added
+
+- Added docs/PHASE3_CHARGE_COMPONENT_ACCEPTANCE_MATRIX.md. It defines shared evidence/provenance, fill-set, decimal rounding/residual, replay/rollback and variance-only controls, plus component-specific gates for brokerage, STT, exchange/IPFT, SEBI, stamp duty and GST.
+- Matrix explicitly separates settled NSE combined-rate arithmetic from unresolved Upstox API semantics, account-specific invoice treatment, BSE scrip/product scope and MCX product rates. It does not activate tariffs or enable automatic allocation.
+- Previous docs-only head 8a75153 had successful Backend workflow #40106273353. The new matrix head ac89f9ce84544ff4f53cb58bdf18e247d19177c9 is pending exact-head CI in workflow #40106537998; do not mark the matrix head green until that run completes.
+- Next: inspect exact-head CI, then use the matrix as the checklist for the remaining implementation/review gaps. PR #6 remains draft/unmerged; live broker writes disabled; original Tradepro untouched.

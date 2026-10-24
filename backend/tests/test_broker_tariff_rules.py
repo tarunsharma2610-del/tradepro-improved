@@ -172,6 +172,8 @@ def test_trade_charge_entrypoint_supports_flat_fixed_order_brokerage():
     from app.services.broker_tariff_rules import calculate_charge_for_trade
 
     rule = make_rule(
+        product="OPTIONS",
+        transaction_side="BUY",
         calculation_basis="ORDER_FIXED",
         rate=Decimal("20.00"),
         rate_unit="INR_FIXED",

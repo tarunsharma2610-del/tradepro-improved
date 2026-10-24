@@ -83,3 +83,11 @@ Official Upstox docs:
 - [Get Trade Charges API](https://upstox.com/developer/api-documentation/get-trade-charges/) returns segment/FY charge breakdown and its example shows `charges.ipft: null`.
 
 Treat those as different response contexts. Preserve raw JSON and distinguish absent, null, zero, and numeric values. A null in an aggregate sample is **unknown/not supplied**, not proof of zero, and not proof that IPFT was bundled into another field. Do not use a summary API field as a per-fill actual. The NSE combined effective-dated tariff rule remains authoritative for the covered NSE scope; API fields are reconciled against that scope only when their semantics and calculation bases are explicit.
+
+## Governing exchange source pointers for next tariff review — 24 October 2026
+
+- **BSE cash equity:** [BSE Equity Segment Master Circular](https://www.bseindia.com/markets/MarketInfo/DownloadAttach.aspx?attachedId=8a7fec3a-95bc-4bd2-82de-76e2a84e2915&id=20250429-51). It explicitly differentiates scrip groups and points to the daily scrip master / applicable-scrip file; a single generic BSE equity rate is insufficient. Use the circular and date-specific scrip metadata before selecting a rate.
+- **BSE equity derivatives:** [BSE Notice 20231020-46](https://www.bseindia.com/markets/MarketInfo/DispNewNoticesCirculars.aspx?page=20231020-46) describes tiered monthly billable premium turnover rates for SENSEX options, including expiry-specific rules. Treat as historical evidence and check for superseding notices before any effective-date activation.
+- **MCX:** [Official MCX circular archive](https://www.mcxindia.com/circulars/all-circulars) is the primary discovery source. The [MCX compliance FAQ](https://www.mcxindia.com/faq/compliance) also references applicable CTT, stamp duty, GST and other statutory dues, and clarifies that statutory charges and contract/brokerage requirements must be handled by scope. Do not activate a generic MCX rate based only on a secondary broker schedule.
+
+These pointers are research sources, not approved tariff rules. The existing candidate registry does not yet implement date-specific BSE scrip-group/monthly slabs or all MCX product/contract distinctions. Preserve the fail-closed behaviour until current governing circulars and calculation bases are encoded and tested.

@@ -807,3 +807,6 @@ Exact-head backend CI passed on `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run 
 
 ## Phase 3 checkpoint — aggregate variance hardening (2026-10-24)
 Added tests that variance comparison does not mutate reviewed evidence, verified source-component fields, or existing per-fill allocations, and rejects when evidence/component review state is revoked before comparison. CI for the new test commits is pending. The variance path remains audit-only and must not affect allocation, positions, or P&L.
+
+## Upstox adapter design constraint — 2026-10-24
+Use `UPSTOX_API_INTEGRATION_POLICY.md` as the canonical API inventory. Prefer one maintained Upstox adapter and the official Python SDK where endpoint/version support is adequate; use typed REST/WebSocket adapters only for documented SDK gaps. Do not create duplicate streams, brokers, charge ledgers or order engines. Keep estimates, broker-reported aggregates, trade/fill identity, reviewed actual evidence and per-fill allocations separate. Agent Skill/MCP access must not bypass auth, audit or live-order safety boundaries.

@@ -1557,3 +1557,13 @@ Source register updated in commit 2f6e55532e9704d4b41c9c736c38b1948ee5f05d: the 
 ## 2026-10-24 — BSE/MCX tariff review
 
 Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE equity requires date-specific scrip group/exclusivity data; the 2023 SENSEX nearest-expiry options notice describes monthly incremental premium-turnover slabs but is not enough to certify all 2026 BSE products; MCX FAQ confirms applicable statutory dues but is not a current tariff table. Next: verify exact-head CI, then implement/test response normalization and only add exchange rules when the exact governing current schedule and required input data are available. Do not activate generic BSE/MCX rates. Candidate rules DRAFT/non-selectable; PR #6 draft/unmerged; live broker writes disabled; original Tradepro untouched.
+
+
+## Resume checkpoint — 24 October 2026 (after exact-head CI)
+
+- Work only in `tarunsharma2610-del/tradepro-improved`; do not modify original `tarunsharma2610-del/Tradepro`.
+- PR #6 head `5e256bc867409672a19025f0219c9d9c866ce898` is open, draft, and unmerged. Exact-head Backend tests workflow #40105708790 passed.
+- Per-fill acceptance audit confirmed existing regression tests for exact fill-set manifests, source hash/document integrity, independent review provenance, reviewed-weight validation, exact source-total reconciliation, atomic/idempotent promotion, authorization recheck, rollback/fault injection, and variance-only comparisons with exact fill identity and aggregate-source rejection. Avoid duplicating these tests.
+- Next work: build a component-by-component acceptance matrix tying each component to its calculation base, evidence source, effective-date scope, rounding, residual policy, GST treatment, and explicit promotion criteria. Keep any unresolved component fail-closed; do not enable automatic quantity/notional allocation or activate tariffs based on public schedules alone.
+- User-provided FY 2022–23 annual statement is historical aggregate evidence only; it cannot prove IPFT inclusion or per-fill API mapping. A personal contract note is not a prerequisite for engineering work; use synthetic fixtures until genuine evidence is optionally available.
+- All tariff candidates remain DRAFT/non-selectable; live broker order submission remains disabled. No PR merge without completed acceptance and user approval.

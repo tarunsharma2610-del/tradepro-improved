@@ -1429,3 +1429,14 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## Upstox SDK/Agent Skill integration gate — 2026-10-24
+
+- [x] Audit current repository integration before modifying dependencies; see [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md).
+- [x] Record official SDK, API, Agent Skill and MCP references in `UPSTOX_API_INTEGRATION_POLICY.md`.
+- [ ] Inspect and pin the exact official Python SDK release; verify licence, Python compatibility, dependencies, method/schema coverage and endpoint versions.
+- [ ] Run an isolated, read-only brokerage-estimate compatibility spike against synthetic fixtures; compare normalized output with the existing parser and preserve timeout/error-redaction/async safeguards.
+- [ ] Inspect official Agent Skill files and scripts before use; do not run trading examples with live credentials or allow live order writes.
+- [ ] Decide endpoint-by-endpoint whether SDK adoption improves the current implementation. Retain direct REST/WebSocket code where it is safer or more complete.
+- [ ] Run tests and verify exact-head CI after any code change; keep PR #6 draft/unmerged, PAPER mode mandatory and original `Tradepro` untouched.
+

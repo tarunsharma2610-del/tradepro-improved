@@ -106,3 +106,10 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Added docs/PHASE3_CHARGE_COMPONENT_ACCEPTANCE_MATRIX.md with source/effective-date, calculation-base, rounding/residual, GST/overlap, evidence and promotion gates for brokerage, STT, exchange/IPFT, SEBI, stamp duty and GST.
 - Prior documentation head passed Backend workflow #40106273353; exact new matrix head is pending workflow #40106537998.
 - No tariff candidates activated; automatic quantity/notional allocation remains disabled; PR #6 remains draft/unmerged; live broker writes remain disabled.
+
+
+## 2026-10-24 — Lossless broker charge API field normalization
+
+- Added a normalization helper and tests preserving MISSING, NULL, ZERO, VALUE and INVALID states without inferring whether an API amount is combined, aggregate or per-fill.
+- Exact-head CI is required for the new code/test commits; prior matrix head passed workflow #40106582037.
+- No tariff activation, automatic allocation enablement, PR merge or live broker writes.

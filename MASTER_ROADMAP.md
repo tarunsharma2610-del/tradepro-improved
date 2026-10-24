@@ -1366,3 +1366,13 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - The prior failed run exposed a test-ordering issue, not evidence of an accounting mutation; the corrected regression now passes in the full backend suite.
 - Phase 3 is **not complete**: source-backed Upstox tariff/GST mapping, final per-fill allocation acceptance, and final merge gates remain open. Tariff candidates remain DRAFT/non-selectable. PR #6 remains draft/unmerged. Live broker order submission remains disabled.
 - Scope guard: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` remains out of scope and must not be modified.
+
+
+## 2026-10-24 — Upstox charge-source register
+
+- Added [`UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`](UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md) documenting the official Upstox Brokerage Details API (`GET /v2/charges/brokerage`) and Profit and Loss on Trades API as distinct estimate vs realized-charge evidence sources.
+- Added [`CHANGELOG.md`](CHANGELOG.md) to record this Phase 3 checkpoint and the verified 793-pass code CI result.
+- No effective-dated tariff was approved: official API schemas alone do not prove the user's active brokerage plan or current legal/exchange rates. All tariff candidates remain DRAFT/non-selectable pending authoritative dated sources and independent review.
+- Existing arithmetic tests cover deterministic largest-remainder paise allocation, mapping-order independence, zero-weight exclusion from residual distribution, invalid inputs and order brokerage-cap arithmetic. Ledger verification remains fail-closed for generic QUANTITY/NOTIONAL allocation until component-specific rules are approved; only explicitly reviewed weights can be promoted.
+- Exact-head CI for the latest documentation-only commits is still required before treating the branch checkpoint as fully verified. PR #6 remains draft/unmerged; live broker order submission remains disabled.
+- Scope remains `tarunsharma2610-del/tradepro-improved` only; do not modify the original `tarunsharma2610-del/Tradepro` repository.

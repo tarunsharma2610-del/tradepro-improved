@@ -821,3 +821,8 @@ The first implementation pass adds explicit single-fill/order-fill-set estimate 
 - Resolver blocks this endpoint from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use, even if a mapping is misleadingly labelled. `/v2/trade/profit-loss/charges` remains aggregate-only for per-fill purposes. Regression tests cover both mislabelled cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. The prior head passed workflow #40111501429; latest implementation/test CI must be verified.
 - Production mappings/tariffs unapproved; null is not zero; automatic quantity/notional allocation and live order submission disabled. PR #6 draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` untouched.
+
+## Upstox SDK/API integration status — 2026-10-24
+
+The Upstox integration has an audit and explicit adoption gate: [Upstox SDK/API Repository Audit](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md). Existing async REST clients, V3 WebSocket/protobuf streaming, read-only reconciliation, and validated brokerage-charge response parsing were found. The official Python SDK is not currently declared as a backend dependency; adoption is pending a version-pinned compatibility spike and is not assumed merely because the SDK is available. The brokerage calculator is an estimate, not realized per-fill accounting evidence. Keep PAPER mode mandatory and live broker order writes disabled.
+

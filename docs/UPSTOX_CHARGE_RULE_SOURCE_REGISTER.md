@@ -117,3 +117,11 @@ Added `docs/source_snapshots/UPSTOX_CHARGES_2026-10-24.md`. Its canonical extrac
 - Added fail-closed regression coverage for the unsupported component names. This prevents an upstream/API component from being silently omitted or persisted using an unreviewed allocation rule.
 - Follow-up: design a versioned normalized API-component mapping, preserve nullable-versus-zero distinctions and response digests, define component-specific allocation policies (including daily DP/demat), and test aggregate totals against API response fixtures. Keep unsupported components blocked until those gates pass.
 - No tariff activated, no actual charge promoted, no per-fill accounting side effect added by this test. Live broker writes remain disabled; PR #6 stays draft/unmerged.
+
+## Upstox component provenance checkpoint — 24 October 2026
+
+- Upstox estimate normalization preserves `transaction`, `clearing`, `ipft`, and `sebi_turnover` as distinct components; it does not collapse them into a generic exchange-charge value.
+- The component-separation regression test passed on exact PR head [0112f92](https://github.com/tarunsharma2610-del/tradepro-improved/commit/0112f92f065156e93069332be0a3665c601ab940), via [Backend tests run #40083185015](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40083185015). Pytest, broker-write boundary guard, SQLite/PostgreSQL migration round-trips, synthetic restore drill, and evidence-retention steps passed.
+- Estimate normalization is not tariff activation or actual-charge evidence. Do not map aggregate trade-charge outputs to individual fills or enable automatic transaction/clearing/IPFT allocation without reviewed component-specific semantics, source evidence, and an exact eligible-fill manifest.
+- Open item: verify effective-dated component composition and GST taxable-base rules from official sources and reviewed fixtures; prevent IPFT double-counting where the tariff presentation combines it with transaction charges.
+- PR #6 remains draft/unmerged; live broker order writes remain disabled. Work only in `tarunsharma2610-del/tradepro-improved`, never the original `tarunsharma2610-del/Tradepro`.

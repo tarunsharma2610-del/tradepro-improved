@@ -2414,3 +2414,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - New test commit still requires CI. This test-only step does not approve production broker mappings, enable allocation promotion, or enable live broker order submission.
 - Next accounting acceptance gap: test concurrent verification/promotion against a shared database with separate sessions, or explicitly document the limitation if the existing test harness cannot reliably exercise it. Keep lock order and rollback protections intact.
 - Work remains in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.
+
+
+## 2026-10-24 — Resolver acceptance and CI checkpoint
+
+- Backend workflow `40108183667` succeeded on prior head `8214430f562f6f425cfc1b9b6a6b3b547832b68a`. New resolver tests add exact broker/endpoint/schema/field/scope matching and non-finite-number rejection; newer commits still require CI.
+- Mapping identity fixtures use immutable dataclass replacement. Intended-use semantics remain explicit; missing/null/invalid values remain unusable and retain provenance; numeric zero remains distinct.
+- Accounting acceptance includes replay/conflict, ledger reconciliation, lock order, rollback, reviewer authority and PostgreSQL verification/promotion race coverage. Re-check exact test and workflow status before claiming complete. CI does not establish production tariff correctness or broker-origin authenticity.
+- Safety gates unchanged: PR #6 draft/unmerged; live broker order submission and automatic quantity/notional allocation disabled; production Upstox mappings/tariffs unapproved. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.

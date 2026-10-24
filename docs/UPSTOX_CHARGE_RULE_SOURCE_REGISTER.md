@@ -339,3 +339,10 @@ Added tests in `backend/tests/test_broker_tariff_rules.py` that:
 - assert the NSE rules do not accidentally introduce MCX scope.
 
 These are synthetic rule-consistency tests. They do not establish authenticated Upstox API field semantics, actual contract-note treatment, BSE/MCX rates, or approval of the GST component set. All tariff candidates remain DRAFT/non-selectable. Exact-head CI and independent review remain required.
+
+
+### Exact-head CI confirmation — 24 October 2026
+
+Verified GitHub Actions Backend tests run #40101310882 against commit `7b63a7dc7669c20e58b2a38cfe04ebf9d250cc89`: successful. Backend pytest reported **805 passed, 1 warning**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration round-trips passed; synthetic restore drill and evidence retention passed. Run: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40101310882
+
+This confirms the regression tests and documentation recorded at that exact head pass CI. It does not authenticate live Upstox API field semantics, prove account-specific GST treatment, or constitute independent tariff approval. Any subsequent commit requires its own exact-head CI check.

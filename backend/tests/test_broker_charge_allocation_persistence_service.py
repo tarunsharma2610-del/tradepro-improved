@@ -17,6 +17,10 @@ from app.models.user import User
 from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_connection import BrokerConnection
+from app.models.broker_order import BrokerOrder
+from app.models.order import Order
+from app.models.portfolio import Portfolio
+from app.models.instrument import Instrument
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.services.broker_charge_allocation_persistence_service import (
     allocate_and_persist_component,
@@ -244,8 +248,6 @@ def test_postgres_concurrent_disjoint_fill_sets_serialize_on_evidence_lock():
     if not database_url:
         pytest.skip("TEST_POSTGRES_URL is required for the PostgreSQL locking integration test.")
 
-    from sqlalchemy.exc import SQLAlchemyError
-
     schema = "phase3_alloc_" + uuid4().hex
     admin_engine = create_engine(database_url, pool_pre_ping=True)
     engine = None
@@ -290,11 +292,56 @@ def test_postgres_concurrent_disjoint_fill_sets_serialize_on_evidence_lock():
             )
             setup.add(evidence)
             setup.flush()
+
+            portfolio = Portfolio(
+                user_id=user.id,
+                name="PG allocation concurrency fixture",
+                virtual_capital=Decimal("1000.00"),
+                cash_balance=Decimal("1000.00"),
+            )
+            instrument = Instrument(
+                instrument_key="NSE_EQ|PGTEST",
+                exchange="NSE",
+                segment="NSE_EQ",
+                instrument_type="EQUITY",
+                trading_symbol="PGTEST",
+                name="Postgres test instrument",
+            )
+            setup.add_all([portfolio, instrument])
+            setup.flush()
+            order = Order(
+                portfolio_id=portfolio.id,
+                instrument_id=instrument.id,
+                side="BUY",
+                order_type="LIMIT",
+                segment="EQUITY_DELIVERY",
+                quantity=2,
+                limit_price=Decimal("100.0000"),
+                status="FILLED",
+                trading_mode="PAPER",
+                execution_reason="MANUAL",
+                placed_at=datetime.now(timezone.utc),
+                filled_at=datetime.now(timezone.utc),
+            )
+            setup.add(order)
+            setup.flush()
+
             trades = []
-            for trade_id in ("pg-concurrent-fill-a", "pg-concurrent-fill-b"):
+            for index, trade_id in enumerate(("pg-concurrent-fill-a", "pg-concurrent-fill-b"), start=1):
+                broker_order = BrokerOrder(
+                    broker_connection_id=connection.id,
+                    order_id=order.id,
+                    broker_name="upstox",
+                    broker_order_id=f"PG-ORDER-{index}",
+                    requested_quantity=1,
+                    filled_quantity=1,
+                    status="COMPLETE",
+                )
+                setup.add(broker_order)
+                setup.flush()
                 trade = BrokerTradeRecord(
                     broker_connection_id=connection.id,
-                    broker_order_ref_id=uuid4(),
+                    broker_order_ref_id=broker_order.id,
                     broker_trade_id=trade_id,
                     quantity=1,
                     price=Decimal("100.0000"),

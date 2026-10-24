@@ -1,3 +1,17 @@
+## Upstox SDK/API audit checkpoint — 24 October 2026
+
+**Start here:** [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md).
+
+- Repo boundary: `tarunsharma2610-del/tradepro-improved` only. Never touch original `tarunsharma2610-del/Tradepro`.
+- PR #6 remains open, draft and unmerged. PAPER mode is mandatory; live order place/modify/cancel remain disabled.
+- SDK is not currently declared in `backend/requirements.txt`; existing async `httpx` adapter, dedicated V3 protobuf/WebSocket streamer, read-only reconciliation client, and brokerage parser already cover multiple API functions.
+- Do not add SDK blindly. Next: inspect the exact official Python SDK release, license, methods and dependency tree in an isolated environment; prototype only read-only brokerage-estimate response compatibility against synthetic fixtures. Preserve current timeout, sanitized errors, async operation and accounting semantic checks.
+- Review official Upstox Agent Skill files/scripts as development-only reference; do not run trading examples or give the skill live credentials.
+- No account token, live API call, or order was used during the audit. Brokerage estimate remains an estimate, aggregate charges remain aggregate, and all tariff candidates remain DRAFT.
+- CI passed for prior head `3533c129af7f9ed4c3d741463a326b5a01cc3282` in [run #40116782403](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40116782403). Recheck CI for the final documentation head after these documentation commits.
+
+---
+
 ## Brokerage cap entrypoint integration — 23 October 2026
 
 - The previous exact-head implementation CI passed on commit [3445a748b3fbd3944362ed6e46873bffc30fd384](https://github.com/tarunsharma2610-del/tradepro-improved/commit/3445a748b3fbd3944362ed6e46873bffc30fd384): **712 passed, 1 warning**; SQLite/PostgreSQL migration round-trips, broker-write boundary guard, synthetic restore drill and evidence retention also passed.

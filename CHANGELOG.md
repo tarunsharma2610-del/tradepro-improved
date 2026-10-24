@@ -47,3 +47,11 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - This run verifies the code/test head before this documentation update, not the documentation commits below. A fresh exact-head CI result is required before treating the current branch tip as fully verified.
 - Phase 3 remains open: per-component accounting acceptance and authoritative, effective-dated tariff evidence with independent review remain pending. PR #6 stays draft/unmerged; live broker order submission remains disabled.
 - Repository scope is `tarunsharma2610-del/tradepro-improved` only. Do not modify original `tarunsharma2610-del/Tradepro`.
+
+
+## 2026-10-24 — NSE IPFT representation reconciliation
+
+- Added source-backed policy to `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md` in commit `295535e032a7ea542b67766c17e5186a83d54409`.
+- NSE Circular NSE/FA/73061 confirms totals effective 1 March 2026: ₹307/crore cash, ₹183/crore equity futures, and ₹3,553/crore equity-option premium. Each splits into transaction-only ₹306.99/₹182.99/₹3,552.99 plus IPFT ₹0.01/crore.
+- Upstox's public percentages are combined totals for those scopes; do not add IPFT a second time. Separate API fields require raw-response preservation and reconciliation to a dated contract note before canonical mapping approval.
+- Documentation/research only: tariff candidates remain DRAFT, PR #6 remains draft/unmerged, live broker order submission remains disabled. Exact-head CI is required for this documentation commit.

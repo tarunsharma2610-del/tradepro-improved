@@ -171,22 +171,15 @@ The dated public Upstox page and the authenticated Charges API are complementary
 **Gate outcome:** no new rule approved or activated by this audit. Automatic tariff-driven per-fill allocation remains disabled for unreviewed components; live broker order writes remain disabled.
 
 
-## Public-page IPFT contradiction — additional blocker, 24 October 2026
+## Public-page IPFT discrepancy — source reconciliation status, 24 October 2026
 
-A fresh read of the current official [Upstox Brokerage Charges page](https://upstox.com/brokerage-charges/) exposes an internal inconsistency that must be resolved before IPFT or transaction-charge calculations are approved:
+The Upstox public page displays an older IPFT table (₹0.10/lakh for cash/futures and ₹0.50/lakh for options premium) and a newer table saying IPFT is combined with transaction charges and lists ₹0.01/crore. These should not be interpreted as two simultaneously additive charges.
 
-- One displayed IPFT schedule states ₹0.10 per lakh for equity delivery/intraday/futures and ₹0.50 per lakh on options premium. Those amounts equal ₹10/crore and ₹50/crore, respectively.
-- A later IPFT table says IPFT is combined with transaction charges and lists ₹0.01 per crore for traded value (and ₹0.01 per crore on options premium). Those rates are 1,000 times smaller than the earlier schedule.
-- The same page also lists transaction-charge rates separately. The phrase “combined with Transaction Charges” does not establish whether the transaction-rate numbers displayed elsewhere are inclusive of IPFT or how the API's separately named `transaction` and `ipft` fields should reconcile.
+NSE Circular **NSE/FA/73061 (27 February 2026)**, effective 1 March 2026, explains the newer combined schedule and states that the transaction component plus ₹0.01/crore IPFT contribution preserves the relevant total outflow: ₹307/crore cash market, ₹183/crore equity futures, and ₹3,553/crore equity options premium. See the detailed table and scope restrictions in the section “IPFT/transaction-charge reconciliation using NSE circular” below/above in this register and the [official circular PDF](https://nsearchives.nseindia.com/content/circulars/FA73061.pdf).
 
-These statements cannot safely be normalized into one rate by assumption. Preserve the page capture and its retrieval timestamp/hash, seek clarification or an authoritative exchange/broker specification, and compare authenticated read-only charge responses with matching segment/date scope. Do not add both a rate that may already include IPFT and a separate IPFT component. Do not treat an API field's presence as proof of whether the public tariff is inclusive.
+**Status: partially reconciled, not fully approved.** For the listed NSE schedules, the newer combined transaction rate already includes the ₹0.01/crore IPFT contribution; never add the legacy ₹10/₹50-per-crore IPFT values to those combined rates. Preserve API fields separately for audit, but reconcile their actual semantics against authenticated account-specific API/contract-note evidence. The circular does not establish BSE/MCX or every product tuple.
 
-### GST composition gate
-
-The page explicitly lists the GST base as brokerage + transaction + IPFT for intraday/futures/options and adds demat charges for equity delivery. Implementing this text still requires a reviewed mapping from actual API/ledger components to those labels; no blanket 18% multiplier over all charges is approved. CBIC's stock-broking FAQ makes pure-agent exclusion of STT, stamp duty and other tax recoveries conditional on Rule 33; do not assume that treatment without account/invoice evidence.
-
-**Gate remains closed:** IPFT is not a selectable tariff candidate; no new IPFT or GST calculator/rule is approved by this audit.
-
+**Remaining gate:** independent review of effective dates and all product/side/basis scopes, and read-only API/contract-note fixture verification before any candidate is approved. GST taxable-component mapping remains a separate gate. No IPFT candidate or GST rule is approved by this source review.
 
 ## API source-type boundary and promotion guard — 24 October 2026
 

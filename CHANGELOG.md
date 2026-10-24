@@ -120,3 +120,9 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Added an exact-scope, effective-dated mapping registry for broker charge API fields. Only approved mappings matching broker, endpoint, schema version, field path, scope and trade date can be selected; unknown/unapproved/overlapping mappings fail closed.
 - Field-state normalizer CI passed in workflow #40106757433 on commit `f0e815c5b788744966bf2bacbfbe9c79dbfdd822`. New mapping code/tests and follow-up documentation still require exact-head CI.
 - No live API semantics were approved, no tariff activated, no PR merge, and no live broker writes.
+
+
+## 2026-10-24 — API mapping CI checkpoint
+
+- Verified successful Backend workflows #40106949357 for the API mapping guard/test commit and #40106989369 for the source-register documentation commit.
+- Exact-head CI remains required after subsequent documentation changes. No production Upstox mapping or tariff was approved.

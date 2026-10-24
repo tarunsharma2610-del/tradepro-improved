@@ -114,7 +114,7 @@ def test_future_effective_rule_requires_explicit_approval():
     [
         ("brokerage", "ORDER_NOTIONAL", "PERCENT", "0.003", "100000.00", "3.00"),
         ("sebi_turnover", "TURNOVER", "INR_PER_CRORE", "10", "100000.00", "0.10"),
-        ("other_fee", "ORDER_FIXED", "INR_FIXED", "15.50", "0", "15.50"),
+        ("other_fee", "NOTIONAL", "INR_FIXED", "15.50", "0", "15.50"),
         ("brokerage", "ORDER_NOTIONAL", "PERCENT", "0", "100000.00", "0.00"),
     ],
 )

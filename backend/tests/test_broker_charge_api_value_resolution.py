@@ -194,3 +194,18 @@ def test_payload_field_must_match_approved_mapping_field_path():
             trade_date=date(2026, 10, 24),
             intended_use="PER_FILL_ACTUAL",
         )
+
+
+def test_official_upstox_aggregate_charges_endpoint_cannot_be_promoted_to_per_fill():
+    aggregate_mapping = replace(
+        mapping(),
+        endpoint="/v2/trade/profit-loss/charges",
+        scope="contract-note-fill",
+        field_path="charges.ipft",
+    )
+    with pytest.raises(ValueError, match="Aggregate-only broker endpoint"):
+        resolve(
+            {"ipft": "0.01"},
+            aggregate_mapping,
+            endpoint="/v2/trade/profit-loss/charges",
+        )

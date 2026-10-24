@@ -1278,3 +1278,10 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - The warning is a Starlette/AnyIO deprecation warning; GitHub Actions also emitted Node.js 20 deprecation notices. No test or safety-guard failure was reported.
 - This result applies to commit `3e0ae803` only; subsequent documentation commits require their own exact-head CI run.
 - Phase 3 remains open pending final accounting acceptance and tariff-source applicability decisions. PR #6 remains draft/unmerged and live broker order submission remains disabled. Work only in `tarunsharma2610-del/tradepro-improved`; never the original `tarunsharma2610-del/Tradepro`.
+
+## Upstox trade-wise P&L endpoint boundary — 24 October 2026
+
+- The official `GET /v2/trade/profit-loss/data` endpoint (`https://upstox.com/developer/api-documentation/get-profit-and-loss-report/`) returns paginated trade-wise realized P&L rows, not a documented per-fill charge breakdown. Use it as matching context only; do not claim it proves charge components for each fill.
+- Keep it distinct from `GET /v2/trade/profit-loss/charges`, which returns selected-scope aggregate charge totals/components, and `GET /v2/charges/brokerage`, which estimates charges for an input order.
+- The read-only client method `get_profit_loss_report` must remain fixed-path GET-only, validate segment/FY/date/pagination inputs, sanitize errors, and never add broker order-write methods. Preserve OAuth tokens out of logs/fixtures.
+- Actual charge allocation still requires reviewed contract-note evidence and exact matching; do not distribute aggregate charges across fills without a separately approved allocation policy.

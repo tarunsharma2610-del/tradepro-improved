@@ -378,3 +378,10 @@ The visible summary has no separately labelled IPFT row. This is evidence that t
 ### Status
 
 The user-provided statement advances historical evidence collection but does not close the IPFT/API normalization or GST approval gates. Candidate rules remain DRAFT/non-selectable. PR #6 remains draft/unmerged and live broker order submission remains disabled.
+
+
+## Lossless API field-state normalization — 24 October 2026
+
+- Added `backend/app/services/broker_charge_api_normalization.py` with tests distinguishing absent fields, explicit `null`, numeric zero, nonzero numeric values and invalid values while preserving the original raw JSON value.
+- This helper intentionally does not map `transaction` to transaction-only vs combined transaction/IPFT, does not interpret aggregate API responses as per-fill actuals, and does not turn `null` into zero. A reviewed mapping must identify API endpoint, response schema/version, field path, semantic meaning, unit, currency, scope and effective date.
+- Exact-head CI for the new code/test commits remains required. Tariff candidates remain DRAFT/non-selectable; no API field mapping is approved by this helper alone.

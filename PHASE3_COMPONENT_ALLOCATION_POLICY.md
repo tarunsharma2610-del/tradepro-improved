@@ -65,3 +65,11 @@ The calculation engine now supports flat per-order brokerage (`ORDER_FIXED`/`INR
 
 ## DRAFT tariff candidate registry — 2026-10-24 (CI verified)
 The source excerpt `docs/source_snapshots/UPSTOX_CHARGES_2026-10-24.md` captures current Upstox rows and cross-checks the 2026 STT change against NSE. Eighteen effective-dated STT/exchange-charge candidates are stored as DRAFT and selector tests confirm they are not active. Stamp duty still requires current statutory corroboration; IPFT/transaction-charge combination is unresolved. Exact-head CI run `40065979244` passed (**760 passed, 1 warning**). No tariff-derived automatic allocation is enabled.
+
+
+## Official tariff-source recheck — 24 October 2026
+
+- Rechecked the official Upstox charges page on 2026-10-24 and recorded the findings in `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`. It lists 1 April 2026 STT/CTT changes and 1 March 2026 NSE transaction-charge changes, and states IPFT is combined with transaction charges while separately listing ₹0.01/crore (options on premium) plus GST. Current candidate rows represent transaction charges only; IPFT composition/effective-date treatment must be resolved before approval.
+- The same page's ₹10/order API-order brokerage note is explicitly valid only through 31 December 2025 (excluding GTT); do not treat it as current pricing. Current authenticated API-order-specific terms remain unverified.
+- NSE's official stamp-duty page is still marked updated 03/10/2023, so it is not a fresh 2026 publication. Independent current statutory corroboration remains a release gate.
+- No tariff candidate was approved or activated, no estimate was promoted to actual per-fill accounting, and no live broker order was sent. Source excerpt remains normalized rather than byte-for-byte HTML. Exact-head CI must be checked after these documentation changes; prior green CI does not cover the new head.

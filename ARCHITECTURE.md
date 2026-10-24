@@ -819,3 +819,6 @@ The existing fixed-path `UpstoxReadOnlyReconciliationClient` now supports the of
 
 ## Upstox estimate-only snapshot boundary — 2026-10-24 (CI verified)
 The Brokerage Details API response is normalized into separate component estimate snapshots in the existing immutable snapshot store. Each record carries API version/endpoint, canonical request parameters, UTC retrieval time, canonical response JSON + digest, total estimate and DP-plan minimum metadata. Variance comparison recomputes the response digest and rejects API estimates unless quantity, price, side and instrument match the exact reviewed fill set. This path does not create charge allocations or promote actuals. Exact-head CI run `40065219626` passed (**754 passed, 1 warning**).
+
+## Brokerage calculation shape — 2026-10-24 (CI verified)
+The guarded order-level brokerage calculator supports two explicit shapes: flat fee (`ORDER_FIXED` with `INR_FIXED`) and percentage-of-order-notional with rule-bound minimum/maximum caps. Snapshot calculation dispatches to the specialized order-brokerage entry point for both. No rate registry was activated and no allocation is created by this calculation. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).

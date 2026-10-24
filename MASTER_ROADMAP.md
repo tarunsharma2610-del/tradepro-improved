@@ -1103,3 +1103,6 @@ Exact-head CI run `40064514873` passed on `5026e95e56ae52c40b238bc29c194ceae26c7
 
 ## Phase 3 — Upstox estimate snapshot integration — 2026-10-24 (CI verified)
 Implemented API estimate normalization and persistence using the existing immutable `tariff_estimate_snapshot_records` table. Per-component snapshots retain request/response provenance, total and DP-plan minimum separately. The variance path checks response integrity and exact request-to-fill identity before recording variance only. Exact-head CI run `40065219626` passed on `2c23ebfeb9d0d843620dc6dcf54b7279bb112662` (**754 passed, 1 warning**). Next: source-backed effective-dated component-specific tariff applicability and safe approved-rule/per-fill integration.
+
+## Phase 3 — order brokerage calculation shapes — 2026-10-24 (CI verified)
+The guarded brokerage calculator and snapshot builder now support flat per-order fees (`ORDER_FIXED`/`INR_FIXED`) as well as capped percentage brokerage (`ORDER_NOTIONAL`/`PERCENT`). Exact-head CI run `40065607232` passed (**756 passed, 1 warning**). No rates are activated. Next: source archive + reproducible digest, DRAFT effective-dated candidate rules, then applicability and boundary tests before any rule approval or per-fill promotion.

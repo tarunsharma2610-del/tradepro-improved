@@ -180,3 +180,6 @@ The existing read-only client now exposes brokerage estimate, historical aggrega
 
 ## Upstox API estimate normalization — 2026-10-24 (CI verified)
 Brokerage calculator output normalizes to separate component-level estimate-only snapshots with full canonical response JSON/digest, request parameters, API version/endpoint, retrieval timestamp, total and separate DP-plan minimum metadata. The existing immutable snapshot store is reused. Before variance-only comparison, the service recomputes response integrity and checks quantity, price, side and instrument against the exact reviewed fill set. This does not create actual-charge evidence or allocation rows. Exact-head CI run `40065219626` passed (**754 passed, 1 warning**).
+
+## Flat brokerage estimate shape — 2026-10-24 (CI verified)
+Added `ORDER_FIXED`/`INR_FIXED` support to guarded order brokerage calculation and snapshot generation; percentage brokerage with rule-bound caps remains supported. This is calculation-shape support, not tariff activation or fill allocation. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**). Next: archived source-backed effective-dated candidate rules and applicability tests.

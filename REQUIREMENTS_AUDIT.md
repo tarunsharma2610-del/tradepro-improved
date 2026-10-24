@@ -1619,3 +1619,6 @@ The read-only client now covers the brokerage estimate endpoint, segment/FY aggr
 
 ## Upstox API estimate persistence requirement — 2026-10-24 (verified)
 Implementation normalizes brokerage API response components into immutable estimate-only snapshots and records request parameters, API version/endpoint, UTC retrieval timestamp, full canonical response JSON + SHA-256, total estimate and DP-plan minimum metadata. Replay uses the existing idempotency constraints; variance comparison verifies response digest and exact fill input matching. Tests cover component mapping, replay, invalid response, digest tampering and quantity mismatch. Exact-head CI run `40065219626` passed (**754 passed, 1 warning**).
+
+## Flat order brokerage requirement — 2026-10-24 (verified)
+The calculation engine and estimate snapshot builder support explicit flat per-order brokerage (`ORDER_FIXED`/`INR_FIXED`) and existing capped percentage brokerage (`ORDER_NOTIONAL`/`PERCENT`). Regression tests verify both calculation and snapshot shape. No rate data was activated. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).

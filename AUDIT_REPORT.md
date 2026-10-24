@@ -1404,3 +1404,6 @@ Added tested read-only methods for `/v2/charges/brokerage`, `/v2/trade/profit-lo
 
 ## 2026-10-24 — Upstox estimate snapshot implementation verified
 Added six component-level estimate normalizations from the Upstox brokerage response and reused the existing append-only persistence service. Request/response provenance includes exact request parameters, API version/endpoint, retrieval timestamp, canonical response JSON/digest, API total and DP-plan minimum. Variance checks reject tampered response provenance and mismatched request-to-fill inputs. Exact-head CI run `40065219626` passed on `2c23ebfeb9d0d843620dc6dcf54b7279bb112662` (**754 passed, 1 warning**); broker-write boundary and migration checks also passed in the workflow.
+
+## 2026-10-24 — Flat per-order brokerage support verified
+Added `ORDER_FIXED`/`INR_FIXED` support for flat brokerage alongside capped percentage order brokerage; added calculation and snapshot tests. This fixes a missing calculation shape needed to model Upstox's published flat per-executed-order delivery/options brokerage without pretending it is a percentage rate. No rates were activated. Exact-head CI run `40065607232` passed on `30db9920f640203c1045f1cb045d955bb41b5f86` (**756 passed, 1 warning**).

@@ -551,3 +551,6 @@ The read-only reconciliation client now exposes only fixed GET methods for broke
 
 ## API estimate provenance and variance guard — 2026-10-24 (CI verified)
 Upstox brokerage estimates carry a canonical stored response and SHA-256 recomputed before variance comparison. The comparison validates request quantity, price, side and instrument against the exact reviewed fill set. The fixed GET-only broker client remains read-only; estimate snapshots are immutable and cannot create allocation rows. Exact-head CI run `40065219626` passed (**754 passed, 1 warning**).
+
+## Order brokerage shape guard — 2026-10-24 (CI verified)
+The estimate calculator supports fixed per-order fees and capped percentage brokerage only through explicit specialized shapes. It remains an estimate-only path and cannot promote actuals or create allocation rows. No tariff rate was activated. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).

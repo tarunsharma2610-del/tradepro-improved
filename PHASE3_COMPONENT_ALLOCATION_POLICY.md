@@ -59,3 +59,6 @@ The official Upstox brokerage page now shows effective-date rows for STT/CTT fro
 
 ## Upstox API estimate boundary — 2026-10-24 (CI verified)
 Upstox brokerage API amounts are stored as estimate-only component snapshots. Total and DP-plan minimum are metadata, not separately allocated charge components; transaction + clearing + IPFT are grouped as `exchange_charges` to align with the current reviewed source-component vocabulary. API estimates must match exact fill-set quantity, price, side and instrument before variance comparison. This does not activate tariff rates or enable automatic allocation. Exact-head CI run `40065219626` passed (**754 passed, 1 warning**).
+
+## Brokerage calculator shape update — 2026-10-24 (CI verified)
+The calculation engine now supports flat per-order brokerage (`ORDER_FIXED`/`INR_FIXED`) separately from capped percentage brokerage. This reflects the distinction in the Upstox tariff page between fixed per-executed-order charges and percentage rates subject to a ₹20 cap. No rates are active from this change; automatic allocation remains gated on source review, effective-dated applicability and component-specific tests. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).

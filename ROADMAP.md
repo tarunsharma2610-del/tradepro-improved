@@ -1068,3 +1068,6 @@ Read-only client methods for brokerage estimate, historical trade-charge aggrega
 
 ## Phase 3 next checkpoint — Upstox estimate snapshots (2026-10-24, verified)
 The code converts Upstox Brokerage Details responses into six immutable estimate-only component snapshots and retains API request/response provenance, total and DP-plan minimum metadata. Exact input identity and response-digest checks guard variance comparison; no accounting allocation side effects are introduced. Exact-head CI run `40065219626` passed on `2c23ebfeb9d0d843620dc6dcf54b7279bb112662` (**754 passed, 1 warning**). Next: reviewed effective-dated component-specific tariff applicability and safe per-fill integration.
+
+## Next Phase 3 gate — source-backed tariff candidates (2026-10-24)
+Flat per-order brokerage (`ORDER_FIXED`/`INR_FIXED`) is now supported alongside capped percentage order brokerage; exact-head CI run `40065607232` passed (**756 passed, 1 warning**). No rates are activated. Next: archive current official Upstox/NSE source excerpts with reproducible digests, add candidate effective-dated rules in DRAFT state, and test exact applicability/effective-date boundaries before approval.

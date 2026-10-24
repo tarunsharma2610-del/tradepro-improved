@@ -82,3 +82,6 @@ The existing `UpstoxReadOnlyReconciliationClient` now implements fixed GET wrapp
 
 ## Brokerage Details API snapshot integration — 2026-10-24 (CI verified)
 The existing fixed-path GET client is paired with `build_upstox_brokerage_api_snapshots`, mapping documented `data.charges` into separate estimate-only component snapshots. It retains sanitized query parameters, API v2 endpoint, UTC retrieval timestamp, canonical full response JSON/digest, total estimate and DP-plan daily minimum as separate metadata. Variance comparison validates response digest and requires request quantity/price/side/instrument to match the exact reviewed fill set. The official docs describe `dp_plan.min_expense` as a daily minimum not included in the calculator total; implementation keeps it separate. No live account calls were made. Exact-head CI run `40065219626` passed (**754 passed, 1 warning**).
+
+## Flat per-order brokerage modeling — 2026-10-24 (CI verified)
+The guarded tariff engine now represents flat per-executed-order brokerage as `ORDER_FIXED`/`INR_FIXED`, separately from percentage-of-notional brokerage with an order cap. This supports the documented Upstox charge shape without encoding a flat fee as a percentage. No live API call or rate activation occurred. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).

@@ -696,6 +696,29 @@ def test_live_fill_promotion_uses_consistent_charge_then_trade_lock_order(accoun
     assert last_allocation < last_trade
 
 
+@pytest.mark.parametrize("attribute,value", [("is_admin", False), ("is_active", False)])
+def test_revoked_or_inactive_reviewer_cannot_promote_live_fill(accounting_context, attribute, value):
+    db, user, _portfolio, instrument, connection, _order, _child, record, paper_position = accounting_context
+    charges = _reviewed_charges(accounting_context)
+    reviewer = db.get(User, charges.reviewer_user_id)
+    setattr(reviewer, attribute, value)
+    db.commit()
+
+    with pytest.raises(ValueError, match="active platform administrator"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+
+    assert db.query(Execution).filter_by(
+        broker_connection_id=connection.id,
+        broker_trade_id=record.broker_trade_id,
+    ).count() == 0
+    assert db.query(LivePosition).filter_by(
+        broker_connection_id=connection.id,
+        instrument_id=instrument.id,
+    ).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
 def test_failed_commit_rolls_back_execution_and_live_position(accounting_context, monkeypatch):
     """A persistence failure must not leave half-promoted live accounting."""
     db, user, _portfolio, instrument, connection, _order, _child, record, paper_position = accounting_context

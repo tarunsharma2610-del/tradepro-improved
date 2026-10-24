@@ -212,3 +212,14 @@ Priority is based on Tradepro's current architecture and the inspected services,
 - [Bhav (MIT)](https://github.com/rajmaurya0904/bhav)
 - [Dhan NIFTY Algo Trading Lab (MIT)](https://github.com/builditwithgk/dhan-nifty-algo-trading-lab)
 - [NSE/BSE Algo Trading System (MIT)](https://github.com/vijaxx/algo-trading-system)
+
+## Upstox first-party API/tooling priority — 2026-10-24
+Prioritize current first-party Upstox documentation, official SDKs, examples, official Agent Skills and read-only MCP for broker-integration research before external trading frameworks. Follow `UPSTOX_API_INTEGRATION_POLICY.md`; evaluate brokerage estimate and historical trade-charge/trade-history endpoints without treating them as reviewed contract-note/per-fill evidence. Do not transplant an entire framework or enable live orders because an agent skill supports execution.
+
+
+## 2026-10-24 — Resolver acceptance and CI checkpoint
+
+- Latest previously verified documentation head: `8214430f562f6f425cfc1b9b6a6b3b547832b68a`; backend workflow [#40108183667](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40108183667) succeeded on that head. New resolver test commits `0f05f52cbb7c3afbe1c159fb94837c9776eb9262` and `65e7b56de6b193423106d57101a11d54dcc7894c` add exact broker/endpoint/schema/field/scope matching and non-finite-number rejection cases; these newer commits still require CI.
+- The mapping identity test fixtures use immutable dataclass replacement. Intended-use semantics remain explicit; missing/null/invalid states remain unusable and preserve mapping provenance; zero remains distinct.
+- Accounting acceptance already covers replay/conflict, ledger reconciliation, lock order, rollback, reviewer authority and a PostgreSQL verification/promotion race. Re-check exact test and workflow status before claiming complete; CI does not establish production tariff correctness or broker-origin authenticity.
+- Safety gates unchanged: PR #6 draft/unmerged; live broker order submission disabled; automatic quantity/notional allocation disabled; production Upstox mappings/tariffs unapproved. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` must remain untouched.

@@ -1,0 +1,97 @@
+# Phase 3 accounting acceptance coverage — 24 October 2026
+
+## Latest documentation-head CI
+- Commit: `02061f46bde64c2fd692a86b1621ad2c1a189141`.
+- Run: [40088958619](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40088958619) — **success**.
+- Backend pytest, broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic restore drill, and evidence retention all completed successfully.
+- CI result is tied to the above commit; this new coverage note itself triggers a newer run and must not be called green until verified.
+
+## Coverage confirmed by test inspection
+- Rejects estimated, aggregate, unsupported, malformed, negative, and paise-overprecision charge inputs for live accounting.
+- Blocks missing or non-reconciled component allocations and caller amounts that disagree with the ledger.
+- Requires persisted reviewed contract-note evidence for new promotions.
+- Protects exact replay and rejects conflicting source identity or charge evidence.
+- Tests ambiguous/ealier trade timestamps and out-of-order promotion.
+- Tests partial fills on cancelled orders, quantity boundaries, staged-fill completeness, and cumulative fill limits.
+- PostgreSQL-only concurrency test races source verification against allocation promotion and asserts a reconciled final ledger without errors.
+
+## Residual acceptance gaps / limits
+- PostgreSQL regression `test_live_fill_promotion_races_with_component_ledger_verification` exercises the live-fill accounting path concurrently with component promotion/verification. It permits a fail-closed first attempt while allocations remain pending, then checks retry/replay and exactly one execution/position. This is distinct from the separate source-verification-vs-promotion serialization test.
+- Rollback tests cover staged-row failure, flush failure, failed commit, post-commit refresh failure/replay, outer transaction rollback, and component-promotion flush failure. They do not inject failure after every individual SQL statement or every conceivable database/network failure boundary; describe this as targeted rollback coverage, not exhaustive fault-injection proof.
+- CI's synthetic restore drill is not a real Oracle Cloud restore exercise.
+- No CI/test result proves uploaded contract notes are authentic broker-issued documents; source hashes prove byte integrity after intake, not issuer authenticity.
+- Reviewer-role revocation is enforced at the promotion boundary: `promote_verified_component_allocations` re-checks that the recorded reviewer is still an active platform administrator. Regression `test_promotion_rechecks_admin_role_at_time_of_promotion` covers the revoked/inactive/non-admin case and asserts allocations remain pending. The source-component verifier itself is read-only and is not the promotion authorization boundary.
+
+## Next action
+Finish the source-approved tariff/GST applicability review and decide whether targeted write-boundary coverage is sufficient for Phase 3 acceptance. Add tests only for demonstrated gaps. Keep PR #6 draft/unmerged, live broker order submission disabled, and all work confined to `tarunsharma2610-del/tradepro-improved`.
+
+## Exact-head CI checkpoint — 24 October 2026
+
+- Documentation checkpoint commit `3e0ae8034f333e082bfa11b6da50aec9e620f242` passed GitHub Actions Backend tests run [`40091642139`](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40091642139).
+- Result: **787 passed, 1 warning** in pytest. Broker-write boundary guard passed; SQLite and PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks passed; synthetic PostgreSQL/document-volume restore drill and evidence-artifact retention passed.
+- The warning is a Starlette/AnyIO deprecation warning; the run also reports GitHub Actions Node.js 20 deprecation notices. No test or safety-guard failure was reported.
+- This verifies commit `3e0ae803` only. Any new documentation commit must receive its own exact-head CI run before the checkpoint is considered green.
+- Phase 3 remains open pending final accounting acceptance and tariff-source applicability decisions. PR #6 remains draft/unmerged; live broker order submission remains disabled. Work only in `tarunsharma2610-del/tradepro-improved`, never the original `tarunsharma2610-del/Tradepro`.
+
+## Latest exact-head CI verification — 24 October 2026
+
+- The documentation checkpoint at branch head commit `8c97a952eadec31ce302d42907a3e8516c160ae8` passed Backend tests workflow [#40091844691](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40091844691).
+- Pytest: **787 passed, 1 warning**. Broker-write boundary guard passed. SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed. Synthetic PostgreSQL/document-volume restore drill and evidence retention passed.
+- The pytest warning is Starlette/AnyIO deprecation; the workflow also emits Node.js 20 deprecation notices. No test or broker-write guard failure was reported.
+- This validates the code and documentation state at `8c97a952`; future changes need their own exact-head CI run.
+- This is not production financial validation or proof of broker-document authenticity. Accounting acceptance remains open for the explicitly documented tariff applicability, GST component mapping, reviewer policy, and residual failure/concurrency coverage decisions. PR #6 remains draft/unmerged; live broker order submission remains disabled. Work only in `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` is out of scope.
+
+## Accounting acceptance CI — 24 October 2026
+
+- Commit `0dee50af510c1f47e50093a3f796aef5fb32707b` passed Backend tests workflow [#40092273865](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40092273865).
+- Pytest result: **787 passed, 1 warning in 48.24 seconds**. Broker-write boundary guard passed. SQLite and PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks passed. Synthetic PostgreSQL/document-volume restore drill and evidence retention passed.
+- The pytest warning is the Starlette/AnyIO `BlockingPortal` deprecation; the workflow also emitted Node.js 20 / dependency deprecation notices. No test or broker-write guard failure was reported.
+- This validates commit `0dee50af` only. Any later change requires its own exact-head CI run.
+- Acceptance remains open: tariff candidates are not approved; the current NSE source register explicitly limits what the NSE circular establishes, and actual Upstox invoice/contract-note evidence is still needed to approve product-scoped GST and tariff component mapping. Targeted rollback tests exist, but they are not exhaustive fault injection. PR #6 remains draft/unmerged and live broker order submission remains disabled. Work only in `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` is out of scope.
+
+## Upstox charge API audit and exact-head CI checkpoint — 24 October 2026
+
+- Added official API guidance to `PROJECT_INSTRUCTIONS.md` and expanded `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`: use Brokerage Details API (`GET /v2/charges/brokerage`) for estimates; use supported selected-scope P&L charge breakdowns (aggregate, not per-trade) for reconciliation; compare realized charges with authenticated trade history and an actual broker-issued contract note/tax invoice.
+- Exact branch head `640ebfba38a96c7d84d4ffc3501afcd2278b551b` passed Backend workflow [#40092513016](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40092513016): **787 passed, 1 warning in 48.85s**. Broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill, and evidence retention passed.
+- Warning: Starlette/AnyIO `BlockingPortal` deprecation. Workflow also reports Node.js 20 and dependency deprecation notices. No test or broker-write guard failure was reported.
+- Source discovery is not approval: no account-specific Upstox response or contract-note fixture was verified here. GST taxable-component mapping and tariff scope/effective dates remain unapproved; candidate rules remain inactive. Do not double-count legacy IPFT with the current combined NSE transaction schedule.
+- Future documentation/code commits need their own exact-head CI run. This entry records the successful run above only.
+- PR #6 remains draft/unmerged; live broker order submission remains disabled. Work only in `tarunsharma2610-del/tradepro-improved`; never modify the original `tarunsharma2610-del/Tradepro`.
+
+## Upstox API coverage and tariff-source correction — 24 October 2026
+
+- Added read-only `get_profit_loss_report` for official `GET /v2/trade/profit-loss/data`; it returns paginated trade-wise P&L rows, not documented per-row charge components. It is matching context only, not per-fill charge evidence.
+- Brokerage estimate, aggregate charge report, trade-wise P&L report and contract-note evidence remain distinct source types. No charge promotion from estimate or aggregate data.
+- Corrected DRAFT equity STT candidate effective dates for delivery buy/sell (0.1%) and intraday sell (0.025%) to 1 April 2023; added regression tests. Candidates remain non-selectable.
+- CI [#40093198960](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40093198960) passed **790 tests, 1 warning**, broker-write guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore/evidence retention. This run validates the code/source-register checkpoint; the subsequent documentation synchronization still requires exact-head CI [#40093300274](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40093300274).
+- PR #6 remains draft/unmerged; live broker order submission remains disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## Upstox P&L metadata API — 24 October 2026
+
+- Added fixed-path read-only `get_profit_loss_report_metadata` for `GET /v2/trade/profit-loss/metadata`. It validates segment, financial year and optional date scope, and exposes the documented `trades_count` and `page_size_limit` metadata used to plan pagination of `/trade/profit-loss/data`.
+- Added regression tests for normalized request scope, returned page-size metadata, and invalid scope/date rejection. The metadata endpoint contains no charge components and does not alter the contract-note evidence requirement.
+- The metadata API and regression tests passed exact-head CI in [run #40093554718](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40093554718): 792 tests passed, 1 warning; broker-write guard, SQLite/PostgreSQL 16 migration checks, and synthetic restore/evidence retention passed.
+- Tariff candidates remain DRAFT/non-selectable; PR #6 remains draft/unmerged; live broker order submission remains disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope.
+
+## Latest verified checkpoint — 24 October 2026
+
+- Exact-head CI for the Upstox P&L metadata API and its regression tests completed successfully in [run #40093554718](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40093554718): **792 tests passed, 1 warning**; broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, isolated synthetic restore drill, and restore evidence retention all passed.
+- The metadata endpoint is read-only and provides `trades_count` / `page_size_limit`; it informs pagination only. The P&L data endpoint remains trade-wise matching context, not per-fill charge evidence. The charges endpoint remains aggregate scope only.
+- The three equity STT DRAFT candidates now use the source-stated 1 April 2023 effective date; candidates remain non-selectable. No charge-allocation or tariff-promotion gate has been bypassed.
+- PR #6 remains draft/unmerged. Live broker order submission remains disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; the original `tarunsharma2610-del/Tradepro` is untouched.
+- Next Phase 3 work: resume the durable per-fill charge-allocation acceptance audit, especially evidence identity/matching, rounding/residual handling, replay/idempotency, rollback, and aggregate variance regression coverage. Do not promote tariffs or allocate aggregate charge totals across fills without an approved deterministic policy and reviewed contract-note evidence.
+
+## Variance rollback regression added — 24 October 2026
+
+- Added `test_variance_insert_flush_failure_rolls_back_record_without_mutating_accounting` in `backend/tests/test_broker_charge_source_reconciliation_service.py`.
+- The regression injects a failure at variance-record flush and asserts the nested savepoint leaves no variance row and does not mutate reviewed evidence, source component data, or pending allocation rows.
+- Commit: `edbc0852a72978577d8da8651e8fdce932e9593d`. Exact-head CI must complete before this test is considered verified; the prior successful run does not cover this new test.
+- Phase 3 acceptance remains open pending CI, source-backed tariff/GST mapping, and final charge-allocation acceptance. Tariff candidates remain DRAFT; live broker order submission remains disabled; PR #6 remains draft/unmerged.
+
+
+## 2026-10-24 — Resolver acceptance and CI checkpoint
+
+- Latest previously verified documentation head: `8214430f562f6f425cfc1b9b6a6b3b547832b68a`; backend workflow [#40108183667](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40108183667) succeeded on that head. New resolver test commits `0f05f52cbb7c3afbe1c159fb94837c9776eb9262` and `65e7b56de6b193423106d57101a11d54dcc7894c` add exact broker/endpoint/schema/field/scope matching and non-finite-number rejection cases; these newer commits still require CI.
+- The mapping identity test fixtures use immutable dataclass replacement. Intended-use semantics remain explicit; missing/null/invalid states remain unusable and preserve mapping provenance; zero remains distinct.
+- Accounting acceptance already covers replay/conflict, ledger reconciliation, lock order, rollback, reviewer authority and a PostgreSQL verification/promotion race. Re-check exact test and workflow status before claiming complete; CI does not establish production tariff correctness or broker-origin authenticity.
+- Safety gates unchanged: PR #6 draft/unmerged; live broker order submission disabled; automatic quantity/notional allocation disabled; production Upstox mappings/tariffs unapproved. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` must remain untouched.

@@ -162,3 +162,11 @@ Added a dashboard-linked `/reconciliation` page that displays recent run summari
 The original live-fill accounting service, tests and migration 0008 were restored; supporting broker-order/trade/live-position models and migration revisions 0006/0007 were added. GitHub Actions [run 39475387511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39475387511) passed **355 tests, 1 warning**, and SQLite/PostgreSQL 16 reversible migration checks at code/test checkpoint `a906274b98f3f7e0c913f376128f4996b996c52b`.
 
 Important boundary: the accounting service remains unregistered; no broker trade intake or worker-to-accounting path invokes it yet. It is not proof of live accounting end-to-end or real-account reconciliation. Keep live submission disabled and continue Phase 2 recovery/fill-linkage gates before any integration.
+
+
+## 2026-10-24 — Resolver acceptance and CI checkpoint
+
+- Backend workflow `40108183667` succeeded on prior head `8214430f562f6f425cfc1b9b6a3b547832b68a`. New resolver tests add exact broker/endpoint/schema/field/scope matching and non-finite-number rejection; newer commits still require CI.
+- Mapping identity fixtures use immutable dataclass replacement. Intended-use semantics remain explicit; missing/null/invalid values remain unusable and retain provenance; numeric zero remains distinct.
+- Accounting acceptance includes replay/conflict, ledger reconciliation, lock order, rollback, reviewer authority and PostgreSQL verification/promotion race coverage. Re-check exact test and workflow status before claiming complete. CI does not establish production tariff correctness or broker-origin authenticity.
+- Safety gates unchanged: PR #6 draft/unmerged; live broker order submission and automatic quantity/notional allocation disabled; production Upstox mappings/tariffs unapproved. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.

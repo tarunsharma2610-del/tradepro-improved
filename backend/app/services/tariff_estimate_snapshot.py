@@ -267,6 +267,25 @@ def build_upstox_brokerage_api_snapshots(
     if not isinstance(taxes, dict) or not isinstance(other, dict) or not isinstance(dp_plan, dict):
         raise ValueError("Upstox brokerage response is missing documented charge breakdown sections.")
 
+    # The API response schema is normalized by an explicit versioned allowlist.
+    # Reject newly introduced fields (even if zero) until their semantics and
+    # accounting treatment are reviewed; otherwise a new levy could be ignored.
+    allowed_charge_keys = {"total", "brokerage", "taxes", "other_charges", "dp_plan"}
+    allowed_tax_keys = {"gst", "stt", "stamp_duty"}
+    allowed_other_keys = {"transaction", "clearing", "ipft", "sebi_turnover"}
+    allowed_dp_plan_keys = {"name", "min_expense"}
+    unknown = {
+        "charges": sorted(set(charges) - allowed_charge_keys),
+        "taxes": sorted(set(taxes) - allowed_tax_keys),
+        "other_charges": sorted(set(other) - allowed_other_keys),
+        "dp_plan": sorted(set(dp_plan) - allowed_dp_plan_keys),
+    }
+    unknown = {section: keys for section, keys in unknown.items() if keys}
+    if unknown:
+        raise ValueError(
+            "Upstox response contains unsupported charge fields; update the versioned component mapping before use."
+        )
+
     def amount(value: Any, field: str) -> Decimal:
         try:
             parsed = Decimal(str(value))

@@ -1598,3 +1598,10 @@ Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE 
 - Backend workflow #40106949357 passed for `3a04aefc7e8bb9c0cf8e99889c5de89b4537dc63` (API mapping guard + tests). Backend workflow #40106989369 passed for `cee4fa0fbd4eefc0850d26119bdc6fa11e3915a` (source-register docs).
 - These runs validate those commits, not necessarily the current branch head after subsequent doc commits. Re-run exact-head CI before merge.
 - No production Upstox field semantics are approved. Next: add a narrow controlled resolution function that combines normalized field state with an exact approved mapping and rejects aggregate scope for per-fill actual charges. Keep no fallback-by-name, no inference from null, no tariff activation, no automatic allocation, no live broker writes.
+
+
+## Resume checkpoint — controlled API value resolution
+
+- Added `backend/app/services/broker_charge_api_value_resolution.py` and tests `backend/tests/test_broker_charge_api_value_resolution.py` (code commit `3ca72caed52906b7d0749e204c1558a1e72c358e`, test commit `9734ace970b22031939eb87f9d99c1a5066f5097`).
+- Resolver requires exact approved mapping and prevents aggregate summaries/estimates from being used as per-fill actual charges. Missing/null/invalid are unusable; zero remains an explicit value. It does not promote allocations.
+- Synthetic fixture source is reserved and not authoritative; no Upstox production field semantics approved. CI for the resolver and later documentation commits must pass on exact head.

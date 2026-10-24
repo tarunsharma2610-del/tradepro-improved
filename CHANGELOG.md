@@ -86,3 +86,8 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Documented the distinction between Upstox's order-specific brokerage estimate and segment/FY trade-charge summary; missing/null/zero/numeric IPFT values must not be conflated.
 - Added a secondary public schedule cross-check for BSE scrip/index-specific and MCX commodity rate boundaries; these remain research leads pending the governing exchange circulars.
 - Source register commit: 2f6e55532e9704d4b41c9c736c38b1948ee5f05d. CI for this latest documentation head remains to be verified; no tariff candidates activated.
+
+## 2026-10-24 — BSE/MCX tariff scope review
+
+- Added official-source review notes for BSE scrip-group/exclusivity handling, BSE SENSEX monthly incremental slab mechanics, and MCX statutory charge scope. Source register commit: f978052402b2be79d99958427092a29eace83859.
+- No generic BSE/MCX rates activated because the reviewed material does not prove all current effective-dated product schedules. Exact-head CI pending verification.

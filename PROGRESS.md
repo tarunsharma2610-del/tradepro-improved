@@ -2364,3 +2364,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - This is a lossless normalization primitive only. It does not infer whether `transaction` includes IPFT, whether a response is aggregate vs per-fill, or whether a number is an actual charge. Those semantics still require a versioned, reviewed mapping and source evidence.
 - Matrix-head CI passed in workflow #40106582037 for commit f33953e903dcdd8655fa34eee9c612a36bd94b2c. New helper/test commits are newer and need exact-head CI before being marked verified.
 - Safety unchanged: candidates remain DRAFT/non-selectable, generic quantity/notional allocation disabled, PR #6 draft/unmerged, live broker writes disabled, original Tradepro untouched.
+
+
+## 2026-10-24 — Reviewed API field mapping gate
+
+- Backend workflow #40106757433 passed on the API field-state normalization test commit; all pipeline gates completed, including backend pytest, broker-write boundary, SQLite/PostgreSQL migration round-trips and synthetic restore/evidence retention. This is not CI for later commits.
+- Added `backend/app/services/broker_charge_api_mapping.py` and tests `backend/tests/test_broker_charge_api_mapping.py`. Mapping selection requires exact broker, endpoint, schema version, field path, scope and effective date, plus `APPROVED` review state; missing/overlapping mappings and `UNKNOWN` semantics fail closed.
+- The module is a registry/guard, not an approval of any Upstox field's actual semantics. Current fixture values are synthetic only. No production mapping was added or approved, and aggregate charges remain prohibited as per-fill actual evidence.
+- Exact-head CI is required for the new mapping code/tests and subsequent docs. PR #6 remains draft/unmerged; tariff candidates non-selectable; automatic quantity/notional allocation and live broker writes disabled.

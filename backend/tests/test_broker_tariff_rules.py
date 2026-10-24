@@ -149,6 +149,18 @@ def test_calculate_tariff_amount_rejects_non_approved_rule(status):
         calculate_tariff_amount(rule, calculation_base="100000")
 
 
+@pytest.mark.parametrize(
+    ("basis", "unit"),
+    [
+        ("ORDER_FIXED", "PERCENT"),
+        ("ORDER_NOTIONAL", "INR_FIXED"),
+    ],
+)
+def test_brokerage_rule_rejects_incompatible_order_basis_and_rate_unit(basis, unit):
+    with pytest.raises(ValueError, match="brokerage requires"):
+        make_rule(calculation_basis=basis, rate_unit=unit)
+
+
 def test_trade_charge_entrypoint_selects_then_calculates_exact_rule():
     from app.services.broker_tariff_rules import calculate_charge_for_trade
 

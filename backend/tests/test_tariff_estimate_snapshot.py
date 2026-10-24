@@ -228,13 +228,16 @@ def test_upstox_api_estimate_normalizes_each_supported_component_with_provenance
     by_component = {snapshot.component: snapshot for snapshot in snapshots}
 
     assert set(by_component) == {
-        "brokerage", "stt", "stamp_duty", "gst", "exchange_charges", "sebi_charges"
+        "brokerage", "stt", "stamp_duty", "gst", "transaction_charges",
+        "clearing_charges", "ipft_charges", "sebi_charges"
     }
     assert by_component["brokerage"].calculated_amount == "0.00"
     assert by_component["stt"].calculated_amount == "175.00"
     assert by_component["stamp_duty"].calculated_amount == "26.23"
     assert by_component["gst"].calculated_amount == "1.02"
-    assert by_component["exchange_charges"].calculated_amount == "5.85"
+    assert by_component["transaction_charges"].calculated_amount == "5.68"
+    assert by_component["clearing_charges"].calculated_amount == "0.00"
+    assert by_component["ipft_charges"].calculated_amount == "0.17"
     assert by_component["sebi_charges"].calculated_amount == "0.17"
     for snapshot in snapshots:
         assert snapshot.source_kind == "UPSTOX_BROKERAGE_API_ESTIMATE"

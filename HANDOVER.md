@@ -1677,3 +1677,11 @@ Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE 
 - No production mapping or tariff is approved. Keep mappings DRAFT; reject aggregate/estimate/null values for actual per-fill evidence; do not separately add IPFT where already included in combined exchange outflow.
 - Latest code/test head before this note, `ee1b2a74d2a9f6141b9afbb6e06562b5cf263a9b`, passed Backend workflow #40110597753. This documentation change needs fresh CI verification.
 - PR #6 remains draft/unmerged. Live order submission and automatic quantity/notional allocation remain disabled. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## 2026-10-24 — Aggregate endpoint hard guard added; CI pending
+
+- Added a fail-closed resolver guard that blocks Upstox `/v2/trade/profit-loss/charges` from `PER_FILL_ACTUAL` use even if a registry row is incorrectly labelled per-fill. Official docs describe segment/financial-year/date-range aggregate `charges_breakdown`, not a per-fill schema.
+- Regression test `test_official_upstox_aggregate_charges_endpoint_cannot_be_promoted_to_per_fill` verifies the endpoint restriction.
+- Implementation `cdc07afdd8cc0c8d0b37d7e4aa8cdf1bf6eac651`; test `8ae749017a8ba0016f2c9adeb77eaff41fb5ae70`. Implementation CI is running; test workflow is queued. Await a green result before calling this safeguard verified.
+- This does not approve production mappings/tariffs. Null remains distinct from zero; automatic quantity/notional allocation and live order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.

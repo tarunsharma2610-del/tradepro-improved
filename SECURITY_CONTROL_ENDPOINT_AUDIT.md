@@ -533,3 +533,6 @@ Security remains fail-closed: no broker order write is enabled by tariff calcula
 
 ## Phase 3 variance boundary note — 2026-10-24
 Order-fill-set estimate variance is an audit comparison only, not an order-control endpoint or source for charge allocation. New tests reject tampered actual fill-set digest, mixed broker-order membership, side mismatch, and trade-date mismatch without persisting variance rows. Current-head CI is pending. Live broker order submission remains disabled; no change to public control endpoints is implied by these tests.
+
+## CI verification — 2026-10-24
+Backend pytest passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062975428`). Variance comparison remains an audit-only service, not an order-control endpoint and not an allocation source. Remaining checks concern concurrency, source review-state revalidation and proof of no accounting side effects. Live broker order submission remains disabled.

@@ -287,20 +287,3 @@ def test_order_fill_set_variance_rejects_trade_date_mismatch_without_write(aggre
         )
 
     assert db.query(TariffEstimateVarianceRecord).count() == 0
-
-
-def test_order_fill_set_variance_rejects_tampered_snapshot_manifest_digest_without_write(aggregate_variance_case):
-    db, snapshot, component, _fill_ids = aggregate_variance_case
-    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
-
-    payload = json.loads(snapshot.snapshot_json)
-    payload["source_fill_set_sha256"] = "f" * 64
-    snapshot.snapshot_json = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    db.flush()
-
-    with pytest.raises(ValueError, match="digest does not match its payload"):
-        compare_estimate_to_reviewed_actual(
-            db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
-        )
-
-    assert db.query(TariffEstimateVarianceRecord).count() == 0

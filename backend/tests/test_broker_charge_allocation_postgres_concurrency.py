@@ -821,19 +821,6 @@ def test_concurrent_variance_comparison_exact_replay_is_audit_only(tmp_path, mon
             assert records[0].status == "VARIANCE_ONLY"
             assert db.query(BrokerChargeAllocation).filter_by(evidence_id=evidence_id).count() == 0
     finally:
-        with Session.begin() as db:
-            db.execute(text("DELETE FROM tariff_estimate_variance_records WHERE source_component_id = :id"), {"id": str(component_id)})
-            if snapshot_id is not None:
-                db.execute(text("DELETE FROM tariff_estimate_snapshot_records WHERE id = :id"), {"id": str(snapshot_id)})
-            db.execute(text("DELETE FROM broker_charge_allocations WHERE evidence_id = :id"), {"id": str(evidence_id)})
-            db.execute(text("DELETE FROM broker_charge_source_components WHERE id = :id"), {"id": str(component_id)})
-            db.execute(text("DELETE FROM broker_charge_evidence WHERE id = :id"), {"id": str(evidence_id)})
-            db.execute(text("DELETE FROM broker_trade_records WHERE id = :id"), {"id": str(trade_id)})
-            db.execute(text("DELETE FROM broker_orders WHERE id = :id"), {"id": str(broker_order_id)})
-            db.execute(text("DELETE FROM broker_connections WHERE id = :id"), {"id": str(connection_id)})
-            db.execute(text("DELETE FROM orders WHERE id = :id"), {"id": str(order_id)})
-            db.execute(text("DELETE FROM instruments WHERE id = :id"), {"id": str(instrument_id)})
-            db.execute(text("DELETE FROM portfolios WHERE id = :id"), {"id": str(portfolio_id)})
-            db.execute(text("DELETE FROM users WHERE id IN (:owner, :reviewer)"),
-                       {"owner": str(owner_id), "reviewer": str(reviewer_id)})
+        # Variance records are append-only by database trigger. Keep this isolated
+        # synthetic fixture intact rather than weakening the immutability boundary.
         engine.dispose()

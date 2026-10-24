@@ -217,6 +217,20 @@ def test_tariff_rule_rejects_invalid_or_inapplicable_brokerage_caps(changes):
         make_rule(**changes)
 
 
+def test_order_brokerage_supports_flat_fixed_fee_per_executed_order():
+    from app.services.broker_tariff_rules import calculate_order_brokerage
+
+    rule = make_rule(
+        calculation_basis="ORDER_FIXED",
+        rate=Decimal("20.00"),
+        rate_unit="INR_FIXED",
+        minimum_inr=None,
+        maximum_inr=None,
+    )
+    assert calculate_order_brokerage(rule, order_notional="100000") == Decimal("20.00")
+    assert calculate_order_brokerage(rule, order_notional="1") == Decimal("20.00")
+
+
 def test_order_brokerage_requires_order_scope_and_percent_rule():
     from app.services.broker_tariff_rules import calculate_order_brokerage
 

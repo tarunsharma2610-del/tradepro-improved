@@ -134,7 +134,7 @@ def build_tariff_estimate_snapshot(
     fill_set_sha256 = _sha256(fill_ids_json) if fill_ids_json is not None else None
 
     base = _decimal_string(calculation_base, "Calculation base")
-    if rule.component.lower() == "brokerage" and rule.calculation_basis == "ORDER_NOTIONAL":
+    if rule.component.lower() == "brokerage" and rule.calculation_basis in {"ORDER_NOTIONAL", "ORDER_FIXED"}:
         amount = calculate_order_brokerage(rule, order_notional=Decimal(base))
     else:
         amount = calculate_tariff_amount(rule, calculation_base=Decimal(base))

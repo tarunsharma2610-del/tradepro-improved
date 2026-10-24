@@ -157,6 +157,20 @@ def test_order_brokerage_snapshot_applies_rule_bound_cap_and_fingerprints_it():
         compare_estimate_replay(snapshot, changed_cap)
 
 
+def test_flat_order_brokerage_snapshot_records_fixed_per_order_fee():
+    fixed_rule = make_rule(
+        calculation_basis="ORDER_FIXED",
+        rate=Decimal("20.00"),
+        rate_unit="INR_FIXED",
+        minimum_inr=None,
+        maximum_inr=None,
+    )
+    snapshot = build(fixed_rule, calculation_base="100000")
+    assert snapshot.calculated_amount == "20.00"
+    assert snapshot.calculation_basis == "ORDER_FIXED"
+    assert snapshot.rate_unit == "INR_FIXED"
+
+
 def test_order_brokerage_snapshot_applies_rule_bound_minimum():
     snapshot = build(
         make_rule(minimum_inr=Decimal("20.00")),

@@ -264,13 +264,20 @@ def calculate_order_brokerage(
     Caps are tariff provenance, not caller-controlled inputs. This returns one
     order amount and does not allocate it among fills.
     """
-    if (
-        not isinstance(rule, TariffRule)
-        or rule.component.lower() != "brokerage"
-        or rule.calculation_basis != "ORDER_NOTIONAL"
-        or rule.rate_unit != "PERCENT"
-    ):
-        raise ValueError("Order brokerage requires an approved ORDER_NOTIONAL percent rule.")
+    if not isinstance(rule, TariffRule) or rule.component.lower() != "brokerage":
+        raise ValueError("Order brokerage requires an approved brokerage rule.")
+    if rule.review_status != "APPROVED":
+        raise ValueError("Only an approved tariff rule can be calculated.")
+    if rule.calculation_basis == "ORDER_FIXED" and rule.rate_unit == "INR_FIXED":
+        # Flat per-executed-order brokerage (e.g. equity delivery/options).
+        # Validate the supplied base anyway, but do not use it to scale a fixed fee.
+        _calculate_rate_amount(rule, order_notional)
+        amount = rule.rate.quantize(PAISE, rounding="ROUND_HALF_UP")
+        if rule.minimum_inr is not None or rule.maximum_inr is not None:
+            raise ValueError("Fixed per-order brokerage cannot use percentage caps.")
+        return amount
+    if rule.calculation_basis != "ORDER_NOTIONAL" or rule.rate_unit != "PERCENT":
+        raise ValueError("Order brokerage requires ORDER_FIXED/INR_FIXED or ORDER_NOTIONAL/PERCENT.")
     amount = calculate_tariff_amount(rule, calculation_base=order_notional)
     if rule.minimum_inr is not None:
         amount = max(amount, rule.minimum_inr)

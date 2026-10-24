@@ -1707,3 +1707,14 @@ Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE 
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## Upstox SDK/Agent Skill review checkpoint — 24 October 2026
+
+Read [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md) and [`docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md`](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md).
+
+- Static review only: official Python SDK tag `v2.30.0` and Agent Skill sources inspected; no package installed, skill executed, credentials used, live calls or orders made.
+- The SDK's brokerage method is sync by default; the existing async `httpx` endpoint and parser already cover the same read-only feature. No runtime dependency was added without a measurable benefit.
+- Skill includes real order/GTT scripts; helper can fall back to local config token and prints raw exception body in its profile smoke-test. Never run live-write examples with credentials or copy those patterns into app code.
+- Continue Phase 3 per-fill charge allocation. Only adopt SDK runtime code for a concrete gap. Keep PR #6 draft/unmerged, PAPER mandatory, live writes disabled, and original `Tradepro` untouched.
+
+---

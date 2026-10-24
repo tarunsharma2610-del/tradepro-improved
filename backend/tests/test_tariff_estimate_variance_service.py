@@ -377,3 +377,35 @@ def test_upstox_api_estimate_variance_rejects_response_digest_mismatch_without_w
             db, estimate_snapshot_id=record.id, source_component_id=component.id
         )
     assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+
+def test_order_fill_set_variance_rejects_changed_actual_on_replay_without_overwrite(aggregate_variance_case):
+    """A replay with a changed actual amount must not overwrite the audit record."""
+    db, snapshot, component, _fill_ids = aggregate_variance_case
+    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
+
+    first, status = compare_estimate_to_reviewed_actual(
+        db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
+    )
+    db.commit()
+    assert status == "CREATED"
+    original_id = first.id
+    original_actual = first.actual_amount
+    original_variance = first.variance_amount
+
+    # Simulate changed extracted actual data for the same reviewed source identity.
+    # The existing variance row is immutable-by-replay: conflict, do not overwrite.
+    component.source_amount = Decimal("53.00")
+    db.flush()
+
+    with pytest.raises(ValueError, match="Conflicting estimate-versus-actual variance replay"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
+        )
+
+    db.expire_all()
+    persisted = db.query(TariffEstimateVarianceRecord).one()
+    assert persisted.id == original_id
+    assert persisted.actual_amount == original_actual == Decimal("52.00")
+    assert persisted.variance_amount == original_variance == Decimal("2.00")
+    assert db.query(TariffEstimateVarianceRecord).count() == 1

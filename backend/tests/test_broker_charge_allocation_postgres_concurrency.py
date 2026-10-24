@@ -49,6 +49,7 @@ from app.services.live_fill_accounting_service import (
 from app.services.broker_tariff_rules import TariffRule
 from app.services.tariff_estimate_snapshot import build_tariff_estimate_snapshot
 from app.services.tariff_estimate_persistence_service import persist_tariff_estimate_snapshot
+from app.services.tariff_estimate_variance_service import compare_estimate_to_reviewed_actual
 
 
 @pytest.mark.skipif(not os.getenv("TEST_POSTGRES_URL"), reason="requires dedicated PostgreSQL test database")

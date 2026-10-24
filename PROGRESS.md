@@ -2285,3 +2285,13 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - This run verifies the code/test head before this documentation update, not the documentation commits below. A fresh exact-head CI result is required before treating the current branch tip as fully verified.
 - Phase 3 remains open: per-component accounting acceptance and authoritative, effective-dated tariff evidence with independent review remain pending. PR #6 stays draft/unmerged; live broker order submission remains disabled.
 - Repository scope is `tarunsharma2610-del/tradepro-improved` only. Do not modify original `tarunsharma2610-del/Tradepro`.
+
+
+## 2026-10-24 — NSE IPFT representation reconciliation
+
+- Researched current Upstox tariff page, Upstox Brokerage Details and Trade Charges API documentation, NSE Circular NSE/FA/73061 (27 Feb 2026, effective 1 Mar 2026), competitor tariff/support documentation, and historical trader forum discussions.
+- Resolved the official rate arithmetic for NSE cash, equity futures, and equity options on premium: transaction-only ₹306.99/₹182.99/₹3,552.99 per crore plus IPFT ₹0.01 per crore, totals ₹307/₹183/₹3,553 per crore respectively.
+- Upstox's current public percentages 0.00307%/0.00183%/0.03553% are the combined totals for these three scopes; do not add another ₹0.01/crore on top.
+- Added detailed source-backed normalization policy and acceptance tests to `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md` in commit `295535e032a7ea542b67766c17e5186a83d54409`.
+- Remaining: verify the authenticated Upstox API fields against a dated actual contract note/invoice; test combined-vs-split representation conflicts, nullable/missing/zero values, GST base invariance and cross-segment scope. BSE/MCX/currency/commodity are not covered by the NSE equity resolution.
+- No tariff activated; API field mapping remains fail-closed pending tests and independent review. PR #6 remains draft/unmerged; live broker order submission remains disabled. Work remains limited to `tarunsharma2610-del/tradepro-improved`.

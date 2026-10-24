@@ -55,3 +55,10 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - NSE Circular NSE/FA/73061 confirms totals effective 1 March 2026: ₹307/crore cash, ₹183/crore equity futures, and ₹3,553/crore equity-option premium. Each splits into transaction-only ₹306.99/₹182.99/₹3,552.99 plus IPFT ₹0.01/crore.
 - Upstox's public percentages are combined totals for those scopes; do not add IPFT a second time. Separate API fields require raw-response preservation and reconciliation to a dated contract note before canonical mapping approval.
 - Documentation/research only: tariff candidates remain DRAFT, PR #6 remains draft/unmerged, live broker order submission remains disabled. Exact-head CI is required for this documentation commit.
+
+## 2026-10-24 — IPFT combined-rate regression tests
+
+- Added tests asserting NSE combined rates remain DRAFT/non-selectable, that no second IPFT tariff candidate is stacked on the combined rate, that GST base/amount are invariant between combined and split representations, and that NSE rates do not leak into MCX scope.
+- Test commit: `69945f4854ea8ae7d20e7795b156750406759df7`.
+- Updated source register with test scope and limitations in commit `626298aa9d8c60712189a744c86a3327eac1bb50`.
+- These are synthetic consistency tests, not proof of live Upstox API field semantics or actual account-specific GST treatment. Exact-head CI is required; candidates remain DRAFT and PR #6 remains draft/unmerged.

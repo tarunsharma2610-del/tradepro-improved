@@ -719,6 +719,34 @@ def test_revoked_or_inactive_reviewer_cannot_promote_live_fill(accounting_contex
     assert paper_position.quantity == 7
 
 
+def test_failure_after_accounting_rows_are_staged_rolls_back_everything(accounting_context, monkeypatch):
+    """A failure after ORM rows are staged must roll back the position and execution together."""
+    db, user, _portfolio, instrument, connection, _order, _child, record, paper_position = accounting_context
+    original_add_all = db.add_all
+
+    def stage_then_fail(instances):
+        original_add_all(instances)
+        raise RuntimeError("simulated failure after accounting rows were staged")
+
+    monkeypatch.setattr(db, "add_all", stage_then_fail)
+    with pytest.raises(RuntimeError, match="after accounting rows were staged"):
+        LiveFillAccountingService(db).promote_trade(
+            user.id, record.id, _reviewed_charges(accounting_context)
+        )
+    monkeypatch.setattr(db, "add_all", original_add_all)
+
+    assert db.query(Execution).filter_by(
+        broker_connection_id=connection.id,
+        broker_trade_id=record.broker_trade_id,
+    ).count() == 0
+    assert db.query(LivePosition).filter_by(
+        broker_connection_id=connection.id,
+        instrument_id=instrument.id,
+    ).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
 def test_failed_commit_rolls_back_execution_and_live_position(accounting_context, monkeypatch):
     """A persistence failure must not leave half-promoted live accounting."""
     db, user, _portfolio, instrument, connection, _order, _child, record, paper_position = accounting_context

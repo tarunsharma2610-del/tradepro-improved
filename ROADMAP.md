@@ -1405,3 +1405,12 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Dedicated PostgreSQL concurrency tests are present in `backend/tests/test_broker_charge_allocation_postgres_concurrency.py`, including source verification vs allocation promotion and live-fill promotion vs ledger verification. The successful CI summary reports no skipped tests, so this run exercised the collected suite; the race tests are part of that test set.
 - This confirms test execution and safeguards in the synthetic PostgreSQL test environment; it does not establish production broker tariff correctness or approve any real Upstox field mapping.
 - PR #6 remains draft/unmerged. Live broker order submission and automatic quantity/notional allocation remain disabled. Work only in `tradepro-improved`; original `Tradepro` remains untouched.
+
+
+## 2026-10-24 — Official tariff/API source audit
+
+- Upstox's `GET /v2/trade/profit-loss/charges` is a segment/financial-year/date-range aggregate `charges_breakdown`, not a documented per-fill record; its example returns `charges.ipft: null`. Do not map this response directly to actual per-fill evidence. Null is not zero. https://upstox.com/developer/api-documentation/get-trade-charges/
+- NSE circular NSE/FA/73061 (27-Feb-2026, effective 1-Mar-2026) sets combined member outflow at ₹307/crore cash, ₹183/crore equity futures, ₹3,553/crore equity-option premium, including ₹0.01/crore IPFT contribution each side. This does not approve a broker-specific payload mapping. https://nsearchives.nseindia.com/content/circulars/FA73061.pdf
+- Upstox's charges page contains both historical and newer effective-date tables; use effective-dated rules and account for its published STT/CTT transition from 1-Apr-2026. Avoid stale rates and double-counting separately stated IPFT where the exchange rate is combined. https://upstox.com/brokerage-charges/
+- Production mappings/tariffs remain unapproved. PR #6 remains draft/unmerged; live broker order submission and automatic quantity/notional allocation remain disabled. Work only in `tradepro-improved`; original `Tradepro` remains untouched.
+- The implementation head `ee1b2a74d2a9f6141b9afbb6e06562b5cf263a9b` passed workflow #40110597753; the present documentation commits need their own CI verification.

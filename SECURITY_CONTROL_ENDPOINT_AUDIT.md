@@ -548,3 +548,6 @@ PostgreSQL concurrency coverage passed exact-head CI run `40064129721` (738 pass
 
 ## Upstox charge API surface — 2026-10-24
 The read-only reconciliation client now exposes only fixed GET methods for brokerage estimates, aggregate historical charges and paginated historical trades. Exact-head CI run `40064514873` passed (744 passed, 1 warning). Input validation and sanitized error categories remain in the shared transport; no order-write methods were added, and no live account call was made. API outputs must not bypass reviewed-source or promotion gates.
+
+## API estimate provenance and variance guard — 2026-10-24 (CI verified)
+Upstox brokerage estimates carry a canonical stored response and SHA-256 recomputed before variance comparison. The comparison validates request quantity, price, side and instrument against the exact reviewed fill set. The fixed GET-only broker client remains read-only; estimate snapshots are immutable and cannot create allocation rows. Exact-head CI run `40065219626` passed (**754 passed, 1 warning**).

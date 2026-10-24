@@ -1065,3 +1065,6 @@ Aggregate variance concurrency/replay is CI-verified in run `40064129721` on `db
 
 ## Next Phase 3 task — immutable Upstox estimate snapshots — 2026-10-24
 Read-only client methods for brokerage estimate, historical trade-charge aggregate and paginated historical trades passed exact-head CI run `40064514873` (744 passed, 1 warning). Next, normalize the brokerage API response into immutable estimate-only records with exact request parameters, API version, retrieval timestamp and response digest; map components carefully and preserve DP-plan daily minimum as separate metadata. Integrate only with variance-only comparison. Do not create allocation rows or mutate positions/P&L from API estimates or aggregate history.
+
+## Phase 3 next checkpoint — Upstox estimate snapshots (2026-10-24, verified)
+The code converts Upstox Brokerage Details responses into six immutable estimate-only component snapshots and retains API request/response provenance, total and DP-plan minimum metadata. Exact input identity and response-digest checks guard variance comparison; no accounting allocation side effects are introduced. Exact-head CI run `40065219626` passed on `2c23ebfeb9d0d843620dc6dcf54b7279bb112662` (**754 passed, 1 warning**). Next: reviewed effective-dated component-specific tariff applicability and safe per-fill integration.

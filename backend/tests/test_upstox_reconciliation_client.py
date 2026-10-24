@@ -302,3 +302,62 @@ async def test_historical_trades_rejects_invalid_dates_and_pagination(fake_httpx
         with pytest.raises(ValueError, match=message):
             await client.get_historical_trades("test-token", **{**common, **overrides})
     assert fake_httpx.calls == []
+
+@pytest.mark.asyncio
+async def test_profit_loss_report_uses_documented_paginated_trade_wise_endpoint(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    fake_httpx.response = _Response(body={
+        "status": "success",
+        "data": [{
+            "quantity": 10,
+            "trade_type": "EQ",
+            "buy_amount": 1000.0,
+            "sell_amount": 1100.0,
+        }],
+        "metadata": {"page": {"page_number": 2, "page_size": 500}},
+    })
+    result = await client.get_profit_loss_report(
+        "test-token",
+        segment="eq",
+        financial_year="2627",
+        from_date="01-04-2026",
+        to_date="24-10-2026",
+        page_number=2,
+        page_size=500,
+    )
+    assert result.ok is True
+    assert fake_httpx.calls[0]["url"] == f"{API_V2}/trade/profit-loss/data"
+    assert fake_httpx.calls[0]["params"] == {
+        "segment": "EQ",
+        "financial_year": "2627",
+        "from_date": "01-04-2026",
+        "to_date": "24-10-2026",
+        "page_number": "2",
+        "page_size": "500",
+    }
+    # This endpoint provides trade-wise P&L rows, not per-fill charge components.
+    assert "charges_breakdown" not in result.data["data"][0]
+
+
+@pytest.mark.asyncio
+async def test_profit_loss_report_rejects_invalid_scope_and_pagination(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    common = {
+        "segment": "EQ",
+        "financial_year": "2627",
+        "page_number": 1,
+        "page_size": 100,
+    }
+    for overrides, message in [
+        ({"segment": "ALL"}, "segment must be"),
+        ({"financial_year": "2628"}, "financial_year"),
+        ({"page_number": 0}, "page_number"),
+        ({"page_size": 5001}, "page_size"),
+        ({"from_date": "31-03-2026"}, "within financial_year"),
+        ({"from_date": "02-05-2026", "to_date": "01-05-2026"}, "to_date must not precede"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            await client.get_profit_loss_report(
+                "test-token", **{**common, **overrides}
+            )
+    assert fake_httpx.calls == []

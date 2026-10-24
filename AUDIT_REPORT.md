@@ -1395,3 +1395,6 @@ Added regression coverage for no accounting side effects and revalidation of evi
 
 ## Upstox API/SDK audit requirement — 2026-10-24
 The new `UPSTOX_API_INTEGRATION_POLICY.md` requires each Upstox audit to inventory relevant current official endpoints, SDK/version coverage, Agent Skills/MCP, sandbox, rate limits, auth/static-IP requirements, errors/retries and tests. It specifically requires assessment of the brokerage estimate API, historical trade-charge breakdown and historical trades APIs, while separating estimates/aggregates from reviewed contract-note/per-fill evidence. Documentation only; no live trading enabled.
+
+## 2026-10-24 — Aggregate variance concurrency verified
+Exact-head CI run `40064129721` passed on `dbff090610028cfb9f5a87585d9c8e697449cd23` (738 passed, 1 warning). The PostgreSQL concurrency test verifies simultaneous duplicate comparisons produce one immutable audit record, `CREATED` plus `EXACT_REPLAY`, and no allocation writes. Aggregate variance acceptance is closed. Remaining Phase 3 focus: reviewed, effective-dated component-specific tariff applicability and safe per-fill allocation integration; unsupported bases remain fail-closed.

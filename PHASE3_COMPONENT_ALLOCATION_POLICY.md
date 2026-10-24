@@ -50,3 +50,6 @@ This matrix is an engineering control, not tax/legal advice. Rates and legal tre
 ## Safety and scope
 
 PR #6 remains draft and unmerged pending acceptance review and explicit user approval. Live broker order writes remain disabled. All work is confined to `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository is out of scope.
+
+## Verification checkpoint — 2026-10-24
+Aggregate variance concurrency/replay passed exact-head CI run `40064129721` on `dbff090610028cfb9f5a87585d9c8e697449cd23` (738 passed, 1 warning). This does not close the component-specific tariff checklist above. Next: implement and test reviewed effective-dated applicability for brokerage caps/multi-fill orders, GST taxable-component composition, buy-side stamp duty and applicable segment/product/side rules before enabling tariff-derived automatic per-fill allocations. Ambiguous bases and event-level fees remain fail-closed.

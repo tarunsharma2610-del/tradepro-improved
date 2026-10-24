@@ -1094,3 +1094,6 @@ Additional regression tests now cover variance-path no-accounting-side-effects a
 
 ## Cross-cutting Upstox integration rule — 2026-10-24
 All future Upstox work must follow `UPSTOX_API_INTEGRATION_POLICY.md`: audit current official APIs, SDK/version support, examples, Agent Skills/MCP, sandbox, rate limits and regulatory requirements; use relevant capabilities with contract tests. Brokerage calculator and historical charge/trade APIs are separate estimate/reconciliation inputs, never substitutes for reviewed contract-note/per-fill evidence. Keep live-order safety gates intact.
+
+## Phase 3 aggregate variance gate — CI verified 2026-10-24
+Exact-head CI run `40064129721` passed on `dbff090610028cfb9f5a87585d9c8e697449cd23` (738 passed, 1 warning). PostgreSQL race coverage verifies one durable variance record under simultaneous duplicate requests, `CREATED` plus `EXACT_REPLAY`, and no allocation writes. Together with mismatch rejection, review-state revalidation and no-accounting-side-effect tests, the aggregate variance gate is accepted. Next: source-backed effective-dated component-specific tariff rules, applicability and approved rule-to-per-fill allocation integration. Generic automatic QUANTITY/NOTIONAL allocation remains fail-closed until those rules/tests pass. PR #6 draft/unmerged; live broker writes disabled.

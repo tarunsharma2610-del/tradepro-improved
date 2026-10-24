@@ -542,3 +542,6 @@ Added regression tests ensure variance comparison cannot mutate reviewed source/
 
 ## Upstox SDK/agent safety boundary — 2026-10-24
 The Upstox Agent Skill can execute live orders; never run it in a way that submits live orders or bypasses app controls. The official MCP is described as read-only, but account data access still requires explicit authorization and supported connector setup. Use official docs/SDK/skills as technical references under PAPER-only safeguards; do not expose tokens or account data. See `UPSTOX_API_INTEGRATION_POLICY.md`.
+
+## Variance race acceptance — 2026-10-24
+PostgreSQL concurrency coverage passed exact-head CI run `40064129721` (738 passed, 1 warning): simultaneous duplicate comparisons persist one immutable audit-only variance record and do not create allocation rows. This service is not an order-control or accounting-promotion path. Tariff-rule work must not turn estimate comparisons into actual charge evidence or bypass source-review/promotion safeguards. Live broker order writes remain disabled.

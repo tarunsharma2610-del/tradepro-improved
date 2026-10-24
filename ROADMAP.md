@@ -1059,3 +1059,6 @@ Latest work adds tests for variance no-side-effects and current review-state rev
 
 ## Cross-cutting Upstox task rule — 2026-10-24
 Before starting or closing an Upstox feature, read `UPSTOX_API_INTEGRATION_POLICY.md`, check current official docs and SDK coverage, and update the capability matrix. Assess brokerage calculator, historical trade charges, historical trades, market data/WebSocket, options, portfolio and order lifecycle APIs as relevant. Fence off live execution in agent skills; no live order writes. Verify tests and exact-head CI.
+
+## Next Phase 3 gate — 2026-10-24
+Aggregate variance concurrency/replay is CI-verified in run `40064129721` on `dbff090610028cfb9f5a87585d9c8e697449cd23` (738 passed, 1 warning). Next: source-backed effective-dated component-specific tariff rules and integration with the durable per-fill ledger. Prioritize brokerage per-order caps/multi-fill handling, GST taxable-base composition, buy-side stamp duty, and segment/product/side/effective-date validation. Explicit-review allocation remains the safe path; unsupported automatic QUANTITY/NOTIONAL and conditional STT/CTT/DP cases remain fail-closed.

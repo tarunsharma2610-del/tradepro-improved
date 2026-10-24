@@ -810,3 +810,6 @@ Added tests that variance comparison does not mutate reviewed evidence, verified
 
 ## Upstox adapter design constraint — 2026-10-24
 Use `UPSTOX_API_INTEGRATION_POLICY.md` as the canonical API inventory. Prefer one maintained Upstox adapter and the official Python SDK where endpoint/version support is adequate; use typed REST/WebSocket adapters only for documented SDK gaps. Do not create duplicate streams, brokers, charge ledgers or order engines. Keep estimates, broker-reported aggregates, trade/fill identity, reviewed actual evidence and per-fill allocations separate. Agent Skill/MCP access must not bypass auth, audit or live-order safety boundaries.
+
+## Aggregate variance concurrency invariant — 2026-10-24
+Exact-head CI run `40064129721` passed (738 passed, 1 warning). PostgreSQL race coverage confirms concurrent duplicate variance comparisons yield one `CREATED` and one `EXACT_REPLAY`, exactly one append-only `VARIANCE_ONLY` record, and no per-fill allocation writes. Variance remains audit-only. Next gate is explicit effective-dated component rules and controlled integration from approved rule calculation to the existing durable allocation ledger; do not create duplicate ledgers or adapters.

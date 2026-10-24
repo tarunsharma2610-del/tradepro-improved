@@ -1610,3 +1610,6 @@ Regression coverage added for source/evidence/allocation immutability during var
 
 ## Upstox integration requirements — 2026-10-24
 Required: maintain a current official-source capability matrix; evaluate SDK coverage/version mismatches; review official examples, Agent Skills and read-only MCP where relevant; use sandbox/contract tests; honour rate limits, token handling and regulatory/static-IP controls; assess brokerage estimate, historical charges and historical trades endpoints. Estimated/historical totals must not be promoted as reviewed actual per-fill evidence. See `UPSTOX_API_INTEGRATION_POLICY.md`.
+
+## Aggregate variance concurrency requirement — 2026-10-24 (verified)
+Exact-head CI run `40064129721` passed (738 passed, 1 warning). Concurrent identical variance comparisons have PostgreSQL integration coverage for single-record persistence, idempotent replay and zero allocation side effects. Combined with review-state revalidation and source/allocation immutability tests, the aggregate variance gate is accepted. Still required: official-source effective-dated component/product/segment/side rules; brokerage caps and multi-fill semantics; explicit GST taxable component composition; buy-side stamp duty; supported effective-date transitions; and rule-to-ledger tests. Do not enable generic automatic allocation before those gates pass.

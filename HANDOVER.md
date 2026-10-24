@@ -1153,3 +1153,5 @@ Audit note: the implementation constant is `tariff-estimate-snapshot-v4`; older 
 
 ## Resume checkpoint — 2026-10-24
 Latest test commit: `16dc6b9964db1af85deeffffb3814a0ff526b951` on `phase3/durable-per-fill-charge-allocation`. Regression tests cover tampered actual manifest digest, fills from different orders, fill-side mismatch, and trade-date mismatch; rejected comparisons assert zero variance rows. CI is pending for the latest head. Next: verify exact-head CI, fix any failures, then verify all nine checkpoint documents. PR #6 remains draft/unmerged; live broker order writes remain disabled; work only in `tarunsharma2610-del/tradepro-improved`.
+
+CI verification note — 2026-10-24: the nine-document synchronization is committed as `2a9c9a40f6b62144fa2d13fbdc674dfd5c4de5dd`. The test-only head `16dc6b9964db1af85deeffffb3814a0ff526b951` passed run [40062815547](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40062815547); exact-head verification after the documentation synchronization remains pending.

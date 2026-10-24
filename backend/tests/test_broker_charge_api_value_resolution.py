@@ -119,6 +119,8 @@ def test_estimate_mapping_cannot_be_used_as_per_fill_actual():
         ("PER_FILL_ACTUAL", "AGGREGATE_SUMMARY"),
         ("IPFT_ONLY", "AGGREGATE_SUMMARY"),
         ("COMBINED_TRANSACTION_AND_IPFT", "AGGREGATE_SUMMARY"),
+        ("BROKERAGE_ESTIMATE", "AGGREGATE_SUMMARY"),
+        ("STATUTORY_CHARGE_ESTIMATE", "AGGREGATE_SUMMARY"),
     ],
 )
 def test_mapping_semantics_cannot_be_relabelled_for_another_intended_use(semantic, intended_use):
@@ -239,4 +241,21 @@ def test_official_upstox_brokerage_calculator_cannot_be_used_as_actual_aggregate
             estimate_mapping,
             endpoint="/v2/charges/brokerage",
             intended_use="AGGREGATE_SUMMARY",
+        )
+
+
+def test_official_upstox_aggregate_charges_endpoint_cannot_be_used_as_an_estimate():
+    aggregate_mapping = replace(
+        mapping(),
+        endpoint="/v2/trade/profit-loss/charges",
+        semantic="STATUTORY_CHARGE_ESTIMATE",
+        scope="aggregate-segment-fy",
+    )
+    with pytest.raises(ValueError, match="Aggregate-only broker endpoint cannot provide estimate"):
+        resolve(
+            {"ipft": "0.01"},
+            aggregate_mapping,
+            endpoint="/v2/trade/profit-loss/charges",
+            scope="aggregate-segment-fy",
+            intended_use="ESTIMATE",
         )

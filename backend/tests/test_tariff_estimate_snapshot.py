@@ -258,7 +258,11 @@ def test_upstox_api_estimate_is_stable_for_exact_replay_but_response_changes_con
     assert [item.canonical_json() for item in first] == [item.canonical_json() for item in replay]
     assert [item.snapshot_sha256 for item in first] == [item.snapshot_sha256 for item in replay]
 
-    changed = build_api_snapshots(make_upstox_result(stt=176.0))
+    changed_result = make_upstox_result(stt=176.0)
+    # Keep the fixture internally consistent so this tests replay conflict handling,
+    # not the separate component-total reconciliation guard.
+    changed_result.data["data"]["charges"]["total"] = 209.27
+    changed = build_api_snapshots(changed_result)
     first_by_component = {item.component: item for item in first}
     changed_by_component = {item.component: item for item in changed}
     assert first_by_component["stt"].idempotency_key == changed_by_component["stt"].idempotency_key

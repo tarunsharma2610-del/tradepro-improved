@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -166,9 +167,7 @@ def test_unknown_intended_use_is_rejected():
     ],
 )
 def test_exact_mapping_identity_must_match_every_dimension(mapping_change, argument_change):
-    selected = mapping()
-    for key, value in mapping_change.items():
-        setattr(selected, key, value)
+    selected = replace(mapping(), **mapping_change)
     with pytest.raises(ValueError, match="No approved API field mapping"):
         resolve({"ipft": "0.01"}, selected, **argument_change)
 

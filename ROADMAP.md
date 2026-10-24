@@ -1440,3 +1440,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - [ ] Decide endpoint-by-endpoint whether SDK adoption improves the current implementation. Retain direct REST/WebSocket code where it is safer or more complete.
 - [ ] Run tests and verify exact-head CI after any code change; keep PR #6 draft/unmerged, PAPER mode mandatory and original `Tradepro` untouched.
 
+## SDK/Agent Skill review checkpoint — 2026-10-24
+
+- [x] Inspect official SDK tag `v2.30.0`, package licence/dependency list, and brokerage method signature.
+- [x] Compare the generated SDK brokerage method with existing async `httpx` client and validated parser.
+- [x] Inspect Agent Skill helper, validation script, live order/GTT examples, config example, and licence; record risks in [`docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md`](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md).
+- [x] Decide against adding an unused runtime dependency or replacing an already-covered endpoint without measurable benefit.
+- [ ] Reconsider SDK integration only when a concrete API coverage or schema correctness gap is identified; any implementation requires tests and exact-head CI.
+

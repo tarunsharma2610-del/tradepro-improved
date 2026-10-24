@@ -1,10 +1,18 @@
 from datetime import datetime, timezone
+import os
+import threading
 from decimal import Decimal
 from uuid import uuid4
 
 import hashlib
 
 import pytest
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
+from app.core.database import Base
+import app.models  # noqa: F401
+from app.models.user import User
 
 from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_evidence import BrokerChargeEvidence
@@ -227,3 +235,136 @@ def test_upstox_charge_components_not_yet_supported_fail_closed(reviewed_evidenc
         )
 
     assert db.query(BrokerChargeAllocation).count() == 0
+
+
+
+def test_postgres_concurrent_disjoint_fill_sets_serialize_on_evidence_lock():
+    """PostgreSQL integration: disjoint concurrent fill sets cannot create split ledgers."""
+    database_url = os.environ.get("TEST_POSTGRES_URL")
+    if not database_url:
+        pytest.skip("TEST_POSTGRES_URL is required for the PostgreSQL locking integration test.")
+
+    from sqlalchemy.exc import SQLAlchemyError
+
+    schema = "phase3_alloc_" + uuid4().hex
+    admin_engine = create_engine(database_url, pool_pre_ping=True)
+    engine = None
+    try:
+        with admin_engine.begin() as connection:
+            connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+        engine = create_engine(
+            database_url,
+            connect_args={"options": f"-csearch_path={schema}"},
+            pool_size=4,
+            max_overflow=0,
+            pool_pre_ping=True,
+        )
+        Base.metadata.create_all(engine)
+        SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
+        setup = SessionLocal()
+        try:
+            user = User(email=f"{schema}@example.invalid", password_hash="test-only", full_name="PG Allocation Test")
+            setup.add(user)
+            setup.flush()
+            connection = BrokerConnection(
+                user_id=user.id,
+                broker="upstox",
+                api_key_encrypted="test-key",
+                api_secret_encrypted="test-secret",
+                redirect_uri="https://example.invalid/callback",
+                is_connected=True,
+            )
+            setup.add(connection)
+            setup.flush()
+            evidence = BrokerChargeEvidence(
+                broker_connection_id=connection.id,
+                source_kind="CONTRACT_NOTE",
+                broker_report_reference="CN-PG-CONCURRENT-001",
+                source_filename="synthetic-contract-note.pdf",
+                source_sha256=hashlib.sha256(b"synthetic postgres concurrency evidence").hexdigest(),
+                byte_size=len(b"synthetic postgres concurrency evidence"),
+                status="REVIEWED",
+                reviewed_at=datetime.now(timezone.utc),
+                reviewed_by_user_id=user.id,
+                review_note="Synthetic integration fixture",
+            )
+            setup.add(evidence)
+            setup.flush()
+            trades = []
+            for trade_id in ("pg-concurrent-fill-a", "pg-concurrent-fill-b"):
+                trade = BrokerTradeRecord(
+                    broker_connection_id=connection.id,
+                    broker_order_ref_id=uuid4(),
+                    broker_trade_id=trade_id,
+                    quantity=1,
+                    price=Decimal("100.0000"),
+                    side="BUY",
+                    instrument_token="NSE_EQ|PGTEST",
+                    exchange_timestamp="2026-10-24T10:00:00+05:30",
+                )
+                setup.add(trade)
+                trades.append(trade)
+            setup.commit()
+            evidence_id, connection_id, reviewer_id = evidence.id, connection.id, user.id
+            fill_ids = [trade.id for trade in trades]
+        finally:
+            setup.close()
+
+        barrier = threading.Barrier(2)
+        outcomes = []
+        outcomes_lock = threading.Lock()
+
+        def allocate(fill_id):
+            session = SessionLocal()
+            try:
+                barrier.wait(timeout=10)
+                try:
+                    allocate_and_persist_component(
+                        session,
+                        evidence_id=evidence_id,
+                        broker_connection_id=connection_id,
+                        broker_report_reference="CN-PG-CONCURRENT-001",
+                        reviewer_user_id=reviewer_id,
+                        source_component_total="1.00",
+                        charge_component="brokerage",
+                        fill_weights={fill_id: 1},
+                        allocation_basis="EXPLICIT_REVIEWED",
+                    )
+                    session.commit()
+                    outcome = "committed"
+                except ValueError:
+                    session.rollback()
+                    outcome = "rejected"
+                with outcomes_lock:
+                    outcomes.append(outcome)
+            except Exception as exc:
+                session.rollback()
+                with outcomes_lock:
+                    outcomes.append(f"unexpected:{type(exc).__name__}:{exc}")
+            finally:
+                session.close()
+
+        workers = [threading.Thread(target=allocate, args=(fill_id,)) for fill_id in fill_ids]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(timeout=20)
+
+        assert all(not worker.is_alive() for worker in workers), "PostgreSQL allocation workers deadlocked."
+        assert sorted(outcomes) == ["committed", "rejected"], outcomes
+        verify = SessionLocal()
+        try:
+            rows = verify.query(BrokerChargeAllocation).filter_by(
+                evidence_id=evidence_id, charge_component="brokerage"
+            ).all()
+            assert len(rows) == 1
+            assert rows[0].broker_trade_record_id in set(fill_ids)
+            assert rows[0].status == "PENDING_RECONCILIATION"
+        finally:
+            verify.close()
+    finally:
+        if engine is not None:
+            engine.dispose()
+        with admin_engine.begin() as connection:
+            connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+        admin_engine.dispose()

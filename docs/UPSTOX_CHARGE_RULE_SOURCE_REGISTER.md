@@ -273,3 +273,11 @@ The current Upstox pricing page's historical section identifies equity-delivery 
 ## P&L report metadata endpoint — 24 October 2026
 
 Official documentation: [Get Report Metadata](https://upstox.com/developer/api-documentation/get-report-meta-data/), authenticated `GET /v2/trade/profit-loss/metadata`. It returns `trades_count` and `page_size_limit` for the selected segment/financial-year and optional date scope. The read-only client now exposes `get_profit_loss_report_metadata` with the same scope/date validation as the P&L report. Use the returned page-size limit when paginating the trade-wise report rather than assuming a preferred page size. Metadata contains no charge components and is not per-fill charge evidence.
+
+## GST source boundary — CBIC and Upstox public schedule — 24 October 2026
+
+Official sources reviewed:
+- [Upstox Brokerage Charges](https://upstox.com/brokerage-charges/) states 18% GST on brokerage, transaction charges and IPFT for intraday/futures/options, and additionally demat charges for equity delivery. Its same page says IPFT is now combined with transaction charges, while still listing IPFT as a separate field/table and including it in the GST base. This is a potential double-counting / taxable-base ambiguity, not permission to add the component twice.
+- [CBIC Sectoral FAQ, Stock Broking Services, Q77](https://cbic-gst.gov.in/sectoral-faq.html) says STT, stamp duty and other statutory recoveries are outside the broker's GST value only when the pure-agent conditions in Rule 33 are met; otherwise valuation follows section 15 and Rule 27. This means the app must not categorically include or exclude a levy from GST merely by its label.
+
+**Decision:** Keep GST composition and all affected tariff candidates unapproved. A dated account-specific Upstox tax invoice/contract note must establish the actual GST amount and the broker's component mapping for the exact segment/product/effective date; then reconcile it against the public schedule without double-counting combined transaction/IPFT rates. Preserve separate raw source components and mark any unresolved difference for manual review. This note is source research, not tax advice or tariff approval.

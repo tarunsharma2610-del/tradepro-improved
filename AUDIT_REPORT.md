@@ -1782,3 +1782,6 @@ Repository-only audit recorded in [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](do
 
 No application code or dependency changed during this audit. Next is an isolated SDK-version/method/schema compatibility spike, initially for read-only brokerage estimation. Adoption is conditional on maintaining async safety, timeouts, sanitized errors, parser semantics and tests. Agent Skill is development-only. No live calls or order writes were performed; PR #6 stays draft/unmerged and PAPER mode remains mandatory.
 
+## Upstox SDK and Agent Skill source review — 2026-10-24
+
+Static review recorded in [`docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md`](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md). Official SDK v2.30.0 is generated; its brokerage method is synchronous by default with thread-based async option. Existing async `httpx` and validated parser already cover the endpoint, so the audit did not justify adding a runtime dependency. The upstream Agent Skill includes live order and GTT scripts; its helper's local config-token fallback and raw exception-body output must not be copied into the application. No skill code was run and no credentials/live calls/orders were used.

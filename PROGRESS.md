@@ -2311,3 +2311,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Workflow: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40101490646
 - This does not resolve authenticated Upstox API `transaction`/ `ipft` field semantics or account-specific GST reconciliation. NSE cash/equity futures/equity options rate arithmetic remains resolved only within the documented scope.
 - Continue with API field normalization fixtures and evidence mapping; candidates remain DRAFT/non-selectable. PR #6 stays draft/unmerged; live broker writes remain disabled. Only `tradepro-improved` is in scope.
+
+
+## Historical Upstox statement evidence — 24 October 2026
+
+- Reviewed user-provided redacted screenshot of page 2 of an RKSV/Upstox Annual Global Transaction Statement for FY 2022–23, Futures & Options. Visible lines: IGST ₹20.15, SEBI fees ₹0.22, stamp duty ₹3.00, STT-RND ₹0.32, STT-SQUP ₹51.89, transaction charges ₹111.61, brokerage ₹1,000.00.
+- No separate IPFT line is visible in the annual summary. This does not prove IPFT was included in transaction charges; annual statement presentation may aggregate or omit components. The screenshot is not an individual trade contract note and does not provide sufficient machine-readable turnover/API evidence to establish field semantics.
+- Recorded limitations and safe evidence use in `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`, commit `9bb2fade8330e068022e5b2f6be0538e4f19206e`.
+- Next: if available, reconcile original PDF + matching dated API response against historical segment rates and turnover/premium. Do not promote per-fill actual allocations from this statement alone. Tariff candidates remain DRAFT; PR #6 remains draft/unmerged; live broker writes remain disabled.

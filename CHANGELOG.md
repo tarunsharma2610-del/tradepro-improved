@@ -99,3 +99,10 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Audited existing regression coverage for reviewed fill manifests/weights, source-document integrity, source-total and per-fill arithmetic, idempotent atomic promotion, authorization and rollback failures, and variance-only comparisons. No duplicate tests added in this checkpoint.
 - Remaining gates are accounting policy acceptance by component, effective-dated authoritative tariff and GST mapping evidence, independent review, and final PR decision. Public tariff pages and the historical annual statement are not per-fill proof. Tariff candidates remain DRAFT/non-selectable; live broker writes remain disabled.
 - Scope: `tarunsharma2610-del/tradepro-improved` only; original `Tradepro` remains out of scope.
+
+
+## 2026-10-24 — Phase 3 charge component acceptance matrix
+
+- Added docs/PHASE3_CHARGE_COMPONENT_ACCEPTANCE_MATRIX.md with source/effective-date, calculation-base, rounding/residual, GST/overlap, evidence and promotion gates for brokerage, STT, exchange/IPFT, SEBI, stamp duty and GST.
+- Prior documentation head passed Backend workflow #40106273353; exact new matrix head is pending workflow #40106537998.
+- No tariff candidates activated; automatic quantity/notional allocation remains disabled; PR #6 remains draft/unmerged; live broker writes remain disabled.

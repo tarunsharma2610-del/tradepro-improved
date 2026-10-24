@@ -281,3 +281,48 @@ Official sources reviewed:
 - [CBIC Sectoral FAQ, Stock Broking Services, Q77](https://cbic-gst.gov.in/sectoral-faq.html) says STT, stamp duty and other statutory recoveries are outside the broker's GST value only when the pure-agent conditions in Rule 33 are met; otherwise valuation follows section 15 and Rule 27. This means the app must not categorically include or exclude a levy from GST merely by its label.
 
 **Decision:** Keep GST composition and all affected tariff candidates unapproved. A dated account-specific Upstox tax invoice/contract note must establish the actual GST amount and the broker's component mapping for the exact segment/product/effective date; then reconcile it against the public schedule without double-counting combined transaction/IPFT rates. Preserve separate raw source components and mark any unresolved difference for manual review. This note is source research, not tax advice or tariff approval.
+
+
+## IPFT representation reconciliation — 24 October 2026
+
+### Finding
+
+The primary ambiguity is a **representation/normalization mismatch**, not an unresolved NSE rate for the covered equity segments. NSE Circular NSE/FA/73061 dated 27 February 2026, effective 1 March 2026, states that the member outflow remains unchanged while the split is revised to:
+- Cash market: transaction ₹306.99/crore + NSE IPFT ₹0.01/crore = ₹307.00/crore.
+- Equity futures: transaction ₹182.99/crore + NSE IPFT ₹0.01/crore = ₹183.00/crore.
+- Equity options on premium: transaction ₹3,552.99/crore + NSE IPFT ₹0.01/crore = ₹3,553.00/crore.
+
+Official circular: https://nsearchives.nseindia.com/content/circulars/FA73061.pdf
+
+Upstox's current public page lists the corresponding total rates (0.00307%, 0.00183%, 0.03553%) and says IPFT is combined with transaction charges, while also displaying ₹0.01/crore as the IPFT contribution. Interpret the displayed percentage as the **combined exchange transaction + IPFT total** for these NSE equity/cash, equity futures, and equity options cases. The ₹0.01 line is explanatory component information, not an additional amount to add on top of that combined percentage.
+
+Official page: https://upstox.com/brokerage-charges/
+
+The Upstox Brokerage Details API documents separate response keys `other_charges.transaction` and `other_charges.ipft`; the aggregate Trade Charges API similarly documents transaction and IPFT fields, with IPFT nullable in the published example. This schema alone does not prove that the API's transaction field always represents the pre-IPFT rate or the combined rate for every product/date. The published API examples are not authoritative effective-date fixtures. Preserve the raw response, request scope, null-vs-zero, and digest; verify a live authenticated response against a dated contract note before assigning a canonical meaning to those fields.
+
+API docs:
+- https://upstox.com/developer/api-documentation/get-brokerage/
+- https://upstox.com/developer/api-documentation/get-trade-charges/
+
+### Required calculation and normalization policy
+
+1. **Public tariff estimate path (NSE equity cash, equity futures, equity options, effective 2026-03-01 onward):** use the published combined total rate (₹307/₹183/₹3,553 per crore respectively). Do not add another ₹0.01/crore to the computed transaction total.
+2. **Component-level canonical tariff representation:** if the ledger needs distinct components, represent the official split as transaction-only ₹306.99/₹182.99/₹3,552.99 plus IPFT ₹0.01 per crore on the applicable turnover/premium base. Their sum must equal the combined published rate exactly before final currency rounding. Store a rule-set/representation version so a total-rate rule and split-component rules can never both be applied to the same turnover.
+3. **Authenticated Upstox API estimate path:** preserve the returned transaction and IPFT fields as distinct observed fields. Do not overwrite or synthesize one from the public tariff. Until a dated response plus contract-note reconciliation proves the semantics, mark the API-to-canonical mapping as unresolved and fail closed for automatic promotion. If the API's transaction field already equals the combined total and IPFT is also nonzero, do not sum both; raise a representation conflict for review.
+4. **GST:** the public Upstox page says GST includes transaction and IPFT for the covered products. Calculate GST from the canonical component set exactly once. The split ₹306.99 + ₹0.01 and combined ₹307.00 have the same pre-GST base; never use ₹307.00 plus a second ₹0.01. Reconcile actual GST to a dated broker-issued invoice/contract note before approving the tax mapping for actual accounting.
+5. **Exchange and product scope:** this 1 March 2026 reconciliation covers only NSE cash market, NSE equity futures, and NSE equity options on premium. Do not copy these rates to BSE, MCX, currency derivatives, commodity products, option exercise/assignment, or BSE scrip groups. Upstox's page describes IPFT in its equity table as NSE-specific; BSE rates must use BSE's applicable scrip/product schedule. Currency and commodity schedules require separate current sources.
+6. **Evidence status:** the official NSE circular resolves the rate split and total for these three segments. It does not independently prove how every Upstox API response field maps to contract-note components or establish every GST tax-base scenario. Forum posts are useful corroboration of the historical convention that IPFT may be bundled in exchange transaction charges, but are not rate authority. For example, https://tradingqna.com/t/is-zerodha-charging-extra-transaction-charge-on-nse/153935 and https://www.reddit.com/r/IndiaInvestments/comments/17ozqno/ discuss the historical bundling/presentation issue.
+
+### Acceptance tests required before enabling canonical API mapping
+
+- NSE cash/futures/options boundary fixture: component split sums to combined total at ₹306.99 + ₹0.01, ₹182.99 + ₹0.01, and ₹3,552.99 + ₹0.01 per crore.
+- Combined-rate mode rejects an additional IPFT amount and prevents double counting.
+- Split-component mode rejects a combined rate being stored as transaction-only plus a second IPFT component.
+- API mapping tests distinguish `null`, zero, missing field, combined transaction amount, and separate transaction/IPFT amounts.
+- GST base is invariant between the split and combined representation for the same taxable total, with rounding applied only according to the reviewed rule.
+- BSE/MCX/currency/commodity inputs cannot accidentally select NSE-equity IPFT rules.
+- Reconciliation variance remains audit-only and cannot mutate reviewed actual allocations.
+
+### Decision
+
+The **NSE rate arithmetic for these three segments is resolved**. The remaining IPFT gate is API-field semantic mapping, representation-version enforcement, cross-segment scope protection, and actual contract-note/GST corroboration. Candidate tariff rules remain DRAFT/non-selectable until tests, dated evidence, and independent review pass. No tariff has been activated, no actual charge promoted, and no live broker order sent.

@@ -1622,3 +1622,6 @@ Implementation normalizes brokerage API response components into immutable estim
 
 ## Flat order brokerage requirement — 2026-10-24 (verified)
 The calculation engine and estimate snapshot builder support explicit flat per-order brokerage (`ORDER_FIXED`/`INR_FIXED`) and existing capped percentage brokerage (`ORDER_NOTIONAL`/`PERCENT`). Regression tests verify both calculation and snapshot shape. No rate data was activated. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).
+
+## Effective-dated tariff source requirement — 2026-10-24 (candidate stage verified)
+Added dated source excerpt with canonical payload SHA-256 `c59f7e940fde6b0d94ca1189766f16e5601c117d4a8c2bcd2415da0ecd6db420` and 18 effective-dated candidate rows for STT/exchange charges. All candidates are DRAFT and unselectable. Remaining before any rate activation: archive original source bytes where possible, independently corroborate stamp duty, resolve IPFT/transaction-charge composition, define full component/product/side/base boundaries and add transition tests. Exact-head CI run `40065979244` passed (**760 passed, 1 warning**).

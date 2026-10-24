@@ -1106,3 +1106,6 @@ Implemented API estimate normalization and persistence using the existing immuta
 
 ## Phase 3 — order brokerage calculation shapes — 2026-10-24 (CI verified)
 The guarded brokerage calculator and snapshot builder now support flat per-order fees (`ORDER_FIXED`/`INR_FIXED`) as well as capped percentage brokerage (`ORDER_NOTIONAL`/`PERCENT`). Exact-head CI run `40065607232` passed (**756 passed, 1 warning**). No rates are activated. Next: source archive + reproducible digest, DRAFT effective-dated candidate rules, then applicability and boundary tests before any rule approval or per-fill promotion.
+
+## Phase 3 — tariff source and candidate rules — 2026-10-24 (CI verified)
+Added a dated normalized Upstox/NSE charge excerpt and an 18-row effective-dated candidate registry for STT and exchange charges. All rows are `DRAFT` and non-selectable; no tariff rate is active. Exact-head CI run `40065979244` passed (**760 passed, 1 warning**). Next: archive original source bytes if available, resolve exchange/IPFT composition, independently corroborate stamp duty, and test component-specific applicability/effective-date transitions before approval or tariff-derived per-fill allocation.

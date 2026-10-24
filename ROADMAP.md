@@ -1071,3 +1071,6 @@ The code converts Upstox Brokerage Details responses into six immutable estimate
 
 ## Next Phase 3 gate — source-backed tariff candidates (2026-10-24)
 Flat per-order brokerage (`ORDER_FIXED`/`INR_FIXED`) is now supported alongside capped percentage order brokerage; exact-head CI run `40065607232` passed (**756 passed, 1 warning**). No rates are activated. Next: archive current official Upstox/NSE source excerpts with reproducible digests, add candidate effective-dated rules in DRAFT state, and test exact applicability/effective-date boundaries before approval.
+
+## Next Phase 3 gate — tariff candidate review (2026-10-24, verified)
+A dated normalized Upstox/NSE charge excerpt and 18 effective-dated STT/exchange-charge candidates are committed; all remain DRAFT and unselectable. Exact-head CI run `40065979244` passed (**760 passed, 1 warning**). Next: archive original source bytes where possible, corroborate stamp duty, resolve IPFT/transaction-charge semantics, and add applicability/effective-date tests before approval or automatic allocation.

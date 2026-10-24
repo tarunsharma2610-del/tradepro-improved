@@ -62,3 +62,6 @@ Upstox brokerage API amounts are stored as estimate-only component snapshots. To
 
 ## Brokerage calculator shape update — 2026-10-24 (CI verified)
 The calculation engine now supports flat per-order brokerage (`ORDER_FIXED`/`INR_FIXED`) separately from capped percentage brokerage. This reflects the distinction in the Upstox tariff page between fixed per-executed-order charges and percentage rates subject to a ₹20 cap. No rates are active from this change; automatic allocation remains gated on source review, effective-dated applicability and component-specific tests. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).
+
+## DRAFT tariff candidate registry — 2026-10-24 (CI verified)
+The source excerpt `docs/source_snapshots/UPSTOX_CHARGES_2026-10-24.md` captures current Upstox rows and cross-checks the 2026 STT change against NSE. Eighteen effective-dated STT/exchange-charge candidates are stored as DRAFT and selector tests confirm they are not active. Stamp duty still requires current statutory corroboration; IPFT/transaction-charge combination is unresolved. Exact-head CI run `40065979244` passed (**760 passed, 1 warning**). No tariff-derived automatic allocation is enabled.

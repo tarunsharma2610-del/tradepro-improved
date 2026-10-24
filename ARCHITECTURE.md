@@ -822,3 +822,6 @@ The Brokerage Details API response is normalized into separate component estimat
 
 ## Brokerage calculation shape — 2026-10-24 (CI verified)
 The guarded order-level brokerage calculator supports two explicit shapes: flat fee (`ORDER_FIXED` with `INR_FIXED`) and percentage-of-order-notional with rule-bound minimum/maximum caps. Snapshot calculation dispatches to the specialized order-brokerage entry point for both. No rate registry was activated and no allocation is created by this calculation. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).
+
+## Source-backed tariff candidate boundary — 2026-10-24 (CI verified)
+`backend/app/services/upstox_tariff_candidates.py` exposes 18 effective-dated research candidates sourced from the dated excerpt `docs/source_snapshots/UPSTOX_CHARGES_2026-10-24.md`. All candidates use `DRAFT` review state and therefore cannot be selected by the existing approved-rule selector. This provides a reviewable inventory without enabling rates. Source snapshot digest: `c59f7e940fde6b0d94ca1189766f16e5601c117d4a8c2bcd2415da0ecd6db420`. Exact-head CI run `40065979244` passed (**760 passed, 1 warning**).

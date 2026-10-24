@@ -85,3 +85,6 @@ The existing fixed-path GET client is paired with `build_upstox_brokerage_api_sn
 
 ## Flat per-order brokerage modeling — 2026-10-24 (CI verified)
 The guarded tariff engine now represents flat per-executed-order brokerage as `ORDER_FIXED`/`INR_FIXED`, separately from percentage-of-notional brokerage with an order cap. This supports the documented Upstox charge shape without encoding a flat fee as a percentage. No live API call or rate activation occurred. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).
+
+## Public tariff source archive and candidate rules — 2026-10-24 (CI verified)
+Added a dated normalized excerpt from Upstox and official NSE references at `docs/source_snapshots/UPSTOX_CHARGES_2026-10-24.md`; canonical payload SHA-256 is `c59f7e940fde6b0d94ca1189766f16e5601c117d4a8c2bcd2415da0ecd6db420`. Eighteen effective-dated STT/exchange-charge candidate rows are DRAFT and non-selectable. The excerpt is not original HTML; stamp duty source needs current corroboration and exchange/IPFT composition needs review. Exact-head CI run `40065979244` passed (**760 passed, 1 warning**).

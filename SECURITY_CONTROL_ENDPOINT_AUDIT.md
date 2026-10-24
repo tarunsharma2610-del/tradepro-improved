@@ -554,3 +554,6 @@ Upstox brokerage estimates carry a canonical stored response and SHA-256 recompu
 
 ## Order brokerage shape guard — 2026-10-24 (CI verified)
 The estimate calculator supports fixed per-order fees and capped percentage brokerage only through explicit specialized shapes. It remains an estimate-only path and cannot promote actuals or create allocation rows. No tariff rate was activated. Exact-head CI run `40065607232` passed (**756 passed, 1 warning**).
+
+## Tariff candidate registry safety — 2026-10-24 (CI verified)
+The new Upstox candidate registry contains only DRAFT rules, and tests verify the selector rejects them. No API or calculation path can treat these candidates as approved tariff inputs. Exact-head CI run `40065979244` passed (**760 passed, 1 warning**); live broker writes remain disabled.

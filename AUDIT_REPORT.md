@@ -1407,3 +1407,6 @@ Added six component-level estimate normalizations from the Upstox brokerage resp
 
 ## 2026-10-24 — Flat per-order brokerage support verified
 Added `ORDER_FIXED`/`INR_FIXED` support for flat brokerage alongside capped percentage order brokerage; added calculation and snapshot tests. This fixes a missing calculation shape needed to model Upstox's published flat per-executed-order delivery/options brokerage without pretending it is a percentage rate. No rates were activated. Exact-head CI run `40065607232` passed on `30db9920f640203c1045f1cb045d955bb41b5f86` (**756 passed, 1 warning**).
+
+## 2026-10-24 — Dated tariff source and DRAFT candidate registry verified
+Added a normalized excerpt of Upstox tariff rows, corroborated the 2026 STT changes against NSE's official derivatives STT page, and created 18 effective-dated STT/exchange-charge candidate rules. Every rule remains `DRAFT`; selection fails closed. The source excerpt is not a byte-for-byte archive of the live HTML, the stamp-duty source is dated 2023, and exchange/IPFT composition remains unresolved. Exact-head CI run `40065979244` passed on `f76ecde4ac785123de2980539138ce89ff660294` (**760 passed, 1 warning**).

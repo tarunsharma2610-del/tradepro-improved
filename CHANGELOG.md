@@ -62,3 +62,9 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Test commit: `69945f4854ea8ae7d20e7795b156750406759df7`.
 - Updated source register with test scope and limitations in commit `626298aa9d8c60712189a744c86a3327eac1bb50`.
 - These are synthetic consistency tests, not proof of live Upstox API field semantics or actual account-specific GST treatment. Exact-head CI is required; candidates remain DRAFT and PR #6 remains draft/unmerged.
+
+
+## 2026-10-24 — IPFT exact-head CI result
+
+- Recorded passing workflow #40101490646 for commit `a8166bafe77544bf958d0d393b71432379898b72`: 805 tests passed, 1 warning; broker-write guard and migration/restore checks passed.
+- This CI result does not approve tariff candidates or establish live API field semantics/GST mapping. Candidates remain DRAFT, PR #6 remains draft/unmerged and live broker order submission remains disabled.

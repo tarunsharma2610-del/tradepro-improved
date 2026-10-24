@@ -810,3 +810,34 @@ def test_failed_commit_rolls_back_execution_and_live_position(accounting_context
     ).count() == 0
     db.refresh(paper_position)
     assert paper_position.quantity == 7
+
+
+def test_flush_failure_after_accounting_rows_are_staged_rolls_back_everything(accounting_context, monkeypatch):
+    """A flush failure after both accounting rows are staged must leave no partial ledger."""
+    db, user, _portfolio, instrument, connection, _order, _child, record, paper_position = accounting_context
+    original_flush = db.flush
+
+    def fail_accounting_flush(*args, **kwargs):
+        pending = list(db.new)
+        if any(isinstance(item, (Execution, LivePosition)) for item in pending):
+            raise RuntimeError("simulated flush failure with accounting rows pending")
+        return original_flush(*args, **kwargs)
+
+    monkeypatch.setattr(db, "flush", fail_accounting_flush)
+    with pytest.raises(RuntimeError, match="flush failure with accounting rows pending"):
+        LiveFillAccountingService(db).promote_trade(
+            user.id, record.id, _reviewed_charges(accounting_context)
+        )
+    monkeypatch.setattr(db, "flush", original_flush)
+    db.rollback()
+
+    assert db.query(Execution).filter_by(
+        broker_connection_id=connection.id,
+        broker_trade_id=record.broker_trade_id,
+    ).count() == 0
+    assert db.query(LivePosition).filter_by(
+        broker_connection_id=connection.id,
+        instrument_id=instrument.id,
+    ).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7

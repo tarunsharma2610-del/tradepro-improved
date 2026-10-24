@@ -80,3 +80,9 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Added the effective-dated scope and no-double-counting rule for NSE combined exchange outflow rates from 2026-03-01 to `UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`.
 - The existing candidate implementation/tests already represent covered NSE rates as `exchange_charges` and assert that no separate `ipft` candidate is added. Candidate rules remain DRAFT/non-selectable; no live tariff activation.
 - Source register commit: `6c85292d07d33e1e873293c40931895674f4e7fc`. Exact-head CI for this documentation checkpoint remains required.
+
+## 2026-10-24 — Upstox response semantics and BSE/MCX scope
+
+- Documented the distinction between Upstox's order-specific brokerage estimate and segment/FY trade-charge summary; missing/null/zero/numeric IPFT values must not be conflated.
+- Added a secondary public schedule cross-check for BSE scrip/index-specific and MCX commodity rate boundaries; these remain research leads pending the governing exchange circulars.
+- Source register commit: 2f6e55532e9704d4b41c9c736c38b1948ee5f05d. CI for this latest documentation head remains to be verified; no tariff candidates activated.

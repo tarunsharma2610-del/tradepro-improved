@@ -1285,3 +1285,5 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Keep it distinct from `GET /v2/trade/profit-loss/charges`, which returns selected-scope aggregate charge totals/components, and `GET /v2/charges/brokerage`, which estimates charges for an input order.
 - The read-only client method `get_profit_loss_report` must remain fixed-path GET-only, validate segment/FY/date/pagination inputs, sanitize errors, and never add broker order-write methods. Preserve OAuth tokens out of logs/fixtures.
 - Actual charge allocation still requires reviewed contract-note evidence and exact matching; do not distribute aggregate charges across fills without a separately approved allocation policy.
+
+- The official `GET /v2/trade/profit-loss/metadata` endpoint (`https://upstox.com/developer/api-documentation/get-report-meta-data/`) supplies `trades_count` and `page_size_limit` for a segment/FY/date scope. Use this metadata to guide pagination for `/trade/profit-loss/data`; do not hardcode an assumed page size beyond the documented API limit. It provides no charge components and does not authorize charge allocation.

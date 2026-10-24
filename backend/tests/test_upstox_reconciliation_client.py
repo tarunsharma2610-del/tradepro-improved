@@ -361,3 +361,43 @@ async def test_profit_loss_report_rejects_invalid_scope_and_pagination(fake_http
                 "test-token", **{**common, **overrides}
             )
     assert fake_httpx.calls == []
+
+@pytest.mark.asyncio
+async def test_profit_loss_report_metadata_uses_documented_endpoint_and_scope(fake_httpx):
+    fake_httpx.response = _Response(body={
+        "status": "success",
+        "data": {"trades_count": 12, "page_size_limit": 5000},
+    })
+    result = await UpstoxReadOnlyReconciliationClient().get_profit_loss_report_metadata(
+        "test-token",
+        segment="fo",
+        financial_year="2627",
+        from_date="01-04-2026",
+        to_date="24-10-2026",
+    )
+    assert result.ok is True
+    assert fake_httpx.calls[0]["url"] == f"{API_V2}/trade/profit-loss/metadata"
+    assert fake_httpx.calls[0]["params"] == {
+        "segment": "FO",
+        "financial_year": "2627",
+        "from_date": "01-04-2026",
+        "to_date": "24-10-2026",
+    }
+    assert result.data["data"]["page_size_limit"] == 5000
+
+
+@pytest.mark.asyncio
+async def test_profit_loss_report_metadata_rejects_invalid_scope_before_network(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    for overrides, message in [
+        ({"segment": "ALL"}, "segment must be"),
+        ({"financial_year": "2628"}, "financial_year"),
+        ({"from_date": "31-03-2026"}, "within financial_year"),
+        ({"from_date": "02-05-2026", "to_date": "01-05-2026"}, "to_date must not precede"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            await client.get_profit_loss_report_metadata(
+                "test-token",
+                **{"segment": "EQ", "financial_year": "2627", **overrides},
+            )
+    assert fake_httpx.calls == []

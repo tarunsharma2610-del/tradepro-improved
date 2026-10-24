@@ -241,3 +241,68 @@ def test_order_fill_set_variance_rejects_fill_side_mismatch_without_write(aggreg
         )
 
     assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+
+def test_order_fill_set_variance_rejects_fills_from_different_orders_without_write(aggregate_variance_case):
+    db, snapshot, component, fill_ids = aggregate_variance_case
+    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
+
+    second_order = BrokerOrder(
+        broker_connection_id=component.evidence.broker_connection_id if hasattr(component, "evidence") else db.query(BrokerConnection).filter(BrokerConnection.id == component.evidence_id).first(),
+        order_id=uuid4(),
+        broker_name="upstox",
+        broker_order_id="order-aggregate-test-second",
+        requested_quantity=1,
+        filled_quantity=1,
+        status="COMPLETE",
+    )
+    # Use the evidence's broker connection explicitly; the two fills must not
+    # be accepted as one order-level comparison when their order references differ.
+    second_order.broker_connection_id = db.query(BrokerChargeEvidence).filter(
+        BrokerChargeEvidence.id == component.evidence_id
+    ).one().broker_connection_id
+    db.add(second_order)
+    db.flush()
+    fill = db.query(BrokerTradeRecord).filter(BrokerTradeRecord.id == fill_ids[0]).one()
+    fill.broker_order_ref_id = second_order.id
+    db.flush()
+
+    with pytest.raises(ValueError, match="different broker orders"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
+        )
+
+    assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+
+def test_order_fill_set_variance_rejects_trade_date_mismatch_without_write(aggregate_variance_case):
+    db, snapshot, component, fill_ids = aggregate_variance_case
+    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
+
+    fill = db.query(BrokerTradeRecord).filter(BrokerTradeRecord.id == fill_ids[0]).one()
+    fill.exchange_timestamp = "2026-10-22T10:00:00+00:00"
+    db.flush()
+
+    with pytest.raises(ValueError, match="does not match every identified broker fill"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
+        )
+
+    assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+
+def test_order_fill_set_variance_rejects_tampered_snapshot_manifest_digest_without_write(aggregate_variance_case):
+    db, snapshot, component, _fill_ids = aggregate_variance_case
+    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
+
+    payload = json.loads(snapshot.snapshot_json)
+    payload["source_fill_set_sha256"] = "f" * 64
+    snapshot.snapshot_json = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    db.flush()
+
+    with pytest.raises(ValueError, match="digest does not match its payload"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
+        )
+
+    assert db.query(TariffEstimateVarianceRecord).count() == 0

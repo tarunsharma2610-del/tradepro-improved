@@ -83,6 +83,11 @@ class TariffRule:
             raise ValueError("Minimum brokerage cannot exceed maximum brokerage.")
         object.__setattr__(self, "minimum_inr", minimum)
         object.__setattr__(self, "maximum_inr", maximum)
+        if self.component.strip().lower() == "brokerage":
+            if self.calculation_basis == "ORDER_FIXED" and self.rate_unit != "INR_FIXED":
+                raise ValueError("ORDER_FIXED brokerage requires the INR_FIXED rate unit.")
+            if self.calculation_basis == "ORDER_NOTIONAL" and self.rate_unit != "PERCENT":
+                raise ValueError("ORDER_NOTIONAL brokerage requires the PERCENT rate unit.")
         if self.rate_unit not in RATE_UNITS:
             raise ValueError("Unsupported tariff rate unit.")
         if self.effective_to is not None and self.effective_to < self.effective_from:

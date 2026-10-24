@@ -125,3 +125,20 @@ def test_exchange_charge_candidates_remain_narrowly_scoped_and_draft():
     # Do not silently imply these rows include or exclude IPFT. Composition
     # remains an approval gate; the registry intentionally contains no IPFT row.
     assert not any(rule.component == "ipft" for rule in upstox_tariff_candidate_rules())
+
+
+def test_unresolved_charge_components_are_not_added_as_tariff_candidates():
+    rules = upstox_tariff_candidate_rules()
+    # Only the currently reviewed-for-research STT and exchange-charge
+    # categories are inventoried. Inventory does not imply approval.
+    assert {rule.component for rule in rules} == {"stt", "exchange_charges"}
+    assert all(rule.review_status == "DRAFT" for rule in rules)
+    # Do not introduce a generic GST base, IPFT, stamp-duty, brokerage, SEBI,
+    # or DP tariff until its scope/source and calculation basis are reviewed.
+    assert not any(
+        rule.component in {
+            "gst", "ipft", "stamp_duty", "brokerage",
+            "sebi_turnover", "dp", "demat_transaction",
+        }
+        for rule in rules
+    )

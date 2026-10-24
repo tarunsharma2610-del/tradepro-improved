@@ -1161,3 +1161,6 @@ Current head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` passed backend CI in run
 
 ## Resume checkpoint — 2026-10-24
 New tests added on the Phase 3 branch: `test_variance_comparison_does_not_change_reviewed_source_or_charge_allocations` and `test_variance_comparison_revalidates_review_state_before_writing` (parameterized for evidence and component state). They cover no allocation/source mutation and fail-closed review-state revalidation. CI for current test head is pending. Next: verify latest-head CI, then reconcile concurrency/replay acceptance. PR #6 remains draft/unmerged; live broker writes disabled; work only in `tarunsharma2610-del/tradepro-improved`.
+
+## Upstox audit instruction for future work — 2026-10-24
+Read `UPSTOX_API_INTEGRATION_POLICY.md` before any Upstox-related task. Audit relevant current official APIs, SDK endpoint-version coverage, official Agent Skills and read-only MCP, sandbox, rate limits and regulatory/static-IP requirements. Explicitly evaluate `/v2/charges/brokerage`, `/v2/trade/profit-loss/charges`, and `/v2/charges/historical-trades`; keep estimates, broker historical aggregates and reviewed contract-note/per-fill evidence separate. Do not connect account-scoped MCP without explicit authorization or let agent skills place live orders. PR #6 remains draft/unmerged; live writes disabled.

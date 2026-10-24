@@ -1601,3 +1601,6 @@ Audit note: the implementation constant is `tariff-estimate-snapshot-v4`; older 
 
 ## Aggregate variance coverage review — 2026-10-24
 Regression coverage added for corrupted actual fill-set digest, mixed-order fill sets, side mismatch, and trade-date mismatch; all negative cases assert no variance record is created. Existing tests cover order-fill-set success, exact replay, and different-manifest rejection. Acceptance remains pending current-head CI and review of concurrency, source/reviewer/hash revalidation, and no accounting side effects.
+
+## Aggregate variance acceptance — 2026-10-24
+Backend CI passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062975428`). Present tests cover audit-only success, idempotent replay, different manifest, tampered actual manifest digest, cross-order fill set, side mismatch and date mismatch. Still verify concurrent duplicate comparisons, source/component review-state revalidation, and no charge allocation or position/P&L changes on either success or rejection before marking the gate complete.

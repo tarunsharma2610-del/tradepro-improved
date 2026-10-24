@@ -2319,3 +2319,10 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - No separate IPFT line is visible in the annual summary. This does not prove IPFT was included in transaction charges; annual statement presentation may aggregate or omit components. The screenshot is not an individual trade contract note and does not provide sufficient machine-readable turnover/API evidence to establish field semantics.
 - Recorded limitations and safe evidence use in `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`, commit `9bb2fade8330e068022e5b2f6be0538e4f19206e`.
 - Next: if available, reconcile original PDF + matching dated API response against historical segment rates and turnover/premium. Do not promote per-fill actual allocations from this statement alone. Tariff candidates remain DRAFT; PR #6 remains draft/unmerged; live broker writes remain disabled.
+
+## IPFT research implementation checkpoint — 24 October 2026
+
+- Clarified the effective-dated NSE rule in the source register: from 2026-03-01, the listed NSE equity delivery/intraday, equity futures, and equity options exchange-charge rates are combined outflows including the revised IPFT contribution. Do not add IPFT again on top.
+- The existing candidate registry and tests already encode the combined rates and assert no separate `ipft` candidate; all candidate rules remain DRAFT/non-selectable.
+- Source register update: commit `6c85292d07d33e1e873293c40931895674f4e7fc`.
+- Still open: exact-head CI for the new docs commit; API `transaction`/ `ipft` response normalization for missing/null/numeric cases; independent approval and GST component mapping; BSE equity scrip groups and MCX source-backed rates. PR #6 remains draft/unmerged and live broker writes remain disabled.

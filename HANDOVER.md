@@ -1605,3 +1605,13 @@ Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE 
 - Added `backend/app/services/broker_charge_api_value_resolution.py` and tests `backend/tests/test_broker_charge_api_value_resolution.py` (code commit `3ca72caed52906b7d0749e204c1558a1e72c358e`, test commit `9734ace970b22031939eb87f9d99c1a5066f5097`).
 - Resolver requires exact approved mapping and prevents aggregate summaries/estimates from being used as per-fill actual charges. Missing/null/invalid are unusable; zero remains an explicit value. It does not promote allocations.
 - Synthetic fixture source is reserved and not authoritative; no Upstox production field semantics approved. CI for the resolver and later documentation commits must pass on exact head.
+
+
+## 2026-10-24 — Charge API unusable-value provenance hardening
+
+- Review found that `resolve_charge_api_value` retained the approved mapping's semantic and source fingerprint for usable values, but omitted source URL and SHA-256 provenance when the normalized field was `MISSING`, `NULL`, or `INVALID`. These values were already unusable, but their interpretation path was less auditable.
+- Fixed the resolver to return approved mapping provenance for every normalized state while keeping missing/null/invalid values `usable=False`. Numeric zero remains a distinct present value; this change does not promote allocations or approve production Upstox mappings.
+- Added regression coverage for missing, null, NaN, negative, boolean, and object values; assertions now require mapping source URL, source SHA-256, and semantic to remain present. Added mapping effective-date and estimate-vs-actual guard cases.
+- Implementation commit: `845e9e0dc924f11ae89b96ef73c94c59c2efb4b4`. Test commit / branch head: `1d7e24b0ba8c89062ec1eeddb93d0c4cd22a226f`.
+- Exact-head backend CI is running as workflow [#40107754617](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40107754617); do not mark this code/test head green until all workflow gates complete successfully.
+- PR #6 remains draft/unmerged; live broker order submission and automatic quantity/notional allocation remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains out of scope.

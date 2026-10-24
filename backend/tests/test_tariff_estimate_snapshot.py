@@ -231,6 +231,9 @@ def test_upstox_api_estimate_normalizes_each_supported_component_with_provenance
         assert snapshot.api_response_sha256 == snapshot.source_sha256
         assert snapshot.dp_plan_name == "DP3A"
         assert snapshot.dp_plan_min_expense == "18.50"
+        assert snapshot.api_total_amount == "208.27"
+        assert snapshot.api_response_json is not None
+        assert len(snapshot.api_response_sha256) == 64
         assert "access_token" not in (snapshot.api_request_json or "")
         assert snapshot.idempotency_key and len(snapshot.idempotency_key) == 64
 
@@ -257,6 +260,19 @@ def test_upstox_api_estimate_rejects_failed_or_malformed_responses():
     malformed = ReadOnlyBrokerResult(ok=True, data={"status": "success", "data": {"charges": {}}})
     with pytest.raises(ValueError, match="missing documented charge breakdown"):
         build_api_snapshots(malformed)
+
+
+def test_upstox_api_estimate_rejects_invalid_order_request_parameters():
+    with pytest.raises(ValueError, match="quantity, price, product, or side is invalid"):
+        build_api_snapshots(request_parameters={
+            "instrument_token": "NSE_FO|35271", "quantity": "0", "product": "I",
+            "transaction_type": "BUY", "price": "1400",
+        })
+    with pytest.raises(ValueError, match="quantity, price, product, or side is invalid"):
+        build_api_snapshots(request_parameters={
+            "instrument_token": "NSE_FO|35271", "quantity": "10", "product": "I",
+            "transaction_type": "BUY", "price": "NaN",
+        })
 
 
 def test_upstox_api_estimate_rejects_missing_provenance_or_naive_timestamp():

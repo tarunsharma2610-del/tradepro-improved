@@ -263,11 +263,24 @@ def compare_estimate_to_reviewed_actual(
         ):
             raise ValueError("Upstox API estimate request provenance is not canonical.")
         response_digest = payload.get("api_response_sha256")
+        response_json = payload.get("api_response_json")
+        if not isinstance(response_json, str):
+            raise ValueError("Upstox API estimate response payload is unavailable.")
+        try:
+            response_payload = json.loads(response_json)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Upstox API estimate response payload is invalid.") from exc
+        canonical_response_json = json.dumps(
+            response_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+        )
+        recomputed_response_digest = hashlib.sha256(canonical_response_json.encode("utf-8")).hexdigest()
         if (
-            not isinstance(response_digest, str)
+            canonical_response_json != response_json
+            or not isinstance(response_digest, str)
             or len(response_digest) != 64
             or any(ch not in "0123456789abcdef" for ch in response_digest)
             or response_digest != payload.get("source_sha256")
+            or response_digest != recomputed_response_digest
         ):
             raise ValueError("Upstox API estimate response digest is invalid.")
         try:

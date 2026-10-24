@@ -186,6 +186,8 @@ def test_persist_upstox_api_component_estimates_as_immutable_estimate_only_recor
         payload = __import__("json").loads(replay.snapshot_json)
         assert payload["source_kind"] == "UPSTOX_BROKERAGE_API_ESTIMATE"
         assert payload["api_response_sha256"] == snapshot.api_response_sha256
+        assert payload["api_response_json"] == snapshot.api_response_json
+        assert payload["api_total_amount"] == "12.34"
         assert payload["dp_plan_min_expense"] == "18.50"
 
     assert db_session.query(type(persisted[0])).count() == len(snapshots)

@@ -72,6 +72,8 @@ class TariffEstimateSnapshot:
     api_request_json: str | None = None
     api_retrieved_at: str | None = None
     api_response_sha256: str | None = None
+    api_response_json: str | None = None
+    api_total_amount: str | None = None
     dp_plan_name: str | None = None
     dp_plan_min_expense: str | None = None
 
@@ -229,6 +231,20 @@ def build_upstox_brokerage_api_snapshots(
         raise ValueError("Upstox request parameters contain an invalid value.")
     if not str(request_parameters["instrument_token"]).strip():
         raise ValueError("instrument_token is required for API estimate provenance.")
+    try:
+        request_quantity = int(str(request_parameters["quantity"]))
+        request_price = Decimal(str(request_parameters["price"]))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("Upstox request quantity and price must be valid positive values.") from exc
+    if (
+        str(request_quantity) != str(request_parameters["quantity"])
+        or request_quantity <= 0
+        or not request_price.is_finite()
+        or request_price <= 0
+        or str(request_parameters["transaction_type"]).upper() not in {"BUY", "SELL"}
+        or not str(request_parameters["product"]).strip()
+    ):
+        raise ValueError("Upstox request quantity, price, product, or side is invalid.")
     if isinstance(retrieved_at, str):
         try:
             retrieved_at = datetime.fromisoformat(retrieved_at.replace("Z", "+00:00"))
@@ -358,6 +374,8 @@ def build_upstox_brokerage_api_snapshots(
             api_request_json=request_json,
             api_retrieved_at=retrieved_at,
             api_response_sha256=response_sha256,
+            api_response_json=response_json,
+            api_total_amount=format(total, ".2f"),
             dp_plan_name=dp_plan_name,
             dp_plan_min_expense=format(dp_minimum, ".2f"),
         ))

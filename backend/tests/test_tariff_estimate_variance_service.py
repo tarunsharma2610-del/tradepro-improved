@@ -1,5 +1,6 @@
 """Database-backed regression tests for ORDER_FILL_SET variance comparisons."""
 import hashlib
+from dataclasses import replace
 import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -357,6 +358,21 @@ def test_upstox_api_estimate_variance_rejects_quantity_mismatch_without_write(ag
     db.commit()
 
     with pytest.raises(ValueError, match="quantity does not match"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=record.id, source_component_id=component.id
+        )
+    assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+def test_upstox_api_estimate_variance_rejects_response_digest_mismatch_without_write(aggregate_variance_case):
+    db, _original_snapshot, component, fill_ids = aggregate_variance_case
+    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
+
+    api_snapshot = build_matching_upstox_api_brokerage_snapshot(fill_ids)
+    tampered = replace(api_snapshot, api_response_json='{"status":"success"}')
+    record, _ = persist_tariff_estimate_snapshot(db, tampered)
+    db.commit()
+
+    with pytest.raises(ValueError, match="response digest is invalid"):
         compare_estimate_to_reviewed_actual(
             db, estimate_snapshot_id=record.id, source_component_id=component.id
         )

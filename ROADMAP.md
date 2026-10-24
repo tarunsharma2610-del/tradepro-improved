@@ -1050,3 +1050,6 @@ Audit note: the implementation constant is `tariff-estimate-snapshot-v4`; older 
 
 ## Phase 3 next gate — 2026-10-24
 Regression tests cover actual manifest-digest tampering, mixed-order fill sets, side mismatch, and trade-date mismatch. Next: verify CI on the current head; resolve any failures; reconcile remaining aggregate-variance acceptance items (concurrency, reviewed-source revalidation, no allocation/P&L side effects); then verify the nine-document checkpoint. Unsupported tariff rules remain fail-closed and live broker writes disabled.
+
+## Phase 3 next gate — 2026-10-24
+Latest verified test head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` has passing backend CI (run `40062975428`). Next reconcile aggregate variance acceptance: concurrency/replay behavior, reviewed-source revalidation, and explicit no-accounting-side-effect tests. Once that gate is complete, continue durable per-fill charge allocation work. Unsupported tariffs remain fail-closed; live broker writes disabled.

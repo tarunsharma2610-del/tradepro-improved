@@ -1501,3 +1501,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 5. Audit Agent Skill contents and scripts before use; treat it as development-only guidance and do not run trading examples with live credentials.
 6. Update the capability matrix and tests; check exact-head CI. Do not change live-write controls or merge PR #6 as part of this task.
 
+## Upstox SDK and Agent Skill static review — 2026-10-24
+
+- [x] Inspect official SDK tag v2.30.0, generated brokerage method signature, dependency list and licence.
+- [x] Inspect Agent Skill helper, validation script, live order/GTT examples, configuration example and licence.
+- [x] Record the decision not to add an unused SDK runtime dependency where the existing async client and parser already cover the endpoint.
+- [x] Record safety findings in [`docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md`](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md).
+- [ ] Only add SDK runtime integration for a verified endpoint coverage or correctness gap; preserve PAPER-only controls and verify exact-head CI.
+

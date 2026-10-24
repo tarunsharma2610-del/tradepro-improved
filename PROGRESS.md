@@ -2017,3 +2017,10 @@ Archived a dated normalized excerpt in `docs/source_snapshots/UPSTOX_CHARGES_202
 - The single pytest warning is a Starlette/AnyIO deprecation warning. GitHub Actions also logged Node.js 20 action-runtime deprecation warnings. These did not fail the run.
 - Aggregate `ORDER_FILL_SET` variance tests and the variance-only persistence service are present; this successful suite includes their tests. Variance records remain audit-only and do not promote charges or create per-fill allocations. Source-backed effective tariff applicability, charge composition, and durable accounting acceptance remain open gates.
 - Synthetic restore is not actual Oracle Cloud recovery. PR #6 remains draft/unmerged. Live broker order execution and automatic accounting promotion remain disabled. All work stays in `tarunsharma2610-del/tradepro-improved`; never modify original `tarunsharma2610-del/Tradepro`.
+
+## Upstox estimate component-total reconciliation — 24 October 2026
+
+- Latest code change `ce0d426142b8e70b5cd56d0832694a397258f563` adds a fail-closed check that normalized Upstox brokerage API estimate components sum to the API-reported total; the DP-plan minimum remains metadata and is excluded from the sum.
+- Test commit `8136ccdabbc5326d59e2b8a6951ae02c3495ab62` adds regression cases for component/total mismatch and null-versus-zero distinction. Missing/null amounts are rejected rather than coerced to zero.
+- Exact-head CI run [40082403073](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082403073) was still in progress at this checkpoint; do not mark this change green until the run for the resulting latest head completes.
+- This is estimate integrity only: no tariff rates were activated, no estimate promoted to actual charges, no per-fill charge allocation enabled, and no live broker orders sent. PR #6 remains draft/unmerged; original `Tradepro` remains out of scope.

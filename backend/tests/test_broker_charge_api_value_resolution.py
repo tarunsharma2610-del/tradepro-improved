@@ -209,3 +209,34 @@ def test_official_upstox_aggregate_charges_endpoint_cannot_be_promoted_to_per_fi
             aggregate_mapping,
             endpoint="/v2/trade/profit-loss/charges",
         )
+
+
+def test_official_upstox_brokerage_calculator_cannot_be_promoted_to_per_fill_actual():
+    estimate_mapping = replace(
+        mapping(),
+        endpoint="/v2/charges/brokerage",
+        semantic="PER_FILL_ACTUAL",
+        scope="contract-note-fill",
+    )
+    with pytest.raises(ValueError, match="Estimate-only broker endpoint"):
+        resolve(
+            {"ipft": "0.17"},
+            estimate_mapping,
+            endpoint="/v2/charges/brokerage",
+        )
+
+
+def test_official_upstox_brokerage_calculator_cannot_be_used_as_actual_aggregate():
+    estimate_mapping = replace(
+        mapping(),
+        endpoint="/v2/charges/brokerage",
+        semantic="AGGREGATE_ACTUAL_SUMMARY",
+        scope="contract-note-fill",
+    )
+    with pytest.raises(ValueError, match="Estimate-only broker endpoint"):
+        resolve(
+            {"ipft": "0.17"},
+            estimate_mapping,
+            endpoint="/v2/charges/brokerage",
+            intended_use="AGGREGATE_SUMMARY",
+        )

@@ -1262,3 +1262,10 @@ Head `f76ecde4ac785123de2980539138ce89ff660294` passed exact-head CI run `400659
 - CI run [40082403073](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082403073) was still in progress at handover. Verify CI for the final documentation head before calling this gate green.
 - Follow-up after CI: design explicit versioned component mapping and component-specific treatment for transaction/clearing/IPFT, nullable fields, and DP/demat per-scrip/day semantics. Keep unsupported components fail-closed; API estimates and aggregate totals are not actual per-fill evidence.
 - Safety: PR #6 remains draft/unmerged; live broker writes remain disabled; all work only in `tarunsharma2610-del/tradepro-improved`, never the original `tarunsharma2610-del/Tradepro`.
+
+## CI failure/fix — resume from corrected test head — 24 October 2026
+
+- Run [40082403073](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082403073) failed: **774 passed, 1 failed**. The changed-STT replay-conflict test changed STT but left the fixture's API total unchanged, so the newly added component-total check correctly failed first.
+- Fixed the fixture to set total to `209.27` for STT `176.00` while keeping all other component amounts unchanged. This isolates replay conflict behavior without bypassing the reconciliation guard.
+- Fix commit: `2a39a67cd1d2c8dab16e22425c87e247974c10cd`. Fresh run [40082588488](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082588488) was queued at the time of this note.
+- Next: inspect the run to completion, fix any remaining failures, then synchronize the remaining checkpoint docs and verify CI for the resulting exact latest head. Keep PR #6 draft/unmerged and live broker writes disabled.

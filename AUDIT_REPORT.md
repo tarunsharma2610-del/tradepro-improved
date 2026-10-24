@@ -1410,3 +1410,12 @@ Added `ORDER_FIXED`/`INR_FIXED` support for flat brokerage alongside capped perc
 
 ## 2026-10-24 — Dated tariff source and DRAFT candidate registry verified
 Added a normalized excerpt of Upstox tariff rows, corroborated the 2026 STT changes against NSE's official derivatives STT page, and created 18 effective-dated STT/exchange-charge candidate rules. Every rule remains `DRAFT`; selection fails closed. The source excerpt is not a byte-for-byte archive of the live HTML, the stamp-duty source is dated 2023, and exchange/IPFT composition remains unresolved. Exact-head CI run `40065979244` passed on `f76ecde4ac785123de2980539138ce89ff660294` (**760 passed, 1 warning**).
+
+
+## Fixed-order brokerage entrypoint regression — 24 October 2026
+
+- Audit found that `calculate_charge_for_trade` routed percentage-based `ORDER_NOTIONAL` brokerage through `calculate_order_brokerage`, but flat-fee `ORDER_FIXED` brokerage fell through to the generic calculator, which intentionally rejects that basis.
+- Fixed the shared entry point to route both `ORDER_NOTIONAL` and `ORDER_FIXED` brokerage through the guarded order-level calculator. Added regression test `test_trade_charge_entrypoint_supports_flat_fixed_order_brokerage` asserting a flat INR 20 fee is returned through the full scope-selection entry point.
+- Implementation commit: `1634989d29734f1d5ffdcfee826384a512eaafe7`; regression-test commit: `928c0207ff8de5f4852225ab6b9e0fabe97f6e12`.
+- Exact-head backend CI run 40066706304 was in progress at documentation time; do not mark this fix green until that run completes. Recheck CI after these documentation updates because they change the branch head.
+- No tariff candidate was activated, no charge was promoted to the actual ledger, and no live broker order was sent. Original `tarunsharma2610-del/Tradepro` remains out of scope.

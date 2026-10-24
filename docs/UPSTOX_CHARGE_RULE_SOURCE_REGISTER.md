@@ -218,3 +218,20 @@ This explains the likely cause of the public-page conflict: Upstox still display
 - For reviewed NSE-only reconciliation, the expected combined rates are ₹307/crore/side for cash market, ₹183/crore/side for equity futures, and ₹3,553/crore/side on options premium. Preserve the component split and cited source rather than collapsing the audit trail.
 - The official circular covers NSE cash/equity derivatives only. It does not establish BSE or MCX rules or every Upstox product tuple. Broker-specific API/contract-note evidence is still needed to verify how each field is represented in the actual-account response.
 - No tariff candidate is approved by this documentation update. Automatic activation remains blocked pending exact product/scope/effective-date mapping, authenticated read-only response/contract-note reconciliation, and independent review.
+
+
+## GST taxable-component evidence review — 24 October 2026
+
+Sources reviewed:
+- Upstox [Brokerage Charges](https://upstox.com/brokerage-charges/) states GST at 18% on brokerage + transaction charges + IPFT for equity intraday/futures/options, adding demat charges for equity delivery.
+- CBIC [Stock Broking Services FAQ, Q77–78](https://cbic-gst.gov.in/sectoral-faq.html) states brokerage is taxable, while STT, stamp duty and other central/state tax recoveries are excluded only when the pure-agent conditions under Rule 33 are satisfied; otherwise valuation is under CGST Act Section 15 read with Rule 27.
+- CBIC [Valuation Rules / Rule 33](https://cbic-gst.gov.in/valuation-rules.html) lists conditions including contractual pure-agent relationship, recipient liability/authorization, separate invoice indication, recovery of only the actual third-party amount, and that the expenditure is additional to the supplier's own service.
+
+### Implementation boundary
+
+1. Do not implement “GST = 18% of every charge” or use a blanket exclusion list. The Upstox page's named base is a broker-published product-specific component list; CBIC's pure-agent test is conditional and depends on the actual transaction/invoice facts.
+2. Represent the GST base as a versioned, product-scoped component set only after reconciliation with an actual Upstox tax invoice/contract note. At minimum, verify brokerage, transaction charges, IPFT, and delivery demat components; separately establish treatment of SEBI turnover, clearing, “others,” and any taxes/recoveries from invoice evidence rather than guessing.
+3. Keep STT and stamp duty as separate tax components. Do not include them in GST base merely because they are present in a total charge response; do not exclude a recovery solely because it is called a tax unless the relevant pure-agent treatment is supported.
+4. Add boundary fixtures that check each product's exact component inclusion, exclusion, missing-field behavior, and rounding against reviewed invoices. Preserve raw source amounts and invoice/API digest; fail closed on unknown component semantics.
+
+**Gate status:** official high-level text is available, but the component mapping for this app remains unapproved until a dated, account-specific invoice/contract-note fixture is reviewed. No GST calculator rule or tariff was activated by this audit.

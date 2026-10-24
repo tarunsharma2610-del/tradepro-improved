@@ -178,3 +178,19 @@ def test_non_finite_charge_values_are_rejected(value):
     assert result["state"] == "INVALID"
     assert result["usable"] is False
     assert_mapping_provenance(result)
+
+
+def test_payload_field_must_match_approved_mapping_field_path():
+    with pytest.raises(ValueError, match="does not match the approved mapping field path"):
+        resolve_charge_api_value(
+            {"brokerage": "20.00"},
+            "brokerage",
+            [mapping()],
+            broker="Upstox",
+            endpoint="/contract-note/charges",
+            schema_version="fixture-v1",
+            field_path="charges.ipft",
+            scope="contract-note-fill",
+            trade_date=date(2026, 10, 24),
+            intended_use="PER_FILL_ACTUAL",
+        )

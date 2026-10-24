@@ -155,3 +155,20 @@ def test_unresolved_charge_components_are_not_added_as_tariff_candidates():
         }
         for rule in rules
     )
+
+def test_equity_stt_candidates_preserve_published_2023_effective_date():
+    rules = [
+        rule for rule in upstox_tariff_candidate_rules()
+        if rule.component == "stt"
+        and rule.segment == "EQ"
+        and rule.effective_from == date(2023, 4, 1)
+    ]
+    assert {
+        (rule.product, rule.transaction_side, rule.rate)
+        for rule in rules
+    } == {
+        ("DELIVERY", "BUY", Decimal("0.1")),
+        ("DELIVERY", "SELL", Decimal("0.1")),
+        ("INTRADAY", "SELL", Decimal("0.025")),
+    }
+    assert all(rule.review_status == "DRAFT" for rule in rules)

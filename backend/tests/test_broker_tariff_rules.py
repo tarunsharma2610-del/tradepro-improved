@@ -595,3 +595,76 @@ def test_generic_calculator_rejects_conditional_tax_and_depository_components(co
     )
     with pytest.raises(ValueError, match="Unsupported tariff calculation shape"):
         calculate_tariff_amount(rule, calculation_base="100000")
+
+
+def test_upstox_nse_exchange_candidates_are_combined_rates_and_remain_draft():
+    from app.services.upstox_tariff_candidates import upstox_tariff_candidate_rules
+
+    rules = [
+        rule for rule in upstox_tariff_candidate_rules()
+        if rule.component == "exchange_charges"
+        and rule.exchange == "NSE"
+        and rule.effective_from == date(2026, 3, 1)
+    ]
+    keyed = {
+        (rule.segment, rule.product, rule.calculation_basis): rule
+        for rule in rules
+    }
+
+    assert keyed[("EQ", "DELIVERY", "TURNOVER")].rate == Decimal("0.00307")
+    assert keyed[("FO", "FUTURES", "TURNOVER")].rate == Decimal("0.00183")
+    assert keyed[("FO", "OPTIONS", "PREMIUM")].rate == Decimal("0.03553")
+    assert all(rule.review_status == "DRAFT" for rule in rules)
+    # Rates are the published combined totals; do not model a second IPFT rule
+    # on top of these same turnover/premium bases.
+    assert not any(rule.component.lower() == "ipft" for rule in rules)
+
+
+def test_upstox_nse_combined_and_split_ipft_representations_have_same_gst_base():
+    from app.services.broker_tariff_rules import calculate_gst_on_explicit_components
+
+    gst_rule = make_rule(
+        component="gst",
+        calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+        rate=Decimal("18"),
+        review_status="APPROVED",
+    )
+    combined_base, combined_gst = calculate_gst_on_explicit_components(
+        gst_rule,
+        taxable_components={"exchange_charges": Decimal("307.00")},
+        approved_taxable_component_names=["exchange_charges"],
+    )
+    split_base, split_gst = calculate_gst_on_explicit_components(
+        gst_rule,
+        taxable_components={
+            "transaction_charges": Decimal("306.99"),
+            "ipft": Decimal("0.01"),
+        },
+        approved_taxable_component_names=["transaction_charges", "ipft"],
+    )
+
+    assert combined_base == split_base == Decimal("307.00")
+    assert combined_gst == split_gst == Decimal("55.26")
+
+
+def test_upstox_nse_exchange_candidates_do_not_leak_into_bse_or_mcx():
+    from app.services.upstox_tariff_candidates import upstox_tariff_candidate_rules
+
+    rules = [
+        rule for rule in upstox_tariff_candidate_rules()
+        if rule.component == "exchange_charges"
+        and rule.effective_from == date(2026, 3, 1)
+    ]
+    nse_equity_scope = {
+        (rule.exchange, rule.segment, rule.product)
+        for rule in rules
+        if rule.exchange == "NSE"
+    }
+    assert nse_equity_scope == {
+        ("NSE", "EQ", "DELIVERY"),
+        ("NSE", "EQ", "INTRADAY"),
+        ("NSE", "FO", "FUTURES"),
+        ("NSE", "FO", "OPTIONS"),
+    }
+    assert not any(rule.exchange == "MCX" for rule in rules)
+    assert all(rule.review_status == "DRAFT" for rule in rules)

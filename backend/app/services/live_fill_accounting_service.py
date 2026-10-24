@@ -27,6 +27,7 @@ from app.models.instrument import Instrument
 from app.models.live_position import LivePosition
 from app.models.order import Order
 from app.models.portfolio import Portfolio
+from app.models.user import User
 from app.services.broker_charge_evidence_service import require_reviewed_charge_evidence
 from app.services.broker_charge_source_reconciliation_service import verify_component_allocation_ledger
 from app.services.position_math import apply_fill
@@ -288,6 +289,7 @@ class LiveFillAccountingService:
                 evidence_id=charges.evidence_id,
                 broker_connection_id=connection.id,
                 broker_trade_record_id=record.id,
+                reviewer_user_id=charges.reviewer_user_id,
                 supplied_fees=fee_values,
             )
 
@@ -423,6 +425,7 @@ class LiveFillAccountingService:
         evidence_id: UUID,
         broker_connection_id: UUID,
         broker_trade_record_id: UUID,
+        reviewer_user_id: UUID,
         supplied_fees: dict[str, Decimal],
     ) -> dict[str, Decimal]:
         """Fail closed unless a complete source-reviewed ledger backs this fill."""
@@ -562,6 +565,19 @@ class LiveFillAccountingService:
         total = sum((derived[name] for name in names), Decimal("0")).quantize(CENT)
         if supplied_fees["total_charges"] != total:
             raise ValueError("Total charges do not equal the reconciled per-fill allocation ledger.")
+
+        # Match the allocation-promotion policy: the recorded reviewer must still
+        # be an active platform administrator at promotion time. Acquire this lock
+        # after evidence/component/allocation locks to preserve the canonical order.
+        reviewer = (
+            self.db.query(User)
+            .filter(User.id == reviewer_user_id)
+            .with_for_update()
+            .populate_existing()
+            .one_or_none()
+        )
+        if reviewer is None or not reviewer.is_active or not reviewer.is_admin:
+            raise ValueError("Only an active platform administrator may promote live-fill accounting.")
         return {**derived, "total_charges": total}
 
     def _ensure_exchange_order(

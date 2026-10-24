@@ -212,3 +212,6 @@ Priority is based on Tradepro's current architecture and the inspected services,
 - [Bhav (MIT)](https://github.com/rajmaurya0904/bhav)
 - [Dhan NIFTY Algo Trading Lab (MIT)](https://github.com/builditwithgk/dhan-nifty-algo-trading-lab)
 - [NSE/BSE Algo Trading System (MIT)](https://github.com/vijaxx/algo-trading-system)
+
+## Upstox first-party API/tooling priority — 2026-10-24
+Prioritize current first-party Upstox documentation, official SDKs, examples, official Agent Skills and read-only MCP for broker-integration research before external trading frameworks. Follow `UPSTOX_API_INTEGRATION_POLICY.md`; evaluate brokerage estimate and historical trade-charge/trade-history endpoints without treating them as reviewed contract-note/per-fill evidence. Do not transplant an entire framework or enable live orders because an agent skill supports execution.

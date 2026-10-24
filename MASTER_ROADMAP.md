@@ -1091,3 +1091,6 @@ Backend CI passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062
 
 ## Phase 3 acceptance gate — 2026-10-24
 Additional regression tests now cover variance-path no-accounting-side-effects and rejection when reviewed evidence or component status changes before comparison. The latest test-head CI is pending. Do not close the aggregate variance gate until current-head CI and concurrency/replay acceptance are verified. Keep unsupported tariffs fail-closed and live broker writes disabled.
+
+## Cross-cutting Upstox integration rule — 2026-10-24
+All future Upstox work must follow `UPSTOX_API_INTEGRATION_POLICY.md`: audit current official APIs, SDK/version support, examples, Agent Skills/MCP, sandbox, rate limits and regulatory requirements; use relevant capabilities with contract tests. Brokerage calculator and historical charge/trade APIs are separate estimate/reconciliation inputs, never substitutes for reviewed contract-note/per-fill evidence. Keep live-order safety gates intact.

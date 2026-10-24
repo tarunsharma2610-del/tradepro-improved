@@ -126,3 +126,9 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 
 - Verified successful Backend workflows #40106949357 for the API mapping guard/test commit and #40106989369 for the source-register documentation commit.
 - Exact-head CI remains required after subsequent documentation changes. No production Upstox mapping or tariff was approved.
+
+
+## 2026-10-24 — Controlled charge API value resolution
+
+- Added resolver + regression tests requiring exact approved mappings and preventing aggregate/estimate fields from being consumed as per-fill actuals. Missing/null/invalid values remain unusable; numeric zero is preserved as a separate state.
+- Synthetic fixtures do not approve any live Upstox API semantics. Exact-head CI remains pending for these new changes.

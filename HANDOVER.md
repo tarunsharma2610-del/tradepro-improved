@@ -1553,3 +1553,7 @@ Resume with exact-head CI for the new documentation commit, then review Upstox A
 ## 2026-10-24 — Upstox API and BSE/MCX source cross-check
 
 Source register updated in commit 2f6e55532e9704d4b41c9c736c38b1948ee5f05d: the Upstox brokerage endpoint is an estimate, while the trade-charge endpoint is a segment/FY summary. Keep missing, null, zero and numeric fields distinct; never infer per-fill actuals or double-count IPFT from a response schema alone. BSE/MCX comparison rates are research leads pending exact effective-dated exchange circulars and contract/scrip scope. Next: verify CI for the latest head, then source the governing BSE/MCX circulars and test API response normalization. Candidate rules stay DRAFT/non-selectable; PR #6 draft/unmerged; live broker writes disabled; original Tradepro untouched.
+
+## 2026-10-24 — BSE/MCX tariff review
+
+Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE equity requires date-specific scrip group/exclusivity data; the 2023 SENSEX nearest-expiry options notice describes monthly incremental premium-turnover slabs but is not enough to certify all 2026 BSE products; MCX FAQ confirms applicable statutory dues but is not a current tariff table. Next: verify exact-head CI, then implement/test response normalization and only add exchange rules when the exact governing current schedule and required input data are available. Do not activate generic BSE/MCX rates. Candidate rules DRAFT/non-selectable; PR #6 draft/unmerged; live broker writes disabled; original Tradepro untouched.

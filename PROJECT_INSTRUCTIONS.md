@@ -1037,3 +1037,6 @@ The latest verified test head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` passed 
 
 ## Phase 3 acceptance reminder — 2026-10-24
 Variance comparisons must remain audit-only, preserve reviewed evidence/component and allocation state, and revalidate current review status before writing. New regression tests have been added; do not mark them verified until CI passes on the latest branch head. Never modify original `tarunsharma2610-del/Tradepro`; keep PR #6 draft/unmerged and broker order submission disabled.
+
+## Mandatory Upstox API/SDK/agent-tool policy — 2026-10-24
+For every relevant upgrade, read `UPSTOX_API_INTEGRATION_POLICY.md`. Audit the current official Upstox API catalogue, endpoint/version support, official SDKs and examples, brokerage calculator, historical trade-charge/trade-history APIs, market data/WebSocket, options, sandbox, rate limits, developer community, official Agent Skills and read-only MCP where relevant. Use all capabilities relevant and permitted for this project, not every endpoint blindly. Treat calculator output as an estimate, not actual per-fill evidence. The Agent Skill may execute live orders: never allow it to bypass PAPER mode or order-write safeguards. Account-scoped MCP requires explicit authorization. Live broker order writes remain disabled.

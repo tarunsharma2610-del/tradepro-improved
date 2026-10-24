@@ -2326,3 +2326,9 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - The existing candidate registry and tests already encode the combined rates and assert no separate `ipft` candidate; all candidate rules remain DRAFT/non-selectable.
 - Source register update: commit `6c85292d07d33e1e873293c40931895674f4e7fc`.
 - Still open: exact-head CI for the new docs commit; API `transaction`/ `ipft` response normalization for missing/null/numeric cases; independent approval and GST component mapping; BSE equity scrip groups and MCX source-backed rates. PR #6 remains draft/unmerged and live broker writes remain disabled.
+
+## Public charge schedule cross-check — 24 October 2026
+
+- Rechecked Upstox's official Brokerage Details API and Get Trade Charges API. They serve different purposes: order-specific estimate vs segment/FY aggregate charge summary. Preserve absent/null/zero/numeric IPFT values distinctly; a null aggregate sample is not proof of zero or of bundling.
+- Added BSE/MCX scope cautions and public broker schedule cross-check to UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md in commit 2f6e55532e9704d4b41c9c736c38b1948ee5f05d. BSE scrip/index variations and MCX rates remain research leads until matched to governing exchange circulars.
+- CI on this new docs head has not yet been confirmed. All tariff candidates remain DRAFT/non-selectable; PR #6 draft/unmerged; live broker writes disabled; original Tradepro untouched.

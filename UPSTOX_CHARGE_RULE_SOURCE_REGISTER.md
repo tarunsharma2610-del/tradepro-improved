@@ -91,3 +91,21 @@ Treat those as different response contexts. Preserve raw JSON and distinguish ab
 - **MCX:** [Official MCX circular archive](https://www.mcxindia.com/circulars/all-circulars) is the primary discovery source. The [MCX compliance FAQ](https://www.mcxindia.com/faq/compliance) also references applicable CTT, stamp duty, GST and other statutory dues, and clarifies that statutory charges and contract/brokerage requirements must be handled by scope. Do not activate a generic MCX rate based only on a secondary broker schedule.
 
 These pointers are research sources, not approved tariff rules. The existing candidate registry does not yet implement date-specific BSE scrip-group/monthly slabs or all MCX product/contract distinctions. Preserve the fail-closed behaviour until current governing circulars and calculation bases are encoded and tested.
+
+## BSE / MCX circular review — latest public results checked 24 October 2026
+
+### BSE cash equity
+The [BSE Equity Segment Master Circular](https://www.bseindia.com/markets/MarketInfo/DownloadAttach.aspx?attachedId=8a7fec3a-95bc-4bd2-82de-76e2a84e2915&id=20250429-51) describes the existing transaction-charge framework by scrip group and exclusivity status, and refers to exchange-provided turnover/charge files. This supports implementing BSE equity as a date-specific lookup using exchange-provided scrip classification rather than one percentage hardcoded for every scrip. Before activation, confirm whether a newer BSE notice supersedes each applicable clause and capture the official daily scrip classification file for the trade date.
+
+### BSE equity derivatives
+The official [BSE Notice 20231020-46](https://www.bseindia.com/markets/MarketInfo/DispNewNoticesCirculars.aspx?page=20231020-46) applies a monthly incremental premium-turnover slab schedule to S&P BSE SENSEX options nearest/immediate expiry from 1 November 2023. It says other equity-derivative contracts were unchanged by that notice. Because this is an old, narrow notice, it is evidence for the calculation model (monthly cumulative slab + incremental turnover), not sufficient by itself to certify rates current for every contract in 2026. Do not apply this SENSEX schedule to Bankex, stock options, or all BSE derivatives without matching a current official notice.
+
+### MCX
+The [MCX official circular archive](https://www.mcxindia.com/circulars/all-circulars) was checked; the current archive includes dated contract specification, due-date-rate, and product-ID changes. Those are relevant to contract metadata and product scoping but do not alone establish a complete current transaction-charge schedule. The [MCX compliance FAQ](https://www.mcxindia.com/faq/compliance) points to Circular MCX/INSP/286/2024 for contract notes and statutory dues and requires applicable CTT, stamp duty, GST and other statutory charges. Treat this as support for the statutory component checklist, not as a tariff rate table.
+
+### Implementation decision
+- No new BSE or MCX rates are approved/selectable from this review alone.
+- BSE cash equity needs dated scrip-group/exclusivity metadata and the applicable current charge file.
+- BSE nearest-expiry SENSEX options needs monthly cumulative turnover state and a current rate schedule; per-fill linear allocation is not equivalent to the exchange's monthly slab charge.
+- MCX needs exact effective-dated schedules for the product/contract/side and separate CTT/stamp-duty/GST bases.
+- Keep current candidates DRAFT and fail closed where the exact date, scope, or required lookup data is absent.

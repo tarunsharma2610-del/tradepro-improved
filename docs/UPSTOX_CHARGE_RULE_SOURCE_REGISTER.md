@@ -353,3 +353,28 @@ This confirms the regression tests and documentation recorded at that exact head
 GitHub Actions Backend tests run #40101490646 passed on commit `a8166bafe77544bf958d0d393b71432379898b72`. Backend pytest: **805 passed, 1 warning**. Broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic restore drill and restore-evidence retention all passed. Run: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40101490646
 
 This is a successful exact-head result for the source-register update recorded by that commit. Later commits require their own exact-head CI result. No live Upstox API field mapping or account-specific GST treatment is inferred from this CI.
+
+
+## User-provided historical Upstox statement evidence — 24 October 2026
+
+A user-provided, redacted screenshot of page 2 of a two-page RKSV Securities India Pvt. Ltd. / Upstox Annual Global Transaction Statement was reviewed. The document identifies the period as FY 2022–23 and the segment as Futures & Options. The visible charge summary includes:
+- IGST (18% on charges): ₹20.15
+- SEBI fees: ₹0.22
+- Stamp duty: ₹3.00
+- STT-RND: ₹0.32
+- STT-SQUP: ₹51.89
+- Transaction charges: ₹111.61
+- Brokerage charges: ₹1,000.00
+
+The visible summary has no separately labelled IPFT row. This is evidence that this annual summary presented a distinct "TRANSACTION CHARGES" line without a distinct IPFT line; it is **not proof** that IPFT was included in that line. The report may aggregate, omit, or represent charge components differently from a contract note. The screenshot alone does not supply the complete machine-readable trades/turnover bases needed to reproduce the ₹111.61 charge, nor an API response from the same period. Do not infer that historical 2022–23 presentation establishes 2026 API semantics.
+
+### Evidence classification and use
+
+- Classify as user-supplied historical broker statement, not as an independently authenticated original PDF or an individual trade contract note.
+- It may support investigation of historical presentation and future reconciliation fixtures, but must not be used as a tariff authority, a live API field mapping, or proof of actual IPFT inclusion.
+- If the original PDF and the relevant authenticated Upstox API response are later available, reconcile the same segment/date window and compare underlying exchange turnover/premium, transaction charge, IPFT (including null vs absent vs zero), GST base and rounding.
+- Do not promote actual per-fill charge allocations from this summary alone. Existing evidence rules requiring a reviewed contract-note source component and exact eligible-fill manifest remain unchanged.
+
+### Status
+
+The user-provided statement advances historical evidence collection but does not close the IPFT/API normalization or GST approval gates. Candidate rules remain DRAFT/non-selectable. PR #6 remains draft/unmerged and live broker order submission remains disabled.

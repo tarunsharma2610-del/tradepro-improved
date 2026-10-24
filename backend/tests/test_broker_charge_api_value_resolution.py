@@ -21,7 +21,7 @@ def mapping(semantic="PER_FILL_ACTUAL", scope="contract-note-fill"):
         currency="INR",
         scope=scope,
         effective_from=date(2026, 1, 1),
-        effective_to=None,
+        effective_to=date(2026, 12, 31),
         source_url=SOURCE_URL,
         source_sha256=SOURCE_SHA256,
         review_state="APPROVED",

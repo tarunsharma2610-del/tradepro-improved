@@ -1392,3 +1392,6 @@ Backend pytest passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (Action
 
 ## 2026-10-24 — Additional variance safeguards
 Added regression coverage for no accounting side effects and revalidation of evidence/component review status immediately before variance writes. Tests assert rejected comparisons create no variance record. New-head CI is pending; do not mark this gate green until exact-head CI passes.
+
+## Upstox API/SDK audit requirement — 2026-10-24
+The new `UPSTOX_API_INTEGRATION_POLICY.md` requires each Upstox audit to inventory relevant current official endpoints, SDK/version coverage, Agent Skills/MCP, sandbox, rate limits, auth/static-IP requirements, errors/retries and tests. It specifically requires assessment of the brokerage estimate API, historical trade-charge breakdown and historical trades APIs, while separating estimates/aggregates from reviewed contract-note/per-fill evidence. Documentation only; no live trading enabled.

@@ -2405,3 +2405,12 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Corrected the synthetic approved mapping to an explicit validity window ending `2026-12-31`, so both before-start and after-end cases test the intended boundary.
 - Test fix commit: `9cb89301075a8b532ad634f2c9c60590b16deacc`. Awaiting CI for this commit and the final branch head; earlier run #40107829270 failed on the incorrect fixture and must not be treated as green.
 - PR #6 remains draft/unmerged. Live broker order submission and automatic quantity/notional allocation remain disabled. Work stays in `tradepro-improved`; original `Tradepro` remains out of scope.
+
+
+## 2026-10-24 — Intended-use semantic matrix regression tests
+
+- Corrected effective-date fixture commit `9cb89301075a8b532ad634f2c9c60590b16deacc` passed its backend workflow (#40107967404); progress and handover documentation workflows also passed (#40107977310 and #40107980514). Latest branch documentation head `26daee136ab1e7b3dd9a9d985f986e063bb8f80e` passed workflow #40107984994. PR #6 remains draft/unmerged.
+- Added resolver tests ensuring mapping semantics cannot be relabelled across intended use: per-fill actual, aggregate summary, and estimate; included valid semantic/use pairs and rejection of an unknown intended use. Test commit: `53ba96dc3700de75a64b415c095f6a5810efdaf0`.
+- New test commit still requires CI. This test-only step does not approve production broker mappings, enable allocation promotion, or enable live broker order submission.
+- Next accounting acceptance gap: test concurrent verification/promotion against a shared database with separate sessions, or explicitly document the limitation if the existing test harness cannot reliably exercise it. Keep lock order and rollback protections intact.
+- Work remains in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.

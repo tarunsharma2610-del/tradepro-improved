@@ -1055,3 +1055,12 @@ Extended `calculate_order_brokerage` and estimate snapshots to support explicit 
 
 ## Effective-dated Upstox tariff candidates — 2026-10-24 (CI verified)
 Added `docs/source_snapshots/UPSTOX_CHARGES_2026-10-24.md`, a dated normalized excerpt of official Upstox and NSE charge pages. Canonical extracted-payload SHA-256: `c59f7e940fde6b0d94ca1189766f16e5601c117d4a8c2bcd2415da0ecd6db420`. Added `upstox_tariff_candidate_rules()` with 18 effective-dated STT and exchange-charge candidate rows. Every row is `DRAFT`, so `select_tariff_rule` refuses them; exchange/IPFT composition remains unresolved and stamp duty needs a more current statutory source. Exact-head CI run `40065979244` passed on `f76ecde4ac785123de2980539138ce89ff660294`: **760 passed, 1 warning**. Do not activate rates without source archival, independent review and component-specific tests.
+
+
+## Fixed-order brokerage entrypoint regression — 24 October 2026
+
+- Audit found that `calculate_charge_for_trade` routed percentage-based `ORDER_NOTIONAL` brokerage through `calculate_order_brokerage`, but flat-fee `ORDER_FIXED` brokerage fell through to the generic calculator, which intentionally rejects that basis.
+- Fixed the shared entry point to route both `ORDER_NOTIONAL` and `ORDER_FIXED` brokerage through the guarded order-level calculator. Added regression test `test_trade_charge_entrypoint_supports_flat_fixed_order_brokerage` asserting a flat INR 20 fee is returned through the full scope-selection entry point.
+- Implementation commit: `1634989d29734f1d5ffdcfee826384a512eaafe7`; regression-test commit: `928c0207ff8de5f4852225ab6b9e0fabe97f6e12`.
+- Exact-head backend CI run 40066706304 was in progress at documentation time; do not mark this fix green until that run completes. Recheck CI after these documentation updates because they change the branch head.
+- No tariff candidate was activated, no charge was promoted to the actual ledger, and no live broker order was sent. Original `tarunsharma2610-del/Tradepro` remains out of scope.

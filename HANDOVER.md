@@ -1575,3 +1575,11 @@ Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE 
 - The matrix covers brokerage, STT, exchange/IPFT, SEBI, stamp duty and GST; requires dated authoritative sources, correct calculation bases, explicit rounding/residual policy, no double counting, and independent review.
 - CI workflow #40106537998 is running against the matrix head. Previous docs head 8a75153 passed workflow #40106273353. Verify exact-head CI before declaring this checkpoint green.
 - Continue by mapping each acceptance row to existing code/tests and marking each item as implemented, missing, or blocked by source/review. Do not activate any tariff or automatic quantity/notional allocation. PR #6 remains draft/unmerged and live broker writes disabled.
+
+
+## Resume checkpoint — 24 October 2026 (API field-state normalization)
+
+- Acceptance matrix docs were verified by Backend workflow #40106582037 on matrix head f33953e903dcdd8655fa34eee9c612a36bd94b2c.
+- Added `backend/app/services/broker_charge_api_normalization.py` and tests `backend/tests/test_broker_charge_api_normalization.py` to preserve absent/null/zero/value/invalid broker charge API field states and raw values. Test/code commits: 9fc9337e8dc2dbd45f8435260a8b0f57d3f856fa and f0e815c5b788744966bf2bacbfbe9c79dbfdd822.
+- This does not assign business semantics to Upstox fields or prove IPFT bundling. The next task is exact-head CI, then reviewed API-version/field mapping tests and source-backed tariff gaps.
+- PR #6 remains draft/unmerged; tariff candidates remain DRAFT/non-selectable; automatic quantity/notional allocation and live broker writes remain disabled. Work only in tradepro-improved.

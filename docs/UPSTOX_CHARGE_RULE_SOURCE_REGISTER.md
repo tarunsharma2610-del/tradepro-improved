@@ -207,22 +207,21 @@ A regression test now asserts that evidence tagged `UPSTOX_TRADE_CHARGES_API` ca
 
 ## IPFT/transaction-charge reconciliation using NSE circular — 24 October 2026
 
-**Updated finding:** the two Upstox page tables are not sufficient on their own, but an authoritative NSE Finance & Accounts circular explains the newer “combined with transaction charges” presentation. NSE Circular **NSE/FA/73061 dated 27 February 2026**, effective **1 March 2026**, explicitly splits member outflow into transaction charges and contribution to NSE IPFT, while keeping the total outflow unchanged:
+**Updated finding:** the two Upstox page tables are not sufficient on their own. An authoritative NSE Finance & Accounts circular explains the newer “combined with transaction charges” presentation. NSE Circular **NSE/FA/73061 dated 27 February 2026**, effective **1 March 2026**, splits member outflow into transaction charges and contribution to NSE IPFT while preserving the overall total.
 
 | NSE segment | Revised transaction component | Revised IPFT contribution | Combined total, each side |
 |---|---:|---:|---:|
 | Cash market | ₹306.99/crore | ₹0.01/crore | ₹307/crore |
 | Equity futures | ₹182.99/crore | ₹0.01/crore | ₹183/crore |
-| Equity options (premium) | ₹3,552/crore | ₹0.01/crore | ₹3,552.01/crore |
+| Equity options (premium) | ₹3,552.99/crore | ₹0.01/crore | ₹3,553/crore |
 
-The circular says the pre-revision outflows were ₹297 + ₹10 = ₹307/crore for cash market, ₹173 + ₹10 = ₹183/crore for futures, and ₹3,503 + ₹50 = ₹3,553/crore for options. From 1 March 2026 the revised split is transaction ₹306.99 + IPFT ₹0.01 = ₹307/crore for cash market, transaction ₹182.99 + IPFT ₹0.01 = ₹183/crore for futures, and transaction ₹3,552 + IPFT ₹0.01 = ₹3,552.01/crore for options as shown in the circular's table. **Note:** the options revised total printed in the circular's table must be checked carefully against its stated “overall outflow” narrative and the displayed Upstox rate of 0.03553% (= ₹3,553/crore); do not silently normalize this one-rupee discrepancy. The official circular itself is the primary source: [NSE Circular NSE/FA/73061 (PDF)](https://nsearchives.nseindia.com/content/circulars/FA73061.pdf).
+The circular explicitly states the previous totals were ₹297 + ₹10 = ₹307/crore for cash market, ₹173 + ₹10 = ₹183/crore for futures, and ₹3,503 + ₹50 = ₹3,553/crore for options. From 1 March 2026 it revises these to ₹306.99 + ₹0.01 = ₹307/crore, ₹182.99 + ₹0.01 = ₹183/crore, and ₹3,552.99 + ₹0.01 = ₹3,553/crore, respectively. The circular says the change has no impact on overall outflow for these schedules. Primary source: [NSE Circular NSE/FA/73061 (PDF)](https://nsearchives.nseindia.com/content/circulars/FA73061.pdf), dated 27 February 2026, table and effective-date statement.
 
-This evidence makes the likely cause of the public-page conflict clearer: Upstox still displays an older IPFT schedule (₹10/crore cash/futures and ₹50/crore options) alongside a newer section saying IPFT is combined with transaction charges and showing ₹0.01/crore. Do not add the legacy IPFT rates to the new combined transaction rates. However, the circular's options arithmetic/table needs verification against the circular's full wording and Upstox's current account-specific API response before approving options rules.
+This explains the likely cause of the public-page conflict: Upstox still displays an older IPFT schedule (₹10/crore cash/futures and ₹50/crore options) alongside a newer section saying IPFT is combined with transaction charges and showing ₹0.01/crore. Do not add the legacy IPFT rates to the post-1-March-2026 combined rates. The public Upstox transaction table's options rate of 0.03553% corresponds to the combined ₹3,553/crore outflow, while the current component split from the NSE circular is ₹3,552.99 + ₹0.01.
 
 ### Implementation decision
 
-- Keep IPFT as a separately captured source/API field for audit and reconciliation, but do **not** add the legacy ₹10/₹50 per-crore amount on top of the post-1-March-2026 combined Upstox transaction rates.
-- For a reviewed reconciliation, the expected cash-market combined rate is ₹307/crore/side and futures ₹183/crore/side, with the underlying revised split above; preserve both component values and source citation rather than collapsing the audit trail.
-- Keep equity-options automatic tariff activation blocked pending resolution of the circular's apparent ₹1/crore arithmetic/table mismatch and exact broker/API semantics.
-- This NSE circular covers NSE cash/equity derivatives only. It does not establish BSE or MCX rules or every Upstox product tuple.
-- The public Upstox page's separate legacy table should be treated as stale/contradictory evidence, not as a second current fee to add. No tariff candidate is approved by this documentation update.
+- Keep IPFT as a separately captured source/API field for audit and reconciliation, but do **not** add the legacy ₹10/₹50 per-crore amount on top of post-1-March-2026 combined Upstox transaction rates.
+- For reviewed NSE-only reconciliation, the expected combined rates are ₹307/crore/side for cash market, ₹183/crore/side for equity futures, and ₹3,553/crore/side on options premium. Preserve the component split and cited source rather than collapsing the audit trail.
+- The official circular covers NSE cash/equity derivatives only. It does not establish BSE or MCX rules or every Upstox product tuple. Broker-specific API/contract-note evidence is still needed to verify how each field is represented in the actual-account response.
+- No tariff candidate is approved by this documentation update. Automatic activation remains blocked pending exact product/scope/effective-date mapping, authenticated read-only response/contract-note reconciliation, and independent review.

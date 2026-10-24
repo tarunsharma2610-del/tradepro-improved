@@ -826,3 +826,7 @@ The first implementation pass adds explicit single-fill/order-fill-set estimate 
 
 The Upstox integration has an audit and explicit adoption gate: [Upstox SDK/API Repository Audit](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md). Existing async REST clients, V3 WebSocket/protobuf streaming, read-only reconciliation, and validated brokerage-charge response parsing were found. The official Python SDK is not currently declared as a backend dependency; adoption is pending a version-pinned compatibility spike and is not assumed merely because the SDK is available. The brokerage calculator is an estimate, not realized per-fill accounting evidence. Keep PAPER mode mandatory and live broker order writes disabled.
 
+### Agent Skill security review
+
+Before using the official Upstox Agent Skill, read [`docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md`](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md). The skill includes live order/GTT examples and is development-only reference material, not a production dependency. No runtime SDK dependency was added by the static audit because the current async REST client and response parser already cover the reviewed brokerage-estimate endpoint.
+

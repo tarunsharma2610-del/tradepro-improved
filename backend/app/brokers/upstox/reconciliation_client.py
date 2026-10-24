@@ -141,6 +141,60 @@ class UpstoxReadOnlyReconciliationClient:
             raise ValueError("to_date must not precede from_date")
         return await self._get("/trade/profit-loss/charges", access_token, params)
 
+    async def get_profit_loss_report(
+        self,
+        access_token: str,
+        *,
+        segment: str,
+        financial_year: str,
+        page_number: int,
+        page_size: int,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> ReadOnlyBrokerResult:
+        """Read paginated trade-wise realized P&L rows; these rows are not charge evidence."""
+        segment = self._required_id(segment, "segment", max_length=8).upper()
+        if segment not in {"EQ", "FO", "COM", "CD"}:
+            raise ValueError("segment must be EQ, FO, COM, or CD")
+        financial_year = self._required_id(financial_year, "financial_year", max_length=4)
+        if len(financial_year) != 4 or not financial_year.isdigit():
+            raise ValueError("financial_year must use the four-digit YYZZ format")
+        start_year = 2000 + int(financial_year[:2])
+        end_year = 2000 + int(financial_year[2:])
+        if end_year != start_year + 1:
+            raise ValueError("financial_year must identify consecutive financial years")
+        if isinstance(page_number, bool) or not isinstance(page_number, int) or page_number < 1:
+            raise ValueError("page_number must be an integer greater than or equal to 1")
+        if isinstance(page_size, bool) or not isinstance(page_size, int) or not 1 <= page_size <= 5000:
+            raise ValueError("page_size must be between 1 and 5000")
+
+        fy_start, fy_end = date(start_year, 4, 1), date(end_year, 3, 31)
+        params: dict[str, str] = {
+            "segment": segment,
+            "financial_year": financial_year,
+            "page_number": str(page_number),
+            "page_size": str(page_size),
+        }
+        parsed_dates: dict[str, date] = {}
+        for field, value in (("from_date", from_date), ("to_date", to_date)):
+            if value is None:
+                continue
+            try:
+                parsed = datetime.strptime(value, "%d-%m-%Y").date()
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{field} must use dd-mm-yyyy format") from exc
+            if not fy_start <= parsed <= fy_end:
+                raise ValueError(f"{field} must fall within financial_year")
+            parsed_dates[field] = parsed
+            params[field] = value
+        if (
+            "from_date" in parsed_dates
+            and "to_date" in parsed_dates
+            and parsed_dates["to_date"] < parsed_dates["from_date"]
+        ):
+            raise ValueError("to_date must not precede from_date")
+        return await self._get("/trade/profit-loss/data", access_token, params)
+
     async def get_historical_trades(
         self,
         access_token: str,

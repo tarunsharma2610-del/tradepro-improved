@@ -1269,3 +1269,11 @@ Head `f76ecde4ac785123de2980539138ce89ff660294` passed exact-head CI run `400659
 - Fixed the fixture to set total to `209.27` for STT `176.00` while keeping all other component amounts unchanged. This isolates replay conflict behavior without bypassing the reconciliation guard.
 - Fix commit: `2a39a67cd1d2c8dab16e22425c87e247974c10cd`. Fresh run [40082588488](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082588488) was queued at the time of this note.
 - Next: inspect the run to completion, fix any remaining failures, then synchronize the remaining checkpoint docs and verify CI for the resulting exact latest head. Keep PR #6 draft/unmerged and live broker writes disabled.
+
+## Upstox estimate reconciliation — corrected test and exact-head CI verified — 24 October 2026
+
+- The corrected test fixture commit is [2a39a67](https://github.com/tarunsharma2610-del/tradepro-improved/commit/2a39a67cd1d2c8dab16e22425c87e247974c10cd). It updates the reported total consistently with the STT change so the replay-conflict test exercises replay behavior rather than failing the aggregate-reconciliation guard.
+- Exact-head backend CI run [40082629274](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082629274) passed on the then-current branch head [7e373f2](https://github.com/tarunsharma2610-del/tradepro-improved/commit/7e373f2f2ff0d2c7faae8397765df2d35b901599). Pytest, broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill, and restore-evidence retention all passed. This confirms the previously failing workflow was corrected.
+- This documentation synchronization creates a newer head, so CI must be checked again on the final resulting head before the documentation gate is called green.
+- API estimates remain estimate-only. No candidate tariff rates were activated, no estimate was promoted into actual charges, and automatic per-fill allocation remains disabled pending reviewed component-specific rules and durable accounting acceptance.
+- PR #6 remains draft/unmerged. Live broker order writes remain disabled. Work only in `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` is out of scope.

@@ -11,6 +11,14 @@ from app.services.broker_charge_api_mapping import (
 from app.services.broker_charge_api_normalization import normalize_charge_api_field
 
 
+# The official Upstox endpoint is period/segment aggregate evidence, not a
+# documented per-fill payload. A bad/stale registry row must not override this
+# source-level restriction.
+AGGREGATE_ONLY_ENDPOINTS = frozenset({
+    ("Upstox", "/v2/trade/profit-loss/charges"),
+})
+
+
 def resolve_charge_api_value(
     payload: dict[str, Any],
     field: str,
@@ -48,6 +56,8 @@ def resolve_charge_api_value(
         raise ValueError("Unsupported intended use.")
     if intended_use == "PER_FILL_ACTUAL" and mapping.semantic != "PER_FILL_ACTUAL":
         raise ValueError("Mapping semantics do not permit per-fill actual accounting.")
+    if intended_use == "PER_FILL_ACTUAL" and (broker, endpoint) in AGGREGATE_ONLY_ENDPOINTS:
+        raise ValueError("Aggregate-only broker endpoint cannot provide per-fill actual evidence.")
     if intended_use == "AGGREGATE_SUMMARY" and mapping.semantic not in {
         "AGGREGATE_ACTUAL_SUMMARY", "STATUTORY_CHARGE_ESTIMATE", "BROKERAGE_ESTIMATE"
     }:

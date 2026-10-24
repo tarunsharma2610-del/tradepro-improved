@@ -46,3 +46,20 @@ Every entry remains **DRAFT / NOT SELECTABLE** until the specific product, excha
 - These API docs do **not** alone establish the current effective-dated legal rates, the user's active brokerage plan, or the correct fill-level allocation for each component.
 - Therefore this register approves **no automatic tariff rule** and changes no live-order or accounting safety guard.
 
+## IPFT research resolution — NSE rates effective 1 March 2026
+
+Official source: [NSE Circular NSE/FA/73061](https://nsearchives.nseindia.com/content/circulars/FA73061.pdf), effective 1 March 2026; cross-check: [Upstox brokerage and charges](https://upstox.com/brokerage-charges/).
+
+For the listed NSE cash-equity and equity-derivative scopes, the published **combined exchange outflow** is:
+
+| Scope | Combined rate | Calculation base |
+|---|---:|---|
+| NSE equity delivery/intraday | 0.00307% | Traded turnover |
+| NSE equity futures | 0.00183% | Traded turnover |
+| NSE equity options | 0.03553% | Option premium |
+
+These combined rates include the revised NSE IPFT contribution of ₹0.01 per crore. Do **not** add a second IPFT amount on top of these combined rates. The tariff candidate inventory in `backend/app/services/upstox_tariff_candidates.py` represents these scopes under `exchange_charges`, and regression tests assert the effective date/rates and absence of a separate `ipft` candidate.
+
+**Scope limit:** this does not resolve BSE equity/scrip-group charges, MCX, currency derivatives, every broker API response shape, or the GST taxable-component mapping. An API's separate `ipft` field must be preserved as returned (including missing/null), not automatically added to a combined rate. Where the response semantics do not establish whether values are additive or explanatory, mark the estimate/reconciliation as unresolved rather than double-counting.
+
+**Implementation state:** research and regression coverage for the combined NSE rate are present; the candidate rows remain DRAFT and non-selectable pending independent approval and the remaining tariff/GST scope review. This is not approval to activate automatic accounting or live trading.

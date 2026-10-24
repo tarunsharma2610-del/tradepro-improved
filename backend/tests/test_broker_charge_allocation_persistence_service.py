@@ -204,3 +204,26 @@ def test_reconciled_rows_cannot_be_rewritten_through_allocation_persistence(revi
     assert rows[0].status == "RECONCILED"
     assert rows[0].reconciliation_reference == "verified-source-reference"
     assert db.query(BrokerChargeAllocation).count() == 2
+
+@pytest.mark.parametrize(
+    "component",
+    ["ipft", "clearing_charges", "other_charges", "demat_transaction"],
+)
+def test_upstox_charge_components_not_yet_supported_fail_closed(reviewed_evidence, component):
+    """Do not silently drop Upstox API charge components from per-fill accounting."""
+    db, user, connection, evidence = reviewed_evidence
+
+    with pytest.raises(ValueError, match="Unsupported broker charge component"):
+        allocate_and_persist_component(
+            db,
+            evidence_id=evidence.id,
+            broker_connection_id=connection.id,
+            broker_report_reference="CN-2026-10-21-001",
+            reviewer_user_id=user.id,
+            source_component_total="1.00",
+            charge_component=component,
+            fill_weights={},
+            allocation_basis="EXPLICIT_REVIEWED",
+        )
+
+    assert db.query(BrokerChargeAllocation).count() == 0

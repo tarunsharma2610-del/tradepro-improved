@@ -801,3 +801,6 @@ Generic charge calculation now explicitly excludes conditional tax/depository co
 
 ## Phase 3 checkpoint — aggregate variance test hardening (2026-10-24)
 Order-fill-set variance remains audit-only: it must not allocate actual charges or mutate positions/P&L. Added database-backed regression cases for actual manifest-digest tampering, mixed broker-order membership, fill-side mismatch, and trade-date mismatch; each asserts no variance row is written on rejection. Exact-head CI is pending. Keep unsupported tariff semantics fail-closed and live broker writes disabled.
+
+## CI verification — 2026-10-24
+Exact-head backend CI passed on `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062975428`). Aggregate variance remains audit-only and must not allocate charges or mutate positions/P&L. Remaining acceptance work includes concurrency/replay review, reviewed-source revalidation, and explicit no-accounting-side-effect assertions. Keep live broker writes disabled.

@@ -77,3 +77,11 @@ These use invented trades and identifiers plus illustrative public-rate assumpti
 ## Status
 
 Public-format review is complete using the linked third-party examples; no personal note is required to proceed. The examples are not independently authenticated and are not copied into the repository. Synthetic fixtures are available for repeatable tests. Account-specific verification is optional future validation, not a Phase 3 development blocker. The synthetic fixtures are available for development tests. They do not prove authenticity of a real broker note or successful recovery of the user's real Oracle Free Cloud database. PR #6 remains draft/unmerged pending exact-head CI and final accounting/idempotency review; live broker writes remain disabled.
+
+
+## 2026-10-24 — Resolver acceptance and CI checkpoint
+
+- Backend workflow `40108183667` succeeded on prior head `8214430f562f6f425cfc1b9b6a6b3b547832b68a`. New resolver tests add exact broker/endpoint/schema/field/scope matching and non-finite-number rejection; newer commits still require CI.
+- Mapping identity fixtures use immutable dataclass replacement. Intended-use semantics remain explicit; missing/null/invalid values remain unusable and retain provenance; numeric zero remains distinct.
+- Accounting acceptance includes replay/conflict, ledger reconciliation, lock order, rollback, reviewer authority and PostgreSQL verification/promotion race coverage. Re-check exact test and workflow status before claiming complete. CI does not establish production tariff correctness or broker-origin authenticity.
+- Safety gates unchanged: PR #6 draft/unmerged; live broker order submission and automatic quantity/notional allocation disabled; production Upstox mappings/tariffs unapproved. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.

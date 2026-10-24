@@ -302,11 +302,13 @@ def build_upstox_brokerage_api_snapshots(
         "stt": amount(taxes.get("stt"), "taxes.stt"),
         "stamp_duty": amount(taxes.get("stamp_duty"), "taxes.stamp_duty"),
         "gst": amount(taxes.get("gst"), "taxes.gst"),
-        "exchange_charges": (
-            amount(other.get("transaction"), "other_charges.transaction")
-            + amount(other.get("clearing"), "other_charges.clearing")
-            + amount(other.get("ipft"), "other_charges.ipft")
-        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+        # Preserve source fields independently. The public tariff page describes
+        # IPFT as combined with transaction charges in tariff presentation, but this
+        # API payload returns distinct keys. Do not collapse them or infer that their
+        # separate presence authorizes double-counting in a production tariff engine.
+        "transaction_charges": amount(other.get("transaction"), "other_charges.transaction"),
+        "clearing_charges": amount(other.get("clearing"), "other_charges.clearing"),
+        "ipft_charges": amount(other.get("ipft"), "other_charges.ipft"),
         "sebi_charges": amount(other.get("sebi_turnover"), "other_charges.sebi_turnover"),
     }
     total = amount(charges.get("total"), "total")

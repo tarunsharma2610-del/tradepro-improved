@@ -291,6 +291,16 @@ def build_upstox_brokerage_api_snapshots(
         "sebi_charges": amount(other.get("sebi_turnover"), "other_charges.sebi_turnover"),
     }
     total = amount(charges.get("total"), "total")
+    # Do not persist a seemingly complete component breakdown when its normalized
+    # values cannot account for the API's reported total. DP-plan minimum metadata
+    # is intentionally excluded because Upstox documents it outside the estimate.
+    component_total = sum(component_amounts.values(), Decimal("0.00")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    if component_total != total:
+        raise ValueError(
+            "Upstox response component amounts do not reconcile to the reported total."
+        )
     dp_plan_name = dp_plan.get("name")
     if dp_plan_name is not None and not isinstance(dp_plan_name, str):
         raise ValueError("Upstox response dp_plan.name must be a string when present.")

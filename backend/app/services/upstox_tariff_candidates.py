@@ -43,8 +43,11 @@ def upstox_tariff_candidate_rules() -> tuple[TariffRule, ...]:
                    "0.15", "PERCENT", date(2026, 4, 1), None, NSE_STT_URL,
                    RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT"),
 
-        # Exchange charge rows are candidates only; IPFT/transaction charge
-        # composition must be independently resolved before these can be approved.
+        # Rates below are the published combined NSE outflow from 2026-03-01
+        # (transaction charge + NSE IPFT contribution), corroborated by NSE
+        # Circular NSE/FA/73061. Do not add legacy ₹10/₹50 per-crore IPFT
+        # values on top. Rows remain DRAFT until account/API/contract-note
+        # reconciliation and independent scope review are complete.
         TariffRule("exchange_charges", "Upstox", "NSE", "EQ", "DELIVERY", "BUY", "TURNOVER",
                    "0.00307", "PERCENT", date(2026, 3, 1), None, UPSTOX_CHARGES_URL,
                    RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT"),

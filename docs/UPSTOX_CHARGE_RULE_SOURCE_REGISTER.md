@@ -247,7 +247,7 @@ Official API documentation reviewed:
 ### Integration and approval boundary
 
 1. Use the Brokerage Details API for pre-trade estimate/reconciliation fixtures, not as proof of the final charge on a filled order.
-2. Use trade-level P&L charges plus an actual broker-issued contract note/tax invoice as realized-charge evidence. Preserve the raw response, request dimensions, retrieval time, API/version, response digest, and matching contract-note reference.
+2. Use selected-scope P&L charge breakdowns plus an actual broker-issued contract note/tax invoice as realized-charge evidence. Preserve the raw response, request dimensions, retrieval time, API/version, response digest, and matching contract-note reference.
 3. Do not sum the public-page legacy IPFT table on top of the current combined NSE transaction rates. Keep raw `ipft` API fields separately for reconciliation, but account for the documented combined-rate schedule and check actual response semantics against contract-note evidence to avoid double counting.
 4. The API response's field names do not by themselves prove the GST taxable base or the legal classification of every component. Do not infer GST base from `total`, `other_charges`, or public text alone; approve the component mapping only after reviewing a dated actual invoice/contract-note fixture for the specific segment, instrument, product, and effective date.
 5. These sources do not establish BSE/MCX rules for every instrument/product combination. Unsupported or conflicting scope must remain unapproved and fail closed; keep candidate tariffs inactive until reviewed by an independent authorized reviewer.

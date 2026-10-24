@@ -1056,3 +1056,6 @@ Latest verified test head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` has passing
 
 ## Phase 3 next gate — 2026-10-24
 Latest work adds tests for variance no-side-effects and current review-state revalidation. Next verify exact-head CI, then reconcile concurrent duplicate/replay behavior and finish the aggregate variance acceptance gate before continuing durable per-fill charge allocation follow-up. Keep unsupported tariff rules fail-closed and live broker writes disabled.
+
+## Cross-cutting Upstox task rule — 2026-10-24
+Before starting or closing an Upstox feature, read `UPSTOX_API_INTEGRATION_POLICY.md`, check current official docs and SDK coverage, and update the capability matrix. Assess brokerage calculator, historical trade charges, historical trades, market data/WebSocket, options, portfolio and order lifecycle APIs as relevant. Fence off live execution in agent skills; no live order writes. Verify tests and exact-head CI.

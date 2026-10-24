@@ -211,3 +211,10 @@ Added a dated normalized excerpt from Upstox and official NSE references at `doc
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## Repository audit result — 24 October 2026
+
+The current implementation was audited and recorded in [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md). The backend currently uses async `httpx` for REST, a custom protobuf/WebSocket V3 market-data service, and a narrow read-only reconciliation client; `backend/requirements.txt` does not declare `upstox-python-sdk`. The existing brokerage estimate parser and charge semantic guard already distinguish estimates and segment/FY aggregates from per-fill actuals.
+
+**Decision:** do not add an unused SDK dependency or replace current clients wholesale. Perform a version-pinned, isolated compatibility spike first, beginning with read-only Brokerage Details API method/schema compatibility. Preserve timeout/error-redaction, async behavior, parser validation, accounting semantic gates and the broker-write guard. The Agent Skill is development-only guidance, not a production dependency; inspect its scripts before use and never run order examples with live credentials. No live request, account access, or order was used in this audit.
+

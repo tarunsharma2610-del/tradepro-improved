@@ -24,6 +24,7 @@ from app.core.database import Base
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
+from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
@@ -675,3 +676,141 @@ def test_concurrent_tariff_estimate_persistence_exact_replay_and_conflict(confli
         assert len(rows) == 1
         assert rows[0].snapshot_sha256 == successes[0][3]
         assert rows[0].snapshot_json in {candidate.canonical_json() for candidate in snapshots}
+
+@pytest.mark.skipif(not os.getenv("TEST_POSTGRES_URL"), reason="requires dedicated PostgreSQL test database")
+def test_concurrent_variance_comparison_exact_replay_is_audit_only(tmp_path, monkeypatch):
+    """Two simultaneous comparisons create one immutable audit record and no ledger writes."""
+    url = os.environ["TEST_POSTGRES_URL"]
+    engine = create_engine(url, pool_size=3, max_overflow=0, pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    suffix = uuid4().hex[:12]
+    owner_id, reviewer_id = uuid4(), uuid4()
+    connection_id, evidence_id, component_id = uuid4(), uuid4(), uuid4()
+    broker_order_id, trade_id = uuid4(), uuid4()
+    report_ref = f"CN-VARIANCE-RACE-{suffix}"
+    trade_date = datetime.now(timezone.utc).date()
+    original = b"%PDF-1.7\\nsynthetic concurrency contract note\\n"
+    storage_key = uuid4().hex
+    source_digest, source_size = store_document(original, root=tmp_path, storage_key=storage_key)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+    manifest_json = json.dumps([str(trade_id)], separators=(",", ":"))
+    manifest_digest = hashlib.sha256(manifest_json.encode("utf-8")).hexdigest()
+
+    try:
+        with Session.begin() as db:
+            db.add_all([
+                User(id=owner_id, email=f"variance-owner-{suffix}@example.invalid",
+                     password_hash="test-hash", full_name="Variance Owner", is_admin=False),
+                User(id=reviewer_id, email=f"variance-reviewer-{suffix}@example.invalid",
+                     password_hash="test-hash", full_name="Variance Reviewer", is_admin=False),
+            ])
+            db.flush()
+            db.add(BrokerConnection(
+                id=connection_id, user_id=owner_id, broker="upstox",
+                api_key_encrypted="test-key", api_secret_encrypted="test-secret",
+                redirect_uri="https://example.invalid/callback", is_connected=True,
+            ))
+            db.flush()
+            db.add(BrokerOrder(
+                id=broker_order_id, broker_connection_id=connection_id, order_id=uuid4(),
+                broker_name="upstox", broker_order_id=f"variance-order-{suffix}",
+                requested_quantity=1, filled_quantity=1, status="COMPLETE",
+            ))
+            db.flush()
+            db.add(BrokerTradeRecord(
+                id=trade_id, broker_connection_id=connection_id,
+                broker_order_ref_id=broker_order_id, broker_trade_id=f"variance-trade-{suffix}",
+                quantity=1, price=Decimal("100.00"), side="SELL",
+                instrument_token="NSE_FO_TEST",
+                exchange_timestamp=datetime.combine(trade_date, datetime.min.time(), tzinfo=timezone.utc).isoformat(),
+            ))
+            db.add(BrokerChargeEvidence(
+                id=evidence_id, broker_connection_id=connection_id, source_kind="CONTRACT_NOTE",
+                broker_report_reference=report_ref, report_date=trade_date, segment="FO",
+                source_filename=f"variance-{suffix}.pdf", storage_key=storage_key,
+                source_sha256=source_digest, byte_size=source_size, received_by_user_id=owner_id,
+                status="REVIEWED", reviewed_by_user_id=reviewer_id,
+                reviewed_at=datetime.now(timezone.utc), review_note="Synthetic concurrency fixture",
+            ))
+            db.flush()
+            db.add(BrokerChargeSourceComponent(
+                id=component_id, evidence_id=evidence_id, source_sha256=source_digest,
+                component_name="brokerage", revision=1, source_amount=Decimal("1.00"),
+                currency="INR", extraction_method="MANUAL_TRANSCRIPTION",
+                parser_version="test-v1", source_locator="page 1, row 1",
+                eligible_fill_ids_json=manifest_json, eligible_fill_set_sha256=manifest_digest,
+                rounding_policy="largest-remainder-paise-v1", allocation_basis="EXPLICIT_REVIEWED",
+                extracted_by_user_id=owner_id, status="VERIFIED",
+                reviewed_by_user_id=reviewer_id, reviewed_at=datetime.now(timezone.utc),
+                review_note="Synthetic concurrency fixture",
+            ))
+
+        rule = TariffRule(
+            component="brokerage", broker="Upstox", exchange="NSE", segment="FO",
+            product="FUTURES", transaction_side="SELL", calculation_basis="ORDER_NOTIONAL",
+            rate=Decimal("0.05"), rate_unit="PERCENT",
+            effective_from=date(2026, 4, 1), effective_to=None,
+            source_url="https://upstox.com/brokerage-charges/",
+            source_retrieved_on=trade_date, source_sha256=hashlib.sha256(b"race-tariff").hexdigest(),
+            review_status="APPROVED",
+        )
+        snapshot = build_tariff_estimate_snapshot(
+            rule, trade_date=trade_date, calculation_base=Decimal("1000"),
+            source_identity=f"variance-race:{suffix}:brokerage",
+            source_trade_record_id=trade_id,
+        )
+        with Session() as db:
+            persisted_snapshot, snapshot_status = persist_tariff_estimate_snapshot(db, snapshot)
+            assert snapshot_status == "CREATED"
+            snapshot_id = persisted_snapshot.id
+            db.commit()
+
+        barrier = threading.Barrier(2)
+        outcomes = []
+        outcome_lock = threading.Lock()
+
+        def compare():
+            with Session() as db:
+                barrier.wait(timeout=10)
+                try:
+                    record, status = compare_estimate_to_reviewed_actual(
+                        db, estimate_snapshot_id=snapshot_id, source_component_id=component_id
+                    )
+                    db.commit()
+                    outcome = ("ok", status, str(record.id))
+                except Exception as exc:
+                    db.rollback()
+                    outcome = ("error", type(exc).__name__, str(exc))
+                with outcome_lock:
+                    outcomes.append(outcome)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(compare), pool.submit(compare)]
+            for future in futures:
+                future.result(timeout=45)
+
+        successes = [row for row in outcomes if row[0] == "ok"]
+        assert len(successes) == 2, outcomes
+        assert sorted(row[1] for row in successes) == ["CREATED", "EXACT_REPLAY"], outcomes
+        assert successes[0][2] == successes[1][2]
+        with Session() as db:
+            records = db.query(TariffEstimateVarianceRecord).filter_by(
+                estimate_snapshot_id=snapshot_id, source_component_id=component_id
+            ).all()
+            assert len(records) == 1
+            assert records[0].status == "VARIANCE_ONLY"
+            assert db.query(BrokerChargeAllocation).filter_by(evidence_id=evidence_id).count() == 0
+    finally:
+        with Session.begin() as db:
+            db.execute(text("DELETE FROM tariff_estimate_variance_records WHERE source_component_id = :id"), {"id": str(component_id)})
+            db.execute(text("DELETE FROM tariff_estimate_snapshot_records WHERE idempotency_key LIKE :key"), {"key": f"%variance-race:{suffix}%"})
+            db.execute(text("DELETE FROM broker_charge_allocations WHERE evidence_id = :id"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_charge_source_components WHERE id = :id"), {"id": str(component_id)})
+            db.execute(text("DELETE FROM broker_charge_evidence WHERE id = :id"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_trade_records WHERE id = :id"), {"id": str(trade_id)})
+            db.execute(text("DELETE FROM broker_orders WHERE id = :id"), {"id": str(broker_order_id)})
+            db.execute(text("DELETE FROM broker_connections WHERE id = :id"), {"id": str(connection_id)})
+            db.execute(text("DELETE FROM users WHERE id IN (:owner, :reviewer)"),
+                       {"owner": str(owner_id), "reviewer": str(reviewer_id)})
+        engine.dispose()

@@ -1,0 +1,53 @@
+# Phase 3 — Charge Component Acceptance Matrix
+
+**Status: working acceptance specification; not tariff approval.**  
+**Scope:** Tradepro Improved, Indian broker charge evidence and per-fill reconciliation.  
+**Safety:** All tariff candidates remain DRAFT/non-selectable. The matrix does not authorize automatic allocation or live broker order execution.
+
+## Shared controls for every component
+
+1. Preserve the original source document and its SHA-256/size; this proves byte continuity with the stored upload, not broker-origin authenticity.
+2. Require independent reviewer approval of the transcribed component, exact eligible-fill manifest, and allocation basis. Extractor and reviewer must differ.
+3. Require canonical, unique fill IDs and a matching digest; lock/revalidate evidence, component, trades and allocations in the same transaction used for promotion.
+4. Use decimal arithmetic and INR paise precision. The per-fill amounts must sum exactly to the reviewed component total. Any residual paise assignment must be deterministic, documented, reproducible, and reviewed; never silently discard a residual.
+5. Idempotent replay must return the same result; conflicting replay, mixed statuses, source mismatch, missing fills, stale references, or authorization loss must fail closed with no partial promotion.
+6. Estimate-vs-actual variance is a separate audit record only; it must not mutate reviewed source evidence or allocations.
+7. API responses preserve absent, null, numeric zero, and nonzero values as distinct states. Aggregate trade-charge reports are not per-fill actual-charge evidence.
+8. Until an approved component-specific rule establishes the economic allocation basis, only explicit independently reviewed per-fill weights may be promoted. Generic quantity/notional allocation remains disabled.
+
+## Component matrix
+
+| Component | Required source / effective scope | Calculation base and allocation | GST / overlap guard | Promotion gate |
+|---|---|---|---|---|
+| Brokerage | Dated broker tariff and applicable plan; instrument/segment, order side, order type and effective date; reconcile to individual contract-note line where available | Apply documented per-order / per-execution rule, including minimum/maximum caps where applicable. Aggregate brokerage across order legs only when the tariff says so. For actuals, exact reviewed component total and explicit reviewed per-fill weights until rule approval. | Include in GST base only according to approved invoice/tax treatment. Apply caps once at the tariff-defined level; do not reapply at fill level if the cap is order-level. | Dated rule + test vectors for below/at/above caps, multiple fills, partial fills, replay and paise residuals; independent accounting approval. |
+| STT | Current statutory schedule effective on trade date; instrument, delivery/intraday/F&O classification, buy/sell side and relevant turnover/premium/settlement event | Base must be statutory turnover/premium/settlement base for the exact product and event; do not assume a universal notional base. Preserve rounding/aggregation level prescribed by applicable rule. | Do not include statutory STT in GST taxable value by default. Confirm pure-agent / invoice treatment from authoritative tax guidance and actual invoice; no universal assumption. | Product/event matrix, boundary and rounding tests, dated authority, and reviewed contract-note reconciliation. |
+| Exchange transaction charges (including combined IPFT where applicable) | Exchange circular effective on trade date, exchange, segment, product/index and relevant scrip/expiry scope | Apply rate to the source-defined turnover or option premium. NSE 2026-03-01 combined rates already include IPFT for the documented NSE equity scopes; do not layer another IPFT charge on top. BSE and MCX require separate product/scrip schedules. | Where official broker schedule identifies combined transaction/IPFT, preserve representation metadata and avoid double counting. GST base depends on approved component representation and invoice treatment. | Effective-dated exchange rule; test combined vs split representations, null/missing/zero API values, no duplicate IPFT, no cross-exchange leakage; independent approval. |
+| SEBI charges | Dated SEBI schedule and applicable turnover definition; trade date and segment/product | Use the applicable regulated base and source-defined aggregation/rounding. Do not assume exchange transaction-charge base is identical. | GST treatment must be supported by tax invoice/rule; no blanket inclusion/exclusion from this matrix alone. | Rate/base source, boundary/rounding fixtures, and invoice reconciliation. |
+| Stamp duty | Current statutory schedule effective on trade date; state/territorial rule, instrument, buy/sell side and applicable transaction base | Use the legally defined side/base and aggregation level. Do not apply a generic rate across cash, futures, options and commodities. | Do not automatically include statutory stamp duty in GST base; establish actual tax treatment and applicable conditions from authoritative guidance. | Jurisdiction/product/date test matrix and reviewed evidence; unresolved base or applicability blocks promotion. |
+| GST / IGST / CGST / SGST | Applicable tax invoice, place-of-supply and registration context, supply type, effective tax rule and charge-component mapping | Compute from the approved taxable value and tax rate; explicitly define whether rounding occurs per line, invoice or other prescribed level. Separate tax components must reconcile to invoice totals. | Avoid tax-on-tax and duplicate inclusion of combined transaction/IPFT charges. CBIC guidance about statutory recoveries depends on conditions and is not a blanket mapping. Do not assume all components share one base. | Approved component-level taxable-value map, invoice-aligned test vectors, line/invoice rounding tests, and independent tax/accounting review. |
+
+## Source-specific open gates
+
+- **NSE/IPFT:** Official effective-dated combined-rate arithmetic is recorded in docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md. Still open: authenticated Upstox field semantics and invoice/contract-note corroboration. Preserve API schema/version and raw response; no field name alone proves whether a value is combined.
+- **BSE cash equity:** Must use effective-dated scrip group/exclusivity metadata where the exchange schedule depends on it. Do not enable a generic BSE cash rate.
+- **BSE derivatives:** Identify product/index, expiry, applicable slab and cumulative monthly turnover state where required. Historical notice alone is not sufficient for a current production rule.
+- **MCX / commodities:** Require current product-specific exchange rates, CTT and stamp-duty bases, effective dates and tax mapping. Do not inherit NSE equity rules.
+- **Upstox API:** Brokerage Details API is an order-specific estimate; Get Trade Charges API is an aggregate segment/date/FY view. Neither aggregate response is a substitute for reviewed per-fill actual evidence. Missing/null/zero/numeric fields remain distinct.
+- **Historical annual statement:** The FY 2022–23 summary screenshot is historical aggregate evidence only; it does not prove IPFT inclusion or per-fill charge mapping.
+
+## Required acceptance tests before any component is promoted automatically
+
+- Exact per-fill manifest and digest; missing/extra/duplicate/cross-connection fill rejection.
+- Source hash/size tampering, changed review state, reviewer permission loss and transaction rollback.
+- Component total, currency, allocation basis, weights and method-version mismatch.
+- Decimal boundary cases at ₹0.00/₹0.01, fractional residual distribution, all-zero and invalid weights, deterministic output independent of input ordering.
+- Duplicate request and idempotent replay; conflicting replay and concurrent promotion.
+- Order-level brokerage caps with multiple/partial fills and proof cap is applied at the correct level.
+- STT, exchange, SEBI, stamp duty and GST bases each have dated product-specific fixtures and documented rounding level.
+- NSE combined-vs-split IPFT normalization, absent/null/zero distinction, double-count prevention and cross-segment isolation.
+- Variance persistence/failure leaves reviewed evidence and allocation rows unchanged.
+- CI passes on the exact final code/documentation head; independent review records accepted/rejected items and rationale.
+
+## Exit criteria
+
+Phase 3 cannot be marked complete solely because tests pass. Completion requires: (a) all applicable rows have approved source and calculation policy or remain explicitly unsupported and blocked; (b) all required acceptance tests pass on the exact head; (c) independent accounting/tax review and repository review are recorded; (d) documentation, handover and roadmap agree; and (e) the user approves any final PR merge. Until then, the ledger remains a fail-closed review workflow, tariffs stay DRAFT/non-selectable, and live broker writes stay disabled.

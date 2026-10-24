@@ -142,3 +142,30 @@ Added `docs/source_snapshots/UPSTOX_CHARGES_2026-10-24.md`. Its canonical extrac
 - Upstox's public page says IPFT is combined with transaction charges, yet also displays an IPFT rate and the API response schema exposes an `ipft` field. Preserve both raw API fields and response digest; do not add a second IPFT amount to a tariff value that already includes it. Resolve endpoint/product semantics with authenticated fixtures before approving component composition.
 - Brokerage examples such as “₹20 per order or 0.1% (whichever is lower)” are representable as a percentage rule with a reviewed maximum cap. Existing cap tests exercise below-cap and at-cap amounts; the source does not provide a precise effective-from date for current brokerage terms, so candidate rules remain unregistered/unapproved until effective-date evidence is established.
 - No tariff candidate was activated, no estimate was promoted into actual accounting, and no live broker order was sent. PR #6 remains draft/unmerged; live broker order writes remain disabled. All work remains in `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository is out of scope.
+
+
+## Component coverage matrix and activation blockers — 24 October 2026
+
+The dated public Upstox page and the authenticated Charges API are complementary sources, not interchangeable tariff truth. The public page describes rate/application rules; the API provides broker-calculated totals and a component breakdown for a requested segment/financial-year/date range. Neither the API schema nor an aggregate total alone proves per-fill actuals.
+
+| Component | Current source evidence | Safe implementation status / blocker |
+|---|---|---|
+| Brokerage | Public page has per-order and percentage/cap examples; other page variants may show different price wording. | Cap-aware calculation helpers and tests exist. No production Upstox brokerage rule is approved until the current account/product terms and effective-from date are evidenced. API-order pricing must not be inferred from expired offers. |
+| STT/CTT | Upstox public page and NSE STT page document side/product-specific rates, including the 1 April 2026 changes. | DRAFT candidates exist for selected NSE equity/F&O cases. Complete scope matrix and statutory-source review before approval; do not extrapolate NSE rates to BSE, MCX, currency or uncovered products. |
+| Stamp duty | Upstox page has buyer-side product-specific rates; statutory corroboration and current source capture remain incomplete. | No approved automatic rules. Validate instrument/segment scope and effective date against current statutory/exchange sources. |
+| Exchange transaction charges | Public page distinguishes exchange, segment, product, and effective date; BSE equity-group applicability is not a single generic rate. | DRAFT candidates cover selected NSE EQ/F&O and BSE F&O option rows only. BSE scrip groups, other exchanges/segments, and precise effective-date evidence remain gaps. |
+| IPFT / clearing | Public page says IPFT is combined with transaction charges while also showing an IPFT schedule; API exposes transaction, clearing and IPFT fields separately. | Keep raw fields distinct. Do not sum an IPFT amount twice; resolve whether the tariff table's transaction rate is inclusive or exclusive for each scope using official documentation and authenticated read-only fixtures. |
+| SEBI turnover | Upstox page states ₹10/crore; API exposes `sebi_turnover` separately. | Add only after exact eligible turnover base, rounding and effective-date evidence is reviewed. Do not assume it is part of the displayed GST base. |
+| GST | Upstox page explicitly enumerates brokerage + transaction + IPFT for intraday/F&O and adds demat charges for delivery. | Use an explicit guarded taxable-component set, not 18% of all fees. Reconcile with current tax guidance and the actual broker charge note; no broad default composition. |
+| DP / demat | Upstox page lists delivery sell-side per-scrip-per-day DP charges and API field `demat_transaction`. | Do not allocate an aggregate DP charge evenly to fills without a reviewed per-scrip/day allocation basis. Verify GST treatment and applicable scope. |
+| Other / service fees | API has an `others` field; public page lists several non-trading service charges. | Keep outside standard trade tariffs unless a specific service/event rule and source are identified. |
+
+### Next tariff acceptance sequence
+
+1. Preserve the current dated source snapshot and record the retrieval timestamp and content hash; where feasible, archive and hash original source bytes separately from the normalized excerpt.
+2. Build a coverage matrix for every supported exchange/segment/product/side/basis and effective-date interval. Missing or ambiguous tuples must remain non-selectable.
+3. Add source-backed boundary fixtures for rate transitions, GST composition, IPFT inclusion, brokerage caps and DP per-scrip/day aggregation.
+4. Compare read-only API breakdowns against matching date/segment scope; store the raw response digest and distinguish broker aggregate actuals from fill-level allocations.
+5. Require independent review and explicit approval before activating any rule. Until then, keep estimates visibly provisional and actual-ledger reconciliation evidence-driven.
+
+**Gate outcome:** no new rule approved or activated by this audit. Automatic tariff-driven per-fill allocation remains disabled for unreviewed components; live broker order writes remain disabled.

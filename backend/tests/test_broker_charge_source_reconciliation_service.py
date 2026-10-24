@@ -664,3 +664,73 @@ def test_aggregate_trade_charges_api_evidence_cannot_be_promoted_as_contract_not
     assert evidence.source_kind == "UPSTOX_TRADE_CHARGES_API"
     assert {row.status for row in rows} == {"PENDING_RECONCILIATION"}
     assert all(row.reconciliation_reference is None for row in rows)
+
+def test_variance_insert_flush_failure_rolls_back_record_without_mutating_accounting(
+    reconciliation_context, monkeypatch
+):
+    db, evidence, component, trades, allocations = _setup(
+        reconciliation_context, manifest_count=1
+    )
+    snapshot = _variance_snapshot_for_trade(trades[0])
+    persisted_snapshot, _ = persist_tariff_estimate_snapshot(db, snapshot)
+    db.commit()
+
+    evidence_before = (evidence.status, evidence.source_sha256, evidence.reviewed_by_user_id)
+    component_before = (
+        component.status,
+        component.source_amount,
+        component.eligible_fill_ids_json,
+        component.eligible_fill_set_sha256,
+    )
+    allocations_before = [
+        (row.id, row.status, row.allocated_amount, row.reconciliation_reference)
+        for row in allocations
+    ]
+
+    original_flush = db.flush
+    injected = {"raised": False}
+
+    def fail_variance_insert(*args, **kwargs):
+        if (
+            not injected["raised"]
+            and any(isinstance(obj, TariffEstimateVarianceRecord) for obj in db.new)
+        ):
+            injected["raised"] = True
+            raise RuntimeError("injected variance insert flush failure")
+        return original_flush(*args, **kwargs)
+
+    monkeypatch.setattr(db, "flush", fail_variance_insert)
+    with pytest.raises(RuntimeError, match="injected variance insert flush failure"):
+        compare_estimate_to_reviewed_actual(
+            db,
+            estimate_snapshot_id=persisted_snapshot.id,
+            source_component_id=component.id,
+        )
+
+    assert injected["raised"] is True
+    monkeypatch.setattr(db, "flush", original_flush)
+    db.expire_all()
+    assert db.query(TariffEstimateVarianceRecord).count() == 0
+    db.refresh(evidence)
+    db.refresh(component)
+    assert (
+        evidence.status,
+        evidence.source_sha256,
+        evidence.reviewed_by_user_id,
+    ) == evidence_before
+    assert (
+        component.status,
+        component.source_amount,
+        component.eligible_fill_ids_json,
+        component.eligible_fill_set_sha256,
+    ) == component_before
+    persisted_allocations = (
+        db.query(BrokerChargeAllocation)
+        .filter(BrokerChargeAllocation.evidence_id == evidence.id)
+        .order_by(BrokerChargeAllocation.id)
+        .all()
+    )
+    assert [
+        (row.id, row.status, row.allocated_amount, row.reconciliation_reference)
+        for row in persisted_allocations
+    ] == allocations_before

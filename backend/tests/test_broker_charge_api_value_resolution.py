@@ -108,3 +108,45 @@ def test_estimate_mapping_cannot_be_used_as_per_fill_actual():
     estimate = mapping(semantic="BROKERAGE_ESTIMATE")
     with pytest.raises(ValueError, match="do not permit per-fill actual"):
         resolve({"ipft": "0.01"}, estimate)
+
+
+@pytest.mark.parametrize(
+    ("semantic", "intended_use"),
+    [
+        ("AGGREGATE_ACTUAL_SUMMARY", "ESTIMATE"),
+        ("PER_FILL_ACTUAL", "ESTIMATE"),
+        ("PER_FILL_ACTUAL", "AGGREGATE_SUMMARY"),
+        ("IPFT_ONLY", "AGGREGATE_SUMMARY"),
+        ("COMBINED_TRANSACTION_AND_IPFT", "AGGREGATE_SUMMARY"),
+    ],
+)
+def test_mapping_semantics_cannot_be_relabelled_for_another_intended_use(semantic, intended_use):
+    with pytest.raises(ValueError, match="do not permit"):
+        resolve(
+            {"ipft": "0.01"},
+            mapping(semantic=semantic),
+            intended_use=intended_use,
+        )
+
+
+@pytest.mark.parametrize(
+    ("semantic", "intended_use"),
+    [
+        ("AGGREGATE_ACTUAL_SUMMARY", "AGGREGATE_SUMMARY"),
+        ("BROKERAGE_ESTIMATE", "ESTIMATE"),
+        ("STATUTORY_CHARGE_ESTIMATE", "ESTIMATE"),
+    ],
+)
+def test_supported_non_per_fill_use_requires_matching_mapping_semantics(semantic, intended_use):
+    result = resolve(
+        {"ipft": "0.01"},
+        mapping(semantic=semantic),
+        intended_use=intended_use,
+    )
+    assert result["usable"] is True
+    assert result["semantic"] == semantic
+
+
+def test_unknown_intended_use_is_rejected():
+    with pytest.raises(ValueError, match="Unsupported intended use"):
+        resolve({"ipft": "0.01"}, mapping(), intended_use="POSITION_COST")

@@ -1583,3 +1583,11 @@ Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE 
 - Added `backend/app/services/broker_charge_api_normalization.py` and tests `backend/tests/test_broker_charge_api_normalization.py` to preserve absent/null/zero/value/invalid broker charge API field states and raw values. Test/code commits: 9fc9337e8dc2dbd45f8435260a8b0f57d3f856fa and f0e815c5b788744966bf2bacbfbe9c79dbfdd822.
 - This does not assign business semantics to Upstox fields or prove IPFT bundling. The next task is exact-head CI, then reviewed API-version/field mapping tests and source-backed tariff gaps.
 - PR #6 remains draft/unmerged; tariff candidates remain DRAFT/non-selectable; automatic quantity/notional allocation and live broker writes remain disabled. Work only in tradepro-improved.
+
+
+## Resume checkpoint — 24 October 2026 (reviewed API field mapping gate)
+
+- Workflow #40106757433 passed on commit `f0e815c5b788744966bf2bacbfbe9c79dbfdd822` for the field-state normalizer. Its backend, broker-write guard, migration and synthetic restore/evidence gates passed.
+- Added `backend/app/services/broker_charge_api_mapping.py` and tests `backend/tests/test_broker_charge_api_mapping.py` to require an exact approved mapping by broker/endpoint/schema/field/scope/effective date. `UNKNOWN`, unapproved, missing and overlapping mappings fail closed. New mapping commits: `0461024f245d91e7114488d56d79e58722f9de9e` and `3a04aefc7e8bb9c0cf8e99889c5de89b4537dc63`.
+- The new mapping is a guardrail only; no Upstox field semantics have been approved. Synthetic test fixtures are not evidence. Exact-head CI remains pending for the new mapping and docs.
+- Continue by checking exact-head CI, then audit the acceptance matrix against code/tests and source-backed product-specific rules. Keep PR #6 draft/unmerged, tariffs DRAFT/non-selectable, automatic quantity/notional allocation disabled, and live broker writes disabled. Work only in `tradepro-improved`.

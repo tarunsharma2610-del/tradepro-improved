@@ -2475,3 +2475,13 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## Upstox SDK and Agent Skill review — 24 October 2026
+
+- Completed a static source compatibility review of official `upstox-python` tag `v2.30.0` and the official Agent Skill. Details: [SDK/API repository audit](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md) and [Agent Skill security review](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md).
+- SDK finding: generated `ChargeApi.get_brokerage` is synchronous by default (thread-based `async_req` is available). Existing async `httpx` read-only client and validated response parser already cover this endpoint, so no runtime SDK dependency was added without a demonstrated benefit.
+- Skill finding: upstream helper can fall back to local `config.json` credentials and prints raw API exception body in its smoke-test path; order and GTT examples can perform real broker writes. Do not run these examples with live credentials or use skill confirmation as our safety boundary.
+- No SDK/skill code was executed; no credentials, live calls or orders were used. This was a static source review, not a runtime SDK integration test.
+- Next: continue the Phase 3 durable per-fill charge-allocation gates; consider SDK runtime integration only if a concrete endpoint/schema gap is identified. PAPER mode and live-write restrictions unchanged.
+
+---

@@ -428,6 +428,49 @@ def test_trade_charge_entrypoint_applies_caps_from_selected_brokerage_rule():
 
 
 
+@pytest.mark.parametrize(
+    ("notional", "minimum", "maximum", "expected"),
+    [
+        ("10000", None, Decimal("20.00"), "10.00"),
+        ("100000", None, Decimal("20.00"), "20.00"),
+        ("1000", Decimal("5.00"), Decimal("20.00"), "5.00"),
+        ("100000", Decimal("5.00"), Decimal("20.00"), "20.00"),
+    ],
+)
+def test_order_brokerage_applies_percentage_then_minimum_and_maximum_caps(
+    notional, minimum, maximum, expected
+):
+    from app.services.broker_tariff_rules import calculate_order_brokerage
+
+    rule = make_rule(
+        calculation_basis="ORDER_NOTIONAL",
+        rate=Decimal("0.1"),
+        minimum_inr=minimum,
+        maximum_inr=maximum,
+    )
+    assert calculate_order_brokerage(rule, order_notional=notional) == Decimal(expected)
+
+
+def test_fixed_order_brokerage_is_flat_and_rejects_caps():
+    from app.services.broker_tariff_rules import calculate_order_brokerage
+
+    rule = make_rule(
+        calculation_basis="ORDER_FIXED",
+        rate_unit="INR_FIXED",
+        rate=Decimal("20.00"),
+    )
+    assert calculate_order_brokerage(rule, order_notional="1000000") == Decimal("20.00")
+
+    capped = make_rule(
+        calculation_basis="ORDER_FIXED",
+        rate_unit="INR_FIXED",
+        rate=Decimal("20.00"),
+        maximum_inr=Decimal("15.00"),
+    )
+    with pytest.raises(ValueError, match="cannot use percentage caps"):
+        calculate_order_brokerage(capped, order_notional="1000000")
+
+
 def test_generic_calculator_rejects_special_or_unknown_calculation_shapes():
     from app.services.broker_tariff_rules import calculate_tariff_amount
 

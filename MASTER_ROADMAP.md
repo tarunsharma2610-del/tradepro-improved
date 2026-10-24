@@ -1491,3 +1491,13 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## Upstox SDK adoption gate — 24 October 2026
+
+1. Completed repository audit: [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md).
+2. Inspect and pin the exact official Python SDK release; verify license, Python compatibility, endpoint coverage and generated-client dependencies.
+3. Prototype a read-only brokerage-estimate call in isolation against synthetic fixtures; compare normalized output with the existing parser. No live account/token needed for unit tests.
+4. Keep direct REST/WebSocket clients where they better preserve async operation, bounded timeouts, sanitized errors, reconnect/stale-data controls or version support.
+5. Audit Agent Skill contents and scripts before use; treat it as development-only guidance and do not run trading examples with live credentials.
+6. Update the capability matrix and tests; check exact-head CI. Do not change live-write controls or merge PR #6 as part of this task.
+

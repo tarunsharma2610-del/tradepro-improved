@@ -65,3 +65,10 @@ Finish the source-approved tariff/GST applicability review and decide whether ta
 - Corrected DRAFT equity STT candidate effective dates for delivery buy/sell (0.1%) and intraday sell (0.025%) to 1 April 2023; added regression tests. Candidates remain non-selectable.
 - CI [#40093198960](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40093198960) passed **790 tests, 1 warning**, broker-write guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore/evidence retention. This run validates the code/source-register checkpoint; the subsequent documentation synchronization still requires exact-head CI [#40093300274](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40093300274).
 - PR #6 remains draft/unmerged; live broker order submission remains disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## Upstox P&L metadata API — 24 October 2026
+
+- Added fixed-path read-only `get_profit_loss_report_metadata` for `GET /v2/trade/profit-loss/metadata`. It validates segment, financial year and optional date scope, and exposes the documented `trades_count` and `page_size_limit` metadata used to plan pagination of `/trade/profit-loss/data`.
+- Added regression tests for normalized request scope, returned page-size metadata, and invalid scope/date rejection. The metadata endpoint contains no charge components and does not alter the contract-note evidence requirement.
+- CI run [#40093486692](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40093486692) is validating this API addition; do not call the latest head green until all tests, broker-write guard, migrations and restore checks finish successfully.
+- Tariff candidates remain DRAFT/non-selectable; PR #6 remains draft/unmerged; live broker order submission remains disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope.

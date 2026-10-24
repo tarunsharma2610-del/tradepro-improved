@@ -16,14 +16,14 @@
 - PostgreSQL-only concurrency test races source verification against allocation promotion and asserts a reconciled final ledger without errors.
 
 ## Residual acceptance gaps / limits
-- The PostgreSQL race test is for component verification vs allocation promotion; it is not a full concurrent live-fill accounting promotion race test.
-- Test inspection did not establish fault injection after every individual accounting write/savepoint boundary. Treat comprehensive rollback-on-each-failure-point as still requiring explicit confirmation.
+- PostgreSQL regression `test_live_fill_promotion_races_with_component_ledger_verification` exercises the live-fill accounting path concurrently with component promotion/verification. It permits a fail-closed first attempt while allocations remain pending, then checks retry/replay and exactly one execution/position. This is distinct from the separate source-verification-vs-promotion serialization test.
+- Rollback tests cover staged-row failure, flush failure, failed commit, post-commit refresh failure/replay, outer transaction rollback, and component-promotion flush failure. They do not inject failure after every individual SQL statement or every conceivable database/network failure boundary; describe this as targeted rollback coverage, not exhaustive fault-injection proof.
 - CI's synthetic restore drill is not a real Oracle Cloud restore exercise.
 - No CI/test result proves uploaded contract notes are authentic broker-issued documents; source hashes prove byte integrity after intake, not issuer authenticity.
 - Reviewer-role revocation is enforced at the promotion boundary: `promote_verified_component_allocations` re-checks that the recorded reviewer is still an active platform administrator. Regression `test_promotion_rechecks_admin_role_at_time_of_promotion` covers the revoked/inactive/non-admin case and asserts allocations remain pending. The source-component verifier itself is read-only and is not the promotion authorization boundary.
 
 ## Next action
-Inspect the remaining accounting tests for cumulative fill and failure-injection coverage, then add regression tests only where a specific gap is confirmed. Keep PR #6 draft/unmerged, live broker order submission disabled, and all work confined to `tarunsharma2610-del/tradepro-improved`.
+Finish the source-approved tariff/GST applicability review and decide whether targeted write-boundary coverage is sufficient for Phase 3 acceptance. Add tests only for demonstrated gaps. Keep PR #6 draft/unmerged, live broker order submission disabled, and all work confined to `tarunsharma2610-del/tradepro-improved`.
 
 ## Exact-head CI checkpoint — 24 October 2026
 

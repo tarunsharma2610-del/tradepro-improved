@@ -265,3 +265,7 @@ Official documentation: [Get Profit Loss Report](https://upstox.com/developer/ap
 - Use P&L rows only as matching context alongside order/trade history. Contract notes remain the required source evidence for charge-component allocation/promotion; never synthesize per-fill charges from aggregate P&L charge totals.
 
 **Gate status:** API coverage is expanded, but no personal authenticated response or contract-note fixture has been reviewed in this audit. No tariff or accounting promotion gate is changed.
+
+## Effective-date correction for equity STT candidates — 24 October 2026
+
+The current Upstox pricing page's historical section identifies equity-delivery STT (0.1% buy and sell) and equity-intraday STT (0.025% sell side) as rates effective from 1 April 2023. The candidate registry had incorrectly used 1 April 2026 for these unchanged equity rates, which would imply a newer effective date than the source supports. The DRAFT candidates and regression test now preserve 1 April 2023 for these three rows. This is a source-date correction only: candidates remain DRAFT and non-selectable. The distinct futures/options STT transition effective 1 April 2026 remains unchanged.

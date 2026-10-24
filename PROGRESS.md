@@ -2397,3 +2397,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Implementation commit: `845e9e0dc924f11ae89b96ef73c94c59c2efb4b4`. Test commit / branch head: `1d7e24b0ba8c89062ec1eeddb93d0c4cd22a226f`.
 - Exact-head backend CI is running as workflow [#40107754617](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40107754617); do not mark this code/test head green until all workflow gates complete successfully.
 - PR #6 remains draft/unmerged; live broker order submission and automatic quantity/notional allocation remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains out of scope.
+
+
+## 2026-10-24 — Effective-date test fixture correction
+
+- CI exposed one failing test among 850 total: the future-date case expected rejection while its synthetic mapping used `effective_to=None` (no end date). The resolver behavior was consistent with the fixture.
+- Corrected the synthetic approved mapping to an explicit validity window ending `2026-12-31`, so both before-start and after-end cases test the intended boundary.
+- Test fix commit: `9cb89301075a8b532ad634f2c9c60590b16deacc`. Awaiting CI for this commit and the final branch head; earlier run #40107829270 failed on the incorrect fixture and must not be treated as green.
+- PR #6 remains draft/unmerged. Live broker order submission and automatic quantity/notional allocation remain disabled. Work stays in `tradepro-improved`; original `Tradepro` remains out of scope.

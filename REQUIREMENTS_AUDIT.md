@@ -1598,3 +1598,6 @@ Audit note: the implementation constant is `tariff-estimate-snapshot-v4`; older 
 
 - [x] Block generic arithmetic for STT/CTT and DP/demat components; parameterized regression tests added.
 - [ ] Verify CI on the exact code commit and synchronized documentation commit.
+
+## Aggregate variance coverage review — 2026-10-24
+Regression coverage added for corrupted actual fill-set digest, mixed-order fill sets, side mismatch, and trade-date mismatch; all negative cases assert no variance record is created. Existing tests cover order-fill-set success, exact replay, and different-manifest rejection. Acceptance remains pending current-head CI and review of concurrency, source/reviewer/hash revalidation, and no accounting side effects.

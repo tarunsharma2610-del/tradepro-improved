@@ -798,3 +798,6 @@ The next audit found that the generic rate calculator could apply plain rate×ba
 Audit note: the implementation constant is `tariff-estimate-snapshot-v4`; older design text saying snapshot v3 is stale and is corrected in the accompanying design-document update. Remaining gated models include STT/CTT event-specific rules, DP daily per-scrip minimums, conditional lesser-of pricing, and reviewed source-backed effective-date rates. No live tariff registry or live broker order writes are enabled.
 
 Generic charge calculation now explicitly excludes conditional tax/depository components; they need specialized calculators and must not be treated as simple percentage calculations.
+
+## Phase 3 checkpoint — aggregate variance test hardening (2026-10-24)
+Order-fill-set variance remains audit-only: it must not allocate actual charges or mutate positions/P&L. Added database-backed regression cases for actual manifest-digest tampering, mixed broker-order membership, fill-side mismatch, and trade-date mismatch; each asserts no variance row is written on rejection. Exact-head CI is pending. Keep unsupported tariff semantics fail-closed and live broker writes disabled.

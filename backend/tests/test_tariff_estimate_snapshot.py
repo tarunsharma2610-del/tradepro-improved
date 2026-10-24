@@ -314,6 +314,14 @@ def test_upstox_api_estimate_rejects_component_total_mismatch():
         build_api_snapshots(result)
 
 
+def test_upstox_api_estimate_rejects_unknown_charge_fields_even_when_zero():
+    result = make_upstox_result()
+    result.data["data"]["charges"]["other_charges"]["demat_transaction"] = 0.0
+
+    with pytest.raises(ValueError, match="unsupported charge fields"):
+        build_api_snapshots(result)
+
+
 def test_upstox_api_estimate_does_not_coerce_null_component_to_zero():
     result = make_upstox_result()
     result.data["data"]["charges"]["taxes"]["stt"] = None

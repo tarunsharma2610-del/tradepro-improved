@@ -157,6 +157,20 @@ def test_verified_component_accepts_exact_pending_allocation_ledger(reconciliati
     assert {row.status for row in rows} == {"PENDING_RECONCILIATION"}
 
 
+@pytest.mark.parametrize("invalid_fill_id", [None, 42, ["not-a-uuid"]])
+def test_verification_rejects_non_string_reviewed_fill_ids(reconciliation_context, invalid_fill_id):
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context)
+    weight_items = json.loads(component.eligible_fill_weights_json)
+    weight_items[0]["fill_record_id"] = invalid_fill_id
+    component.eligible_fill_weights_json = json.dumps(weight_items, separators=(",", ":"))
+    db.commit()
+
+    with pytest.raises(ValueError, match="fill_record_id must be a UUID string"):
+        verify_component_allocation_ledger(
+            db, evidence_id=evidence.id, source_component_id=component.id
+        )
+
+
 def test_verification_rejects_allocation_fill_set_mismatch(reconciliation_context):
     db, evidence, component, _trades, _rows = _setup(reconciliation_context, manifest_count=1)
 

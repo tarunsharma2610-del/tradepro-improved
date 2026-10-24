@@ -1607,3 +1607,6 @@ Backend CI passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062
 
 ## Aggregate variance additional requirements — 2026-10-24
 Regression coverage added for source/evidence/allocation immutability during variance comparison and fail-closed rejection when evidence or component review status is revoked before the write. Latest-head CI is pending. Concurrency/replay acceptance remains open.
+
+## Upstox integration requirements — 2026-10-24
+Required: maintain a current official-source capability matrix; evaluate SDK coverage/version mismatches; review official examples, Agent Skills and read-only MCP where relevant; use sandbox/contract tests; honour rate limits, token handling and regulatory/static-IP controls; assess brokerage estimate, historical charges and historical trades endpoints. Estimated/historical totals must not be promoted as reviewed actual per-fill evidence. See `UPSTOX_API_INTEGRATION_POLICY.md`.

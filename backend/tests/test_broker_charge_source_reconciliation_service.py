@@ -618,3 +618,31 @@ def test_variance_comparison_does_not_change_reviewed_source_or_charge_allocatio
     ]
     assert allocations_after == allocations_before
     db.commit()
+
+@pytest.mark.parametrize(
+    ("target", "expected_message"),
+    [
+        ("evidence", "Reviewed contract-note evidence"),
+        ("component", "VERIFIED broker source component"),
+    ],
+)
+def test_variance_comparison_revalidates_review_state_before_writing(
+    reconciliation_context, target, expected_message
+):
+    db, evidence, component, trades, _allocations = _setup(reconciliation_context, manifest_count=1)
+    snapshot = _variance_snapshot_for_trade(trades[0])
+    persisted_snapshot, _ = persist_tariff_estimate_snapshot(db, snapshot)
+    db.commit()
+
+    if target == "evidence":
+        evidence.status = "RECEIVED"
+    else:
+        component.status = "PENDING_REVIEW"
+    db.commit()
+
+    with pytest.raises(ValueError, match=expected_message):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=persisted_snapshot.id, source_component_id=component.id
+        )
+    db.rollback()
+    assert db.query(TariffEstimateVarianceRecord).count() == 0

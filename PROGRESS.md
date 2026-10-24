@@ -2372,3 +2372,10 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Added `backend/app/services/broker_charge_api_mapping.py` and tests `backend/tests/test_broker_charge_api_mapping.py`. Mapping selection requires exact broker, endpoint, schema version, field path, scope and effective date, plus `APPROVED` review state; missing/overlapping mappings and `UNKNOWN` semantics fail closed.
 - The module is a registry/guard, not an approval of any Upstox field's actual semantics. Current fixture values are synthetic only. No production mapping was added or approved, and aggregate charges remain prohibited as per-fill actual evidence.
 - Exact-head CI is required for the new mapping code/tests and subsequent docs. PR #6 remains draft/unmerged; tariff candidates non-selectable; automatic quantity/notional allocation and live broker writes disabled.
+
+
+## 2026-10-24 — API mapping guard CI verification
+
+- Verified Backend workflow #40106949357 passed on mapping-test commit `3a04aefc7e8bb9c0cf8e99889c5de89b4537dc63`; Backend workflow #40106989369 also passed on source-register documentation commit `cee4fa0fbd4eefc0850d26119bdc6fa11e3915a`.
+- This verifies the mapping guard and field-state normalizer code/test commits are covered by successful CI, but does not mean every later documentation commit has exact-head CI. Re-run CI on the final current branch head before a merge decision.
+- Review conclusion: API mapping guard is intentionally not wired to infer or auto-approve production Upstox field semantics. No live mapping has been approved. The next implementation gate is linking normalized API values to the exact approved mapping only at a controlled accounting boundary, with fail-closed rejection of aggregate data for per-fill actuals.

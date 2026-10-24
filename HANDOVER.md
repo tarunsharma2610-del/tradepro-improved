@@ -1549,3 +1549,7 @@ Next: if original PDF and a matching dated Upstox API response exist, reconcile 
 Source register commit `6c85292d07d33e1e873293c40931895674f4e7fc` now states explicitly that the listed NSE combined exchange-charge rates effective 2026-03-01 already include the revised IPFT contribution. Existing candidate tests assert the rate/date scope and prohibit a separate IPFT candidate from being stacked on top. These candidates remain DRAFT/non-selectable; no tariff was activated.
 
 Resume with exact-head CI for the new documentation commit, then review Upstox API field normalization (missing vs null vs numeric, combined vs split representation), GST taxable base, and remaining BSE/MCX source-backed schedules. PR #6 remains draft/unmerged, live broker writes disabled, and original `Tradepro` untouched.
+
+## 2026-10-24 — Upstox API and BSE/MCX source cross-check
+
+Source register updated in commit 2f6e55532e9704d4b41c9c736c38b1948ee5f05d: the Upstox brokerage endpoint is an estimate, while the trade-charge endpoint is a segment/FY summary. Keep missing, null, zero and numeric fields distinct; never infer per-fill actuals or double-count IPFT from a response schema alone. BSE/MCX comparison rates are research leads pending exact effective-dated exchange circulars and contract/scrip scope. Next: verify CI for the latest head, then source the governing BSE/MCX circulars and test API response normalization. Candidate rules stay DRAFT/non-selectable; PR #6 draft/unmerged; live broker writes disabled; original Tradepro untouched.

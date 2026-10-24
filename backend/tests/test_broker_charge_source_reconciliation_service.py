@@ -646,3 +646,21 @@ def test_variance_comparison_revalidates_review_state_before_writing(
         )
     db.rollback()
     assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+
+def test_aggregate_trade_charges_api_evidence_cannot_be_promoted_as_contract_note(reconciliation_context):
+    db, evidence, component, _trades, rows = _setup(reconciliation_context)
+    # The Upstox trade-charges endpoint is a segment/financial-year/date-range
+    # report, not a contract note or a per-fill actual-charge manifest.
+    evidence.source_kind = "UPSTOX_TRADE_CHARGES_API"
+    db.commit()
+
+    with pytest.raises(ValueError, match="Contract-note evidence was not found"):
+        verify_component_allocation_ledger(
+            db, evidence_id=evidence.id, source_component_id=component.id
+        )
+
+    db.refresh(evidence)
+    assert evidence.source_kind == "UPSTOX_TRADE_CHARGES_API"
+    assert {row.status for row in rows} == {"PENDING_RECONCILIATION"}
+    assert all(row.reconciliation_reference is None for row in rows)

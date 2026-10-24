@@ -1980,3 +1980,9 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - **Next acceptance task:** isolated, pinned compatibility spike for the read-only brokerage-estimate method using synthetic response fixtures. Do not add the package to production dependencies until the spike demonstrates value and CI passes.
 - **Agent Skill:** development-only reference; inspect scripts before running; no live credentials or order-write examples. No account access or live API call was used in the audit.
 
+## Upstox SDK/Agent Skill review gate — 2026-10-24
+
+- **Evidence:** [SDK/API audit](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md) and [Agent Skill security review](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md), official SDK tag v2.30.0 and upstream Agent Skill source.
+- **Finding:** current async `httpx` read-only brokerage call and response parser already cover the endpoint. SDK method is synchronous by default; no measurable benefit justified a runtime dependency in this step.
+- **Security:** upstream skill can place live orders and GTTs; its helper has a local config token fallback and raw API-body print path. Development reference only; never run live-write examples with credentials or rely on its confirmation as app authorization.
+- **Acceptance status:** static source review complete; runtime SDK integration test not performed and SDK is not installed in backend dependencies. Any future adoption requires a concrete gap, pinned version, tests and exact-head CI.

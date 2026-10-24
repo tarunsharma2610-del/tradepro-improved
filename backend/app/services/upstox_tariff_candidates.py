@@ -19,13 +19,13 @@ def upstox_tariff_candidate_rules() -> tuple[TariffRule, ...]:
     rules = [
         # STT rows corroborated by the NSE derivatives STT page and Upstox tariff page.
         TariffRule("stt", "Upstox", "NSE", "EQ", "DELIVERY", "BUY", "TURNOVER",
-                   "0.1", "PERCENT", date(2026, 4, 1), None, UPSTOX_CHARGES_URL,
+                   "0.1", "PERCENT", date(2023, 4, 1), None, UPSTOX_CHARGES_URL,
                    RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT"),
         TariffRule("stt", "Upstox", "NSE", "EQ", "DELIVERY", "SELL", "TURNOVER",
-                   "0.1", "PERCENT", date(2026, 4, 1), None, UPSTOX_CHARGES_URL,
+                   "0.1", "PERCENT", date(2023, 4, 1), None, UPSTOX_CHARGES_URL,
                    RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT"),
         TariffRule("stt", "Upstox", "NSE", "EQ", "INTRADAY", "SELL", "TURNOVER",
-                   "0.025", "PERCENT", date(2026, 4, 1), None, UPSTOX_CHARGES_URL,
+                   "0.025", "PERCENT", date(2023, 4, 1), None, UPSTOX_CHARGES_URL,
                    RETRIEVED_ON, SOURCE_SNAPSHOT_SHA256, "DRAFT"),
         TariffRule("stt", "Upstox", "NSE", "FO", "FUTURES", "SELL", "TURNOVER",
                    "0.05", "PERCENT", date(2026, 4, 1), None, NSE_STT_URL,

@@ -20,7 +20,7 @@
 - Test inspection did not establish fault injection after every individual accounting write/savepoint boundary. Treat comprehensive rollback-on-each-failure-point as still requiring explicit confirmation.
 - CI's synthetic restore drill is not a real Oracle Cloud restore exercise.
 - No CI/test result proves uploaded contract notes are authentic broker-issued documents; source hashes prove byte integrity after intake, not issuer authenticity.
-- Reviewer-role revocation policy needs an explicit product/security decision: current review validates persisted reviewer identity and timestamp; it does not re-evaluate whether the reviewer is still an administrator at the later accounting-promotion time.
+- Reviewer-role revocation is enforced at the promotion boundary: `promote_verified_component_allocations` re-checks that the recorded reviewer is still an active platform administrator. Regression `test_promotion_rechecks_admin_role_at_time_of_promotion` covers the revoked/inactive/non-admin case and asserts allocations remain pending. The source-component verifier itself is read-only and is not the promotion authorization boundary.
 
 ## Next action
 Inspect the remaining accounting tests for cumulative fill and failure-injection coverage, then add regression tests only where a specific gap is confirmed. Keep PR #6 draft/unmerged, live broker order submission disabled, and all work confined to `tarunsharma2610-del/tradepro-improved`.

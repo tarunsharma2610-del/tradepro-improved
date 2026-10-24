@@ -747,6 +747,45 @@ def test_failure_after_accounting_rows_are_staged_rolls_back_everything(accounti
     assert paper_position.quantity == 7
 
 
+def test_post_commit_refresh_failure_is_safe_to_retry_as_exact_replay(accounting_context, monkeypatch):
+    """A response failure after commit must not double-apply the durable fill on retry."""
+    db, user, _portfolio, instrument, connection, _order, _child, record, paper_position = accounting_context
+    charges = _reviewed_charges(accounting_context)
+    original_refresh = db.refresh
+
+    def fail_execution_refresh(instance, *args, **kwargs):
+        if isinstance(instance, Execution):
+            raise RuntimeError("simulated response failure after commit")
+        return original_refresh(instance, *args, **kwargs)
+
+    monkeypatch.setattr(db, "refresh", fail_execution_refresh)
+    with pytest.raises(RuntimeError, match="after commit"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+
+    # The commit already succeeded: rollback cannot erase it, so retry semantics
+    # must safely recognize the exact persisted execution rather than reapply it.
+    monkeypatch.setattr(db, "refresh", original_refresh)
+    executions = db.query(Execution).filter_by(
+        broker_connection_id=connection.id,
+        broker_trade_id=record.broker_trade_id,
+    ).all()
+    assert len(executions) == 1
+    live_position = db.query(LivePosition).filter_by(
+        broker_connection_id=connection.id,
+        instrument_id=instrument.id,
+    ).one()
+    assert live_position.quantity == record.quantity
+    assert db.query(LivePosition).count() == 1
+
+    replay = LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+    assert replay.inserted is False
+    assert replay.execution_id == executions[0].id
+    db.refresh(live_position)
+    assert live_position.quantity == record.quantity
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
 def test_failed_commit_rolls_back_execution_and_live_position(accounting_context, monkeypatch):
     """A persistence failure must not leave half-promoted live accounting."""
     db, user, _portfolio, instrument, connection, _order, _child, record, paper_position = accounting_context

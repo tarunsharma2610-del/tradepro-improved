@@ -804,3 +804,6 @@ Order-fill-set variance remains audit-only: it must not allocate actual charges 
 
 ## CI verification — 2026-10-24
 Exact-head backend CI passed on `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062975428`). Aggregate variance remains audit-only and must not allocate charges or mutate positions/P&L. Remaining acceptance work includes concurrency/replay review, reviewed-source revalidation, and explicit no-accounting-side-effect assertions. Keep live broker writes disabled.
+
+## Phase 3 checkpoint — aggregate variance hardening (2026-10-24)
+Added tests that variance comparison does not mutate reviewed evidence, verified source-component fields, or existing per-fill allocations, and rejects when evidence/component review state is revoked before comparison. CI for the new test commits is pending. The variance path remains audit-only and must not affect allocation, positions, or P&L.

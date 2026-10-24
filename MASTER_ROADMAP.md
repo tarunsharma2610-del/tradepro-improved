@@ -1088,3 +1088,6 @@ Aggregate variance coverage now includes corrupted actual fill-set digest, mixed
 
 ## Phase 3 acceptance gate — CI verified (2026-10-24)
 Backend CI passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062975428`). Aggregate variance coverage includes audit-only success/replay and negative manifest, order membership, side and date checks. Do not close the gate until concurrency/replay, reviewed-source revalidation, and no charge-allocation/position/P&L side effects are verified. Unsupported tariff models remain fail-closed; do not merge PR #6 or enable live broker writes.
+
+## Phase 3 acceptance gate — 2026-10-24
+Additional regression tests now cover variance-path no-accounting-side-effects and rejection when reviewed evidence or component status changes before comparison. The latest test-head CI is pending. Do not close the aggregate variance gate until current-head CI and concurrency/replay acceptance are verified. Keep unsupported tariffs fail-closed and live broker writes disabled.

@@ -1158,3 +1158,6 @@ CI verification note — 2026-10-24: the nine-document synchronization is commit
 
 ## Resume checkpoint — 2026-10-24 (CI verified)
 Current head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` passed backend CI in run `40062975428`. Aggregate variance negative tests cover actual manifest digest, mixed orders, side and trade-date mismatches, with no-write assertions. Next gate: review/add concurrency and source revalidation/no-accounting-side-effect coverage before moving to durable per-fill charge allocation follow-up. PR #6 stays draft/unmerged; live broker order writes disabled; only `tarunsharma2610-del/tradepro-improved` is in scope.
+
+## Resume checkpoint — 2026-10-24
+New tests added on the Phase 3 branch: `test_variance_comparison_does_not_change_reviewed_source_or_charge_allocations` and `test_variance_comparison_revalidates_review_state_before_writing` (parameterized for evidence and component state). They cover no allocation/source mutation and fail-closed review-state revalidation. CI for current test head is pending. Next: verify latest-head CI, then reconcile concurrency/replay acceptance. PR #6 remains draft/unmerged; live broker writes disabled; work only in `tarunsharma2610-del/tradepro-improved`.

@@ -536,3 +536,6 @@ Order-fill-set estimate variance is an audit comparison only, not an order-contr
 
 ## CI verification — 2026-10-24
 Backend pytest passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062975428`). Variance comparison remains an audit-only service, not an order-control endpoint and not an allocation source. Remaining checks concern concurrency, source review-state revalidation and proof of no accounting side effects. Live broker order submission remains disabled.
+
+## Aggregate variance review-state boundary — 2026-10-24
+Added regression tests ensure variance comparison cannot mutate reviewed source/evidence or per-fill allocation state, and fails closed if evidence/component review state changes before comparison. Exact-head CI is pending. This service remains audit-only and is not an order-control endpoint.

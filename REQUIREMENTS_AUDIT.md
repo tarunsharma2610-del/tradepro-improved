@@ -1604,3 +1604,6 @@ Regression coverage added for corrupted actual fill-set digest, mixed-order fill
 
 ## Aggregate variance acceptance — 2026-10-24
 Backend CI passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062975428`). Present tests cover audit-only success, idempotent replay, different manifest, tampered actual manifest digest, cross-order fill set, side mismatch and date mismatch. Still verify concurrent duplicate comparisons, source/component review-state revalidation, and no charge allocation or position/P&L changes on either success or rejection before marking the gate complete.
+
+## Aggregate variance additional requirements — 2026-10-24
+Regression coverage added for source/evidence/allocation immutability during variance comparison and fail-closed rejection when evidence or component review status is revoked before the write. Latest-head CI is pending. Concurrency/replay acceptance remains open.

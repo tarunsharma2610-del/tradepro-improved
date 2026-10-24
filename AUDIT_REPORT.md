@@ -1389,3 +1389,6 @@ The aggregate variance suite covers actual eligible-fill digest tampering, mixed
 
 ## 2026-10-24 — CI and aggregate variance status
 Backend pytest passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (Actions run `40062975428`). Variance tests cover audit-only success, exact replay, different manifest rejection, actual manifest digest tampering, mixed-order fills, side mismatch and trade-date mismatch; negative cases assert no variance record. Remaining review: concurrency/replay behavior, current reviewed-source revalidation, and explicit proof of no allocation/P&L side effects.
+
+## 2026-10-24 — Additional variance safeguards
+Added regression coverage for no accounting side effects and revalidation of evidence/component review status immediately before variance writes. Tests assert rejected comparisons create no variance record. New-head CI is pending; do not mark this gate green until exact-head CI passes.

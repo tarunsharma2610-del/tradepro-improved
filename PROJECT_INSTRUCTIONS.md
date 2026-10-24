@@ -1034,3 +1034,6 @@ Verify CI against the latest branch head, not an earlier commit. Aggregate varia
 
 ## Phase 3 CI and acceptance rule — 2026-10-24
 The latest verified test head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` passed backend CI (run `40062975428`). Do not equate green CI with full Phase 3 acceptance: verify concurrency/replay, reviewed-source revalidation, and no-accounting-side-effect invariants before advancing. Keep variance audit-only, fail closed on scope mismatches, never modify original `tarunsharma2610-del/Tradepro`, keep PR #6 draft/unmerged, and leave broker order submission disabled.
+
+## Phase 3 acceptance reminder — 2026-10-24
+Variance comparisons must remain audit-only, preserve reviewed evidence/component and allocation state, and revalidate current review status before writing. New regression tests have been added; do not mark them verified until CI passes on the latest branch head. Never modify original `tarunsharma2610-del/Tradepro`; keep PR #6 draft/unmerged and broker order submission disabled.

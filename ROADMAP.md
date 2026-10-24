@@ -1053,3 +1053,6 @@ Regression tests cover actual manifest-digest tampering, mixed-order fill sets, 
 
 ## Phase 3 next gate — 2026-10-24
 Latest verified test head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` has passing backend CI (run `40062975428`). Next reconcile aggregate variance acceptance: concurrency/replay behavior, reviewed-source revalidation, and explicit no-accounting-side-effect tests. Once that gate is complete, continue durable per-fill charge allocation work. Unsupported tariffs remain fail-closed; live broker writes disabled.
+
+## Phase 3 next gate — 2026-10-24
+Latest work adds tests for variance no-side-effects and current review-state revalidation. Next verify exact-head CI, then reconcile concurrent duplicate/replay behavior and finish the aggregate variance acceptance gate before continuing durable per-fill charge allocation follow-up. Keep unsupported tariff rules fail-closed and live broker writes disabled.

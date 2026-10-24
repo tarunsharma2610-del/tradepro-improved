@@ -539,3 +539,6 @@ Backend pytest passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `4
 
 ## Aggregate variance review-state boundary — 2026-10-24
 Added regression tests ensure variance comparison cannot mutate reviewed source/evidence or per-fill allocation state, and fails closed if evidence/component review state changes before comparison. Exact-head CI is pending. This service remains audit-only and is not an order-control endpoint.
+
+## Upstox SDK/agent safety boundary — 2026-10-24
+The Upstox Agent Skill can execute live orders; never run it in a way that submits live orders or bypasses app controls. The official MCP is described as read-only, but account data access still requires explicit authorization and supported connector setup. Use official docs/SDK/skills as technical references under PAPER-only safeguards; do not expose tokens or account data. See `UPSTOX_API_INTEGRATION_POLICY.md`.

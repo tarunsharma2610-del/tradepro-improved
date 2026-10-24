@@ -545,3 +545,76 @@ def test_order_fill_set_variance_rejects_component_from_different_fill_set(recon
         )
     db.rollback()
     assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+def test_variance_comparison_does_not_change_reviewed_source_or_charge_allocations(reconciliation_context):
+    db, evidence, component, trades, allocations = _setup(reconciliation_context, manifest_count=1)
+    snapshot = _variance_snapshot_for_trade(trades[0])
+    persisted_snapshot, _ = persist_tariff_estimate_snapshot(db, snapshot)
+    db.commit()
+
+    evidence_before = (
+        evidence.status,
+        evidence.reviewed_by_user_id,
+        evidence.reviewed_at,
+        evidence.source_sha256,
+    )
+    component_before = (
+        component.status,
+        component.reviewed_by_user_id,
+        component.reviewed_at,
+        component.source_amount,
+        component.eligible_fill_ids_json,
+        component.eligible_fill_set_sha256,
+    )
+    allocations_before = [
+        (
+            row.id,
+            row.broker_trade_record_id,
+            row.charge_component,
+            row.source_component_total,
+            row.allocated_amount,
+            row.status,
+            row.reconciliation_reference,
+        )
+        for row in db.query(BrokerChargeAllocation)
+        .filter(BrokerChargeAllocation.evidence_id == evidence.id)
+        .order_by(BrokerChargeAllocation.id)
+        .all()
+    ]
+
+    record, status = compare_estimate_to_reviewed_actual(
+        db, estimate_snapshot_id=persisted_snapshot.id, source_component_id=component.id
+    )
+    assert status == "CREATED"
+    assert record.status == "VARIANCE_ONLY"
+    assert (
+        evidence.status,
+        evidence.reviewed_by_user_id,
+        evidence.reviewed_at,
+        evidence.source_sha256,
+    ) == evidence_before
+    assert (
+        component.status,
+        component.reviewed_by_user_id,
+        component.reviewed_at,
+        component.source_amount,
+        component.eligible_fill_ids_json,
+        component.eligible_fill_set_sha256,
+    ) == component_before
+    allocations_after = [
+        (
+            row.id,
+            row.broker_trade_record_id,
+            row.charge_component,
+            row.source_component_total,
+            row.allocated_amount,
+            row.status,
+            row.reconciliation_reference,
+        )
+        for row in db.query(BrokerChargeAllocation)
+        .filter(BrokerChargeAllocation.evidence_id == evidence.id)
+        .order_by(BrokerChargeAllocation.id)
+        .all()
+    ]
+    assert allocations_after == allocations_before
+    db.commit()

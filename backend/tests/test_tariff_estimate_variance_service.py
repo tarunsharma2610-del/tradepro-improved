@@ -210,3 +210,34 @@ def test_order_fill_set_variance_rejects_different_manifest(aggregate_variance_c
         )
 
     assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+
+def test_order_fill_set_variance_rejects_tampered_actual_manifest_digest(aggregate_variance_case):
+    db, snapshot, component, _fill_ids = aggregate_variance_case
+    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
+
+    component.eligible_fill_set_sha256 = "0" * 64
+    db.flush()
+
+    with pytest.raises(ValueError, match="manifest digest does not match"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
+        )
+
+    assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+
+def test_order_fill_set_variance_rejects_fill_side_mismatch_without_write(aggregate_variance_case):
+    db, snapshot, component, fill_ids = aggregate_variance_case
+    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
+
+    fill = db.query(BrokerTradeRecord).filter(BrokerTradeRecord.id == fill_ids[0]).one()
+    fill.side = "BUY"
+    db.flush()
+
+    with pytest.raises(ValueError, match="does not match every identified broker fill"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
+        )
+
+    assert db.query(TariffEstimateVarianceRecord).count() == 0

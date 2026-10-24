@@ -63,3 +63,23 @@ These combined rates include the revised NSE IPFT contribution of ₹0.01 per cr
 **Scope limit:** this does not resolve BSE equity/scrip-group charges, MCX, currency derivatives, every broker API response shape, or the GST taxable-component mapping. An API's separate `ipft` field must be preserved as returned (including missing/null), not automatically added to a combined rate. Where the response semantics do not establish whether values are additive or explanatory, mark the estimate/reconciliation as unresolved rather than double-counting.
 
 **Implementation state:** research and regression coverage for the combined NSE rate are present; the candidate rows remain DRAFT and non-selectable pending independent approval and the remaining tariff/GST scope review. This is not approval to activate automatic accounting or live trading.
+
+## Public schedule cross-check — BSE and MCX boundaries (24 October 2026)
+
+Cross-check source: [Zerodha support — exchange transaction charges](https://support.zerodha.com/category/account-opening/resident-individual/ri-charges/articles/exchange-transaction-charges), which publishes a current comparative schedule and explicitly notes NSE IPFT is included in NSE exchange transaction fees. This is a secondary broker reference, useful for cross-checking, not a substitute for the applicable exchange circular.
+
+The published comparison lists (rates as shown by that source):
+- BSE equity cash: 0.00375% for specified scrip groups; other scrip groups have separate rates.
+- BSE equity index options are contract/index-specific (the source lists Sensex/Bankex and other index distinctions); do not treat the existing BSE FO candidate as a universal BSE options tariff.
+- MCX commodity futures: 0.0021%; MCX commodity options: 0.0418%.
+- NSE currency/commodity products and BSE currency products have separate rates and bases and must not inherit NSE cash/equity-derivative rules.
+
+These values are recorded as **research leads, not approved selectable tariff rows**. Before implementation/activation, retrieve the governing exchange circular/master circular for the exact effective period and contract category, including any turnover slabs, expiry-specific rates, scrip groups, caps, or exemptions. The current candidate inventory does not establish complete BSE/MCX coverage.
+
+## API representation rule reaffirmed
+
+Official Upstox docs:
+- [Brokerage Details API](https://upstox.com/developer/api-documentation/get-brokerage/) is an instrument/quantity/product/side/price-specific estimate. Its schema lists numeric `other_charges.ipft`.
+- [Get Trade Charges API](https://upstox.com/developer/api-documentation/get-trade-charges/) returns segment/FY charge breakdown and its example shows `charges.ipft: null`.
+
+Treat those as different response contexts. Preserve raw JSON and distinguish absent, null, zero, and numeric values. A null in an aggregate sample is **unknown/not supplied**, not proof of zero, and not proof that IPFT was bundled into another field. Do not use a summary API field as a per-fill actual. The NSE combined effective-dated tariff rule remains authoritative for the covered NSE scope; API fields are reconciled against that scope only when their semantics and calculation bases are explicit.

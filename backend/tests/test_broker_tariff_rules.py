@@ -168,6 +168,30 @@ def test_trade_charge_entrypoint_selects_then_calculates_exact_rule():
     assert amount == Decimal("50.00")
 
 
+def test_trade_charge_entrypoint_supports_flat_fixed_order_brokerage():
+    from app.services.broker_tariff_rules import calculate_charge_for_trade
+
+    rule = make_rule(
+        calculation_basis="ORDER_FIXED",
+        rate=Decimal("20.00"),
+        rate_unit="INR_FIXED",
+    )
+    selected, amount = calculate_charge_for_trade(
+        [rule],
+        component="brokerage",
+        broker="Upstox",
+        exchange="NSE",
+        segment="FO",
+        product="OPTIONS",
+        transaction_side="BUY",
+        calculation_basis="ORDER_FIXED",
+        trade_date=date(2026, 10, 23),
+        calculation_base="100000",
+    )
+    assert selected is rule
+    assert amount == Decimal("20.00")
+
+
 def test_trade_charge_entrypoint_fails_closed_without_approved_match():
     from app.services.broker_tariff_rules import calculate_charge_for_trade
 

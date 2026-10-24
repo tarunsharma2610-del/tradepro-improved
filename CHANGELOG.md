@@ -132,3 +132,13 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 
 - Added resolver + regression tests requiring exact approved mappings and preventing aggregate/estimate fields from being consumed as per-fill actuals. Missing/null/invalid values remain unusable; numeric zero is preserved as a separate state.
 - Synthetic fixtures do not approve any live Upstox API semantics. Exact-head CI remains pending for these new changes.
+
+
+## 2026-10-24 — Charge API unusable-value provenance hardening
+
+- Review found that `resolve_charge_api_value` retained the approved mapping's semantic and source fingerprint for usable values, but omitted source URL and SHA-256 provenance when the normalized field was `MISSING`, `NULL`, or `INVALID`. These values were already unusable, but their interpretation path was less auditable.
+- Fixed the resolver to return approved mapping provenance for every normalized state while keeping missing/null/invalid values `usable=False`. Numeric zero remains a distinct present value; this change does not promote allocations or approve production Upstox mappings.
+- Added regression coverage for missing, null, NaN, negative, boolean, and object values; assertions now require mapping source URL, source SHA-256, and semantic to remain present. Added mapping effective-date and estimate-vs-actual guard cases.
+- Implementation commit: `845e9e0dc924f11ae89b96ef73c94c59c2efb4b4`. Test commit / branch head: `1d7e24b0ba8c89062ec1eeddb93d0c4cd22a226f`.
+- Exact-head backend CI is running as workflow [#40107754617](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40107754617); do not mark this code/test head green until all workflow gates complete successfully.
+- PR #6 remains draft/unmerged; live broker order submission and automatic quantity/notional allocation remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains out of scope.

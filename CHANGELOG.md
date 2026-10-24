@@ -68,3 +68,9 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 
 - Recorded passing workflow #40101490646 for commit `a8166bafe77544bf958d0d393b71432379898b72`: 805 tests passed, 1 warning; broker-write guard and migration/restore checks passed.
 - This CI result does not approve tariff candidates or establish live API field semantics/GST mapping. Candidates remain DRAFT, PR #6 remains draft/unmerged and live broker order submission remains disabled.
+
+
+## 2026-10-24 — Historical Upstox statement evidence
+
+- Recorded a user-provided redacted FY 2022–23 RKSV/Upstox Annual Global Transaction Statement screenshot in `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`, commit `9bb2fade8330e068022e5b2f6be0538e4f19206e`.
+- The summary shows ₹111.61 transaction charges and no separately labelled IPFT row. This is not proof of bundling or API semantics; it is not an individual trade contract note. No actual per-fill charges are promoted and no tariff candidate is activated.

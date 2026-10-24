@@ -2355,3 +2355,12 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Matrix explicitly separates settled NSE combined-rate arithmetic from unresolved Upstox API semantics, account-specific invoice treatment, BSE scrip/product scope and MCX product rates. It does not activate tariffs or enable automatic allocation.
 - Previous docs-only head 8a75153 had successful Backend workflow #40106273353. The new matrix head ac89f9ce84544ff4f53cb58bdf18e247d19177c9 is pending exact-head CI in workflow #40106537998; do not mark the matrix head green until that run completes.
 - Next: inspect exact-head CI, then use the matrix as the checklist for the remaining implementation/review gaps. PR #6 remains draft/unmerged; live broker writes disabled; original Tradepro untouched.
+
+
+## 2026-10-24 — Broker charge API field-state normalization
+
+- Added `backend/app/services/broker_charge_api_normalization.py` and regression tests in `backend/tests/test_broker_charge_api_normalization.py`.
+- The helper preserves `MISSING`, `NULL`, `ZERO`, `VALUE`, and `INVALID` states and retains the raw JSON value; valid values are represented as Decimal strings. Boolean, object/list, non-finite, negative and malformed numeric values fail into `INVALID` rather than being coerced.
+- This is a lossless normalization primitive only. It does not infer whether `transaction` includes IPFT, whether a response is aggregate vs per-fill, or whether a number is an actual charge. Those semantics still require a versioned, reviewed mapping and source evidence.
+- Matrix-head CI passed in workflow #40106582037 for commit f33953e903dcdd8655fa34eee9c612a36bd94b2c. New helper/test commits are newer and need exact-head CI before being marked verified.
+- Safety unchanged: candidates remain DRAFT/non-selectable, generic quantity/notional allocation disabled, PR #6 draft/unmerged, live broker writes disabled, original Tradepro untouched.

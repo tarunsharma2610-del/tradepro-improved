@@ -169,3 +169,20 @@ The dated public Upstox page and the authenticated Charges API are complementary
 5. Require independent review and explicit approval before activating any rule. Until then, keep estimates visibly provisional and actual-ledger reconciliation evidence-driven.
 
 **Gate outcome:** no new rule approved or activated by this audit. Automatic tariff-driven per-fill allocation remains disabled for unreviewed components; live broker order writes remain disabled.
+
+
+## Public-page IPFT contradiction — additional blocker, 24 October 2026
+
+A fresh read of the current official [Upstox Brokerage Charges page](https://upstox.com/brokerage-charges/) exposes an internal inconsistency that must be resolved before IPFT or transaction-charge calculations are approved:
+
+- One displayed IPFT schedule states ₹0.10 per lakh for equity delivery/intraday/futures and ₹0.50 per lakh on options premium. Those amounts equal ₹10/crore and ₹50/crore, respectively.
+- A later IPFT table says IPFT is combined with transaction charges and lists ₹0.01 per crore for traded value (and ₹0.01 per crore on options premium). Those rates are 1,000 times smaller than the earlier schedule.
+- The same page also lists transaction-charge rates separately. The phrase “combined with Transaction Charges” does not establish whether the transaction-rate numbers displayed elsewhere are inclusive of IPFT or how the API's separately named `transaction` and `ipft` fields should reconcile.
+
+These statements cannot safely be normalized into one rate by assumption. Preserve the page capture and its retrieval timestamp/hash, seek clarification or an authoritative exchange/broker specification, and compare authenticated read-only charge responses with matching segment/date scope. Do not add both a rate that may already include IPFT and a separate IPFT component. Do not treat an API field's presence as proof of whether the public tariff is inclusive.
+
+### GST composition gate
+
+The page explicitly lists the GST base as brokerage + transaction + IPFT for intraday/futures/options and adds demat charges for equity delivery. Implementing this text still requires a reviewed mapping from actual API/ledger components to those labels; no blanket 18% multiplier over all charges is approved. CBIC's stock-broking FAQ makes pure-agent exclusion of STT, stamp duty and other tax recoveries conditional on Rule 33; do not assume that treatment without account/invoice evidence.
+
+**Gate remains closed:** IPFT is not a selectable tariff candidate; no new IPFT or GST calculator/rule is approved by this audit.

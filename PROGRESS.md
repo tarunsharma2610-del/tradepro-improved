@@ -2024,3 +2024,10 @@ Archived a dated normalized excerpt in `docs/source_snapshots/UPSTOX_CHARGES_202
 - Test commit `8136ccdabbc5326d59e2b8a6951ae02c3495ab62` adds regression cases for component/total mismatch and null-versus-zero distinction. Missing/null amounts are rejected rather than coerced to zero.
 - Exact-head CI run [40082403073](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082403073) was still in progress at this checkpoint; do not mark this change green until the run for the resulting latest head completes.
 - This is estimate integrity only: no tariff rates were activated, no estimate promoted to actual charges, no per-fill charge allocation enabled, and no live broker orders sent. PR #6 remains draft/unmerged; original `Tradepro` remains out of scope.
+
+## Upstox reconciliation CI failure and fixture correction — 24 October 2026
+
+- CI run [40082403073](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082403073) failed with **774 passed, 1 failed**. The failure was in `test_upstox_api_estimate_is_stable_for_exact_replay_but_response_changes_conflict`: its changed-STT fixture changed a component but left the aggregate `total` unchanged, so the new reconciliation guard correctly rejected it before the test reached replay-conflict handling.
+- Corrected the test fixture to change the reported total consistently with the STT delta, preserving the intent of the replay-conflict test. Commit: `2a39a67cd1d2c8dab16e22425c87e247974c10cd`.
+- A fresh backend CI run [40082588488](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082588488) was queued for the corrected head. Do not mark the gate green until it completes and the final docs head is verified.
+- The failure was a test-fixture inconsistency, not evidence that the reconciliation check should be weakened. Keep the guard fail-closed.

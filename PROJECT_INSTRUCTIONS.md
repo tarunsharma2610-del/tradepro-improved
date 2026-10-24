@@ -1,3 +1,61 @@
+# Integration selection, cost and implementation policy — 24 October 2026
+
+This section is the standing integration policy for the whole Tradepro Improved application. Apply it to future architecture, implementation, audits, deployment plans, and documentation. It is a decision framework, not a claim that every listed integration is already implemented.
+
+## Mandatory project and safety constraints
+- Work only in `tarunsharma2610-del/tradepro-improved`. Never edit the original `tarunsharma2610-del/Tradepro` repository.
+- Keep PR #6 draft/unmerged until its acceptance gates pass and the user explicitly approves merging.
+- PAPER mode remains the default and mandatory during development. Real broker order placement, modification, and cancellation must remain blocked until a separately reviewed and explicitly approved live-trading gate. Researching or connecting an API must never silently enable order writes.
+- Before adding an integration, inspect the existing code, project instructions, architecture, requirements and roadmap; check the provider's current official documentation, SDK, pricing, rate limits, terms and data licensing. Prefer existing dependencies and official APIs. Do not duplicate functionality or add a service merely because it exists.
+- Classify every integration as **required**, **optional**, or **future** and record its purpose, implementation status, evidence/source, cost model, secret/data handling, resource impact, fallback, tests and acceptance gate in the relevant project documents. Clearly distinguish free software from free hosting, free API access, free market data and free messaging; they are not equivalent.
+- Prefer free/open-source and self-hosted components for this personal/friends-only app. Paid services, paid plans, paid API quotas, and chargeable usage must remain optional and disabled unless the user explicitly approves the cost. Recheck current pricing before activation.
+- Keep API keys, OAuth tokens, refresh tokens, webhook secrets, database credentials and private contract notes out of source control, logs and public artifacts. Use environment/secret configuration, least privilege, redaction and documented rotation/revocation procedures.
+- Every provider integration must have timeout/retry/backoff, rate-limit handling, error/stale-data state, idempotency where applicable, observability, tests, and a safe failure mode. Broker/account data must be scoped to the authenticated owner.
+
+## Integration inventory and cost expectations
+
+| Integration / component | Intended role | Cost expectation and policy |
+|---|---|---|
+| **Upstox Developer API and official Python SDK** | Primary Indian broker: OAuth, profile/funds/holdings/positions/orders/trades, instruments, historical and live market data, and brokerage/charge endpoints where officially supported. Use only documented endpoints and SDK versions; verify entitlement, rate limits, API terms and segment availability. | API access/subscription may be free under current published terms, but trades incur brokerage/statutory/exchange charges and data/API entitlements can change. Treat estimates as estimates; do not treat aggregate charge endpoints as per-fill actuals. |
+| **Broker adapters / future brokers (e.g. Zerodha, Groww if supported and approved)** | Isolated adapter interface so a future broker can be added without coupling strategy/accounting logic to one provider. | No integration until official APIs, eligibility, pricing, data rights and implementation effort are verified. Do not assume a broker has an accessible public trading API or that its API is free. Upstox remains first priority. |
+| **PostgreSQL** | Durable application/accounting database, transactions, migrations, constraints and concurrency guarantees. | Database software is free/open-source; managed hosting, storage, backup and network usage may cost. Self-host initially where appropriate. |
+| **Redis** | Cache, rate-limit coordination, short-lived coordination/queue support only where required. | Software is free/open-source; managed hosting costs extra. Keep optional if the existing design works without it and monitor RAM use. Never use volatile cache as the source of truth for trades, fills, charges or audit evidence. |
+| **FastAPI, SQLAlchemy, Alembic** | Backend API, ORM and database migrations. | Open-source; hosting and operations are not automatically free. Pin compatible versions and run migration tests. |
+| **Next.js and React** | Web frontend and dashboard. | Open-source; deployment/build hosting may cost. Prefer self-hosting on the selected VM while it is sufficient. |
+| **TradingView Lightweight Charts** | Interactive charts where useful. | Open-source/free library; it does **not** provide exchange market data, TradingView's paid platform features, or a data licence. Supply authorized data from the broker/other licensed source. Any separate TradingView product/API requires its own terms and cost review. |
+| **GitHub repository and GitHub Actions** | Source control, pull requests, review and CI. | Free tier has quotas/usage limits; recheck current plan limits. Keep CI for tests, migrations, broker-write guards, dependency/security checks and build verification. Do not claim a commit is verified until the exact head's checks finish. |
+| **Oracle Cloud VM / other hosting** | Initial private deployment and background worker. | Always Free resources are quota/region/eligibility dependent; extra resources, egress, storage, IPs or usage may cost. Verify the account's actual allowance before deployment. Size services to the low-memory VM and avoid unnecessary containers. |
+| **Domain name + HTTPS/TLS (Let's Encrypt)** | Private web access and encrypted transport. | A domain generally costs money; Let's Encrypt certificates are free. TLS does not make an exposed application private by itself; configure authentication, firewall, secure cookies, proxy headers and renewal. |
+| **Telegram Bot API** | Optional alerts/notifications and operational messages. | Bot API is generally free to use; users still need to configure a bot and protect its token. Handle delivery failures and avoid sending credentials, sensitive account data or full contract notes. |
+| **WhatsApp Business Platform/API** | Optional WhatsApp alerts if needed. | Do not assume free. Business/provider fees, conversation/template pricing, setup and policy requirements may apply. Keep disabled until the user approves a provider and cost; Telegram or in-app notifications are the lower-cost fallback. |
+| **Monitoring: structured logs, health endpoints; Prometheus/Grafana if needed** | Service health, latency, queue/worker status, errors and resource pressure. | Basic app logs/health checks can be self-hosted at no licence cost. Prometheus/Grafana OSS are free to self-host, but consume VM CPU/RAM/disk. Start with lightweight logging and health checks; add dashboards only when justified. |
+| **Sentry or another hosted error tracker** | Optional error aggregation and alerting. | May offer a free tier with quotas, but hosted events and data retention are limited and plans can change. Optional only; redact secrets, tokens, personal data and broker payloads before sending anything. Local structured logs are the fallback. |
+| **Backups and recovery** | Encrypted database and private evidence backups, retention and tested restore. | Local tools are free; off-VM object storage and extra capacity may cost. Keep backups encrypted and access-controlled, and test actual restore. A synthetic CI restore drill is not proof that a real Oracle VM backup can be restored. |
+| **Secrets management** | Secure OAuth/API credentials and deployment secrets. | Environment files outside Git may be free for a single-VM setup but require strict permissions and rotation. Hosted secret vaults may cost. Never commit real `.env` files or expose secrets in logs/CI artifacts. |
+| **Market data / exchange data licensing** | Live quotes, historical candles, instrument masters and scanners. | Broker API access does not automatically mean unrestricted redistribution or all-segment data rights. Confirm the current broker/exchange terms, user entitlement, retention and display/use restrictions. Never scrape or use unauthorized feeds. |
+| **AI/API integrations** | Optional future assistance for research or strategy explanations. | Not required for core trading. Hosted AI APIs may be paid and can send sensitive code/data externally. Do not add or enable without explicit approval, a cost limit, privacy review and a non-AI fallback. |
+| **Email/SMS/push and other notification providers** | Future alert channels only if Telegram/in-app alerts are insufficient. | Often quota-limited or paid. Treat as optional and record provider-specific pricing and consent requirements before activation. |
+
+## Official documentation to consult
+- Upstox developer API catalogue and current endpoint/SDK documentation: https://upstox.com/developer/api-documentation/ and https://github.com/upstox/upstox-python
+- Upstox published charges and brokerage calculator: https://upstox.com/brokerage-charges/ and https://upstox.com/developer/api-documentation/get-brokerage/
+- PostgreSQL: https://www.postgresql.org/docs/
+- Redis: https://redis.io/docs/
+- GitHub Actions usage limits: https://docs.github.com/en/actions/administering-github-actions/usage-limits-billing-and-administration
+- Oracle Cloud Free Tier: https://www.oracle.com/cloud/free/
+- Telegram Bot API: https://core.telegram.org/bots/api
+- TradingView Lightweight Charts: https://github.com/tradingview/lightweight-charts
+- Let's Encrypt: https://letsencrypt.org/
+- Prometheus: https://prometheus.io/ ; Grafana: https://grafana.com/oss/
+- Sentry pricing/quotas: https://sentry.io/pricing/
+
+Provider prices, free quotas, endpoints, supported segments and terms change. These links are starting points, not permanent guarantees; check them again at implementation/activation time.
+
+## Acceptance rule
+No integration is considered complete merely because a dependency is listed or a credential exists. Record implementation and test evidence, failure behaviour, current cost/terms, data rights, security review and owner approval. Keep uncertain or paid integrations inactive. For trading/accounting integrations, also verify idempotency, reconciliation, audit trail, replay/rollback behaviour and fail-closed safety. Update `PROJECT_INSTRUCTIONS.md`, `ARCHITECTURE.md`, `MASTER_ROADMAP.md`, `REQUIREMENTS_AUDIT.md`, `PROGRESS.md`, `HANDOVER.md`, `CHANGELOG.md` and other applicable checkpoint documents whenever this policy changes or an integration is implemented.
+
+---
+
 ## Upstox charge API usage rule — 24 October 2026
 
 - For Upstox-related implementation or charge audits, inspect current official API documentation, SDK examples and the relevant official pricing/circular sources before changing code. Do not invent paths or infer capabilities from endpoint names.

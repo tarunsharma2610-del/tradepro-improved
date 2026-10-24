@@ -1523,3 +1523,9 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - This run verifies the code/test head before this documentation update, not the documentation commits below. A fresh exact-head CI result is required before treating the current branch tip as fully verified.
 - Phase 3 remains open: per-component accounting acceptance and authoritative, effective-dated tariff evidence with independent review remain pending. PR #6 stays draft/unmerged; live broker order submission remains disabled.
 - Repository scope is `tarunsharma2610-del/tradepro-improved` only. Do not modify original `tarunsharma2610-del/Tradepro`.
+
+## 2026-10-24 — IPFT regression checkpoint
+
+Added tests for NSE combined rates (0.00307% cash equity, 0.00183% equity futures, 0.03553% equity options premium from 2026-03-01), no second IPFT candidate, combined-vs-split GST-base invariance, and no MCX scope leakage. Test commit: `69945f4854ea8ae7d20e7795b156750406759df7`; source-register update: `626298aa9d8c60712189a744c86a3327eac1bb50`.
+
+Next: verify CI on the exact branch head, then add explicit normalization tests for authenticated API fields only after the API semantics are established. Do not infer field meaning from schema names. Need a dated Upstox contract note/tax invoice or authoritative support clarification for independent account-specific mapping. Keep tariff candidates DRAFT, PR #6 draft/unmerged, live broker order submission disabled, and do not touch original `Tradepro`.

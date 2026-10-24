@@ -1085,3 +1085,6 @@ Audit note: the implementation constant is `tariff-estimate-snapshot-v4`; older 
 
 ## Phase 3 acceptance gate update — 2026-10-24
 Aggregate variance coverage now includes corrupted actual fill-set digest, mixed-order membership, side mismatch, and trade-date mismatch, with assertions that rejection creates no variance row. This gate remains pending exact-head CI and broader accounting acceptance review. Advanced nonlinear tariff models remain disabled/fail-closed until modeled and source-reviewed. Do not merge PR #6 or enable live broker writes.
+
+## Phase 3 acceptance gate — CI verified (2026-10-24)
+Backend CI passed on head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` (run `40062975428`). Aggregate variance coverage includes audit-only success/replay and negative manifest, order membership, side and date checks. Do not close the gate until concurrency/replay, reviewed-source revalidation, and no charge-allocation/position/P&L side effects are verified. Unsupported tariff models remain fail-closed; do not merge PR #6 or enable live broker writes.

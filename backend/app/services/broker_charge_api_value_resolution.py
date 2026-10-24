@@ -17,6 +17,11 @@ from app.services.broker_charge_api_normalization import normalize_charge_api_fi
 AGGREGATE_ONLY_ENDPOINTS = frozenset({
     ("Upstox", "/v2/trade/profit-loss/charges"),
 })
+# This endpoint calculates charges from proposed order inputs; its response is
+# a calculator/estimate, not evidence of the final charges actually booked.
+ESTIMATE_ONLY_ENDPOINTS = frozenset({
+    ("Upstox", "/v2/charges/brokerage"),
+})
 
 
 def resolve_charge_api_value(
@@ -58,6 +63,10 @@ def resolve_charge_api_value(
         raise ValueError("Mapping semantics do not permit per-fill actual accounting.")
     if intended_use == "PER_FILL_ACTUAL" and (broker, endpoint) in AGGREGATE_ONLY_ENDPOINTS:
         raise ValueError("Aggregate-only broker endpoint cannot provide per-fill actual evidence.")
+    if intended_use == "PER_FILL_ACTUAL" and (broker, endpoint) in ESTIMATE_ONLY_ENDPOINTS:
+        raise ValueError("Estimate-only broker endpoint cannot provide per-fill actual evidence.")
+    if intended_use == "AGGREGATE_SUMMARY" and (broker, endpoint) in ESTIMATE_ONLY_ENDPOINTS:
+        raise ValueError("Estimate-only broker endpoint cannot provide actual aggregate evidence.")
     if intended_use == "AGGREGATE_SUMMARY" and mapping.semantic not in {
         "AGGREGATE_ACTUAL_SUMMARY", "STATUTORY_CHARGE_ESTIMATE", "BROKERAGE_ESTIMATE"
     }:

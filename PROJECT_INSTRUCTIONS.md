@@ -1293,3 +1293,13 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Upstox's public charges page says GST is 18% on brokerage, transaction charges and IPFT (plus demat charges for equity delivery), while also stating IPFT is combined with transaction charges. Do not add the combined-rate schedule and separate IPFT again or assume the GST base is proven by field names alone.
 - CBIC's stock-broking FAQ (Q77, Rule 33 pure-agent treatment) says statutory recoveries such as STT and stamp duty are outside the broker's GST value only when pure-agent conditions are met; otherwise section 15 / Rule 27 valuation applies. Treat this as a scope warning, not a universal component mapping.
 - Keep GST composition and impacted tariffs unapproved until dated account-specific Upstox tax-invoice/contract-note evidence establishes the exact segment/product/effective-date mapping. Preserve separate source components and fail closed on unresolved differences; no tax/tariff promotion from public text alone.
+
+
+## 2026-10-24 — Variance rollback regression exact-head verification
+
+- Follow-up fix commit: `5e036d7fcc1f5f439d4054700366d284d7b78061`.
+- Fixed the rollback regression assertion to compare allocation snapshots in stable UUID order. This preserves checks of row identity, status, amount, and reconciliation reference while avoiding reliance on unspecified SQL row ordering.
+- Exact-head GitHub Actions run [#40096380843](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40096380843) completed successfully: **793 passed, 1 warning**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed; synthetic PostgreSQL/document-volume restore drill completed.
+- The prior failed run exposed a test-ordering issue, not evidence of an accounting mutation; the corrected regression now passes in the full backend suite.
+- Phase 3 is **not complete**: source-backed Upstox tariff/GST mapping, final per-fill allocation acceptance, and final merge gates remain open. Tariff candidates remain DRAFT/non-selectable. PR #6 remains draft/unmerged. Live broker order submission remains disabled.
+- Scope guard: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` remains out of scope and must not be modified.

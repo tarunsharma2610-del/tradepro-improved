@@ -220,3 +220,11 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## 2026-10-24 — Upstox SDK/API repository audit
+
+- Added `docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md` documenting existing API clients, official SDK/Agent Skill evidence, capability gaps, and the proposed isolated SDK compatibility spike.
+- Confirmed `backend/requirements.txt` does not declare the official Upstox Python SDK. Existing async REST clients, V3 protobuf/WebSocket streaming, read-only reconciliation, and brokerage response parsing already exist.
+- No SDK dependency or application code was changed in this audit. Decision: evaluate SDK support/version/license and async/error-handling fit before adoption; do not duplicate existing clients.
+- No live API calls, account access, or orders were made. Estimate/aggregate semantics, DRAFT tariff status, PAPER-only development, live-write restrictions, PR #6 draft/unmerged status, and repository boundary remain unchanged.
+

@@ -12,12 +12,12 @@
 2. Source-component verification is read-only and checks the stored source bytes, independent reviewer provenance, canonical fill manifest, fill-set digest, full allocation set, exact source total, and individual allocations against reviewed weights.
 3. Tariff estimate snapshots are persisted with immutable canonical JSON/digest semantics. Estimate-versus-actual comparisons write separate `VARIANCE_ONLY` records and do not promote allocations.
 4. Reviewer authorization is checked at promotion time by `promote_verified_component_allocations`: the recorded reviewer must still exist, be active, and hold platform-admin status. Regression `test_promotion_rechecks_admin_role_at_time_of_promotion` verifies a role/status change blocks promotion and leaves allocations pending. The standalone source-component verification helper is read-only; the promotion service is the enforcement boundary.
-5. Full end-to-end acceptance remains open for concurrent promotion/verification, duplicate replay after process interruption, rollback after failures at each write boundary, and partial-fill/remainder accounting. Existing tests and CI should not be treated as sufficient without confirming each scenario is explicitly covered.
+5. Regression coverage is present for partial fills/cancelled orders, staged child-fill completeness, cumulative quantity limits, failed flush/commit rollback, post-commit refresh failure followed by exact replay, and PostgreSQL concurrency between live-fill accounting and charge-component verification/promotion. The concurrency test explicitly allows the live fill to fail closed while the component is still pending, then verifies retry succeeds and exactly one execution/position remains. The dedicated component-promotion race also verifies source verification and promotion serialize on PostgreSQL.
 
 ## Decision / next work
 - No production live-order execution is enabled by this review.
 - Do not merge PR #6 yet; keep it draft pending explicit accounting acceptance.
-- Next inspect test coverage for rollback, crash/replay, partial fills, and concurrent source verification/promotion. Add narrowly scoped regression tests only for demonstrated gaps, update the audit docs, and rerun CI on the final exact head.
+- Do not add duplicate tests for scenarios already covered. Remaining work is a focused review of whether write-boundary failure injection is sufficient, reconciliation of the source-approved tariff/GST scope, and exact-head CI after documentation changes.
 - Only work in `tarunsharma2610-del/tradepro-improved`; never modify `tarunsharma2610-del/Tradepro`.
 
 ## Flush-failure regression and exact-head CI — 24 October 2026

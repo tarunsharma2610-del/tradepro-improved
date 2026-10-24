@@ -2295,3 +2295,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Added detailed source-backed normalization policy and acceptance tests to `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md` in commit `295535e032a7ea542b67766c17e5186a83d54409`.
 - Remaining: verify the authenticated Upstox API fields against a dated actual contract note/invoice; test combined-vs-split representation conflicts, nullable/missing/zero values, GST base invariance and cross-segment scope. BSE/MCX/currency/commodity are not covered by the NSE equity resolution.
 - No tariff activated; API field mapping remains fail-closed pending tests and independent review. PR #6 remains draft/unmerged; live broker order submission remains disabled. Work remains limited to `tarunsharma2610-del/tradepro-improved`.
+
+## 2026-10-24 — IPFT combined-rate regression coverage
+
+- Added regression tests in `backend/tests/test_broker_tariff_rules.py`, commit `69945f4854ea8ae7d20e7795b156750406759df7`.
+- Tests verify NSE combined exchange-charge candidate rates for cash equity, equity futures and equity options; confirm candidates remain DRAFT with no second IPFT tariff candidate; prove combined-vs-split representations yield the same GST calculation base; and guard against MCX scope leakage.
+- Updated `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md` in commit `626298aa9d8c60712189a744c86a3327eac1bb50`.
+- These tests prove internal rule consistency only. Authenticated API field semantics and account-specific contract-note/GST mapping remain unverified; BSE/MCX/currency tariff schedules need their own dated authoritative sources.
+- Latest documentation/test head requires exact-head CI verification. Tariffs remain DRAFT/non-selectable, PR #6 stays draft/unmerged, and live broker order submission stays disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope.

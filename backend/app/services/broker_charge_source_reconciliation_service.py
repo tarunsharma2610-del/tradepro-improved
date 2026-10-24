@@ -190,7 +190,10 @@ def verify_component_allocation_ledger(
             for item in weight_items:
                 if not isinstance(item, dict) or set(item) != {"fill_record_id", "weight"}:
                     raise ValueError("Explicit reviewed allocation weight entry is malformed.")
-                fill_id = UUID(item["fill_record_id"])
+                fill_record_id = item["fill_record_id"]
+                if not isinstance(fill_record_id, str):
+                    raise ValueError("Explicit reviewed allocation fill_record_id must be a UUID string.")
+                fill_id = UUID(fill_record_id)
                 weight = Decimal(str(item["weight"]))
                 if not weight.is_finite() or weight < 0 or str(fill_id) in reviewed_weights:
                     raise ValueError("Explicit reviewed allocation weights are invalid.")

@@ -2332,3 +2332,9 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Rechecked Upstox's official Brokerage Details API and Get Trade Charges API. They serve different purposes: order-specific estimate vs segment/FY aggregate charge summary. Preserve absent/null/zero/numeric IPFT values distinctly; a null aggregate sample is not proof of zero or of bundling.
 - Added BSE/MCX scope cautions and public broker schedule cross-check to UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md in commit 2f6e55532e9704d4b41c9c736c38b1948ee5f05d. BSE scrip/index variations and MCX rates remain research leads until matched to governing exchange circulars.
 - CI on this new docs head has not yet been confirmed. All tariff candidates remain DRAFT/non-selectable; PR #6 draft/unmerged; live broker writes disabled; original Tradepro untouched.
+
+## BSE / MCX tariff review checkpoint — 24 October 2026
+
+- Checked official BSE cash-equity master circular, BSE Notice 20231020-46, MCX circular archive, and MCX compliance FAQ. Recorded the current findings and strict scope limitations in UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md, commit f978052402b2be79d99958427092a29eace83859.
+- Key implementation consequence: BSE scrip-group charges require dated scrip/exclusivity metadata; nearest-expiry SENSEX options require monthly cumulative turnover slab state; MCX rates require exact effective-dated product schedules and separate CTT/stamp/GST bases. The reviewed sources do not justify activating generic BSE/MCX rates.
+- CI for this new documentation head is pending verification. All tariff candidates remain DRAFT/non-selectable; PR #6 draft/unmerged; live broker writes disabled; original Tradepro untouched.

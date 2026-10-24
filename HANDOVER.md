@@ -1536,3 +1536,10 @@ Next: verify CI on the exact branch head, then add explicit normalization tests 
 Run #40101490646 passed for commit `a8166bafe77544bf958d0d393b71432379898b72`: **805 passed, 1 warning**, broker-write guard passed, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill passed. See https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40101490646.
 
 Next work: test canonicalization only when API semantics are established, including missing vs null vs zero, combined vs split values, effective-date/product scope and GST base. A CI pass is not evidence of live Upstox field semantics. Keep tariffs DRAFT, PR #6 draft/unmerged and live broker writes disabled; never touch original `Tradepro`.
+
+
+## Historical Upstox statement evidence — 24 October 2026
+
+User supplied a redacted screenshot of an RKSV/Upstox Annual Global Transaction Statement for FY 2022–23, Futures & Options. Visible summary lines include transaction charges ₹111.61, brokerage ₹1,000.00, IGST ₹20.15, SEBI fees ₹0.22, stamp duty ₹3.00 and STT lines ₹0.32/₹51.89. No separate IPFT line is visible, but that does not prove IPFT was included in transaction charges. The annual summary is not an individual trade contract note and does not establish API field semantics. Source register updated in commit `9bb2fade8330e068022e5b2f6be0538e4f19206e`.
+
+Next: if original PDF and a matching dated Upstox API response exist, reconcile them with historical rates and bases. Keep actual-charge promotion blocked on this evidence alone; tariff candidates DRAFT, PR #6 draft/unmerged, live broker writes disabled, original Tradepro untouched.

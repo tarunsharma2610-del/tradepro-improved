@@ -47,3 +47,11 @@ The PR describes durable per-fill allocations, evidence/component provenance, re
 - Located PostgreSQL-only integration tests in `backend/tests/test_broker_charge_allocation_postgres_concurrency.py`, including concurrent source verification vs allocation promotion and live-fill promotion vs ledger verification, as well as conflicting fill-set and tariff estimate/variance persistence races.
 - These tests require `TEST_POSTGRES_URL`. Verify the PostgreSQL workflow actually ran these tests rather than skipped them before treating concurrency acceptance as complete.
 - PR #6 remains draft/unmerged; live broker order submission and automatic quantity/notional allocation remain disabled; production Upstox mappings/tariffs remain unapproved. Work only in `tradepro-improved`; original `Tradepro` remains untouched.
+
+
+## 2026-10-24 — Official tariff/API source audit
+
+- The documented Upstox charges endpoint returns segment/financial-year/date-range aggregate breakdowns, not documented per-fill charge evidence; its example has `ipft: null`. Null remains distinct from zero and aggregate data cannot satisfy actual per-fill acceptance. https://upstox.com/developer/api-documentation/get-trade-charges/
+- NSE/FA/73061 (27-Feb-2026; effective 1-Mar-2026) states combined outflow ₹307/crore cash, ₹183/crore equity futures and ₹3,553/crore equity-option premium, including ₹0.01/crore IPFT each side. Do not add IPFT a second time to those combined rates. https://nsearchives.nseindia.com/content/circulars/FA73061.pdf
+- Upstox public pricing tables contain historical and newer effective-date values, including STT/CTT effective 1-Apr-2026. Tariff acceptance must bind broker, exchange, segment/product, basis, side and effective date; unresolved scopes remain blocked. https://upstox.com/brokerage-charges/
+- These source findings do not approve production mappings. Backend workflow #40110597753 passed on prior head `ee1b2a74d2a9f6141b9afbb6e06562b5cf263a9b`; new docs require CI on the latest head. PR #6 draft/unmerged; live order submission and automatic quantity/notional allocation disabled.

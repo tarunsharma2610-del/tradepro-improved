@@ -110,18 +110,25 @@ def test_future_effective_rule_requires_explicit_approval():
 
 
 @pytest.mark.parametrize(
-    ("unit", "rate", "base", "expected"),
+    ("component", "basis", "unit", "rate", "base", "expected"),
     [
-        ("PERCENT", "0.003", "100000.00", "3.00"),
-        ("INR_PER_CRORE", "10", "100000.00", "0.10"),
-        ("INR_FIXED", "15.50", "0", "15.50"),
-        ("PERCENT", "0", "100000.00", "0.00"),
+        ("brokerage", "ORDER_NOTIONAL", "PERCENT", "0.003", "100000.00", "3.00"),
+        ("sebi_turnover", "TURNOVER", "INR_PER_CRORE", "10", "100000.00", "0.10"),
+        ("other_fee", "ORDER_FIXED", "INR_FIXED", "15.50", "0", "15.50"),
+        ("brokerage", "ORDER_NOTIONAL", "PERCENT", "0", "100000.00", "0.00"),
     ],
 )
-def test_calculate_tariff_amount_respects_declared_rate_unit(unit, rate, base, expected):
+def test_calculate_tariff_amount_respects_declared_rate_unit(
+    component, basis, unit, rate, base, expected
+):
     from app.services.broker_tariff_rules import calculate_tariff_amount
 
-    rule = make_rule(rate=Decimal(rate), rate_unit=unit)
+    rule = make_rule(
+        component=component,
+        calculation_basis=basis,
+        rate=Decimal(rate),
+        rate_unit=unit,
+    )
     assert calculate_tariff_amount(rule, calculation_base=base) == Decimal(expected)
 
 

@@ -813,3 +813,11 @@ The first implementation pass adds explicit single-fill/order-fill-set estimate 
 - Upstox's charges page contains both historical and newer effective-date tables; use effective-dated rules and account for its published STT/CTT transition from 1-Apr-2026. Avoid stale rates and double-counting separately stated IPFT where the exchange rate is combined. https://upstox.com/brokerage-charges/
 - Production mappings/tariffs remain unapproved. PR #6 remains draft/unmerged; live broker order submission and automatic quantity/notional allocation remain disabled. Work only in `tradepro-improved`; original `Tradepro` remains untouched.
 - The implementation head `ee1b2a74d2a9f6141b9afbb6e06562b5cf263a9b` passed workflow #40110597753; the present documentation commits need their own CI verification.
+
+
+## 2026-10-24 — Upstox brokerage calculator restricted to estimates; CI pending
+
+- Official Upstox `GET /v2/charges/brokerage` calculates charges from proposed order inputs; it is not proof of final booked per-fill charges. https://upstox.com/developer/api-documentation/get-brokerage/
+- Resolver blocks this endpoint from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use, even if a mapping is misleadingly labelled. `/v2/trade/profit-loss/charges` remains aggregate-only for per-fill purposes. Regression tests cover both mislabelled cases.
+- Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. The prior head passed workflow #40111501429; latest implementation/test CI must be verified.
+- Production mappings/tariffs unapproved; null is not zero; automatic quantity/notional allocation and live order submission disabled. PR #6 draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` untouched.

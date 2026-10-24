@@ -1101,3 +1101,10 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Dedicated PostgreSQL concurrency tests exercise verification-vs-promotion, live-fill-vs-ledger verification, conflicting fill sets, and concurrent tariff snapshot replay/conflict. CI on head `bacbe9dd9dfa35d739bbcea2bfece6185dc391d0` passed workflow [#40109864007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40109864007). This passing head predates the present audit-note commit(s); recheck CI on the new head.
 - Remaining acceptance is not waived: ensure the PostgreSQL-only tests are exercised by required CI with `TEST_POSTGRES_URL`, verify latest branch checks after this documentation change, and continue authoritative tariff/API-field review. Synthetic test fixtures do not approve production tariff semantics.
 - PR #6 remains draft/unmerged. Live broker order submission and automatic quantity/notional allocation remain disabled. Production Upstox mappings/tariffs remain unapproved. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## 2026-10-24 — Aggregate endpoint hard guard added; CI pending
+
+- Resolver now blocks Upstox `/v2/trade/profit-loss/charges` from `PER_FILL_ACTUAL` use even if a mapping row is incorrectly labelled per-fill. Official documentation defines the endpoint as aggregate `charges_breakdown`, not per-fill evidence.
+- Regression test `test_official_upstox_aggregate_charges_endpoint_cannot_be_promoted_to_per_fill` covers the guard. Implementation `cdc07afdd8cc0c8d0b37d7e4aa8cdf1bf6eac651`; test `8ae749017a8ba0016f2c9adeb77eaff41fb5ae70`. CI is pending for this test commit.
+- Production field mappings and tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live order submission remain disabled. PR #6 stays draft/unmerged; original `Tradepro` remains untouched.

@@ -1414,3 +1414,10 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Upstox's charges page contains both historical and newer effective-date tables; use effective-dated rules and account for its published STT/CTT transition from 1-Apr-2026. Avoid stale rates and double-counting separately stated IPFT where the exchange rate is combined. https://upstox.com/brokerage-charges/
 - Production mappings/tariffs remain unapproved. PR #6 remains draft/unmerged; live broker order submission and automatic quantity/notional allocation remain disabled. Work only in `tradepro-improved`; original `Tradepro` remains untouched.
 - The implementation head `ee1b2a74d2a9f6141b9afbb6e06562b5cf263a9b` passed workflow #40110597753; the present documentation commits need their own CI verification.
+
+
+## 2026-10-24 — Aggregate endpoint hard guard added; CI pending
+
+- Resolver now blocks Upstox `/v2/trade/profit-loss/charges` from `PER_FILL_ACTUAL` use even if a mapping row is incorrectly labelled per-fill. Official documentation defines the endpoint as aggregate `charges_breakdown`, not per-fill evidence.
+- Regression test `test_official_upstox_aggregate_charges_endpoint_cannot_be_promoted_to_per_fill` covers the guard. Implementation `cdc07afdd8cc0c8d0b37d7e4aa8cdf1bf6eac651`; test `8ae749017a8ba0016f2c9adeb77eaff41fb5ae70`. CI is pending for this test commit.
+- Production field mappings and tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live order submission remain disabled. PR #6 stays draft/unmerged; original `Tradepro` remains untouched.

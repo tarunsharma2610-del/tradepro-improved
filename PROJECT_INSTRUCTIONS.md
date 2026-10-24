@@ -1287,3 +1287,9 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Actual charge allocation still requires reviewed contract-note evidence and exact matching; do not distribute aggregate charges across fills without a separately approved allocation policy.
 
 - The official `GET /v2/trade/profit-loss/metadata` endpoint (`https://upstox.com/developer/api-documentation/get-report-meta-data/`) supplies `trades_count` and `page_size_limit` for a segment/FY/date scope. Use this metadata to guide pagination for `/trade/profit-loss/data`; do not hardcode an assumed page size beyond the documented API limit. It provides no charge components and does not authorize charge allocation.
+
+## GST valuation and combined IPFT guard — 24 October 2026
+
+- Upstox's public charges page says GST is 18% on brokerage, transaction charges and IPFT (plus demat charges for equity delivery), while also stating IPFT is combined with transaction charges. Do not add the combined-rate schedule and separate IPFT again or assume the GST base is proven by field names alone.
+- CBIC's stock-broking FAQ (Q77, Rule 33 pure-agent treatment) says statutory recoveries such as STT and stamp duty are outside the broker's GST value only when pure-agent conditions are met; otherwise section 15 / Rule 27 valuation applies. Treat this as a scope warning, not a universal component mapping.
+- Keep GST composition and impacted tariffs unapproved until dated account-specific Upstox tax-invoice/contract-note evidence establishes the exact segment/product/effective-date mapping. Preserve separate source components and fail closed on unresolved differences; no tax/tariff promotion from public text alone.

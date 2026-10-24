@@ -2303,3 +2303,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Updated `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md` in commit `626298aa9d8c60712189a744c86a3327eac1bb50`.
 - These tests prove internal rule consistency only. Authenticated API field semantics and account-specific contract-note/GST mapping remain unverified; BSE/MCX/currency tariff schedules need their own dated authoritative sources.
 - Latest documentation/test head requires exact-head CI verification. Tariffs remain DRAFT/non-selectable, PR #6 stays draft/unmerged, and live broker order submission stays disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope.
+
+
+## 2026-10-24 — IPFT checkpoint CI verified
+
+- Exact-head CI passed for `a8166bafe77544bf958d0d393b71432379898b72`: workflow #40101490646, Backend pytest **805 passed, 1 warning**; broker-write guard, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill/evidence retention passed.
+- Workflow: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40101490646
+- This does not resolve authenticated Upstox API `transaction`/ `ipft` field semantics or account-specific GST reconciliation. NSE cash/equity futures/equity options rate arithmetic remains resolved only within the documented scope.
+- Continue with API field normalization fixtures and evidence mapping; candidates remain DRAFT/non-selectable. PR #6 stays draft/unmerged; live broker writes remain disabled. Only `tradepro-improved` is in scope.

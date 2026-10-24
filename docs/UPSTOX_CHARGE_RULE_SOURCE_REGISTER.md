@@ -385,3 +385,10 @@ The user-provided statement advances historical evidence collection but does not
 - Added `backend/app/services/broker_charge_api_normalization.py` with tests distinguishing absent fields, explicit `null`, numeric zero, nonzero numeric values and invalid values while preserving the original raw JSON value.
 - This helper intentionally does not map `transaction` to transaction-only vs combined transaction/IPFT, does not interpret aggregate API responses as per-fill actuals, and does not turn `null` into zero. A reviewed mapping must identify API endpoint, response schema/version, field path, semantic meaning, unit, currency, scope and effective date.
 - Exact-head CI for the new code/test commits remains required. Tariff candidates remain DRAFT/non-selectable; no API field mapping is approved by this helper alone.
+
+
+## Reviewed API field mapping gate — 24 October 2026
+
+- Added a generic mapping registry requiring broker, exact endpoint, response schema/version, field path, semantic classification, unit, currency, scope, effective date, source URL/hash and approval state. Selection refuses unapproved, unknown, missing or overlapping mappings.
+- This is a software guard, not an approval of `ipft` or `transaction` semantics. No real Upstox mapping is approved yet; sample values in tests are synthetic and must not be interpreted as evidence. The authenticated Brokerage Details endpoint and aggregate Get Trade Charges endpoint remain separate evidence classes.
+- Workflow #40106757433 passed for the prior field-state normalizer commit; the mapping module and subsequent docs require their own exact-head CI. Tariff candidates remain DRAFT/non-selectable.

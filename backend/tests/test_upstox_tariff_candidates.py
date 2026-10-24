@@ -122,8 +122,21 @@ def test_exchange_charge_candidates_remain_narrowly_scoped_and_draft():
         }
         for rule in rules
     )
-    # Do not silently imply these rows include or exclude IPFT. Composition
-    # remains an approval gate; the registry intentionally contains no IPFT row.
+    # From 2026-03-01 the published NSE combined outflow rates include
+    # the ₹0.01/crore IPFT contribution; never add legacy ₹10/₹50 rates again.
+    by_scope = {
+        (rule.exchange, rule.segment, rule.product): rule.rate
+        for rule in rules
+        if rule.transaction_side == "BUY"
+    }
+    assert by_scope == {
+        ("NSE", "EQ", "DELIVERY"): Decimal("0.00307"),
+        ("NSE", "EQ", "INTRADAY"): Decimal("0.00307"),
+        ("NSE", "FO", "FUTURES"): Decimal("0.00183"),
+        ("NSE", "FO", "OPTIONS"): Decimal("0.03553"),
+        ("BSE", "FO", "OPTIONS"): Decimal("0.0325"),
+    }
+    # Preserve a single combined charge candidate; never double count IPFT.
     assert not any(rule.component == "ipft" for rule in upstox_tariff_candidate_rules())
 
 

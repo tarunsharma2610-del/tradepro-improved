@@ -461,14 +461,17 @@ def test_fixed_order_brokerage_is_flat_and_rejects_caps():
     )
     assert calculate_order_brokerage(rule, order_notional="1000000") == Decimal("20.00")
 
-    capped = make_rule(
-        calculation_basis="ORDER_FIXED",
-        rate_unit="INR_FIXED",
-        rate=Decimal("20.00"),
-        maximum_inr=Decimal("15.00"),
-    )
-    with pytest.raises(ValueError, match="cannot use percentage caps"):
-        calculate_order_brokerage(capped, order_notional="1000000")
+    # Rule validation must reject caps on fixed-fee rules before calculation.
+    with pytest.raises(
+        ValueError,
+        match="caps are supported only for order-notional percentage brokerage rules",
+    ):
+        make_rule(
+            calculation_basis="ORDER_FIXED",
+            rate_unit="INR_FIXED",
+            rate=Decimal("20.00"),
+            maximum_inr=Decimal("15.00"),
+        )
 
 
 def test_generic_calculator_rejects_special_or_unknown_calculation_shapes():

@@ -28,7 +28,9 @@ def resolve_charge_api_value(
 
     PER_FILL_ACTUAL use accepts only a mapping explicitly marked PER_FILL_ACTUAL.
     Aggregate summaries and estimates cannot be silently reused as actual per-fill
-    charges. This function does not itself promote an accounting allocation.
+    charges. Mapping provenance is retained for every resolved field state,
+    including missing, null, and invalid values. This function does not promote
+    an accounting allocation.
     """
     normalized = normalize_charge_api_field(payload, field)
     mapping = select_charge_api_field_mapping(
@@ -52,12 +54,15 @@ def resolve_charge_api_value(
         "BROKERAGE_ESTIMATE", "STATUTORY_CHARGE_ESTIMATE"
     }:
         raise ValueError("Mapping semantics do not permit estimate use.")
-    if normalized["state"] in {"MISSING", "NULL", "INVALID"}:
-        return {**normalized, "semantic": mapping.semantic, "usable": False}
-    return {
-        **normalized,
+
+    # Provenance describes the approved interpretation even when the payload
+    # value is unusable. Keeping it on all states makes missing/null/invalid
+    # results auditable without implying that they are accounting-ready.
+    provenance = {
         "semantic": mapping.semantic,
-        "usable": True,
         "mapping_source_url": mapping.source_url,
         "mapping_source_sha256": mapping.source_sha256,
     }
+    if normalized["state"] in {"MISSING", "NULL", "INVALID"}:
+        return {**normalized, **provenance, "usable": False}
+    return {**normalized, **provenance, "usable": True}

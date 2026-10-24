@@ -1925,3 +1925,6 @@ Exact-head backend CI passed on `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` in ru
 
 ## Additional aggregate variance regression tests — 2026-10-24
 Added `test_variance_comparison_does_not_change_reviewed_source_or_charge_allocations`, which checks source/evidence provenance and allocation ledger fields remain unchanged after a variance record is created. Added parameterized `test_variance_comparison_revalidates_review_state_before_writing`, which rejects stale evidence/component review states without writing a variance row. CI on the latest test head is pending. Remaining: exact-head CI, concurrency/replay acceptance, and final nine-document synchronization. PR #6 remains draft/unmerged; live broker writes disabled; original `Tradepro` untouched.
+
+## Upstox API/SDK coverage policy — 2026-10-24
+Created `UPSTOX_API_INTEGRATION_POLICY.md` and made it mandatory in `PROJECT_INSTRUCTIONS.md`. The policy requires an official-source capability matrix, official SDK/version assessment, Agent Skill/MCP review with safety limits, sandbox/rate-limit/auth review, and specific evaluation of brokerage estimate, historical trade charges and historical trades. Estimates and aggregate historical charges must not be treated as reviewed contract-note/per-fill evidence. Live broker writes remain disabled; exact-head CI for this documentation change is pending.

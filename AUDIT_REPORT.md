@@ -1775,3 +1775,10 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## Upstox SDK/API audit — 24 October 2026
+
+Repository-only audit recorded in [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md). Findings: the backend currently uses async `httpx` REST integration, a dedicated V3 protobuf/WebSocket market-data streamer, a read-only reconciliation client, and a validated brokerage-estimate parser; `upstox-python-sdk` is not listed in backend requirements. The existing adapter has a stream-hook stub that delegates conceptually to the separate stream service, which should be reconciled without creating a duplicate stream.
+
+No application code or dependency changed during this audit. Next is an isolated SDK-version/method/schema compatibility spike, initially for read-only brokerage estimation. Adoption is conditional on maintaining async safety, timeouts, sanitized errors, parser semantics and tests. Agent Skill is development-only. No live calls or order writes were performed; PR #6 stays draft/unmerged and PAPER mode remains mandatory.
+

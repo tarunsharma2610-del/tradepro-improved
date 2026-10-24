@@ -696,6 +696,8 @@ def test_concurrent_variance_comparison_exact_replay_is_audit_only(tmp_path, mon
     monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
     manifest_json = json.dumps([str(trade_id)], separators=(",", ":"))
     manifest_digest = hashlib.sha256(manifest_json.encode("utf-8")).hexdigest()
+    portfolio_id, instrument_id, order_id = uuid4(), uuid4(), uuid4()
+    snapshot_id = None
 
     try:
         with Session.begin() as db:
@@ -712,8 +714,25 @@ def test_concurrent_variance_comparison_exact_replay_is_audit_only(tmp_path, mon
                 redirect_uri="https://example.invalid/callback", is_connected=True,
             ))
             db.flush()
+            db.add(Portfolio(
+                id=portfolio_id, user_id=owner_id, name=f"variance-race-{suffix}",
+                virtual_capital=Decimal("10000.00"), cash_balance=Decimal("10000.00"),
+            ))
+            db.add(Instrument(
+                id=instrument_id, instrument_key=f"TEST|VARIANCE|{suffix}", exchange="NSE",
+                segment="NSE_FO", instrument_type="FUTURES", trading_symbol=f"VAR{suffix}",
+                name="Variance Concurrency Test Instrument",
+            ))
+            db.flush()
+            db.add(Order(
+                id=order_id, portfolio_id=portfolio_id, instrument_id=instrument_id,
+                side="SELL", order_type="MARKET", segment="EQUITY_INTRADAY", quantity=1,
+                status="FILLED", trading_mode="PAPER", execution_reason="MANUAL",
+                placed_at=datetime.now(timezone.utc),
+            ))
+            db.flush()
             db.add(BrokerOrder(
-                id=broker_order_id, broker_connection_id=connection_id, order_id=uuid4(),
+                id=broker_order_id, broker_connection_id=connection_id, order_id=order_id,
                 broker_name="upstox", broker_order_id=f"variance-order-{suffix}",
                 requested_quantity=1, filled_quantity=1, status="COMPLETE",
             ))
@@ -804,13 +823,17 @@ def test_concurrent_variance_comparison_exact_replay_is_audit_only(tmp_path, mon
     finally:
         with Session.begin() as db:
             db.execute(text("DELETE FROM tariff_estimate_variance_records WHERE source_component_id = :id"), {"id": str(component_id)})
-            db.execute(text("DELETE FROM tariff_estimate_snapshot_records WHERE idempotency_key LIKE :key"), {"key": f"%variance-race:{suffix}%"})
+            if snapshot_id is not None:
+                db.execute(text("DELETE FROM tariff_estimate_snapshot_records WHERE id = :id"), {"id": str(snapshot_id)})
             db.execute(text("DELETE FROM broker_charge_allocations WHERE evidence_id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_charge_source_components WHERE id = :id"), {"id": str(component_id)})
             db.execute(text("DELETE FROM broker_charge_evidence WHERE id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_trade_records WHERE id = :id"), {"id": str(trade_id)})
             db.execute(text("DELETE FROM broker_orders WHERE id = :id"), {"id": str(broker_order_id)})
             db.execute(text("DELETE FROM broker_connections WHERE id = :id"), {"id": str(connection_id)})
+            db.execute(text("DELETE FROM orders WHERE id = :id"), {"id": str(order_id)})
+            db.execute(text("DELETE FROM instruments WHERE id = :id"), {"id": str(instrument_id)})
+            db.execute(text("DELETE FROM portfolios WHERE id = :id"), {"id": str(portfolio_id)})
             db.execute(text("DELETE FROM users WHERE id IN (:owner, :reviewer)"),
                        {"owner": str(owner_id), "reviewer": str(reviewer_id)})
         engine.dispose()

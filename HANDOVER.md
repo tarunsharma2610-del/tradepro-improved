@@ -1253,3 +1253,12 @@ Head `f76ecde4ac785123de2980539138ce89ff660294` passed exact-head CI run `400659
 - The single pytest warning is a Starlette/AnyIO deprecation warning. GitHub Actions also logged Node.js 20 action-runtime deprecation warnings. These did not fail the run.
 - Aggregate `ORDER_FILL_SET` variance tests and the variance-only persistence service are present; this successful suite includes their tests. Variance records remain audit-only and do not promote charges or create per-fill allocations. Source-backed effective tariff applicability, charge composition, and durable accounting acceptance remain open gates.
 - Synthetic restore is not actual Oracle Cloud recovery. PR #6 remains draft/unmerged. Live broker order execution and automatic accounting promotion remain disabled. All work stays in `tarunsharma2610-del/tradepro-improved`; never modify original `tarunsharma2610-del/Tradepro`.
+
+## Next resume point — Upstox estimate reconciliation gate — 24 October 2026
+
+- In `backend/app/services/tariff_estimate_snapshot.py`, estimate normalization now rejects a reported total that differs from the sum of normalized component amounts. DP-plan minimum metadata is not part of that component sum.
+- In `backend/tests/test_tariff_estimate_snapshot.py`, regression tests cover total mismatch and ensure a null component is not treated as an explicit zero.
+- Code commit: `ce0d426142b8e70b5cd56d0832694a397258f563`; tests commit: `8136ccdabbc5326d59e2b8a6951ae02c3495ab62`.
+- CI run [40082403073](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40082403073) was still in progress at handover. Verify CI for the final documentation head before calling this gate green.
+- Follow-up after CI: design explicit versioned component mapping and component-specific treatment for transaction/clearing/IPFT, nullable fields, and DP/demat per-scrip/day semantics. Keep unsupported components fail-closed; API estimates and aggregate totals are not actual per-fill evidence.
+- Safety: PR #6 remains draft/unmerged; live broker writes remain disabled; all work only in `tarunsharma2610-del/tradepro-improved`, never the original `tarunsharma2610-del/Tradepro`.

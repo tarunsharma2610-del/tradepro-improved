@@ -228,3 +228,8 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - No SDK dependency or application code was changed in this audit. Decision: evaluate SDK support/version/license and async/error-handling fit before adoption; do not duplicate existing clients.
 - No live API calls, account access, or orders were made. Estimate/aggregate semantics, DRAFT tariff status, PAPER-only development, live-write restrictions, PR #6 draft/unmerged status, and repository boundary remain unchanged.
 
+## 2026-10-24 — SDK/Agent Skill static compatibility review
+
+- Added `docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md` and expanded the SDK/API audit with official SDK v2.30.0 method/dependency findings and Agent Skill risks.
+- Confirmed the generated brokerage SDK method is synchronous by default and existing async REST plus project-owned parser already covers this endpoint. No runtime dependency was added.
+- Reviewed Agent Skill helper, validator, live equity-order and GTT examples, config example and MIT licence. No skill code was executed and no live credentials/API calls/orders were used.

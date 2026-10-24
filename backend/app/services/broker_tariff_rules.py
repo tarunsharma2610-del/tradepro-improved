@@ -237,7 +237,7 @@ def calculate_charge_for_trade(
         calculation_basis=calculation_basis,
         trade_date=trade_date,
     )
-    if rule.component.lower() == "brokerage" and rule.calculation_basis == "ORDER_NOTIONAL":
+    if rule.component.lower() == "brokerage" and rule.calculation_basis in {"ORDER_NOTIONAL", "ORDER_FIXED"}:
         amount = calculate_order_brokerage(rule, order_notional=calculation_base)
     elif rule.component.lower() == "stamp_duty":
         amount = calculate_stamp_duty_for_trade(

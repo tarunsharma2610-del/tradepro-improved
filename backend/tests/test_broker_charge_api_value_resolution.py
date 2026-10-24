@@ -150,3 +150,32 @@ def test_supported_non_per_fill_use_requires_matching_mapping_semantics(semantic
 def test_unknown_intended_use_is_rejected():
     with pytest.raises(ValueError, match="Unsupported intended use"):
         resolve({"ipft": "0.01"}, mapping(), intended_use="POSITION_COST")
+
+
+@pytest.mark.parametrize(
+    ("mapping_change", "argument_change"),
+    [
+        ({"broker": "OtherBroker"}, {}),
+        ({"endpoint": "/different/endpoint"}, {}),
+        ({"schema_version": "fixture-v2"}, {}),
+        ({"field_path": "charges.other"}, {}),
+        ({}, {"broker": "OtherBroker"}),
+        ({}, {"schema_version": "fixture-v2"}),
+        ({}, {"field_path": "charges.other"}),
+        ({}, {"scope": "aggregate-segment-fy"}),
+    ],
+)
+def test_exact_mapping_identity_must_match_every_dimension(mapping_change, argument_change):
+    selected = mapping()
+    for key, value in mapping_change.items():
+        setattr(selected, key, value)
+    with pytest.raises(ValueError, match="No approved API field mapping"):
+        resolve({"ipft": "0.01"}, selected, **argument_change)
+
+
+@pytest.mark.parametrize("value", ["Infinity", "-Infinity", float("inf"), float("-inf")])
+def test_non_finite_charge_values_are_rejected(value):
+    result = resolve({"ipft": value}, mapping())
+    assert result["state"] == "INVALID"
+    assert result["usable"] is False
+    assert_mapping_provenance(result)

@@ -646,3 +646,7 @@ The new Upstox candidate registry contains only DRAFT rules, and tests verify th
 - Resolver blocks this endpoint from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use, even if a mapping is misleadingly labelled. `/v2/trade/profit-loss/charges` remains aggregate-only for per-fill purposes. Regression tests cover both mislabelled cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. The prior head passed workflow #40111501429; latest implementation/test CI must be verified.
 - Production mappings/tariffs unapproved; null is not zero; automatic quantity/notional allocation and live order submission disabled. PR #6 draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` untouched.
+
+## Upstox Agent Skill trust boundary — 2026-10-24
+
+The upstream skill is external development material, not an app authorization boundary. Static inspection found live order/GTT examples, a helper that can fall back to a local `config.json` token, and a smoke-test path that prints raw API exception bodies. Do not install it in the production runtime, execute write-capable examples with live credentials, or allow a skill's interactive confirmation to bypass application-level authorization, PAPER-mode enforcement, broker-write guards, idempotency, audit logs, or secret redaction. Details: [`docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md`](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md).

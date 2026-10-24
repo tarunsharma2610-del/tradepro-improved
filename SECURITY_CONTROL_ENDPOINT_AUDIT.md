@@ -545,3 +545,6 @@ The Upstox Agent Skill can execute live orders; never run it in a way that submi
 
 ## Variance race acceptance — 2026-10-24
 PostgreSQL concurrency coverage passed exact-head CI run `40064129721` (738 passed, 1 warning): simultaneous duplicate comparisons persist one immutable audit-only variance record and do not create allocation rows. This service is not an order-control or accounting-promotion path. Tariff-rule work must not turn estimate comparisons into actual charge evidence or bypass source-review/promotion safeguards. Live broker order writes remain disabled.
+
+## Upstox charge API surface — 2026-10-24
+The read-only reconciliation client now exposes only fixed GET methods for brokerage estimates, aggregate historical charges and paginated historical trades. Exact-head CI run `40064514873` passed (744 passed, 1 warning). Input validation and sanitized error categories remain in the shared transport; no order-write methods were added, and no live account call was made. API outputs must not bypass reviewed-source or promotion gates.

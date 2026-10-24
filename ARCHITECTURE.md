@@ -813,3 +813,6 @@ Use `UPSTOX_API_INTEGRATION_POLICY.md` as the canonical API inventory. Prefer on
 
 ## Aggregate variance concurrency invariant — 2026-10-24
 Exact-head CI run `40064129721` passed (738 passed, 1 warning). PostgreSQL race coverage confirms concurrent duplicate variance comparisons yield one `CREATED` and one `EXACT_REPLAY`, exactly one append-only `VARIANCE_ONLY` record, and no per-fill allocation writes. Variance remains audit-only. Next gate is explicit effective-dated component rules and controlled integration from approved rule calculation to the existing durable allocation ledger; do not create duplicate ledgers or adapters.
+
+## Upstox read-only charge endpoints — 2026-10-24
+The existing fixed-path `UpstoxReadOnlyReconciliationClient` now supports the official brokerage estimate, trade-charge aggregate and historical-trades GET endpoints. Exact-head CI run `40064514873` passed (744 passed, 1 warning). The official SDK was assessed; for these narrow reads, direct REST remains behind the existing façade to preserve fixed GET-only surface, validation and sanitized error handling without importing a broad generated SDK that also exposes trading methods. Next: immutable API-estimate provenance and comparison integration; do not write estimates into actual per-fill accounting.

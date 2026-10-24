@@ -1062,3 +1062,6 @@ Before starting or closing an Upstox feature, read `UPSTOX_API_INTEGRATION_POLIC
 
 ## Next Phase 3 gate — 2026-10-24
 Aggregate variance concurrency/replay is CI-verified in run `40064129721` on `dbff090610028cfb9f5a87585d9c8e697449cd23` (738 passed, 1 warning). Next: source-backed effective-dated component-specific tariff rules and integration with the durable per-fill ledger. Prioritize brokerage per-order caps/multi-fill handling, GST taxable-base composition, buy-side stamp duty, and segment/product/side/effective-date validation. Explicit-review allocation remains the safe path; unsupported automatic QUANTITY/NOTIONAL and conditional STT/CTT/DP cases remain fail-closed.
+
+## Next Phase 3 task — immutable Upstox estimate snapshots — 2026-10-24
+Read-only client methods for brokerage estimate, historical trade-charge aggregate and paginated historical trades passed exact-head CI run `40064514873` (744 passed, 1 warning). Next, normalize the brokerage API response into immutable estimate-only records with exact request parameters, API version, retrieval timestamp and response digest; map components carefully and preserve DP-plan daily minimum as separate metadata. Integrate only with variance-only comparison. Do not create allocation rows or mutate positions/P&L from API estimates or aggregate history.

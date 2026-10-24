@@ -1043,3 +1043,6 @@ For every relevant upgrade, read `UPSTOX_API_INTEGRATION_POLICY.md`. Audit the c
 
 ## Phase 3 variance acceptance checkpoint — 2026-10-24
 Aggregate variance concurrency/replay passed exact-head CI run `40064129721` on commit `dbff090610028cfb9f5a87585d9c8e697449cd23` (738 passed, 1 warning). PostgreSQL coverage verifies concurrent duplicate comparisons produce one `CREATED`, one `EXACT_REPLAY`, one immutable audit record, and no allocation writes. Next gate: source-backed effective-dated component-specific tariff applicability and approved rule-to-per-fill integration. Unsupported bases remain fail-closed; PR #6 draft/unmerged; live broker writes disabled.
+
+## Upstox read-only charge APIs added — 2026-10-24
+The existing `UpstoxReadOnlyReconciliationClient` now exposes `get_brokerage_estimate`, `get_trade_charges`, and `get_historical_trades`, with fixed GET paths, input validation and sanitized upstream errors. Exact-head CI run `40064514873` passed on `5026e95e56ae52c40b238bc29c194ceae26c7898` (744 passed, 1 warning). These endpoints have not been called against a real account; no tokens or live orders were used. API calculator output is estimate-only, trade charges are aggregate, and historical trades are references—not contract-note/per-fill charge evidence. See `UPSTOX_API_INTEGRATION_POLICY.md` and `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`.

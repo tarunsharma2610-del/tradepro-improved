@@ -1398,3 +1398,6 @@ The new `UPSTOX_API_INTEGRATION_POLICY.md` requires each Upstox audit to invento
 
 ## 2026-10-24 — Aggregate variance concurrency verified
 Exact-head CI run `40064129721` passed on `dbff090610028cfb9f5a87585d9c8e697449cd23` (738 passed, 1 warning). The PostgreSQL concurrency test verifies simultaneous duplicate comparisons produce one immutable audit record, `CREATED` plus `EXACT_REPLAY`, and no allocation writes. Aggregate variance acceptance is closed. Remaining Phase 3 focus: reviewed, effective-dated component-specific tariff applicability and safe per-fill allocation integration; unsupported bases remain fail-closed.
+
+## 2026-10-24 — Upstox charge API client verified
+Added tested read-only methods for `/v2/charges/brokerage`, `/v2/trade/profit-loss/charges` and `/v2/charges/historical-trades`. Exact-head CI run `40064514873` passed on `5026e95e56ae52c40b238bc29c194ceae26c7898` (744 passed, 1 warning). Tests use mocked responses; no live account access. API estimate, historical aggregate and trade-reference semantics remain distinct. The official Upstox tariff page also contains new effective-date rows for 2026; details are recorded in `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md` as research only pending source review and executable-rule tests.

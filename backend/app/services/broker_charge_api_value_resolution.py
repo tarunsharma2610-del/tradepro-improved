@@ -42,6 +42,8 @@ def resolve_charge_api_value(
         scope=scope,
         trade_date=trade_date,
     )
+    if field != mapping.field_path.rsplit(".", 1)[-1]:
+        raise ValueError("Payload field does not match the approved mapping field path.")
     if intended_use not in {"ESTIMATE", "AGGREGATE_SUMMARY", "PER_FILL_ACTUAL"}:
         raise ValueError("Unsupported intended use.")
     if intended_use == "PER_FILL_ACTUAL" and mapping.semantic != "PER_FILL_ACTUAL":

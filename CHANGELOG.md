@@ -113,3 +113,10 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Added a normalization helper and tests preserving MISSING, NULL, ZERO, VALUE and INVALID states without inferring whether an API amount is combined, aggregate or per-fill.
 - Exact-head CI is required for the new code/test commits; prior matrix head passed workflow #40106582037.
 - No tariff activation, automatic allocation enablement, PR merge or live broker writes.
+
+
+## 2026-10-24 — Reviewed broker API mapping gate
+
+- Added an exact-scope, effective-dated mapping registry for broker charge API fields. Only approved mappings matching broker, endpoint, schema version, field path, scope and trade date can be selected; unknown/unapproved/overlapping mappings fail closed.
+- Field-state normalizer CI passed in workflow #40106757433 on commit `f0e815c5b788744966bf2bacbfbe9c79dbfdd822`. New mapping code/tests and follow-up documentation still require exact-head CI.
+- No live API semantics were approved, no tariff activated, no PR merge, and no live broker writes.

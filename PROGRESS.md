@@ -2379,3 +2379,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Verified Backend workflow #40106949357 passed on mapping-test commit `3a04aefc7e8bb9c0cf8e99889c5de89b4537dc63`; Backend workflow #40106989369 also passed on source-register documentation commit `cee4fa0fbd4eefc0850d26119bdc6fa11e3915a`.
 - This verifies the mapping guard and field-state normalizer code/test commits are covered by successful CI, but does not mean every later documentation commit has exact-head CI. Re-run CI on the final current branch head before a merge decision.
 - Review conclusion: API mapping guard is intentionally not wired to infer or auto-approve production Upstox field semantics. No live mapping has been approved. The next implementation gate is linking normalized API values to the exact approved mapping only at a controlled accounting boundary, with fail-closed rejection of aggregate data for per-fill actuals.
+
+
+## 2026-10-24 — Controlled API value resolution
+
+- Added `backend/app/services/broker_charge_api_value_resolution.py` and `backend/tests/test_broker_charge_api_value_resolution.py`.
+- The resolver combines the field-state normalizer with exact approved mapping selection. It rejects aggregate summaries, estimates and component-only semantics when intended use is per-fill actual; preserves missing/null/invalid as unusable; and keeps numeric zero distinct from missing/null. It returns mapping provenance and does not promote ledger allocations.
+- Synthetic fixtures use a reserved example.invalid URL and are tests only, not evidence of Upstox's live API semantics. No production field mapping was approved.
+- Prior mapping and source-register commits passed workflows #40106949357 and #40106989369 respectively. Exact-head CI for this resolver and final documentation updates is still required.

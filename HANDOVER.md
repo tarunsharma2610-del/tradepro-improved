@@ -1591,3 +1591,10 @@ Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE 
 - Added `backend/app/services/broker_charge_api_mapping.py` and tests `backend/tests/test_broker_charge_api_mapping.py` to require an exact approved mapping by broker/endpoint/schema/field/scope/effective date. `UNKNOWN`, unapproved, missing and overlapping mappings fail closed. New mapping commits: `0461024f245d91e7114488d56d79e58722f9de9e` and `3a04aefc7e8bb9c0cf8e99889c5de89b4537dc63`.
 - The new mapping is a guardrail only; no Upstox field semantics have been approved. Synthetic test fixtures are not evidence. Exact-head CI remains pending for the new mapping and docs.
 - Continue by checking exact-head CI, then audit the acceptance matrix against code/tests and source-backed product-specific rules. Keep PR #6 draft/unmerged, tariffs DRAFT/non-selectable, automatic quantity/notional allocation disabled, and live broker writes disabled. Work only in `tradepro-improved`.
+
+
+## Resume checkpoint — API mapping guard CI result
+
+- Backend workflow #40106949357 passed for `3a04aefc7e8bb9c0cf8e99889c5de89b4537dc63` (API mapping guard + tests). Backend workflow #40106989369 passed for `cee4fa0fbd4eefc0850d26119bdc6fa11e3915a` (source-register docs).
+- These runs validate those commits, not necessarily the current branch head after subsequent doc commits. Re-run exact-head CI before merge.
+- No production Upstox field semantics are approved. Next: add a narrow controlled resolution function that combines normalized field state with an exact approved mapping and rejects aggregate scope for per-fill actual charges. Keep no fallback-by-name, no inference from null, no tariff activation, no automatic allocation, no live broker writes.

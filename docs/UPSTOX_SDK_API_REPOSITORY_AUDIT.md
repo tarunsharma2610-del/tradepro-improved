@@ -68,3 +68,12 @@ The official Python SDK is relevant and should be evaluated in a small compatibi
 - [ ] No order-write method is reachable from tests or app code introduced by the spike.
 - [ ] Tests run without real credentials or live broker calls.
 - [ ] Documentation and exact-head CI updated before considering the integration accepted.
+
+## SDK source compatibility review — 24 October 2026
+
+The official `upstox-python` tag `v2.30.0` declares package `upstox-python-sdk`, MIT licence, generated client code, and dependencies including `urllib3`, `six`, `certifi`, `python-dateutil`, `websocket-client`, `uuid`, and `protobuf`. The official `ChargeApi.get_brokerage` method is synchronous by default; its generated client offers `async_req=True` (thread-based) and `_request_timeout`, but this does not directly replace the current async `httpx` client and sanitized error/result abstraction.
+
+**Compatibility decision:** do not add the SDK as a runtime dependency in this step. Our read-only reconciliation client already exposes the brokerage estimate endpoint and the existing parser validates components and semantic boundaries. No measurable benefit was found for replacing this specific call. Re-evaluate SDK adoption only for a concrete endpoint/schema gap or material correctness benefit; if adopted, isolate it behind the current client interface and preserve timeout/error redaction and parser gates.
+
+The official Agent Skill static review is in [`docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md`](UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md). The skill includes scripts capable of live order and GTT writes; its helper can fall back to a local config token and prints an API exception body in its smoke-test path. Do not execute its examples or install it wholesale in the app. No skill code was executed and no broker credentials or live API calls were used.
+

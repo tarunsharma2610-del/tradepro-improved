@@ -218,3 +218,7 @@ The current implementation was audited and recorded in [`docs/UPSTOX_SDK_API_REP
 
 **Decision:** do not add an unused SDK dependency or replace current clients wholesale. Perform a version-pinned, isolated compatibility spike first, beginning with read-only Brokerage Details API method/schema compatibility. Preserve timeout/error-redaction, async behavior, parser validation, accounting semantic gates and the broker-write guard. The Agent Skill is development-only guidance, not a production dependency; inspect its scripts before use and never run order examples with live credentials. No live request, account access, or order was used in this audit.
 
+## SDK/Agent Skill static review result — 2026-10-24
+
+See [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md) and [`docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md`](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md). The official Python SDK tag `v2.30.0` uses generated clients; the documented `ChargeApi.get_brokerage` method is synchronous by default and has a thread-based `async_req` mode. Existing async `httpx` and validated parsing already cover this endpoint, so no runtime dependency was added. Only adopt the SDK for a concrete capability/correctness benefit, behind existing service interfaces. The upstream skill contains live order/GTT examples; treat it as development-only reference, never execute examples with live credentials, never trust its confirmation prompt as our app's safety boundary, and do not copy its config-token fallback or raw API-body logging into our app.
+

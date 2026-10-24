@@ -1529,3 +1529,10 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 Added tests for NSE combined rates (0.00307% cash equity, 0.00183% equity futures, 0.03553% equity options premium from 2026-03-01), no second IPFT candidate, combined-vs-split GST-base invariance, and no MCX scope leakage. Test commit: `69945f4854ea8ae7d20e7795b156750406759df7`; source-register update: `626298aa9d8c60712189a744c86a3327eac1bb50`.
 
 Next: verify CI on the exact branch head, then add explicit normalization tests for authenticated API fields only after the API semantics are established. Do not infer field meaning from schema names. Need a dated Upstox contract note/tax invoice or authoritative support clarification for independent account-specific mapping. Keep tariff candidates DRAFT, PR #6 draft/unmerged, live broker order submission disabled, and do not touch original `Tradepro`.
+
+
+## 2026-10-24 — IPFT CI checkpoint
+
+Run #40101490646 passed for commit `a8166bafe77544bf958d0d393b71432379898b72`: **805 passed, 1 warning**, broker-write guard passed, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill passed. See https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40101490646.
+
+Next work: test canonicalization only when API semantics are established, including missing vs null vs zero, combined vs split values, effective-date/product scope and GST base. A CI pass is not evidence of live Upstox field semantics. Keep tariffs DRAFT, PR #6 draft/unmerged and live broker writes disabled; never touch original `Tradepro`.

@@ -57,3 +57,11 @@ Finish the source-approved tariff/GST applicability review and decide whether ta
 - Source discovery is not approval: no account-specific Upstox response or contract-note fixture was verified here. GST taxable-component mapping and tariff scope/effective dates remain unapproved; candidate rules remain inactive. Do not double-count legacy IPFT with the current combined NSE transaction schedule.
 - Future documentation/code commits need their own exact-head CI run. This entry records the successful run above only.
 - PR #6 remains draft/unmerged; live broker order submission remains disabled. Work only in `tarunsharma2610-del/tradepro-improved`; never modify the original `tarunsharma2610-del/Tradepro`.
+
+## Upstox API coverage and tariff-source correction — 24 October 2026
+
+- Added read-only `get_profit_loss_report` for official `GET /v2/trade/profit-loss/data`; it returns paginated trade-wise P&L rows, not documented per-row charge components. It is matching context only, not per-fill charge evidence.
+- Brokerage estimate, aggregate charge report, trade-wise P&L report and contract-note evidence remain distinct source types. No charge promotion from estimate or aggregate data.
+- Corrected DRAFT equity STT candidate effective dates for delivery buy/sell (0.1%) and intraday sell (0.025%) to 1 April 2023; added regression tests. Candidates remain non-selectable.
+- CI [#40093198960](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40093198960) passed **790 tests, 1 warning**, broker-write guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore/evidence retention. This run validates the code/source-register checkpoint; the subsequent documentation synchronization still requires exact-head CI [#40093300274](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40093300274).
+- PR #6 remains draft/unmerged; live broker order submission remains disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.

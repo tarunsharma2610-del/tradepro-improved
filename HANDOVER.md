@@ -1543,3 +1543,9 @@ Next work: test canonicalization only when API semantics are established, includ
 User supplied a redacted screenshot of an RKSV/Upstox Annual Global Transaction Statement for FY 2022–23, Futures & Options. Visible summary lines include transaction charges ₹111.61, brokerage ₹1,000.00, IGST ₹20.15, SEBI fees ₹0.22, stamp duty ₹3.00 and STT lines ₹0.32/₹51.89. No separate IPFT line is visible, but that does not prove IPFT was included in transaction charges. The annual summary is not an individual trade contract note and does not establish API field semantics. Source register updated in commit `9bb2fade8330e068022e5b2f6be0538e4f19206e`.
 
 Next: if original PDF and a matching dated Upstox API response exist, reconcile them with historical rates and bases. Keep actual-charge promotion blocked on this evidence alone; tariff candidates DRAFT, PR #6 draft/unmerged, live broker writes disabled, original Tradepro untouched.
+
+## 2026-10-24 — NSE IPFT handling clarification
+
+Source register commit `6c85292d07d33e1e873293c40931895674f4e7fc` now states explicitly that the listed NSE combined exchange-charge rates effective 2026-03-01 already include the revised IPFT contribution. Existing candidate tests assert the rate/date scope and prohibit a separate IPFT candidate from being stacked on top. These candidates remain DRAFT/non-selectable; no tariff was activated.
+
+Resume with exact-head CI for the new documentation commit, then review Upstox API field normalization (missing vs null vs numeric, combined vs split representation), GST taxable base, and remaining BSE/MCX source-backed schedules. PR #6 remains draft/unmerged, live broker writes disabled, and original `Tradepro` untouched.

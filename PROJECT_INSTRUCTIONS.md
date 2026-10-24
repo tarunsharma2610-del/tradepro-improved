@@ -1031,3 +1031,6 @@ Audit note: the implementation constant is `tariff-estimate-snapshot-v4`; older 
 
 ## Phase 3 work-control reminder — 2026-10-24
 Verify CI against the latest branch head, not an earlier commit. Aggregate variance must remain audit-only, fail closed on source/fill-scope integrity mismatches, and leave actual allocation, positions and P&L untouched. Synchronize all nine checkpoint documents after meaningful changes. Never modify original `tarunsharma2610-del/Tradepro`; keep PR #6 draft/unmerged and broker order submission disabled.
+
+## Phase 3 CI and acceptance rule — 2026-10-24
+The latest verified test head `bc8e5c1aa862589c660fd361d87f7df45d8ceb10` passed backend CI (run `40062975428`). Do not equate green CI with full Phase 3 acceptance: verify concurrency/replay, reviewed-source revalidation, and no-accounting-side-effect invariants before advancing. Keep variance audit-only, fail closed on scope mismatches, never modify original `tarunsharma2610-del/Tradepro`, keep PR #6 draft/unmerged, and leave broker order submission disabled.

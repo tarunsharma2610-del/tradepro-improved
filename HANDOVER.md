@@ -1567,3 +1567,11 @@ Source register updated in commit f978052402b2be79d99958427092a29eace83859. BSE 
 - Next work: build a component-by-component acceptance matrix tying each component to its calculation base, evidence source, effective-date scope, rounding, residual policy, GST treatment, and explicit promotion criteria. Keep any unresolved component fail-closed; do not enable automatic quantity/notional allocation or activate tariffs based on public schedules alone.
 - User-provided FY 2022–23 annual statement is historical aggregate evidence only; it cannot prove IPFT inclusion or per-fill API mapping. A personal contract note is not a prerequisite for engineering work; use synthetic fixtures until genuine evidence is optionally available.
 - All tariff candidates remain DRAFT/non-selectable; live broker order submission remains disabled. No PR merge without completed acceptance and user approval.
+
+
+## Resume checkpoint — 24 October 2026 (component acceptance matrix)
+
+- Added docs/PHASE3_CHARGE_COMPONENT_ACCEPTANCE_MATRIX.md at commit ac89f9ce84544ff4f53cb58bdf18e247d19177c9. It is an acceptance specification, not a tariff approval.
+- The matrix covers brokerage, STT, exchange/IPFT, SEBI, stamp duty and GST; requires dated authoritative sources, correct calculation bases, explicit rounding/residual policy, no double counting, and independent review.
+- CI workflow #40106537998 is running against the matrix head. Previous docs head 8a75153 passed workflow #40106273353. Verify exact-head CI before declaring this checkpoint green.
+- Continue by mapping each acceptance row to existing code/tests and marking each item as implemented, missing, or blocked by source/review. Do not activate any tariff or automatic quantity/notional allocation. PR #6 remains draft/unmerged and live broker writes disabled.

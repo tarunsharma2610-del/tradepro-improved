@@ -244,6 +244,47 @@ def compare_estimate_to_reviewed_actual(
         raise ValueError("Estimate fill set is not fully present in the reviewed evidence broker connection.")
     if len({str(trade.broker_order_ref_id) for trade in trades}) != 1:
         raise ValueError("Order-fill-set estimate contains fills from different broker orders.")
+    if payload.get("source_kind") == "UPSTOX_BROKERAGE_API_ESTIMATE":
+        # Upstox's calculator is order-input based. Only compare it with reviewed
+        # evidence when the exact request quantity, price, side and instrument match
+        # the locked fill manifest; otherwise a plausible-looking variance is unsafe.
+        if payload.get("api_endpoint") != "/v2/charges/brokerage" or payload.get("api_version") != "2.0":
+            raise ValueError("Upstox API estimate endpoint/version provenance is invalid.")
+        request_json = payload.get("api_request_json")
+        try:
+            request_parameters = json.loads(request_json)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise ValueError("Upstox API estimate request provenance is invalid.") from exc
+        required_parameters = {"instrument_token", "quantity", "product", "transaction_type", "price"}
+        if (
+            not isinstance(request_parameters, dict)
+            or set(request_parameters) != required_parameters
+            or json.dumps(request_parameters, sort_keys=True, separators=(",", ":"), ensure_ascii=False) != request_json
+        ):
+            raise ValueError("Upstox API estimate request provenance is not canonical.")
+        response_digest = payload.get("api_response_sha256")
+        if (
+            not isinstance(response_digest, str)
+            or len(response_digest) != 64
+            or any(ch not in "0123456789abcdef" for ch in response_digest)
+            or response_digest != payload.get("source_sha256")
+        ):
+            raise ValueError("Upstox API estimate response digest is invalid.")
+        try:
+            request_quantity = int(request_parameters["quantity"])
+            request_price = Decimal(str(request_parameters["price"]))
+        except (TypeError, ValueError, ArithmeticError) as exc:
+            raise ValueError("Upstox API estimate quantity/price provenance is invalid.") from exc
+        if request_quantity <= 0 or not request_price.is_finite() or request_price <= 0:
+            raise ValueError("Upstox API estimate quantity/price provenance must be positive.")
+        if str(request_parameters["transaction_type"]).upper() != str(payload.get("transaction_side", "")).upper():
+            raise ValueError("Upstox API request side does not match estimate transaction side.")
+        if sum(trade.quantity for trade in trades) != request_quantity:
+            raise ValueError("Upstox API estimate quantity does not match the exact reviewed fill set.")
+        if any(trade.instrument_token != str(request_parameters["instrument_token"]) for trade in trades):
+            raise ValueError("Upstox API estimate instrument does not match every reviewed fill.")
+        if any(Decimal(trade.price) != request_price for trade in trades):
+            raise ValueError("Upstox API estimate price does not match every reviewed fill.")
     expected_side = str(payload.get("transaction_side", "")).upper()
     if any(trade.side != expected_side for trade in trades):
         raise ValueError("Tariff estimate transaction side does not match every identified broker fill.")

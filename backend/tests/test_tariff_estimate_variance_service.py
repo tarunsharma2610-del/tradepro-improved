@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.brokers.upstox.reconciliation_client import ReadOnlyBrokerResult
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_connection import BrokerConnection
@@ -15,7 +16,7 @@ from app.models.broker_trade_record import BrokerTradeRecord
 from app.services.broker_charge_document_storage_service import store_document
 from app.services.broker_tariff_rules import TariffRule
 from app.services.tariff_estimate_persistence_service import persist_tariff_estimate_snapshot
-from app.services.tariff_estimate_snapshot import build_tariff_estimate_snapshot
+from app.services.tariff_estimate_snapshot import build_tariff_estimate_snapshot, build_upstox_brokerage_api_snapshots
 from app.services.tariff_estimate_variance_service import compare_estimate_to_reviewed_actual
 from app.core.config import settings
 
@@ -286,4 +287,77 @@ def test_order_fill_set_variance_rejects_trade_date_mismatch_without_write(aggre
             db, estimate_snapshot_id=snapshot.id, source_component_id=component.id
         )
 
+    assert db.query(TariffEstimateVarianceRecord).count() == 0
+
+def build_matching_upstox_api_brokerage_snapshot(fill_ids, *, quantity="3"):
+    result = ReadOnlyBrokerResult(
+        ok=True,
+        status_code=200,
+        data={
+            "status": "success",
+            "data": {
+                "charges": {
+                    "total": 20.00,
+                    "brokerage": 20.00,
+                    "taxes": {"gst": 0.0, "stt": 0.0, "stamp_duty": 0.0},
+                    "other_charges": {
+                        "transaction": 0.0,
+                        "clearing": 0.0,
+                        "ipft": 0.0,
+                        "sebi_turnover": 0.0,
+                    },
+                    "dp_plan": {"name": "DP3A", "min_expense": 18.5},
+                },
+            },
+        },
+    )
+    snapshots = build_upstox_brokerage_api_snapshots(
+        result,
+        request_parameters={
+            "instrument_token": "NSE_FO_TEST",
+            "quantity": quantity,
+            "product": "I",
+            "transaction_type": "SELL",
+            "price": "100.00",
+        },
+        trade_date=date(2026, 10, 23),
+        source_identity="broker-order:order-aggregate-test:upstox-estimate",
+        exchange="NSE",
+        segment="FO",
+        product="FUTURES_INTRADAY",
+        retrieved_at=datetime(2026, 10, 24, 10, 15, tzinfo=timezone.utc),
+        comparison_scope="ORDER_FILL_SET",
+        source_fill_record_ids=fill_ids,
+    )
+    return next(item for item in snapshots if item.component == "brokerage")
+
+
+def test_upstox_api_estimate_variance_requires_exact_fill_order_inputs(aggregate_variance_case):
+    db, _original_snapshot, component, fill_ids = aggregate_variance_case
+    api_snapshot = build_matching_upstox_api_brokerage_snapshot(fill_ids)
+    record, persist_status = persist_tariff_estimate_snapshot(db, api_snapshot)
+    db.commit()
+
+    variance, status = compare_estimate_to_reviewed_actual(
+        db, estimate_snapshot_id=record.id, source_component_id=component.id
+    )
+    assert persist_status == "CREATED"
+    assert status == "CREATED"
+    assert variance.estimated_amount == Decimal("20.00")
+    assert variance.actual_amount == Decimal("52.00")
+    assert variance.status == "VARIANCE_ONLY"
+
+
+def test_upstox_api_estimate_variance_rejects_quantity_mismatch_without_write(aggregate_variance_case):
+    db, _original_snapshot, component, fill_ids = aggregate_variance_case
+    from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord
+
+    api_snapshot = build_matching_upstox_api_brokerage_snapshot(fill_ids, quantity="4")
+    record, _ = persist_tariff_estimate_snapshot(db, api_snapshot)
+    db.commit()
+
+    with pytest.raises(ValueError, match="quantity does not match"):
+        compare_estimate_to_reviewed_actual(
+            db, estimate_snapshot_id=record.id, source_component_id=component.id
+        )
     assert db.query(TariffEstimateVarianceRecord).count() == 0

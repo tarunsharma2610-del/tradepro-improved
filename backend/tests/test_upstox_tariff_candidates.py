@@ -79,3 +79,49 @@ def test_exercised_option_stt_has_separate_intrinsic_value_and_buyer_scope():
     assert rule.calculation_basis == "INTRINSIC_VALUE"
     assert rule.rate == Decimal("0.15")
     assert rule.review_status == "DRAFT"
+
+
+def test_candidate_rows_have_no_overlapping_effective_windows_for_same_dimensions():
+    rules = upstox_tariff_candidate_rules()
+    identity_fields = (
+        "component", "broker", "exchange", "segment", "product",
+        "transaction_side", "calculation_basis",
+    )
+    grouped = {}
+    for rule in rules:
+        key = tuple(getattr(rule, field) for field in identity_fields)
+        grouped.setdefault(key, []).append(rule)
+
+    for key, scoped_rules in grouped.items():
+        ordered = sorted(scoped_rules, key=lambda rule: rule.effective_from)
+        for previous, current in zip(ordered, ordered[1:]):
+            assert previous.effective_to is not None, (
+                f"Open-ended candidate overlaps a later row for {key}"
+            )
+            assert previous.effective_to < current.effective_from, (
+                f"Candidate effective windows overlap for {key}"
+            )
+
+
+def test_exchange_charge_candidates_remain_narrowly_scoped_and_draft():
+    rules = [
+        rule for rule in upstox_tariff_candidate_rules()
+        if rule.component == "exchange_charges"
+    ]
+    assert len(rules) == 10
+    assert all(rule.review_status == "DRAFT" for rule in rules)
+    assert all(rule.effective_from == date(2026, 3, 1) for rule in rules)
+    assert all(
+        (rule.exchange, rule.segment, rule.product, rule.calculation_basis)
+        in {
+            ("NSE", "EQ", "DELIVERY", "TURNOVER"),
+            ("NSE", "EQ", "INTRADAY", "TURNOVER"),
+            ("NSE", "FO", "FUTURES", "TURNOVER"),
+            ("NSE", "FO", "OPTIONS", "PREMIUM"),
+            ("BSE", "FO", "OPTIONS", "PREMIUM"),
+        }
+        for rule in rules
+    )
+    # Do not silently imply these rows include or exclude IPFT. Composition
+    # remains an approval gate; the registry intentionally contains no IPFT row.
+    assert not any(rule.component == "ipft" for rule in upstox_tariff_candidate_rules())

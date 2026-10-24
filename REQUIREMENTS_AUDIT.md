@@ -1971,3 +1971,12 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+## Upstox SDK/API integration audit — 24 October 2026
+
+- **Evidence:** [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md), official Upstox API catalogue, SDK installation page, official Python SDK source, brokerage estimate endpoint and aggregate trade-charge endpoint.
+- **Current status:** direct async REST clients and a dedicated V3 stream already exist; the official Python SDK is not declared as a backend dependency. Brokerage estimate parsing and semantic controls already exist.
+- **Requirement:** use official SDK capabilities where they materially improve correctness/maintenance, but preserve async timeout/retry/error handling, parser validation, read-only boundaries and accounting semantics. SDK support must be verified per endpoint and exact package release.
+- **Next acceptance task:** isolated, pinned compatibility spike for the read-only brokerage-estimate method using synthetic response fixtures. Do not add the package to production dependencies until the spike demonstrates value and CI passes.
+- **Agent Skill:** development-only reference; inspect scripts before running; no live credentials or order-write examples. No account access or live API call was used in the audit.
+

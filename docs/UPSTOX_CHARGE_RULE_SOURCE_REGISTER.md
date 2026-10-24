@@ -326,3 +326,16 @@ API docs:
 ### Decision
 
 The **NSE rate arithmetic for these three segments is resolved**. The remaining IPFT gate is API-field semantic mapping, representation-version enforcement, cross-segment scope protection, and actual contract-note/GST corroboration. Candidate tariff rules remain DRAFT/non-selectable until tests, dated evidence, and independent review pass. No tariff has been activated, no actual charge promoted, and no live broker order sent.
+
+
+### Regression coverage added — 24 October 2026
+
+Test commit: https://github.com/tarunsharma2610-del/tradepro-improved/commit/69945f4854ea8ae7d20e7795b156750406759df7
+
+Added tests in `backend/tests/test_broker_tariff_rules.py` that:
+- assert the current DRAFT NSE cash, futures and options exchange-charge candidates use the combined rates 0.00307%, 0.00183%, and 0.03553%;
+- assert these candidates remain DRAFT and that no second `ipft` tariff candidate is layered on top of the combined `exchange_charges` candidate set;
+- prove the GST helper yields the same ₹307.00 base and ₹55.26 at 18% whether that base is represented as one combined amount or ₹306.99 transaction charges plus ₹0.01 IPFT; and
+- assert the NSE rules do not accidentally introduce MCX scope.
+
+These are synthetic rule-consistency tests. They do not establish authenticated Upstox API field semantics, actual contract-note treatment, BSE/MCX rates, or approval of the GST component set. All tariff candidates remain DRAFT/non-selectable. Exact-head CI and independent review remain required.

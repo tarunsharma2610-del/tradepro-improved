@@ -730,7 +730,11 @@ def test_variance_insert_flush_failure_rolls_back_record_without_mutating_accoun
         .order_by(BrokerChargeAllocation.id)
         .all()
     )
-    assert [
+    persisted_allocation_state = [
         (row.id, row.status, row.allocated_amount, row.reconciliation_reference)
         for row in persisted_allocations
-    ] == allocations_before
+    ]
+    # SQL backends need not return UUID rows in the same order as the setup list.
+    assert sorted(persisted_allocation_state, key=lambda item: str(item[0])) == sorted(
+        allocations_before, key=lambda item: str(item[0])
+    )

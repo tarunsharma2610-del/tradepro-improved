@@ -1,3 +1,11 @@
+## Upstox charge API usage rule — 24 October 2026
+
+- For Upstox-related implementation or charge audits, inspect current official API documentation, SDK examples and the relevant official pricing/circular sources before changing code. Do not invent paths or infer capabilities from endpoint names.
+- Use the official [Brokerage Details API](https://upstox.com/developer/api-documentation/get-brokerage/) (`GET /v2/charges/brokerage`) for order-input-based charge estimates. It is not the final actual charge for an executed fill.
+- Use the official [Get Profit and Loss on Trades API](https://upstox.com/developer/api-documentation/get-trade-charges/) trade-level `charges_breakdown` where supported for realized-charge comparison, alongside the broker-issued contract note/tax invoice. Preserve request dimensions, raw response/digest, retrieval time, API version and evidence linkage.
+- Treat the API field list and public brokerage page as reconciliation inputs, not automatic approval of legal/tax treatment. Product, segment, exchange, effective date and GST taxable-component mapping must be reviewed; unknown/conflicting cases fail closed. Do not double-count legacy IPFT rates against the combined NSE schedule effective 1 March 2026.
+- No automatic tariff activation, charge-ledger promotion, or live broker order submission may be enabled by source discovery alone. Keep candidate rules inactive until evidence and independent review gates are satisfied. See `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`.
+
 ## Brokerage cap entrypoint integration — 23 October 2026
 
 - The previous exact-head implementation CI passed on commit [3445a748b3fbd3944362ed6e46873bffc30fd384](https://github.com/tarunsharma2610-del/tradepro-improved/commit/3445a748b3fbd3944362ed6e46873bffc30fd384): **712 passed, 1 warning**; SQLite/PostgreSQL migration round-trips, broker-write boundary guard, synthetic restore drill and evidence retention also passed.

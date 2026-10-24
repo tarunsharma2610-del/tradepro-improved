@@ -171,6 +171,54 @@ def test_verification_rejects_non_string_reviewed_fill_ids(reconciliation_contex
         )
 
 
+@pytest.mark.parametrize(
+    ("weight_values", "message"),
+    [
+        (("-1", "2"), "Explicit reviewed allocation weights are invalid"),
+        (("NaN", "1"), "Explicit reviewed allocation weights are invalid"),
+        (("Infinity", "1"), "Explicit reviewed allocation weights are invalid"),
+        (("not-a-decimal", "1"), "Explicit reviewed allocation weights are invalid"),
+        (("0", "0"), "cannot reproduce a valid per-fill ledger"),
+    ],
+)
+def test_verification_rejects_invalid_reviewed_weight_values(
+    reconciliation_context, weight_values, message
+):
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context)
+    weight_items = json.loads(component.eligible_fill_weights_json)
+    weight_items[0]["weight"], weight_items[1]["weight"] = weight_values
+    component.eligible_fill_weights_json = json.dumps(
+        weight_items, separators=(",", ":")
+    )
+    db.commit()
+
+    with pytest.raises(ValueError, match=message):
+        verify_component_allocation_ledger(
+            db, evidence_id=evidence.id, source_component_id=component.id
+        )
+    assert {
+        row.status for row in db.query(BrokerChargeAllocation).all()
+    } == {"PENDING_RECONCILIATION"}
+
+
+def test_verification_rejects_duplicate_reviewed_weight_fill_ids(reconciliation_context):
+    db, evidence, component, _trades, _rows = _setup(reconciliation_context)
+    weight_items = json.loads(component.eligible_fill_weights_json)
+    weight_items[1]["fill_record_id"] = weight_items[0]["fill_record_id"]
+    component.eligible_fill_weights_json = json.dumps(
+        weight_items, separators=(",", ":")
+    )
+    db.commit()
+
+    with pytest.raises(ValueError, match="Explicit reviewed allocation weights are invalid"):
+        verify_component_allocation_ledger(
+            db, evidence_id=evidence.id, source_component_id=component.id
+        )
+    assert {
+        row.status for row in db.query(BrokerChargeAllocation).all()
+    } == {"PENDING_RECONCILIATION"}
+
+
 def test_verification_rejects_allocation_fill_set_mismatch(reconciliation_context):
     db, evidence, component, _trades, _rows = _setup(reconciliation_context, manifest_count=1)
 

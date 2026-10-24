@@ -269,3 +269,7 @@ Official documentation: [Get Profit Loss Report](https://upstox.com/developer/ap
 ## Effective-date correction for equity STT candidates — 24 October 2026
 
 The current Upstox pricing page's historical section identifies equity-delivery STT (0.1% buy and sell) and equity-intraday STT (0.025% sell side) as rates effective from 1 April 2023. The candidate registry had incorrectly used 1 April 2026 for these unchanged equity rates, which would imply a newer effective date than the source supports. The DRAFT candidates and regression test now preserve 1 April 2023 for these three rows. This is a source-date correction only: candidates remain DRAFT and non-selectable. The distinct futures/options STT transition effective 1 April 2026 remains unchanged.
+
+## P&L report metadata endpoint — 24 October 2026
+
+Official documentation: [Get Report Metadata](https://upstox.com/developer/api-documentation/get-report-meta-data/), authenticated `GET /v2/trade/profit-loss/metadata`. It returns `trades_count` and `page_size_limit` for the selected segment/financial-year and optional date scope. The read-only client now exposes `get_profit_loss_report_metadata` with the same scope/date validation as the P&L report. Use the returned page-size limit when paginating the trade-wise report rather than assuming a preferred page size. Metadata contains no charge components and is not per-fill charge evidence.

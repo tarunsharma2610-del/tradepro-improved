@@ -235,3 +235,21 @@ Sources reviewed:
 4. Add boundary fixtures that check each product's exact component inclusion, exclusion, missing-field behavior, and rounding against reviewed invoices. Preserve raw source amounts and invoice/API digest; fail closed on unknown component semantics.
 
 **Gate status:** official high-level text is available, but the component mapping for this app remains unapproved until a dated, account-specific invoice/contract-note fixture is reviewed. No GST calculator rule or tariff was activated by this audit.
+
+## Upstox charge APIs — reconciliation evidence (24 October 2026)
+
+Official API documentation reviewed:
+
+- [Brokerage Details API](https://upstox.com/developer/api-documentation/get-brokerage/) and [example code](https://upstox.com/developer/api-documentation/example-code/charges/brokerage-details/): `GET /v2/charges/brokerage` accepts an instrument token, quantity, product, transaction type, and price. It returns an order-charge estimate with total, brokerage, taxes (GST, STT, stamp duty), other charges (transaction, clearing, IPFT, SEBI turnover), and DP-plan fields where applicable.
+- [Get Profit and Loss on Trades API](https://upstox.com/developer/api-documentation/get-trade-charges/): exposes trade-level `charges_breakdown` including brokerage, GST, STT, stamp duty, transaction, clearing, IPFT, other charges, SEBI turnover, and demat transaction charges. This is the preferred API-side comparison for realized trade charges when the endpoint's documented segment/financial-year/date inputs and data availability requirements are met.
+- [Upstox Brokerage Charges](https://upstox.com/brokerage-charges/) lists product-specific public schedules, including revised NSE transaction-charge totals effective 1 March 2026 and GST component descriptions. [NSE Circular NSE/FA/73061](https://nsearchives.nseindia.com/content/circulars/FA73061.pdf) independently supports the NSE cash/equity-derivatives transaction/IPFT split and effective date.
+
+### Integration and approval boundary
+
+1. Use the Brokerage Details API for pre-trade estimate/reconciliation fixtures, not as proof of the final charge on a filled order.
+2. Use trade-level P&L charges plus an actual broker-issued contract note/tax invoice as realized-charge evidence. Preserve the raw response, request dimensions, retrieval time, API/version, response digest, and matching contract-note reference.
+3. Do not sum the public-page legacy IPFT table on top of the current combined NSE transaction rates. Keep raw `ipft` API fields separately for reconciliation, but account for the documented combined-rate schedule and check actual response semantics against contract-note evidence to avoid double counting.
+4. The API response's field names do not by themselves prove the GST taxable base or the legal classification of every component. Do not infer GST base from `total`, `other_charges`, or public text alone; approve the component mapping only after reviewing a dated actual invoice/contract-note fixture for the specific segment, instrument, product, and effective date.
+5. These sources do not establish BSE/MCX rules for every instrument/product combination. Unsupported or conflicting scope must remain unapproved and fail closed; keep candidate tariffs inactive until reviewed by an independent authorized reviewer.
+
+**Gate status:** API documentation provides useful estimate and realized-charge comparison paths, but no account-specific Upstox response/contract-note fixture was supplied or verified in this audit. No tariff/GST rule is approved or activated by this entry.

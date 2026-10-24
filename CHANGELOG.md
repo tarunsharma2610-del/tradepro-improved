@@ -91,3 +91,11 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 
 - Added official-source review notes for BSE scrip-group/exclusivity handling, BSE SENSEX monthly incremental slab mechanics, and MCX statutory charge scope. Source register commit: f978052402b2be79d99958427092a29eace83859.
 - No generic BSE/MCX rates activated because the reviewed material does not prove all current effective-dated product schedules. Exact-head CI pending verification.
+
+
+## 2026-10-24 — Exact-head Phase 3 CI and per-fill acceptance audit
+
+- Verified open PR #6 head `5e256bc867409672a19025f0219c9d9c866ce898` with successful Backend tests workflow [#40105708790](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40105708790).
+- Audited existing regression coverage for reviewed fill manifests/weights, source-document integrity, source-total and per-fill arithmetic, idempotent atomic promotion, authorization and rollback failures, and variance-only comparisons. No duplicate tests added in this checkpoint.
+- Remaining gates are accounting policy acceptance by component, effective-dated authoritative tariff and GST mapping evidence, independent review, and final PR decision. Public tariff pages and the historical annual statement are not per-fill proof. Tariff candidates remain DRAFT/non-selectable; live broker writes remain disabled.
+- Scope: `tarunsharma2610-del/tradepro-improved` only; original `Tradepro` remains out of scope.

@@ -1,5 +1,9 @@
 from datetime import date
 from decimal import Decimal
+import hashlib
+import json
+from pathlib import Path
+import re
 
 import pytest
 
@@ -8,6 +12,16 @@ from app.services.upstox_tariff_candidates import (
     SOURCE_SNAPSHOT_SHA256,
     upstox_tariff_candidate_rules,
 )
+
+
+def test_dated_source_excerpt_payload_hash_matches_registry_fingerprint():
+    repository_root = Path(__file__).resolve().parents[2]
+    source_text = (repository_root / "docs/source_snapshots/UPSTOX_CHARGES_2026-10-24.md").read_text(encoding="utf-8")
+    match = re.search(r"```json\n(.*?)\n```", source_text, flags=re.DOTALL)
+    assert match is not None
+    payload = json.loads(match.group(1))
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    assert hashlib.sha256(canonical.encode("utf-8")).hexdigest() == SOURCE_SNAPSHOT_SHA256
 
 
 def test_candidate_registry_is_source_fingerprinted_and_all_draft():

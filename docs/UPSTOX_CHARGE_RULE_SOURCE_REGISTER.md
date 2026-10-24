@@ -186,3 +186,20 @@ These statements cannot safely be normalized into one rate by assumption. Preser
 The page explicitly lists the GST base as brokerage + transaction + IPFT for intraday/futures/options and adds demat charges for equity delivery. Implementing this text still requires a reviewed mapping from actual API/ledger components to those labels; no blanket 18% multiplier over all charges is approved. CBIC's stock-broking FAQ makes pure-agent exclusion of STT, stamp duty and other tax recoveries conditional on Rule 33; do not assume that treatment without account/invoice evidence.
 
 **Gate remains closed:** IPFT is not a selectable tariff candidate; no new IPFT or GST calculator/rule is approved by this audit.
+
+
+## API source-type boundary and promotion guard — 24 October 2026
+
+The two Upstox API surfaces must not be conflated:
+
+| Source | Documented scope | Permitted use in this project |
+|---|---|---|
+| [Brokerage Details API](https://upstox.com/developer/api-documentation/get-brokerage/) | A request for a specified instrument, quantity, product, transaction type and price; returns an order charge estimate/breakdown | Cross-check an estimate for the exact request. Preserve request parameters, API version and response digest. Not automatically a fill-level actual or a tariff approval. |
+| [Get Trade Charges API](https://upstox.com/developer/api-documentation/get-trade-charges/) | Segment + financial year and optional date range; reports trade/P&L charges across the selected scope, with component fields | Aggregate reconciliation only. Do not divide or spread its totals across fills without a separately reviewed, documented allocation basis. |
+| Reviewed contract note / bill evidence | Actual charge evidence with source document, component locator and reviewer provenance | Required source type for the current allocation-verification/promotion workflow; still requires exact fill-set, component and allocation-basis checks. |
+
+The Get Trade Charges schema has distinct fields for brokerage, GST, STT, stamp duty, transaction, clearing, IPFT, other charges, SEBI turnover and demat transaction. Separate fields are a reason to preserve each raw field, not proof that a public tariff's transaction rate is exclusive of IPFT. Keep raw API fields and response digest; never add IPFT twice or silently infer an absent field as zero.
+
+A regression test now asserts that evidence tagged `UPSTOX_TRADE_CHARGES_API` cannot pass the contract-note allocation verification path, and that pending allocations remain unpromoted. This protects the source-type boundary; it does not prevent a future, separately designed aggregate reconciliation workflow from comparing scoped totals.
+
+**Still blocked:** resolving the public IPFT schedule discrepancy, approving product-specific GST component sets, and enabling automatic per-fill allocation from API estimates or aggregate totals.

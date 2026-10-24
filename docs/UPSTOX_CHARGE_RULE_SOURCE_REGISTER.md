@@ -253,3 +253,15 @@ Official API documentation reviewed:
 5. These sources do not establish BSE/MCX rules for every instrument/product combination. Unsupported or conflicting scope must remain unapproved and fail closed; keep candidate tariffs inactive until reviewed by an independent authorized reviewer.
 
 **Gate status:** API documentation provides useful estimate and realized-charge comparison paths, but no account-specific Upstox response/contract-note fixture was supplied or verified in this audit. No tariff/GST rule is approved or activated by this entry.
+
+## Trade-wise P&L report API — distinct from charges endpoint (24 October 2026)
+
+Official documentation: [Get Profit Loss Report](https://upstox.com/developer/api-documentation/get-profit-and-loss-report/), authenticated `GET /v2/trade/profit-loss/data`.
+
+- The endpoint returns paginated trade-wise realized P&L rows (including quantity, instrument identity/name, trade type, buy/sell dates, averages and amounts), scoped by segment and financial year, with optional dates.
+- It does **not** document per-row brokerage/tax/charge components. Do not mistake a trade-wise P&L row for a fill record or per-fill charge evidence.
+- The separate [Get Trades Charges API](https://upstox.com/developer/api-documentation/get-trade-charges/) returns a selected-scope aggregate component breakdown. Use it for aggregate reconciliation only.
+- The read-only reconciliation client now exposes `get_profit_loss_report` with fixed endpoint path, required pagination, segment/FY validation and date-range validation. Regression tests verify endpoint parameters, pagination bounds and that returned P&L rows are not assumed to contain `charges_breakdown`.
+- Use P&L rows only as matching context alongside order/trade history. Contract notes remain the required source evidence for charge-component allocation/promotion; never synthesize per-fill charges from aggregate P&L charge totals.
+
+**Gate status:** API coverage is expanded, but no personal authenticated response or contract-note fixture has been reviewed in this audit. No tariff or accounting promotion gate is changed.

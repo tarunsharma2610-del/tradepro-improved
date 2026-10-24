@@ -301,3 +301,18 @@ def test_upstox_api_estimate_rejects_nonfinite_component_values():
     bad.data["data"]["charges"]["taxes"]["stt"] = float("nan")
     with pytest.raises(ValueError, match="finite nonnegative"):
         build_api_snapshots(bad)
+
+def test_upstox_api_estimate_rejects_component_total_mismatch():
+    result = make_upstox_result()
+    result.data["data"]["charges"]["total"] = 208.28
+
+    with pytest.raises(ValueError, match="component amounts do not reconcile"):
+        build_api_snapshots(result)
+
+
+def test_upstox_api_estimate_does_not_coerce_null_component_to_zero():
+    result = make_upstox_result()
+    result.data["data"]["charges"]["taxes"]["stt"] = None
+
+    with pytest.raises(ValueError, match="finite nonnegative amount"):
+        build_api_snapshots(result)

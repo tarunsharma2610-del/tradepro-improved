@@ -161,3 +161,12 @@ Reference: https://upstox.com/brokerage-charges/
 Settled: combined/split arithmetic, no IPFT double-counting, GST on applicable canonical taxable components once, ambiguous formats fail closed. Remaining production gates: authentic Upstox API/contract-note field semantics, effective-dated mapping and GST composition corroborated against invoices, per-fill equivalence/no-double-count tests, and exact-head CI. Upstox Get Trade Charges is aggregate reconciliation evidence, not per-fill actual evidence. These gates do not reverse the agreed policy.
 
 Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6 draft/unmerged pending review and user approval. Work only in `tarunsharma2610-del/tradepro-improved`, never original `tarunsharma2610-del/Tradepro`.
+
+## Added acceptance check — source label to component mapping (2026-10-25)
+
+- [x] Implementation: representation contract requires explicit `labels_by_component` mapping with exact key coverage, non-empty/unique labels and consistent retained label order.
+- [x] Integration wiring: source-component review passes the mapping from persisted rows.
+- [x] Regression tests added for missing mapping, wrong component set and inconsistent label association.
+- [ ] Exact-head CI passes for implementation HEAD `fb147a3c5580091574bc71c35e7a641cf7386935`.
+- [ ] Authentic contract-note transcription is independently confirmed; code-level association alone does not authenticate source content.
+

@@ -88,3 +88,10 @@ If CI fails or is still running, update status to **verification pending/failed*
 - Corrective test commit: `e2758ae3db5309641196f0cd0ce035591f6c03ac`; the helper now allows the malformed fixture to reach validation, and the assertion checks the validator's fail-closed component-key error.
 - Verification for the corrected commit remains pending until its own CI result is checked. The earlier failed run is retained as history; it is not counted as a successful step.
 
+### Successful verification — explicit source-label association (2026-10-25)
+
+- Exact implementation HEAD `d70b1535e7a8b8680b90dadbd926e06b4ae41a16` passed workflow [#40188968279](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40188968279).
+- Test result: **910 passed, 1 warning, 0 failures**. Broker-write boundary guard passed; migration/restore workflow steps completed successfully, including a synthetic PostgreSQL/document-volume restore drill. The synthetic drill does not establish real Oracle account recovery.
+- This verifies the explicit component-to-source-label mapping change and its current tests on that SHA. Authentic transcription against real contract notes remains a separate evidence/review gate.
+- The next discovered gap is that the intake API still substitutes the normalized component name when `source_label` is omitted. That fabricates a source label rather than preserving the absence of source evidence. Next step: stop substituting normalized names and fail closed at review until a genuine source label is supplied; add API regression tests.
+

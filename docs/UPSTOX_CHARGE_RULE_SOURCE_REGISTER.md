@@ -436,3 +436,41 @@ The user-provided statement advances historical evidence collection but does not
 
 - The first API regression run exposed two assertion-message mismatches: the validator correctly rejected ambiguous combined-plus-IPFT input and undeclared representation mode, but the tests expected different wording. Updated the tests to assert the validator's actual fail-closed error messages; no safety rule was weakened.
 - Follow-up exact-head CI for commit `df344e9c64aeb6ec3f2f01fef01f3c05739d4800` and subsequent documentation synchronization is pending. Do not call the current head green until the full workflow completes.
+
+
+## Authoritative IPFT/GST decision — 25 October 2026
+
+This section records the settled calculation policy; it must be carried forward, not repeatedly reopened as an undecided research question.
+
+### NSE combined charge includes IPFT
+
+NSE circular NSE/FA/73061 (27 February 2026; effective 1 March 2026) gives combined rates:
+- Cash equity: ₹307.00/crore.
+- Equity futures: ₹183.00/crore.
+- Equity options: ₹3,553.00/crore.
+
+Equivalent split arithmetic:
+- Cash equity: transaction charges ₹306.99/crore + IPFT ₹0.01/crore = ₹307.00/crore.
+- Equity futures: transaction charges ₹182.99/crore + IPFT ₹0.01/crore = ₹183.00/crore.
+- Equity options: transaction charges ₹3,552.99/crore + IPFT ₹0.01/crore = ₹3,553.00/crore.
+
+Use either the explicitly reviewed combined representation or the explicitly reviewed split representation. Never add separate IPFT to a combined amount. Never infer representation from a field name alone. Preserve original source labels, raw values and endpoint/schema/version. Missing, conflicting or ambiguous representations fail closed; null is not zero.
+
+Official circular: https://nsearchives.nseindia.com/content/circulars/FA73061.pdf
+
+### GST taxable-base policy
+
+Apply 18% GST to the applicable, evidence-backed taxable service-charge base using canonical components exactly once. Working Upstox component policy:
+- Delivery: brokerage + transaction charges/IPFT + applicable demat transaction charges.
+- Intraday, futures and options: brokerage + transaction charges/IPFT.
+- Combined transaction charges that already include IPFT enter the base once; split transaction charges excluding IPFT and the separately evidenced IPFT are combined once.
+- Apply pure-agent/exclusion treatment only when the applicable tax rule and invoice evidence support it.
+- Use product/segment/effective-date-specific rules, documented rounding and invoice reconciliation.
+
+Published broker reference: https://upstox.com/brokerage-charges/
+
+### Approval boundary
+
+Settled: the arithmetic and no-double-counting rule above, component-based GST calculation once, and fail-closed handling of ambiguous representations. Still required for production approval: authentic Upstox API/contract-note field-semantic corroboration, effective-dated mapping and GST-base reconciliation against invoices, per-fill combined/split regression coverage, and exact-head CI. The Upstox Get Trade Charges endpoint is aggregate evidence, not proof of actual per-fill charges. These gates do not reverse the agreed policy.
+
+Safety: PAPER mode mandatory; live broker order writes disabled; PR #6 remains draft/unmerged pending review and user approval. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `tarunsharma2610-del/Tradepro` must remain untouched.

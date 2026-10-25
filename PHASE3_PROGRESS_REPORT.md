@@ -104,3 +104,9 @@ If CI fails or is still running, update status to **verification pending/failed*
 - Current code HEAD at time of writing: `34e3d3e865660f96b432968565f2b8ceeb9c9184`. CI is pending for the code and any subsequent documentation commit. Do not mark this gate complete until exact-head CI passes.
 - Evidence limitation: requiring a label ensures explicit transcription; only independent review against the integrity-checked original note can confirm the label and amount are authentic.
 
+### CI correction history — review validation order
+
+- Workflow [#40189211122](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189211122) failed on `34e3d3e865660f96b432968565f2b8ceeb9c9184`: **909 passed, 2 failed, 1 warning**. Both failures showed the new missing-label rejection ran before existing authorization / eligible-fill validation, changing the expected 403/422 responses.
+- Corrected in `b92d0185f588e24d54510b36659944e77f498a6e` by moving the new representation/source-label checks after the existing authorization and fill/weight validations but before any state mutation. This preserves fail-closed label handling without bypassing the established validation order.
+- The failure is retained as history. Exact-head CI for the correction and the current documentation HEAD must pass before the source-label authenticity guard can be marked complete.
+

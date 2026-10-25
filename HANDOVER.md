@@ -1852,3 +1852,5 @@ Verification boundary: exact-head CI passed on implementation SHA `97843aec1d9b0
 - Current exact-head CI is pending. Verify latest HEAD before marking this gate complete. Then continue with effective-dated component rules and end-to-end per-fill accounting. Structural validation does not authenticate real source content.
 - Keep PAPER-only posture, live broker writes disabled, original Tradepro untouched and PR #6 draft/unmerged.
 
+- CI found an ordering regression in the missing-label guard: workflow [#40189211122](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189211122) failed with 909 passed, 2 failed, 1 warning because the guard masked existing 403/422 authorization/fill validation responses. Corrected by moving label/representation checks after authorization and fill validation in `b92d0185f588e24d54510b36659944e77f498a6e`. Verify exact-head CI before proceeding.
+

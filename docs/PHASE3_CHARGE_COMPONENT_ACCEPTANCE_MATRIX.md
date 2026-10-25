@@ -180,3 +180,5 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 - [ ] Exact-head CI passes for implementation and documentation HEAD.
 - [ ] Independent reviewer confirms the transcribed label and amount against integrity-checked original contract-note evidence.
 
+- CI correction history: run [#40189211122](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189211122) failed because missing-label validation ran before existing authorization/fill validation. Moved the new checks later in the review sequence in `b92d0185f588e24d54510b36659944e77f498a6e`; exact-head CI remains required.
+

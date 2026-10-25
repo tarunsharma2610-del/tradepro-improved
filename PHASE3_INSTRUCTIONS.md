@@ -1,3 +1,14 @@
+## Authoritative audit reconciliation — 25 October 2026
+
+- **Repository/branch:** `tarunsharma2610-del/tradepro-improved` / `phase3/durable-per-fill-charge-allocation`. PR #6 remains draft and unmerged.
+- **Last verified branch head before this documentation reconciliation:** `ecdaae1035779631bcb45ee5d50f60094c35d1ab`. Backend workflow [#40205635687](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40205635687) completed successfully on that exact SHA; the Backend pytest job passed.
+- This confirms that inspected pre-reconciliation head, not any subsequent documentation commit. The final documentation head must receive its own exact-head CI check.
+- **Phase 3 next task:** audit existing tests for a demonstrated conflicting-set/rollback gap; add only missing coverage, then run the full backend CI gate. Do not repeat already-passed concurrent-promotion or incomplete-fill-set tests without a specific uncovered scenario.
+- **Upstox integration status:** SDK and Agent Skill review documents exist under `docs/`; they were incorrectly omitted from the rolling checkpoint inventory. No unused SDK runtime dependency is approved. The skill remains an unexecuted development-only reference because it contains live order/GTT examples and unsafe patterns; do not execute it or use live credentials.
+- **Safeguards:** only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PAPER mandatory; live broker order writes disabled; PR #6 draft/unmerged; GST/IPFT tariff candidates remain DRAFT pending authentic account-specific evidence and review.
+
+---
+
 # Phase 3 Working Instructions — Guardrails and Verification Rules
 
 **This file governs Phase 3 work only.** Whole-project constraints in `PROJECT_INSTRUCTIONS.md` remain authoritative. If a Phase 3 instruction conflicts with a whole-project safety rule, follow the stricter rule and stop to document the conflict.
@@ -271,7 +282,7 @@ Historical entries remain historical records; they must not override this curren
 - Latest test `test_canonical_reconciliation_rejects_incomplete_allocation_fill_set` removes one row from a two-fill canonical set and confirms promotion fails closed, leaving the remaining row pending without a reconciliation reference.
 - Completed; do not repeat: normalized canonical/source links, reviewed immutable snapshots, split transaction + IPFT provenance, durable per-fill allocations, canonical ledger verification, deterministic paise allocation, promotion/replay, tampered-allocation rejection, existing rollback assertions, and incomplete-fill-set rejection.
 - **Next single implementation step:** inspect existing coverage and add PostgreSQL concurrent-promotion tests proving concurrent attempts cannot create partial/mixed states or inconsistent durable references. Add conflicting-set/rollback tests only where a real gap remains. Then run the full backend CI gate.
-- CI protocol: on failure, diagnose/fix/rerun. On pass, update all 14 checkpoint documents with exact SHA/run/result and next step, commit checkpoint, then verify CI on the checkpoint commit itself. Before resuming, refresh the live PR head and read docs from that exact SHA.
+- CI protocol: on failure, diagnose/fix/rerun. On pass, update all 18 maintained checkpoint documents with exact SHA/run/result and next step, commit checkpoint, then verify CI on the checkpoint commit itself. Before resuming, refresh the live PR head and read docs from that exact SHA.
 - GST/IPFT production tariff/account-specific acceptance is a separate evidence gate and does not block synthetic engineering tests. Unapproved tariff candidates remain DRAFT.
 - Safety: PAPER mandatory; live broker order writes disabled; PR #6 stays draft/unmerged absent explicit authorization; original `Tradepro` untouched.
 
@@ -282,5 +293,5 @@ Historical entries remain historical records; they must not override this curren
 - Fixed PostgreSQL reconciliation-reference length failure by widening the column from 200 to 320 characters. Migration `202610250026_widen_charge_reconciliation_reference.py` refuses destructive downgrade truncation.
 - PostgreSQL concurrent-promotion test passed in the exact-head run above. This docs commit still needs its own CI verification.
 - Next: after checkpoint CI passes, audit for actual conflicting-set/rollback test gaps; add only missing coverage.
-- Every CI pass requires updating all 14 checkpoint documents, committing a checkpoint and verifying CI on that checkpoint commit; every failure requires root-cause diagnosis, fix and rerun.
+- Every CI pass requires updating all 18 maintained checkpoint documents, committing a checkpoint and verifying CI on that checkpoint commit; every failure requires root-cause diagnosis, fix and rerun.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker order writes disabled; GST/IPFT production acceptance remains a separate gate.

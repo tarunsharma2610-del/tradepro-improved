@@ -342,6 +342,17 @@ def test_verified_split_snapshot_persists_allocations_linked_to_canonical_snapsh
     promoted = promote_verified_canonical_component_allocations(
         db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id
     )
+    assert {row.status for row in promoted} == {"RECONCILED"}
+    # The service must not commit the caller's transaction: rollback restores
+    # the complete allocation set to pending, without losing the source ledger.
+    db_session.rollback()
+    rolled_back_rows = db_session.query(BrokerChargeAllocation).filter_by(
+        canonical_component_id=exchange.id
+    ).all()
+    assert {row.status for row in rolled_back_rows} == {"PENDING_RECONCILIATION"}
+    promoted = promote_verified_canonical_component_allocations(
+        db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id
+    )
     db_session.commit()
     assert {row.status for row in promoted} == {"RECONCILED"}
     assert {row.reconciliation_reference for row in promoted} == {

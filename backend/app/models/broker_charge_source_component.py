@@ -30,7 +30,9 @@ class BrokerChargeSourceComponent(BaseModel):
     __table_args__ = (
         UniqueConstraint("evidence_id", "component_name", "revision", name="uq_charge_source_component_evidence_name_revision"),
         CheckConstraint(
-            "component_name IN ('brokerage', 'stt', 'exchange_charges', 'sebi_charges', 'stamp_duty', 'gst')",
+            "component_name IN ('brokerage', 'stt', 'exchange_charges', 'transaction_charges', "
+            "'clearing_charges', 'ipft', 'other_charges', 'demat_transaction_charges', "
+            "'sebi_charges', 'stamp_duty', 'gst')",
             name="ck_charge_source_component_name",
         ),
         CheckConstraint("source_amount >= 0", name="ck_charge_source_component_amount_nonnegative"),

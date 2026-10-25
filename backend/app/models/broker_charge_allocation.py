@@ -55,6 +55,14 @@ class BrokerChargeAllocation(BaseModel):
         nullable=False,
         index=True,
     )
+    # Non-null for allocations created from a separately reviewed canonical snapshot.
+    # Null is retained only for legacy rows created before canonical snapshots.
+    canonical_component_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("broker_charge_canonical_components.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     broker_connection_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("broker_connections.id", ondelete="RESTRICT"),

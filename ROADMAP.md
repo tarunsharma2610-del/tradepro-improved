@@ -1448,3 +1448,12 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - [x] Decide against adding an unused runtime dependency or replacing an already-covered endpoint without measurable benefit.
 - [ ] Reconsider SDK integration only when a concrete API coverage or schema correctness gap is identified; any implementation requires tests and exact-head CI.
 
+
+
+## Phase 3 checkpoint — official GST/IPFT source cross-check (25 October 2026)
+
+- Upstox's current public charges schedule lists the March 2026 transaction-charge schedule, April 2026 STT schedule, product-specific GST bases, and says IPFT is combined with transaction charges while also listing IPFT. The public wording does not prove whether a specific API `transaction` field is transaction-only or combined with IPFT.
+- NSE's official STT table confirms effective 1 April 2026: options sale 0.15% on premium, exercised option 0.15% on intrinsic value, and futures sale 0.05%. CBIC's stock-broking FAQ says statutory recoveries are outside GST value only when pure-agent conditions are met; otherwise Section 15/Rule 27 valuation applies.
+- No API field mapping or production tariff was approved. Do not double-count IPFT or infer actual per-fill charges from proposed-order/aggregate APIs. Keep tariff candidates DRAFT/non-selectable and preserve fail-closed reviewed component allocation.
+- Exact-head CI for previous head `7d4f2918b534ef9b4c3d32e7df22b754b21e6c8f` passed (run [40182196510](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40182196510)); the new documentation head needs fresh CI. PAPER mandatory; live broker writes disabled; PR #6 remains draft/unmerged; original `Tradepro` untouched.
+- Sources: https://upstox.com/brokerage-charges/ ; https://www.nseindia.com/static/products-services/equity-derivatives-securities-transaction-tax ; https://cbic-gst.gov.in/sectoral-faq.html

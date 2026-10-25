@@ -392,3 +392,11 @@ The user-provided statement advances historical evidence collection but does not
 - Added a generic mapping registry requiring broker, exact endpoint, response schema/version, field path, semantic classification, unit, currency, scope, effective date, source URL/hash and approval state. Selection refuses unapproved, unknown, missing or overlapping mappings.
 - This is a software guard, not an approval of `ipft` or `transaction` semantics. No real Upstox mapping is approved yet; sample values in tests are synthetic and must not be interpreted as evidence. The authenticated Brokerage Details endpoint and aggregate Get Trade Charges endpoint remain separate evidence classes.
 - Workflow #40106757433 passed for the prior field-state normalizer commit; the mapping module and subsequent docs require their own exact-head CI. Tariff candidates remain DRAFT/non-selectable.
+
+
+## Official GST/IPFT cross-check — 25 October 2026
+
+- Upstox public charges schedule: https://upstox.com/brokerage-charges/ — lists 2026 effective-dated transaction and STT rates, GST bases by product, and says IPFT is combined with transaction charges while also listing IPFT separately.
+- NSE official STT page: https://www.nseindia.com/static/products-services/equity-derivatives-securities-transaction-tax — confirms effective 1 April 2026 rates/bases for options sale (0.15% premium), exercised options (0.15% intrinsic value), and futures sale (0.05%).
+- CBIC FAQ: https://cbic-gst.gov.in/sectoral-faq.html — STT/stamp duty/other tax recoveries are excluded from GST value only if pure-agent conditions are met; otherwise Section 15/Rule 27 valuation applies.
+- Interpretation limit: this does not establish a particular API `transaction` field's semantics or prove per-fill actual charges. No production mapping/tariff is approved; candidates remain DRAFT/non-selectable until endpoint, schema, component, product, effective date, rounding and source evidence are independently reviewed.

@@ -1718,3 +1718,14 @@ Read [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_
 - Continue Phase 3 per-fill charge allocation. Only adopt SDK runtime code for a concrete gap. Keep PR #6 draft/unmerged, PAPER mandatory, live writes disabled, and original `Tradepro` untouched.
 
 ---
+
+
+## Phase 3 checkpoint — official GST/IPFT source cross-check (25 October 2026)
+
+- Resumed the saved Phase 3 durable per-fill charge-allocation work. No framework code was integrated; current focus remains source-backed tariff acceptance and fail-closed accounting.
+- Exact-head backend CI for prior head `7d4f2918b534ef9b4c3d32e7df22b754b21e6c8f` passed in run [40182196510](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40182196510). This verifies that head, not real-broker tariff authenticity or production restore.
+- Current official Upstox charges page lists transaction charges effective 1 March 2026, STT effective 1 April 2026, GST bases by product, and says IPFT is combined with transaction charges while also showing an IPFT row. This does not establish whether a particular API `transaction` field is transaction-only or transaction-plus-IPFT. Do not double count IPFT or approve a field mapping until exact endpoint/schema semantics are verified.
+- NSE confirms from 1 April 2026: options-sale STT 0.15% on premium (seller), exercised-option STT 0.15% on intrinsic value (purchaser), and futures-sale STT 0.05% (seller). CBIC says STT/stamp-duty/other-tax recoveries are outside GST value only where pure-agent conditions are met; otherwise Section 15/Rule 27 valuation applies. GST mapping must remain product/source-specific.
+- No production field mapping or tariff was approved. Keep candidates DRAFT/non-selectable, preserve missing/null/zero distinctions, reviewed source-component evidence, paise-exact allocation, and fail-closed promotion. PAPER mandatory; live broker order writes disabled; PR #6 draft/unmerged; original `Tradepro` untouched.
+- Official sources: https://upstox.com/brokerage-charges/ ; https://upstox.com/developer/api-documentation/get-brokerage/ ; https://upstox.com/developer/api-documentation/get-trade-charges/ ; https://www.nseindia.com/static/products-services/equity-derivatives-securities-transaction-tax ; https://cbic-gst.gov.in/sectoral-faq.html
+- Next gate: continue component-by-component accounting acceptance and fault-injection/rollback review. Upstox's proposed-order brokerage calculator and segment/FY aggregate charges API are not proof of actual per-fill charges.

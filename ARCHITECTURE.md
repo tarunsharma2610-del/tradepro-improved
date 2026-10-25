@@ -1125,3 +1125,11 @@ The current Upstox integration deliberately combines asynchronous REST calls thr
 
 No official SDK runtime dependency is added as a result of the static compatibility review. The existing async `httpx` reconciliation client already calls the brokerage estimate endpoint, and its response is normalized by project-owned validators. The generated SDK's synchronous default and thread-based async option do not justify replacing this path without a concrete capability or correctness benefit. The upstream Agent Skill is development-only reference; its scripts include live order/GTT writes and must not run in the app runtime. See [SDK/API audit](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md) and [Agent Skill security review](docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md).
 
+
+
+## Phase 3 checkpoint — official GST/IPFT source cross-check (25 October 2026)
+
+- Current official Upstox charges page lists transaction charges effective 1 March 2026, STT effective 1 April 2026, GST bases by product, and says IPFT is combined with transaction charges while also showing an IPFT row. This does not prove whether any particular API `transaction` field is transaction-only or transaction-plus-IPFT.
+- NSE confirms from 1 April 2026: options-sale STT 0.15% on premium, exercised-option STT 0.15% on intrinsic value, and futures-sale STT 0.05%. CBIC says STT/stamp-duty/other-tax recoveries are outside GST value only when pure-agent conditions are met; otherwise Section 15/Rule 27 valuation applies.
+- No production mapping or tariff was approved. Keep tariff candidates DRAFT/non-selectable, do not double-count IPFT, and preserve fail-closed per-fill accounting. Exact-head CI for prior head `7d4f2918b534ef9b4c3d32e7df22b754b21e6c8f` passed in run [40182196510](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40182196510); this docs update requires fresh exact-head CI.
+- Continue Phase 3 component-by-component accounting acceptance and fault-injection/rollback review. PAPER mandatory, live broker writes disabled, PR #6 draft/unmerged, original `Tradepro` untouched. Sources: https://upstox.com/brokerage-charges/ ; https://www.nseindia.com/static/products-services/equity-derivatives-securities-transaction-tax ; https://cbic-gst.gov.in/sectoral-faq.html

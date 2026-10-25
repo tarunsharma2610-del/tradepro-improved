@@ -233,3 +233,9 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Added `docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md` and expanded the SDK/API audit with official SDK v2.30.0 method/dependency findings and Agent Skill risks.
 - Confirmed the generated brokerage SDK method is synchronous by default and existing async REST plus project-owned parser already covers this endpoint. No runtime dependency was added.
 - Reviewed Agent Skill helper, validator, live equity-order and GTT examples, config example and MIT licence. No skill code was executed and no live credentials/API calls/orders were used.
+
+
+## 2026-10-25 — Phase 3 GST/IPFT source cross-check
+
+- Cross-checked current Upstox charges schedule, NSE STT effective-date table, and CBIC stock-broking GST FAQ. Public wording does not establish API `transaction` field semantics, so no mapping/tariff was activated.
+- Exact-head CI for prior head `7d4f2918b534ef9b4c3d32e7df22b754b21e6c8f` passed (run [40182196510](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40182196510)); this docs update needs exact-head CI. PAPER mandatory; live writes disabled; PR #6 draft/unmerged.

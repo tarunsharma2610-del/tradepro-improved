@@ -1831,3 +1831,10 @@ Static review recorded in [`docs/UPSTOX_AGENT_SKILL_SECURITY_REVIEW.md`](docs/UP
 
 - The first API regression run exposed two assertion-message mismatches: the validator correctly rejected ambiguous combined-plus-IPFT input and undeclared representation mode, but the tests expected different wording. Updated the tests to assert the validator's actual fail-closed error messages; no safety rule was weakened.
 - Follow-up exact-head CI for commit `df344e9c64aeb6ec3f2f01fef01f3c05739d4800` and subsequent documentation synchronization is pending. Do not call the current head green until the full workflow completes.
+
+
+## Source-label completeness gate — 25 October 2026
+
+- Source representation validation now requires one retained original label per normalized charge component. Missing labels fail closed before review; this is provenance hardening, not proof of API/contract-note semantics.
+- Exact-head CI must pass after this documentation commit. Rates/mappings remain unapproved, aggregate and estimate amounts cannot be promoted to per-fill actuals, and live order writes remain disabled.
+- Scope remains `tarunsharma2610-del/tradepro-improved` only; PR #6 draft/unmerged; PAPER mandatory; original `Tradepro` untouched.

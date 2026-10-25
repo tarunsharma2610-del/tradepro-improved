@@ -253,7 +253,7 @@ def record_source_component(
         evidence_id=evidence.id,
         source_sha256=evidence.source_sha256,
         component_name=payload.component_name,
-        source_label=(payload.source_label or payload.component_name).strip(),
+        source_label=payload.source_label.strip() if payload.source_label is not None else None,
         representation_mode=payload.representation_mode,
         revision=revision,
         source_amount=payload.source_amount,
@@ -322,6 +322,11 @@ def review_source_component(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source component not found.")
     if component.status != "PENDING_REVIEW":
         raise HTTPException(status.HTTP_409_CONFLICT, "Only pending source components can be reviewed.")
+    if component.source_label is None or not component.source_label.strip():
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The original source label is missing; this component cannot be reviewed until the source label is transcribed.",
+        )
     if component.component_name in {"transaction_charges", "ipft"}:
         siblings = (
             db.query(BrokerChargeSourceComponent)
@@ -347,10 +352,10 @@ def review_source_component(
                 ChargeRepresentation(
                     contract_version=CONTRACT_VERSION,
                     mode=component.representation_mode or "UNSPECIFIED",
-                    raw_labels=tuple(row.source_label or row.component_name for row in source_rows),
+                    raw_labels=tuple(row.source_label or "" for row in source_rows),
                     components={row.component_name: Decimal(row.source_amount) for row in source_rows},
                     labels_by_component={
-                        row.component_name: row.source_label or row.component_name
+                        row.component_name: row.source_label or ""
                         for row in source_rows
                     },
                 )

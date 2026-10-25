@@ -1843,3 +1843,5 @@ Verification boundary: exact-head CI passed on implementation SHA `97843aec1d9b0
 - Source-label association is structural only; authentic contract-note matching still requires independent review.
 - Continue using `PHASE3_ROADMAP.md` and `PHASE3_INSTRUCTIONS.md`. Keep PAPER-only posture, live broker writes disabled, original Tradepro untouched and PR #6 draft/unmerged.
 
+- CI follow-up: run [#40188703796](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40188703796) failed on `fb147a3c5580091574bc71c35e7a641cf7386935` because the negative test fixture used strict zip while intentionally supplying fewer labels. Fixed in `e2758ae3db5309641196f0cd0ce035591f6c03ac`; verify CI for the corrected/current HEAD before marking the source-label gate complete.
+

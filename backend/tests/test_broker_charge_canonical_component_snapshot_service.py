@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import settings
 from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
+from app.models.broker_charge_canonical_source_link import BrokerChargeCanonicalSourceLink
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_trade_record import BrokerTradeRecord
@@ -161,6 +162,11 @@ def test_split_transaction_and_ipft_materialize_one_exchange_snapshot(db_session
     assert Decimal(exchange.canonical_amount) == Decimal("307.00")
     assert {row.component_name for row in source_rows} == {"transaction_charges", "ipft"}
     assert len(source_ids) == 2
+    source_links = db_session.query(BrokerChargeCanonicalSourceLink).filter_by(
+        canonical_component_id=exchange.id
+    ).order_by(BrokerChargeCanonicalSourceLink.source_ordinal).all()
+    assert [str(link.source_component_id) for link in source_links] == source_ids
+    assert [link.source_ordinal for link in source_links] == [0, 1]
     assert exchange.status == "PENDING_REVIEW"
 
 
@@ -324,3 +330,28 @@ def test_verified_split_snapshot_persists_allocations_linked_to_canonical_snapsh
     assert db_session.query(BrokerChargeAllocation).filter_by(
         evidence_id=evidence.id, charge_component="exchange_charges"
     ).count() == 2
+
+
+def test_snapshot_review_fails_closed_when_normalized_source_link_is_missing(db_session, make_user, monkeypatch, tmp_path):
+    creator, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=creator.id
+    )
+    db_session.commit()
+    reviewer = make_user(email=f"canonical-missing-link-{uuid4().hex}@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    exchange = next(row for row in snapshots if row.canonical_component == "exchange_charges")
+    link = db_session.query(BrokerChargeCanonicalSourceLink).filter_by(
+        canonical_component_id=exchange.id
+    ).first()
+    assert link is not None
+    db_session.delete(link)
+    db_session.commit()
+    with pytest.raises(ValueError, match="Normalized canonical source links disagree"):
+        review_canonical_charge_component_snapshot(
+            db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id,
+            decision="VERIFIED", review_note="Must reject incomplete normalized source membership",
+        )
+    db_session.refresh(exchange)
+    assert exchange.status == "PENDING_REVIEW"

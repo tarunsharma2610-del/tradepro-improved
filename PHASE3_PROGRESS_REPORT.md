@@ -82,3 +82,9 @@ If CI fails or is still running, update status to **verification pending/failed*
 - Limitation: structural mapping proves which persisted label is associated with a normalized component row; it does not independently authenticate that the transcribed label/amount matches the original contract note. Independent source review remains required.
 - Next action: verify exact-head CI, confirm focused tests and API review tests pass, fix any failures without weakening safeguards, then update this report with the successful run and counts.
 
+### CI failure and corrective test-fixture update
+
+- Workflow [#40188703796](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40188703796) on implementation SHA `fb147a3c5580091574bc71c35e7a641cf7386935` **failed** during pytest. The failure was in the new test helper: `zip(..., strict=True)` raised while constructing an intentionally malformed fixture, so the validator was never exercised. This was a test-fixture error, not evidence that the production validator failed.
+- Corrective test commit: `e2758ae3db5309641196f0cd0ce035591f6c03ac`; the helper now allows the malformed fixture to reach validation, and the assertion checks the validator's fail-closed component-key error.
+- Verification for the corrected commit remains pending until its own CI result is checked. The earlier failed run is retained as history; it is not counted as a successful step.
+

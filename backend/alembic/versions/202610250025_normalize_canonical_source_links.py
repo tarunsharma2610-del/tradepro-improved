@@ -42,6 +42,8 @@ def upgrade() -> None:
             "canonical_component_id", "source_ordinal",
             name="uq_charge_canonical_source_link_ordinal",
         ),
+        sa.UniqueConstraint("source_component_id", name="uq_charge_canonical_source_link_source"),
+        sa.CheckConstraint("source_ordinal >= 0", name="ck_charge_canonical_source_link_ordinal_nonnegative"),
     )
     op.create_index(
         "ix_broker_charge_canonical_source_links_canonical_component_id",

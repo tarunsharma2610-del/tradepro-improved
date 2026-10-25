@@ -31,7 +31,11 @@ from app.services.broker_charge_document_storage_service import (
 router = APIRouter(prefix="/broker-charge-evidence", tags=["broker charge evidence"])
 logger = logging.getLogger(__name__)
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
-SUPPORTED_COMPONENTS = {"brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"}
+SUPPORTED_COMPONENTS = {
+    "brokerage", "stt", "exchange_charges", "transaction_charges",
+    "clearing_charges", "ipft", "other_charges", "demat_transaction_charges",
+    "sebi_charges", "stamp_duty", "gst",
+}
 
 
 class SourceComponentInput(BaseModel):

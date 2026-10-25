@@ -400,3 +400,9 @@ The user-provided statement advances historical evidence collection but does not
 - NSE official STT page: https://www.nseindia.com/static/products-services/equity-derivatives-securities-transaction-tax — confirms effective 1 April 2026 rates/bases for options sale (0.15% premium), exercised options (0.15% intrinsic value), and futures sale (0.05%).
 - CBIC FAQ: https://cbic-gst.gov.in/sectoral-faq.html — STT/stamp duty/other tax recoveries are excluded from GST value only if pure-agent conditions are met; otherwise Section 15/Rule 27 valuation applies.
 - Interpretation limit: this does not establish a particular API `transaction` field's semantics or prove per-fill actual charges. No production mapping/tariff is approved; candidates remain DRAFT/non-selectable until endpoint, schema, component, product, effective date, rounding and source evidence are independently reviewed.
+
+
+## Resolver safety note — 25 October 2026
+
+- Source-level endpoint restrictions remain effective across broker-name casing, trailing slash, query-string and absolute-URL variations for Upstox's aggregate charges and brokerage estimate endpoints.
+- These are software controls, not tariff evidence. Keep API field mappings DRAFT/non-selectable until source/schema/product/effective-date semantics are independently reviewed; do not infer per-fill actual charges from estimates or aggregates.

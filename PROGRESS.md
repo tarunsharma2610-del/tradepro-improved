@@ -2498,3 +2498,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Next gate: continue component-by-component accounting acceptance and fault-injection/rollback review. Upstox's proposed-order brokerage calculator and segment/FY aggregate charges API are not proof of actual per-fill charges.
 
 - Current Phase 3 status: exact-head CI verified on prior head; GST/IPFT source interpretation remains unresolved for API field semantics; no tariff activation authorized.
+
+
+## Phase 3 resolver guard hardening — 25 October 2026
+
+- Hardened source-level restrictions for Upstox aggregate-only `/v2/trade/profit-loss/charges` and estimate-only `/v2/charges/brokerage` endpoints. Guard canonicalizes broker-name casing and endpoint path spelling (trailing slash, query string, full URL) while reviewed mapping selection remains exact.
+- Added regression tests so misleading approved mapping rows cannot convert aggregate/estimate data into per-fill actual accounting.
+- Defensive code change only: no API field semantic or tariff approved. Production mappings remain unapproved, null is not zero, IPFT must not be double-counted, and charge-ledger promotion remains fail-closed.
+- Exact-head CI for this code/documentation commit must be verified. PAPER mandatory; live broker writes disabled; PR #6 draft/unmerged; original `Tradepro` untouched.

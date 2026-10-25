@@ -259,3 +259,55 @@ def test_official_upstox_aggregate_charges_endpoint_cannot_be_used_as_an_estimat
             scope="aggregate-segment-fy",
             intended_use="ESTIMATE",
         )
+
+
+
+@pytest.mark.parametrize(
+    ("broker", "endpoint"),
+    [
+        ("Upstox", "/v2/trade/profit-loss/charges/"),
+        ("upstox", "/v2/trade/profit-loss/charges"),
+        ("UPSTOX", "/v2/trade/profit-loss/charges?segment=FO"),
+        ("Upstox", "https://api.upstox.com/v2/trade/profit-loss/charges?segment=FO"),
+    ],
+)
+def test_aggregate_only_endpoint_guard_cannot_be_bypassed_by_url_spelling(broker, endpoint):
+    selected = replace(
+        mapping(),
+        broker=broker,
+        endpoint=endpoint,
+        scope="aggregate-segment-fy",
+    )
+    with pytest.raises(ValueError, match="Aggregate-only broker endpoint"):
+        resolve(
+            {"ipft": "0.01"},
+            selected,
+            broker=broker,
+            endpoint=endpoint,
+            scope="aggregate-segment-fy",
+        )
+
+
+@pytest.mark.parametrize(
+    ("broker", "endpoint"),
+    [
+        ("Upstox", "/v2/charges/brokerage/"),
+        ("upstox", "/v2/charges/brokerage"),
+        ("UPSTOX", "/v2/charges/brokerage?instrument_token=NSE_EQ|INE"),
+        ("Upstox", "https://api.upstox.com/v2/charges/brokerage?instrument_token=fixture"),
+    ],
+)
+def test_estimate_only_endpoint_guard_cannot_be_bypassed_by_url_spelling(broker, endpoint):
+    selected = replace(
+        mapping(),
+        broker=broker,
+        endpoint=endpoint,
+        semantic="PER_FILL_ACTUAL",
+    )
+    with pytest.raises(ValueError, match="Estimate-only broker endpoint"):
+        resolve(
+            {"ipft": "0.17"},
+            selected,
+            broker=broker,
+            endpoint=endpoint,
+        )

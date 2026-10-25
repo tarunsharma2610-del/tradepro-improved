@@ -126,3 +126,10 @@ Public-format review is complete using the linked third-party examples; no perso
 - No API field mapping or production tariff was approved. Do not double-count IPFT or infer actual per-fill charges from proposed-order/aggregate APIs. Keep tariff candidates DRAFT/non-selectable and preserve fail-closed reviewed component allocation.
 - Exact-head CI for previous head `7d4f2918b534ef9b4c3d32e7df22b754b21e6c8f` passed (run [40182196510](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40182196510)); the new documentation head needs fresh CI. PAPER mandatory; live broker writes disabled; PR #6 remains draft/unmerged; original `Tradepro` untouched.
 - Sources: https://upstox.com/brokerage-charges/ ; https://www.nseindia.com/static/products-services/equity-derivatives-securities-transaction-tax ; https://cbic-gst.gov.in/sectoral-faq.html
+
+
+## Resolver endpoint-alias guard — 25 October 2026
+
+- Aggregate charges and brokerage calculator endpoints remain disallowed as per-fill actual evidence even if the mapping registry contains a misleadingly labelled approved row.
+- Guard checks canonicalize broker name and endpoint path for safety restrictions, covering trailing slashes, query strings, absolute URLs and broker-name casing. Registry selection remains exact and version/date/scope-bound.
+- Regression tests cover both restricted endpoints. This does not resolve transaction/IPFT semantics or establish contract-note actual charges; no production mapping is approved.

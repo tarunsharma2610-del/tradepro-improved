@@ -1457,3 +1457,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - No API field mapping or production tariff was approved. Do not double-count IPFT or infer actual per-fill charges from proposed-order/aggregate APIs. Keep tariff candidates DRAFT/non-selectable and preserve fail-closed reviewed component allocation.
 - Exact-head CI for previous head `7d4f2918b534ef9b4c3d32e7df22b754b21e6c8f` passed (run [40182196510](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40182196510)); the new documentation head needs fresh CI. PAPER mandatory; live broker writes disabled; PR #6 remains draft/unmerged; original `Tradepro` untouched.
 - Sources: https://upstox.com/brokerage-charges/ ; https://www.nseindia.com/static/products-services/equity-derivatives-securities-transaction-tax ; https://cbic-gst.gov.in/sectoral-faq.html
+
+
+## Phase 3 resolver guard hardening — 25 October 2026
+
+- Hardened source-level restrictions for Upstox aggregate-only `/v2/trade/profit-loss/charges` and estimate-only `/v2/charges/brokerage` endpoints. Guard canonicalizes broker-name casing and endpoint path spelling (trailing slash, query string, full URL) while reviewed mapping selection remains exact.
+- Added regression tests so misleading approved mapping rows cannot convert aggregate/estimate data into per-fill actual accounting.
+- Defensive code change only: no API field semantic or tariff approved. Production mappings remain unapproved, null is not zero, IPFT must not be double-counted, and charge-ledger promotion remains fail-closed.
+- Exact-head CI for this code/documentation commit must be verified. PAPER mandatory; live broker writes disabled; PR #6 draft/unmerged; original `Tradepro` untouched.

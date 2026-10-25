@@ -239,3 +239,10 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 
 - Cross-checked current Upstox charges schedule, NSE STT effective-date table, and CBIC stock-broking GST FAQ. Public wording does not establish API `transaction` field semantics, so no mapping/tariff was activated.
 - Exact-head CI for prior head `7d4f2918b534ef9b4c3d32e7df22b754b21e6c8f` passed (run [40182196510](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40182196510)); this docs update needs exact-head CI. PAPER mandatory; live writes disabled; PR #6 draft/unmerged.
+
+
+## 2026-10-25 — Harden known Upstox endpoint restrictions
+
+- Canonicalized broker/endpoint identity for source-level aggregate-only and estimate-only guards. Exact registry mapping matching remains unchanged.
+- Added regression cases for broker casing, trailing slash, query strings and absolute URLs. No tariff or field mapping was approved.
+- CI must pass on the exact resulting commit before the change is considered verified.

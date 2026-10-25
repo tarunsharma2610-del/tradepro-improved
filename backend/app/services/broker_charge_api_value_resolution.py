@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any, Iterable
+from urllib.parse import urlsplit
 
 from app.services.broker_charge_api_mapping import (
     ChargeApiFieldMapping,
@@ -15,13 +16,25 @@ from app.services.broker_charge_api_normalization import normalize_charge_api_fi
 # documented per-fill payload. A bad/stale registry row must not override this
 # source-level restriction.
 AGGREGATE_ONLY_ENDPOINTS = frozenset({
-    ("Upstox", "/v2/trade/profit-loss/charges"),
+    ("upstox", "/v2/trade/profit-loss/charges"),
 })
 # This endpoint calculates charges from proposed order inputs; its response is
 # a calculator/estimate, not evidence of the final charges actually booked.
 ESTIMATE_ONLY_ENDPOINTS = frozenset({
-    ("Upstox", "/v2/charges/brokerage"),
+    ("upstox", "/v2/charges/brokerage"),
 })
+
+
+def _endpoint_guard_identity(broker: str, endpoint: str) -> tuple[str, str]:
+    """Canonicalize endpoint identity for source-level safety restrictions.
+
+    Registry matching remains exact. This canonical form is used only to make
+    the known endpoint restrictions resilient to URL/query/trailing-slash and
+    broker-name casing variations.
+    """
+    parsed = urlsplit(endpoint)
+    path = (parsed.path or endpoint).rstrip("/") or "/"
+    return broker.casefold(), path
 
 
 def resolve_charge_api_value(
@@ -61,13 +74,13 @@ def resolve_charge_api_value(
         raise ValueError("Unsupported intended use.")
     if intended_use == "PER_FILL_ACTUAL" and mapping.semantic != "PER_FILL_ACTUAL":
         raise ValueError("Mapping semantics do not permit per-fill actual accounting.")
-    if intended_use == "PER_FILL_ACTUAL" and (broker, endpoint) in AGGREGATE_ONLY_ENDPOINTS:
+    if intended_use == "PER_FILL_ACTUAL" and _endpoint_guard_identity(broker, endpoint) in AGGREGATE_ONLY_ENDPOINTS:
         raise ValueError("Aggregate-only broker endpoint cannot provide per-fill actual evidence.")
-    if intended_use == "PER_FILL_ACTUAL" and (broker, endpoint) in ESTIMATE_ONLY_ENDPOINTS:
+    if intended_use == "PER_FILL_ACTUAL" and _endpoint_guard_identity(broker, endpoint) in ESTIMATE_ONLY_ENDPOINTS:
         raise ValueError("Estimate-only broker endpoint cannot provide per-fill actual evidence.")
-    if intended_use == "ESTIMATE" and (broker, endpoint) in AGGREGATE_ONLY_ENDPOINTS:
+    if intended_use == "ESTIMATE" and _endpoint_guard_identity(broker, endpoint) in AGGREGATE_ONLY_ENDPOINTS:
         raise ValueError("Aggregate-only broker endpoint cannot provide estimate evidence.")
-    if intended_use == "AGGREGATE_SUMMARY" and (broker, endpoint) in ESTIMATE_ONLY_ENDPOINTS:
+    if intended_use == "AGGREGATE_SUMMARY" and _endpoint_guard_identity(broker, endpoint) in ESTIMATE_ONLY_ENDPOINTS:
         raise ValueError("Estimate-only broker endpoint cannot provide actual aggregate evidence.")
     if intended_use == "AGGREGATE_SUMMARY" and mapping.semantic != "AGGREGATE_ACTUAL_SUMMARY":
         raise ValueError("Mapping semantics do not permit aggregate summary use.")

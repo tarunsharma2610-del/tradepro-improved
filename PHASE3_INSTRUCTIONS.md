@@ -275,3 +275,12 @@ Historical entries remain historical records; they must not override this curren
 - GST/IPFT production tariff/account-specific acceptance is a separate evidence gate and does not block synthetic engineering tests. Unapproved tariff candidates remain DRAFT.
 - Safety: PAPER mandatory; live broker order writes disabled; PR #6 stays draft/unmerged absent explicit authorization; original `Tradepro` untouched.
 
+
+
+## Verified checkpoint — 2026-10-25
+- Implementation commit `07df26a88d5eb9cbebc76a5654e10e00e38de171` passed Backend CI run #40204137793 on the exact commit: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40204137793
+- Fixed PostgreSQL reconciliation-reference length failure by widening the column from 200 to 320 characters. Migration `202610250026_widen_charge_reconciliation_reference.py` refuses destructive downgrade truncation.
+- PostgreSQL concurrent-promotion test passed in the exact-head run above. This docs commit still needs its own CI verification.
+- Next: after checkpoint CI passes, audit for actual conflicting-set/rollback test gaps; add only missing coverage.
+- Every CI pass requires updating all 13 docs, committing a checkpoint and verifying CI on that checkpoint commit; every failure requires root-cause diagnosis, fix and rerun.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker order writes disabled; GST/IPFT production acceptance remains a separate gate.

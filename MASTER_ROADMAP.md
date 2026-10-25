@@ -1753,3 +1753,10 @@ Safety remains unchanged: PAPER mode mandatory; live broker order writes disable
 - Added tests for split transaction/IPFT -> one ₹307.00 canonical exchange-charge snapshot -> two linked per-fill allocations, normalized source-link enforcement, reconciliation promotion/replay, and blocking tampered allocation amounts. Test commit `621ce7cd289057a419be5eeff0262e158b18c001` has Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) in progress; do not call the new reconciliation path green until that run completes.
 - Next: resolve any failures from run #40196784435; then test conflict/rollback and PostgreSQL concurrency for canonical promotion before treating it as a complete Phase 3 accounting gate.
 - Safety unchanged: Improved repo only; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes and automatic accounting promotion remain disabled outside this gated reconciliation service.
+
+
+## CI result update — canonical reconciliation gate (25 October 2026)
+
+- Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) has now completed successfully for code/test commit `621ce7cd289057a419be5eeff0262e158b18c001`. The complete job passed pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and the synthetic PostgreSQL/document-volume restore drill.
+- This green result covers the normalized source-link schema and canonical allocation reconciliation tests. Documentation-only commits after that code/test commit still need their own exact-head workflow result if triggered.
+- Next: add explicit rollback/conflicting-set and PostgreSQL concurrent-promotion coverage; then verify exact-head CI again before considering the canonical reconciliation gate complete.

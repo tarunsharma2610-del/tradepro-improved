@@ -20,7 +20,6 @@ class BrokerChargeCanonicalSourceLink(BaseModel):
             "canonical_component_id", "source_ordinal",
             name="uq_charge_canonical_source_link_ordinal",
         ),
-        UniqueConstraint("source_component_id", name="uq_charge_canonical_source_link_source"),
         CheckConstraint("source_ordinal >= 0", name="ck_charge_canonical_source_link_ordinal_nonnegative"),
     )
 

@@ -1,3 +1,26 @@
+## Canonical checkpoint document set — 25 October 2026
+
+After every CI result, update and cross-check these **14 documents**. The security audit was accidentally omitted from the previous 13-document list; that omission is corrected here.
+
+1. `PROGRESS.md`
+2. `HANDOVER.md`
+3. `MASTER_ROADMAP.md`
+4. `ROADMAP.md`
+5. `PROJECT_INSTRUCTIONS.md`
+6. `AUDIT_REPORT.md`
+7. `ARCHITECTURE.md`
+8. `REQUIREMENTS_AUDIT.md`
+9. `CHANGELOG.md`
+10. `SECURITY_CONTROL_ENDPOINT_AUDIT.md`
+11. `PHASE3_LATEST_CI_CHECKPOINT.md`
+12. `PHASE3_PROGRESS_REPORT.md`
+13. `PHASE3_ROADMAP.md`
+14. `PHASE3_INSTRUCTIONS.md`
+
+For each CI cycle, record the exact tested SHA, run ID/result, completed work, remaining work, and next single task. If the final docs-only checkpoint creates a new SHA, that SHA needs its own CI result. Never infer its status from a parent commit.
+
+---
+
 ## Phase 3 forward checkpoint — 25 October 2026
 
 - New evidence-intake vocabulary covers separate Upstox transaction, clearing, IPFT, other and demat transaction charge labels. Database migration `202610250019` expands source-component and allocation constraints; API intake remains pending-review only.
@@ -1744,7 +1767,7 @@ Historical entries remain historical records; they must not override this curren
 - Latest test `test_canonical_reconciliation_rejects_incomplete_allocation_fill_set` removes one row from a two-fill canonical set and confirms promotion fails closed, leaving the remaining row pending without a reconciliation reference.
 - Completed; do not repeat: normalized canonical/source links, reviewed immutable snapshots, split transaction + IPFT provenance, durable per-fill allocations, canonical ledger verification, deterministic paise allocation, promotion/replay, tampered-allocation rejection, existing rollback assertions, and incomplete-fill-set rejection.
 - **Next single implementation step:** inspect existing coverage and add PostgreSQL concurrent-promotion tests proving concurrent attempts cannot create partial/mixed states or inconsistent durable references. Add conflicting-set/rollback tests only where a real gap remains. Then run the full backend CI gate.
-- CI protocol: on failure, diagnose/fix/rerun. On pass, update all 13 docs with exact SHA/run/result and next step, commit checkpoint, then verify CI on the checkpoint commit itself. Before resuming, refresh the live PR head and read docs from that exact SHA.
+- CI protocol: on failure, diagnose/fix/rerun. On pass, update all 14 checkpoint documents with exact SHA/run/result and next step, commit checkpoint, then verify CI on the checkpoint commit itself. Before resuming, refresh the live PR head and read docs from that exact SHA.
 - GST/IPFT production tariff/account-specific acceptance is a separate evidence gate and does not block synthetic engineering tests. Unapproved tariff candidates remain DRAFT.
 - Safety: PAPER mandatory; live broker order writes disabled; PR #6 stays draft/unmerged absent explicit authorization; original `Tradepro` untouched.
 
@@ -1756,5 +1779,5 @@ Historical entries remain historical records; they must not override this curren
 - Root cause resolved in code: complete durable reconciliation references exceeded the prior 200-character database column. The model and migration `202610250026_widen_charge_reconciliation_reference.py` now allow 320 characters; downgrade explicitly refuses to truncate references longer than 200 characters.
 - PostgreSQL concurrent-promotion test has passed as part of the successful Backend CI run. Treat the test as verified on the implementation commit; the documentation checkpoint itself still requires exact-head CI.
 - Next: after documentation checkpoint CI is green, audit whether any conflicting-set/rollback/concurrency acceptance gap remains, add tests only for verified gaps, then rerun the full backend gate.
-- Mandatory protocol: every CI failure → inspect full failure, fix root cause and rerun; every CI pass → update all 13 designated documents, commit a checkpoint with exact SHA/run/results/next step, then verify CI on that checkpoint commit itself.
+- Mandatory protocol: every CI failure → inspect full failure, fix root cause and rerun; every CI pass → update all 14 designated checkpoint documents, commit a checkpoint with exact SHA/run/results/next step, then verify CI on that checkpoint commit itself.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched. PR #6 stays draft/unmerged. PAPER mode mandatory; live broker order writes disabled. GST/IPFT tariff acceptance remains a separate production-evidence gate; synthetic engineering work is not blocked.

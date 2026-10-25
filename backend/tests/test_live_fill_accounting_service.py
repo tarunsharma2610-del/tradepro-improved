@@ -296,6 +296,34 @@ def test_missing_component_allocation_blocks_live_accounting(accounting_context)
     assert paper_position.quantity == 7
 
 
+def test_separately_reported_ipft_component_blocks_six_component_live_promotion(accounting_context):
+    db, user, _portfolio, _instrument, connection, _order, _child, record, paper_position = accounting_context
+    charges = _reviewed_charges(accounting_context)
+    # The evidence vocabulary can preserve a separate IPFT source line, but
+    # live-fill accounting must not silently ignore it or double-count it.
+    db.add(BrokerChargeAllocation(
+        evidence_id=charges.evidence_id,
+        broker_connection_id=connection.id,
+        broker_trade_record_id=record.id,
+        charge_component="ipft",
+        source_component_total=Decimal("0.01"),
+        allocated_amount=Decimal("0.01"),
+        currency="INR",
+        allocation_basis="EXPLICIT_REVIEWED",
+        method_version=METHOD_VERSION,
+        status="RECONCILED",
+        reconciliation_reference="test-separate-ipft-component",
+    ))
+    db.commit()
+
+    with pytest.raises(ValueError, match="exactly six reconciled per-fill"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
 def test_caller_charge_amounts_must_match_reconciled_ledger(accounting_context):
     db, user, _portfolio, _instrument, _connection, _order, _child, record, paper_position = accounting_context
     charges = _reviewed_charges(accounting_context)

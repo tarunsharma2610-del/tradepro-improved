@@ -1835,3 +1835,11 @@ Use these files before continuing Phase 3; do not recreate the plan from convers
 
 Verification boundary: exact-head CI passed on implementation SHA `97843aec1d9b0acc4d55d0fc4529b4ea5b81fd50` in [run #40187635881](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40187635881) (907 passed, 1 warning). The new Phase 3 planning/reporting documents were committed after that SHA. Therefore, this newer documentation HEAD must not be described as CI-verified until its own required workflow succeeds. Keep the Phase 3 report updated only after successful verification; record failed/pending runs honestly.
 
+### Phase 3 next checkpoint — source-label association (2026-10-25)
+
+- Current implementation HEAD at handover note: `fb147a3c5580091574bc71c35e7a641cf7386935`.
+- Implemented explicit `labels_by_component` mapping in the representation contract and wired the persisted source-component label mapping into review validation; added adversarial unit tests.
+- **Do not call this step complete yet:** exact-head CI is not verified. Next action is to inspect the workflow on the current branch HEAD, confirm the contract/API tests and required PostgreSQL/migration/safety jobs pass, and record the exact run/counts in `PHASE3_PROGRESS_REPORT.md`.
+- Source-label association is structural only; authentic contract-note matching still requires independent review.
+- Continue using `PHASE3_ROADMAP.md` and `PHASE3_INSTRUCTIONS.md`. Keep PAPER-only posture, live broker writes disabled, original Tradepro untouched and PR #6 draft/unmerged.
+

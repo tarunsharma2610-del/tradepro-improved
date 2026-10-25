@@ -458,3 +458,12 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 - Previous branch head `4dbaf27fae124d11935c271f2f4cdec44015dbaa` passed Backend workflow [#40196030459](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196030459). New normalized-link change `d1153a0f0751339f3ca82fc062701db0141d4749` awaits fresh CI verification.
 - Next: verify migration upgrade/downgrade/re-upgrade on SQLite and PostgreSQL 16, then require normalized source membership and canonical snapshot fingerprint in promotion/reconciliation.
 - Safety: only the Improved repository; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes and automatic accounting promotion remain disabled.
+
+
+## Phase 3 — normalized source links and canonical reconciliation gate (25 October 2026)
+
+- Normalized source-link migration passed Backend workflow [#40196529023](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196529023), including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration upgrade/downgrade/re-upgrade and synthetic restore drill.
+- Added `broker_charge_canonical_allocation_reconciliation_service.py`: verifies canonical snapshot approval and fingerprint, normalized source-row links, exact reviewed fill manifest, deterministic paise amounts, INR/method/basis, totals and state; atomic promotion/replay uses a durable snapshot/fingerprint/fill-set reference and never commits the caller's transaction.
+- Added split transaction/IPFT normalized-link, successful promotion/replay and tamper-blocking tests. Commit `621ce7cd289057a419be5eeff0262e158b18c001` Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) was in progress at checkpoint; latest reconciliation code is not marked green until completed.
+- Next: fix any exact-head CI failures, then add conflict/rollback and PostgreSQL concurrency coverage before closing this Phase 3 gate.
+- Safety: Improved repository only; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes remain blocked.

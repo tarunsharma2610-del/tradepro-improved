@@ -165,3 +165,27 @@ def test_snapshot_materialization_rejects_tampered_original_document(db_session,
             db_session, evidence_id=evidence.id, requested_by_user_id=reviewer.id
         )
     assert db_session.query(BrokerChargeCanonicalComponent).filter_by(evidence_id=evidence.id).count() == 0
+
+def test_changed_reviewed_allocation_metadata_creates_new_snapshot_revision(db_session, make_user, monkeypatch, tmp_path):
+    reviewer, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    first = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=reviewer.id
+    )
+    db_session.commit()
+    new_weights = json.dumps(
+        [
+            {"fill_record_id": item["fill_record_id"], "weight": "1" if index == 0 else "2"}
+            for index, item in enumerate(json.loads(first[0].eligible_fill_weights_json))
+        ],
+        separators=(",", ":"),
+    )
+    for row in db_session.query(BrokerChargeSourceComponent).filter_by(evidence_id=evidence.id).all():
+        row.eligible_fill_weights_json = new_weights
+    db_session.commit()
+
+    second = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=reviewer.id
+    )
+    assert len(second) == 6
+    assert all(row.revision == 2 for row in second)
+    assert db_session.query(BrokerChargeCanonicalComponent).filter_by(evidence_id=evidence.id).count() == 12

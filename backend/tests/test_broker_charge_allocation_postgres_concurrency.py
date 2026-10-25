@@ -827,3 +827,167 @@ def test_concurrent_variance_comparison_exact_replay_is_audit_only(tmp_path, mon
         # Variance records are append-only by database trigger. Keep this isolated
         # synthetic fixture intact rather than weakening the immutability boundary.
         engine.dispose()
+
+
+@pytest.mark.skipif(not os.getenv("TEST_POSTGRES_URL"), reason="requires dedicated PostgreSQL test database")
+def test_concurrent_canonical_snapshot_promotions_are_atomic_and_idempotent(tmp_path, monkeypatch):
+    """Two concurrent promotions must leave the complete canonical set consistently reconciled."""
+    from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
+    from app.models.broker_charge_canonical_source_link import BrokerChargeCanonicalSourceLink
+    from app.services.broker_charge_canonical_component_snapshot_service import (
+        materialize_canonical_charge_component_snapshots,
+    )
+    from app.services.broker_charge_canonical_component_review_service import (
+        review_canonical_charge_component_snapshot,
+    )
+    from app.services.broker_charge_canonical_allocation_persistence_service import (
+        allocate_and_persist_canonical_snapshot,
+    )
+    from app.services.broker_charge_canonical_allocation_reconciliation_service import (
+        promote_verified_canonical_component_allocations,
+    )
+    from app.services.broker_charge_representation_contract import CONTRACT_VERSION
+
+    url = os.environ["TEST_POSTGRES_URL"]
+    engine = create_engine(url, pool_size=5, max_overflow=0, pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    suffix = uuid4().hex[:10]
+    owner_id, canonical_reviewer_id, extractor_id, connection_id, evidence_id = (
+        uuid4(), uuid4(), uuid4(), uuid4(), uuid4()
+    )
+    report_ref = f"CN-CANONICAL-PROMOTION-RACE-{suffix}"
+    original = f"synthetic canonical source note {suffix}".encode()
+    digest = hashlib.sha256(original).hexdigest()
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+    store_document(original, root=tmp_path, storage_key=evidence_id.hex)
+    fill_ids = sorted([str(uuid4()), str(uuid4())])
+    now = datetime.now(timezone.utc)
+    try:
+        with Session.begin() as db:
+            db.add_all([
+                User(id=owner_id, email=f"canonical-owner-{suffix}@example.invalid",
+                     password_hash="test", full_name="Source Reviewer", is_admin=True),
+                User(id=canonical_reviewer_id, email=f"canonical-reviewer-{suffix}@example.invalid",
+                     password_hash="test", full_name="Canonical Reviewer", is_admin=True),
+                User(id=extractor_id, email=f"canonical-extractor-{suffix}@example.invalid",
+                     password_hash="test", full_name="Extractor", is_admin=False),
+            ])
+            db.flush()
+            db.add(BrokerConnection(
+                id=connection_id, user_id=owner_id, broker="upstox",
+                api_key_encrypted="test-key", api_secret_encrypted="test-secret",
+                redirect_uri="https://example.invalid/callback", is_connected=True,
+            ))
+            db.flush()
+            db.add(BrokerChargeEvidence(
+                id=evidence_id, broker_connection_id=connection_id,
+                source_kind="CONTRACT_NOTE", broker_report_reference=report_ref,
+                source_filename=f"canonical-race-{suffix}.pdf", source_sha256=digest,
+                byte_size=len(original), storage_key=evidence_id.hex, status="REVIEWED",
+                reviewed_at=now, reviewed_by_user_id=owner_id,
+                review_note="Synthetic PostgreSQL canonical promotion race",
+            ))
+            db.flush()
+            manifest = json.dumps(fill_ids, separators=(",", ":"))
+            weights = json.dumps(
+                [{"fill_record_id": fill_id, "weight": "1"} for fill_id in fill_ids],
+                separators=(",", ":"),
+            )
+            manifest_hash = hashlib.sha256(manifest.encode()).hexdigest()
+            for index, fill_id in enumerate(fill_ids, start=1):
+                db.add(BrokerTradeRecord(
+                    id=UUID(fill_id), broker_connection_id=connection_id,
+                    broker_order_ref_id=uuid4(), broker_trade_id=f"canonical-race-{suffix}-{index}",
+                    quantity=1, price=Decimal("100.0000"), side="BUY",
+                    instrument_token="NSE_EQ|CANONICAL-RACE",
+                    exchange_timestamp=now.isoformat(),
+                ))
+            values = [
+                ("brokerage", "20.00", "Brokerage", None, None),
+                ("stt", "0.20", "STT", None, None),
+                ("sebi_charges", "0.01", "SEBI Turnover", None, None),
+                ("stamp_duty", "0.03", "Stamp Duty", None, None),
+                ("gst", "58.91", "GST", None, None),
+                ("exchange_charges", "307.00", "Exchange Charges", None, None),
+            ]
+            for index, (name, amount, label, mode, contract_version) in enumerate(values, start=1):
+                db.add(BrokerChargeSourceComponent(
+                    evidence_id=evidence_id, source_sha256=digest,
+                    component_name=name, source_label=label,
+                    representation_mode=mode, representation_contract_version=contract_version,
+                    component_set_version=LIVE_FILL_COMPONENT_SET_VERSION, revision=1,
+                    source_amount=Decimal(amount), currency="INR",
+                    extraction_method="MANUAL_TRANSCRIPTION", parser_version="manual-transcription-v1",
+                    source_locator=f"page=1,row={index}", eligible_fill_ids_json=manifest,
+                    eligible_fill_weights_json=weights, eligible_fill_set_sha256=manifest_hash,
+                    rounding_policy=METHOD_VERSION, allocation_basis="EXPLICIT_REVIEWED",
+                    extracted_by_user_id=extractor_id, status="VERIFIED",
+                    reviewed_by_user_id=owner_id, reviewed_at=now,
+                    review_note="Independent synthetic source review",
+                ))
+        with Session.begin() as db:
+            snapshots = materialize_canonical_charge_component_snapshots(
+                db, evidence_id=evidence_id, requested_by_user_id=owner_id
+            )
+        exchange = next(row for row in snapshots if row.canonical_component == "exchange_charges")
+        with Session.begin() as db:
+            review_canonical_charge_component_snapshot(
+                db, snapshot_id=exchange.id, reviewer_user_id=canonical_reviewer_id,
+                decision="VERIFIED", review_note="Independent canonical snapshot review",
+            )
+        with Session.begin() as db:
+            allocations = allocate_and_persist_canonical_snapshot(
+                db, snapshot_id=exchange.id, broker_connection_id=connection_id,
+                broker_report_reference=report_ref,
+            )
+        assert len(allocations) == 2
+
+        barrier = threading.Barrier(2)
+        results = []
+        result_lock = threading.Lock()
+
+        def promote():
+            with Session() as db:
+                barrier.wait(timeout=10)
+                try:
+                    rows = promote_verified_canonical_component_allocations(
+                        db, snapshot_id=exchange.id, reviewer_user_id=canonical_reviewer_id
+                    )
+                    db.commit()
+                    result = ("success", [str(row.id) for row in rows])
+                except Exception as exc:
+                    db.rollback()
+                    result = ("error", type(exc).__name__, str(exc))
+                with result_lock:
+                    results.append(result)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(promote), pool.submit(promote)]
+            for future in futures:
+                future.result(timeout=45)
+
+        assert len(results) == 2 and all(result[0] == "success" for result in results), results
+        with Session() as db:
+            rows = db.query(BrokerChargeAllocation).filter_by(
+                canonical_component_id=exchange.id
+            ).order_by(BrokerChargeAllocation.broker_trade_record_id).all()
+            assert len(rows) == 2
+            assert {row.status for row in rows} == {"RECONCILED"}
+            references = {row.reconciliation_reference for row in rows}
+            assert len(references) == 1 and None not in references
+            assert sum((Decimal(row.allocated_amount) for row in rows), Decimal("0")) == Decimal("307.00")
+            assert all(set(result[1]) == {str(row.id) for row in rows} for result in results)
+
+    finally:
+        with Session.begin() as db:
+            db.execute(text("DELETE FROM broker_charge_allocations WHERE evidence_id = :id"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_charge_canonical_source_links WHERE canonical_component_id IN (SELECT id FROM broker_charge_canonical_components WHERE evidence_id = :id)"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_charge_canonical_components WHERE evidence_id = :id"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_charge_source_components WHERE evidence_id = :id"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_trade_records WHERE broker_connection_id = :id"), {"id": str(connection_id)})
+            db.execute(text("DELETE FROM broker_charge_evidence WHERE id = :id"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_connections WHERE id = :id"), {"id": str(connection_id)})
+            db.execute(text("DELETE FROM users WHERE id IN (:owner, :reviewer, :extractor)"),
+                       {"owner": str(owner_id), "reviewer": str(canonical_reviewer_id), "extractor": str(extractor_id)})
+        engine.dispose()

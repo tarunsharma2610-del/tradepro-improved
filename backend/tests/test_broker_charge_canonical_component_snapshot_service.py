@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
+from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.broker_connection import BrokerConnection
 from app.models.user import User
 from app.services.broker_charge_allocation_service import METHOD_VERSION
@@ -20,6 +21,10 @@ from app.services.broker_charge_canonical_component_snapshot_service import (
 from app.services.broker_charge_canonical_component_review_service import (
     review_canonical_charge_component_snapshot,
 )
+from app.services.broker_charge_canonical_allocation_persistence_service import (
+    allocate_and_persist_canonical_snapshot,
+)
+from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.services.broker_charge_document_storage_service import store_document
 from app.services.broker_charge_representation_contract import CONTRACT_VERSION
 
@@ -61,6 +66,19 @@ def _context(db, make_user, monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
 
     fill_ids = sorted([str(uuid4()), str(uuid4())])
+    for index, fill_id in enumerate(fill_ids, start=1):
+        db.add(BrokerTradeRecord(
+            id=UUID(fill_id),
+            broker_connection_id=connection.id,
+            broker_order_ref_id=uuid4(),
+            broker_trade_id=f"canonical-snapshot-fill-{index}-{uuid4().hex[:8]}",
+            quantity=1,
+            price=Decimal("100.0000"),
+            side="BUY",
+            instrument_token="NSE_EQ|CANONICAL",
+            exchange_timestamp="2026-10-25T10:00:00+05:30",
+        ))
+    db.commit()
     manifest = json.dumps(fill_ids, separators=(",", ":"))
     manifest_hash = hashlib.sha256(manifest.encode()).hexdigest()
     weights = json.dumps(
@@ -262,3 +280,47 @@ def test_snapshot_review_rejects_changed_source_fingerprint(db_session, make_use
         )
     db_session.refresh(brokerage)
     assert brokerage.status == "PENDING_REVIEW"
+
+
+def test_verified_split_snapshot_persists_allocations_linked_to_canonical_snapshot(db_session, make_user, monkeypatch, tmp_path):
+    _context.split_exchange = True
+    try:
+        creator, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    finally:
+        _context.split_exchange = False
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=creator.id
+    )
+    db_session.commit()
+    reviewer = make_user(email=f"canonical-allocation-reviewer-{uuid4().hex}@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    exchange = next(row for row in snapshots if row.canonical_component == "exchange_charges")
+    review_canonical_charge_component_snapshot(
+        db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id,
+        decision="VERIFIED", review_note="Approved canonical split exchange charges",
+    )
+    db_session.commit()
+
+    rows = allocate_and_persist_canonical_snapshot(
+        db_session,
+        snapshot_id=exchange.id,
+        broker_connection_id=evidence.broker_connection_id,
+        broker_report_reference=evidence.broker_report_reference,
+    )
+    db_session.commit()
+    replay = allocate_and_persist_canonical_snapshot(
+        db_session,
+        snapshot_id=exchange.id,
+        broker_connection_id=evidence.broker_connection_id,
+        broker_report_reference=evidence.broker_report_reference,
+    )
+    assert len(rows) == 2
+    assert {row.canonical_component_id for row in rows} == {exchange.id}
+    assert {row.charge_component for row in rows} == {"exchange_charges"}
+    assert {row.status for row in rows} == {"PENDING_RECONCILIATION"}
+    assert sum((Decimal(row.allocated_amount) for row in rows), Decimal("0")) == Decimal("307.00")
+    assert {row.id for row in replay} == {row.id for row in rows}
+    assert db_session.query(BrokerChargeAllocation).filter_by(
+        evidence_id=evidence.id, charge_component="exchange_charges"
+    ).count() == 2

@@ -59,7 +59,7 @@ class BrokerChargeAllocation(BaseModel):
     # Null is retained only for legacy rows created before canonical snapshots.
     canonical_component_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid,
-        ForeignKey("broker_charge_canonical_components.id", ondelete="RESTRICT"),
+        ForeignKey("broker_charge_canonical_components.id", ondelete="RESTRICT", name="fk_broker_charge_allocations_canonical_component_id"),
         nullable=True,
         index=True,
     )

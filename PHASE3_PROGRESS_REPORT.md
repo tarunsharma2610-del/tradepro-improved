@@ -69,3 +69,16 @@ After a code/test step is merged into the working branch (not the PR base) and e
 - the next single concrete action.
 
 If CI fails or is still running, update status to **verification pending/failed** with the exact SHA and run link; never mark the gate complete. Do not backfill success from a different commit or repeat a completed step as if new work.
+
+## 2026-10-25 implementation checkpoint — explicit source-label association
+
+**Status: implemented; exact-head CI verification pending.**
+
+- Changed `backend/app/services/broker_charge_representation_contract.py` to require an explicit `labels_by_component` association, with exact component-key coverage, non-empty/unique labels and consistency with retained raw-label order.
+- Changed `backend/app/api/v1/broker_charge_evidence.py` to pass the explicit component-to-label mapping derived from each persisted source-component row during review validation.
+- Added regression coverage in `backend/tests/test_broker_charge_representation_contract.py` for missing associations, wrong component sets and inconsistent label mapping/order.
+- Implementation commits: `79dd66d8c429498501e9edfb35e73a1ca0b756b4`, `0146ecd75f0e6a625b21761d3195c896bba293f7`, `fb147a3c5580091574bc71c35e7a641cf7386935`.
+- Current implementation HEAD at time of entry: `fb147a3c5580091574bc71c35e7a641cf7386935`. No CI result for this exact HEAD has been verified yet; do not mark the gate complete until the exact-head workflow passes.
+- Limitation: structural mapping proves which persisted label is associated with a normalized component row; it does not independently authenticate that the transcribed label/amount matches the original contract note. Independent source review remains required.
+- Next action: verify exact-head CI, confirm focused tests and API review tests pass, fix any failures without weakening safeguards, then update this report with the successful run and counts.
+

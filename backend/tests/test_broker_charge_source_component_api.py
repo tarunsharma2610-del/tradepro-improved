@@ -75,6 +75,7 @@ def test_source_component_is_pending_until_different_reviewer_confirms_source(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
             json={
                 "component_name": "brokerage",
+                "source_label": "Brokerage",
                 "source_amount": "20.00",
                 "currency": "INR",
                 "source_locator": "page 1, brokerage row",
@@ -376,6 +377,7 @@ def test_source_rejection_requires_same_reviewer_after_evidence_reviewed(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
             json={
                 "component_name": "brokerage",
+                "source_label": "Brokerage",
                 "source_amount": "20.00",
                 "currency": "INR",
                 "source_locator": "page 1, brokerage row",
@@ -385,6 +387,7 @@ def test_source_rejection_requires_same_reviewer_after_evidence_reviewed(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
             json={
                 "component_name": "gst",
+                "source_label": "GST",
                 "source_amount": "3.60",
                 "currency": "INR",
                 "source_locator": "page 1, GST row",
@@ -722,6 +725,59 @@ def test_transaction_charge_source_cannot_be_reviewed_without_representation_mod
         assert "representation mode must be explicitly reviewed" in reviewed.text
         stored = db_session.get(BrokerChargeSourceComponent, UUID(created.json()["id"]))
         assert stored.status == "PENDING_REVIEW"
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+
+def test_missing_original_source_label_is_preserved_as_missing_and_blocks_review(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    extractor = make_user(email="missing-label-extractor@example.com")
+    reviewer = make_user(email="missing-label-reviewer@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    connection = _connection(db_session, extractor)
+    trade = _trade(db_session, connection)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: extractor
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        created = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={
+                "component_name": "brokerage",
+                "source_amount": "20.00",
+                "currency": "INR",
+                "source_locator": "page 1, brokerage row",
+            },
+        )
+        assert created.status_code == 201, created.text
+        assert created.json()["source_label"] is None
+
+        app.dependency_overrides[get_current_user] = lambda: reviewer
+        reviewed = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{created.json()['id']}/review",
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(trade.id)],
+                "rounding_policy": "largest-remainder-v1",
+                "allocation_basis": "EXPLICIT_REVIEWED",
+                "eligible_fill_weights": [{"fill_record_id": str(trade.id), "weight": "1"}],
+            },
+        )
+        assert reviewed.status_code == 409
+        assert "original source label is missing" in reviewed.text
+        stored = db_session.get(BrokerChargeSourceComponent, UUID(created.json()["id"]))
+        assert stored.status == "PENDING_REVIEW"
+        assert stored.source_label is None
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)

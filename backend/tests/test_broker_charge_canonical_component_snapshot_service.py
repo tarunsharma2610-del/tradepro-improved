@@ -2,7 +2,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -135,7 +135,7 @@ def test_split_transaction_and_ipft_materialize_one_exchange_snapshot(db_session
     exchange = next(row for row in snapshots if row.canonical_component == "exchange_charges")
     source_ids = json.loads(exchange.source_component_ids_json)
     source_rows = db_session.query(BrokerChargeSourceComponent).filter(
-        BrokerChargeSourceComponent.id.in_(source_ids)
+        BrokerChargeSourceComponent.id.in_([UUID(value) for value in source_ids])
     ).all()
     assert Decimal(exchange.canonical_amount) == Decimal("307.00")
     assert {row.component_name for row in source_rows} == {"transaction_charges", "ipft"}

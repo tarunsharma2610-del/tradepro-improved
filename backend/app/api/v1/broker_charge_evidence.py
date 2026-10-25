@@ -27,6 +27,11 @@ from app.services.broker_charge_document_storage_service import (
     read_verified_document,
     store_document,
 )
+from app.services.broker_charge_representation_contract import (
+    CONTRACT_VERSION,
+    ChargeRepresentation,
+    validate_charge_representation,
+)
 
 router = APIRouter(prefix="/broker-charge-evidence", tags=["broker charge evidence"])
 logger = logging.getLogger(__name__)
@@ -326,6 +331,26 @@ def review_source_component(
             .with_for_update()
             .all()
         )
+        source_rows = (
+            db.query(BrokerChargeSourceComponent)
+            .filter(
+                BrokerChargeSourceComponent.evidence_id == evidence.id,
+                BrokerChargeSourceComponent.status != "REJECTED",
+            )
+            .with_for_update()
+            .all()
+        )
+        try:
+            validate_charge_representation(
+                ChargeRepresentation(
+                    contract_version=CONTRACT_VERSION,
+                    mode=component.representation_mode or "UNSPECIFIED",
+                    raw_labels=tuple(row.source_label or row.component_name for row in source_rows),
+                    components={row.component_name: Decimal(row.source_amount) for row in source_rows},
+                )
+            )
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
         if component.representation_mode not in {"COMBINED_TRANSACTION_AND_IPFT", "SPLIT_TRANSACTION_AND_IPFT"}:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,

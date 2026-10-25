@@ -1,3 +1,10 @@
+## Phase 3 forward checkpoint — 25 October 2026
+
+- New evidence-intake vocabulary covers separate Upstox transaction, clearing, IPFT, other and demat transaction charge labels. Database migration `202610250019` expands source-component and allocation constraints; API intake remains pending-review only.
+- Live-fill promotion still requires exactly six reconciled components. This intentionally fails closed for separate IPFT/clearing/demat/other lines; next implementation gate is a versioned component-set and combined-vs-split representation contract, with no silent omission or double count.
+- Existing NSE combined-vs-split IPFT arithmetic tests remain authoritative for that narrow rule. Upstox endpoint/schema/contract-note semantics and product/date/invoice-specific GST composition are still unapproved.
+- New implementation head requires exact-head CI verification. PR #6 remains draft/unmerged, PAPER mode mandatory, live broker writes disabled, and original `Tradepro` out of scope.
+
 ## Brokerage cap entrypoint integration — 23 October 2026
 
 - The previous exact-head implementation CI passed on commit [3445a748b3fbd3944362ed6e46873bffc30fd384](https://github.com/tarunsharma2610-del/tradepro-improved/commit/3445a748b3fbd3944362ed6e46873bffc30fd384): **712 passed, 1 warning**; SQLite/PostgreSQL migration round-trips, broker-write boundary guard, synthetic restore drill and evidence retention also passed.

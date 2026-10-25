@@ -98,3 +98,10 @@ Phase 3 cannot be marked complete solely because tests pass. Completion requires
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## Expanded Upstox source components — 25 October 2026
+
+- Intake can preserve separate transaction, clearing, IPFT, other and demat transaction source labels after migration `202610250019`; this is source-evidence capture only.
+- The live-fill promotion contract still requires exactly six reconciled components and must reject a ledger containing an additional IPFT/clearing/demat/other allocation. Do not relax this guard until a versioned component set and combined-vs-split normalization contract is approved.
+- Existing regression coverage establishes the narrow arithmetic equivalence between a documented combined NSE charge and its equivalent split representation. Production API and contract-note semantics, as well as GST base approval by product/date/invoice, remain open gates.

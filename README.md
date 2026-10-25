@@ -1,17 +1,12 @@
 <!-- Authoritative Phase 3 README checkpoint: 2026-10-25; branch phase3/durable-per-fill-charge-allocation; code commit be231ca1aeefb33d46c55ad311375c26829d5c37; exact-head backend CI run 40183057425 passed. -->
 
-## Latest Phase 3 checkpoint — 25 October 2026
+## Phase 3 forward checkpoint — 25 October 2026
 
-- **Repository/branch:** `tarunsharma2610-del/tradepro-improved`, `phase3/durable-per-fill-charge-allocation`. The original `tarunsharma2610-del/Tradepro` repository is out of scope and must remain untouched.
-- **Latest code commit:** [`be231ca1aeefb33d46c55ad311375c26829d5c37`](https://github.com/tarunsharma2610-del/tradepro-improved/commit/be231ca1aeefb33d46c55ad311375c26829d5c37) — hardened Upstox charge API source-level restrictions so aggregate-only `/v2/trade/profit-loss/charges` and estimate-only `/v2/charges/brokerage` remain disallowed as per-fill actual evidence despite trailing slashes, query strings, absolute URLs or broker-name casing variants. Added eight regression cases; exact approved mapping selection remains unchanged.
-- **Exact-head CI:** [GitHub Actions run 40183057425](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40183057425) completed successfully on this code commit. Backend pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks, synthetic restore drill, and evidence retention all passed.
-- **Documentation correction:** this README checkpoint was missing from the previous 25 October documentation sync. This commit adds the missing top-level summary; the latest checkpoint is now recorded here as well as in the project progress/audit/roadmap records.
-- **Remaining Phase 3 gates:** source-backed GST/IPFT and other component semantics; approved effective-dated tariff mappings; durable per-fill actual-charge allocation and reconciliation; failure/replay/partial-fill/crash-recovery acceptance. The guard hardening does not prove broker charge authenticity or approve a tariff.
-- **Safety:** PR #6 remains open, draft and unmerged. PAPER mode remains mandatory; live broker order writes, automatic accounting promotion and automatic scheduling remain disabled. Evidence and estimates must not be treated as actual per-fill charges without the required reviewed source evidence.
-- **Important:** this README change is on the Phase 3 working branch. The repository homepage/default-branch README will continue showing its older content until the PR is merged or the default branch is separately updated. PR #6 is intentionally still draft; I have not merged it.
-
----
-
+- Implementation now preserves additional documented Upstox source labels: `transaction_charges`, `clearing_charges`, `ipft`, `other_charges`, and `demat_transaction_charges`. These are evidence-intake vocabulary only and remain pending independent review.
+- The allocation/source-component database constraints were expanded by migration `202610250019`; the API and regression tests cover intake. Live-fill accounting deliberately still requires exactly six reconciled components, so a separately reported IPFT or any extra component fails closed instead of being silently ignored or double-counted.
+- Preserve the existing NSE/IPFT calculation: documented combined ₹307/crore versus ₹306.99 transaction + ₹0.01 IPFT yields the same ₹307 base and ₹55.26 GST at 18%. This arithmetic is already tested; it does not prove Upstox endpoint or contract-note field semantics.
+- GST component composition remains product-, date- and invoice-dependent. No production tariff or API mapping is approved. Exact-head CI for the new code/migration/test changes is required before this checkpoint is called verified.
+- PR #6 remains open/draft/unmerged; PAPER mode remains mandatory; live broker order writes and automatic generic quantity/notional allocation remain disabled. Work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.
 ## Brokerage cap entrypoint integration — 23 October 2026
 
 - The previous exact-head implementation CI passed on commit [3445a748b3fbd3944362ed6e46873bffc30fd384](https://github.com/tarunsharma2610-del/tradepro-improved/commit/3445a748b3fbd3944362ed6e46873bffc30fd384): **712 passed, 1 warning**; SQLite/PostgreSQL migration round-trips, broker-write boundary guard, synthetic restore drill and evidence retention also passed.

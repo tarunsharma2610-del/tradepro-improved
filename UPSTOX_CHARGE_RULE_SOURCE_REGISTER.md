@@ -156,3 +156,10 @@ The [MCX official circular archive](https://www.mcxindia.com/circulars/all-circu
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## Expanded source-component vocabulary — 25 October 2026
+
+- The API and persistence vocabulary now accepts separate `transaction_charges`, `clearing_charges`, `ipft`, `other_charges` and `demat_transaction_charges` source rows so those published API labels can be transcribed without collapsing or discarding them.
+- Migration `202610250019` expands both source-component and allocation constraints. New rows remain pending review; this does not approve any API field mapping or calculation rule.
+- Live-fill promotion intentionally still requires exactly the existing six reconciled components. A separate IPFT or extra charge row therefore blocks promotion until a versioned representation/allocation contract is implemented and reviewed.

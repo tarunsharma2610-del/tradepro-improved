@@ -246,3 +246,11 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 - Canonicalized broker/endpoint identity for source-level aggregate-only and estimate-only guards. Exact registry mapping matching remains unchanged.
 - Added regression cases for broker casing, trailing slash, query strings and absolute URLs. No tariff or field mapping was approved.
 - CI must pass on the exact resulting commit before the change is considered verified.
+
+## Phase 3 forward checkpoint — 25 October 2026
+
+- The source-evidence intake vocabulary now supports documented Upstox transaction, clearing, IPFT, other and demat transaction labels through migration `202610250019`. This stores pending source evidence only.
+- Live-fill accounting remains fail-closed on anything beyond the six currently reconciled components. A versioned component-set contract must precede any promotion of separately reported IPFT or other additional components.
+- NSE combined-vs-split IPFT arithmetic is already covered by regression tests; actual Upstox field semantics and GST component composition still require independent endpoint/schema and contract-note/invoice evidence.
+- Exact-head CI is required for the new migration/code/test head. PR #6 remains draft/unmerged, PAPER mandatory, live broker writes disabled, original `Tradepro` untouched.
+

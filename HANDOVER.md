@@ -1,3 +1,11 @@
+## Phase 3 forward checkpoint — 25 October 2026
+
+- Implementation now preserves additional documented Upstox source labels: `transaction_charges`, `clearing_charges`, `ipft`, `other_charges`, and `demat_transaction_charges`. These are evidence-intake vocabulary only and remain pending independent review.
+- The allocation/source-component database constraints were expanded by migration `202610250019`; the API and regression tests cover intake. Live-fill accounting deliberately still requires exactly six reconciled components, so a separately reported IPFT or any extra component fails closed instead of being silently ignored or double-counted.
+- Preserve the existing NSE/IPFT calculation: documented combined ₹307/crore versus ₹306.99 transaction + ₹0.01 IPFT yields the same ₹307 base and ₹55.26 GST at 18%. This arithmetic is already tested; it does not prove Upstox endpoint or contract-note field semantics.
+- GST component composition remains product-, date- and invoice-dependent. No production tariff or API mapping is approved. Exact-head CI for the new code/migration/test changes is required before this checkpoint is called verified.
+- PR #6 remains open/draft/unmerged; PAPER mode remains mandatory; live broker order writes and automatic generic quantity/notional allocation remain disabled. Work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.
+
 ## Upstox SDK/API audit checkpoint — 24 October 2026
 
 **Start here:** [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md).

@@ -1465,3 +1465,11 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - Added regression tests so misleading approved mapping rows cannot convert aggregate/estimate data into per-fill actual accounting.
 - Defensive code change only: no API field semantic or tariff approved. Production mappings remain unapproved, null is not zero, IPFT must not be double-counted, and charge-ledger promotion remains fail-closed.
 - Exact-head CI for this code/documentation commit must be verified. PAPER mandatory; live broker writes disabled; PR #6 draft/unmerged; original `Tradepro` untouched.
+
+## Phase 3 forward checkpoint — 25 October 2026
+
+- The source-evidence intake vocabulary now supports documented Upstox transaction, clearing, IPFT, other and demat transaction labels through migration `202610250019`. This stores pending source evidence only.
+- Live-fill accounting remains fail-closed on anything beyond the six currently reconciled components. A versioned component-set contract must precede any promotion of separately reported IPFT or other additional components.
+- NSE combined-vs-split IPFT arithmetic is already covered by regression tests; actual Upstox field semantics and GST component composition still require independent endpoint/schema and contract-note/invoice evidence.
+- Exact-head CI is required for the new migration/code/test head. PR #6 remains draft/unmerged, PAPER mandatory, live broker writes disabled, original `Tradepro` untouched.
+

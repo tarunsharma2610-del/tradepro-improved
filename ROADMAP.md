@@ -1540,3 +1540,13 @@ Use these files before continuing Phase 3; do not recreate the plan from convers
 
 Verification boundary: exact-head CI passed on implementation SHA `97843aec1d9b0acc4d55d0fc4529b4ea5b81fd50` in [run #40187635881](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40187635881) (907 passed, 1 warning). The new Phase 3 planning/reporting documents were committed after that SHA. Therefore, this newer documentation HEAD must not be described as CI-verified until its own required workflow succeeds. Keep the Phase 3 report updated only after successful verification; record failed/pending runs honestly.
 
+
+
+## Phase 3 forward checkpoint — persisted representation-contract version (2026-10-25)
+
+- Audited the actual branch and confirmed the previous source-label authenticity guard is already implemented and CI-verified at `b92d0185f588e24d54510b36659944e77f498a6e`; this task does not repeat that work.
+- Added nullable `representation_contract_version` to `BrokerChargeSourceComponent` and migration `202610250021`. Null is retained for legacy/undeclared rows; the migration does not infer a version for historical records.
+- The source-component intake API now accepts, stores, and returns the version. Review of transaction/IPFT components requires the supported persisted version and requires sibling transaction/IPFT rows to agree on both mode and version before the existing combined/split validator runs.
+- Added API regression assertions for persistence and response round-trip. Implementation commit: `1d327b145fe25d871a763985b5f746e12e107b75`. Exact-head backend workflow [#40190287853](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190287853) was **in progress when this checkpoint was written**; do not mark the implementation CI-verified until its conclusion is successful. The documentation commit will require its own exact-head CI as well.
+- This is an auditability step, not tariff approval, source authenticity proof, GST approval, or authorization to promote more components. Live accounting still requires its existing six-component set; extra components remain fail-closed. Paper mode and live-order safeguards are unchanged; PR #6 stays draft/unmerged; original `Tradepro` remains out of scope.
+- Next single implementation gate: define and persist an explicit versioned component-set contract that distinguishes supported canonical accounting components from retained evidence-only components, then add tests proving missing, extra, duplicate, mixed-representation, and legacy-version rows cannot be silently omitted or promoted.

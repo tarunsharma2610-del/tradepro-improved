@@ -15,6 +15,12 @@
 7. API responses preserve absent, null, numeric zero, and nonzero values as distinct states. Aggregate trade-charge reports are not per-fill actual-charge evidence.
 8. Until an approved component-specific rule establishes the economic allocation basis, only explicit independently reviewed per-fill weights may be promoted. Generic quantity/notional allocation remains disabled.
 
+## Representation-contract and component-set version gate
+
+- Every transaction/IPFT source row must retain the exact supported representation-contract version used at review; null/legacy versions are not inferred.
+- The set consumed by live accounting must be explicitly versioned and exact. Evidence-only source labels such as clearing, separate IPFT, other, or demat transaction charges remain preserved but cannot be silently dropped or added to the six-component accounting set.
+- Acceptance requires positive and adversarial tests for missing/extra/duplicate components, mixed combined/split rows, inconsistent sibling versions, legacy null versions, and migration round-trips.
+
 ## Component matrix
 
 | Component | Required source / effective scope | Calculation base and allocation | GST / overlap guard | Promotion gate |
@@ -187,3 +193,13 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 - [ ] Exact-head CI passes for this subsequent progress-report synchronization commit.
 - [ ] Independent reviewer confirms the transcribed label and amount against integrity-checked original contract-note evidence.
 
+
+
+## Phase 3 forward checkpoint — persisted representation-contract version (2026-10-25)
+
+- Audited the actual branch and confirmed the previous source-label authenticity guard is already implemented and CI-verified at `b92d0185f588e24d54510b36659944e77f498a6e`; this task does not repeat that work.
+- Added nullable `representation_contract_version` to `BrokerChargeSourceComponent` and migration `202610250021`. Null is retained for legacy/undeclared rows; the migration does not infer a version for historical records.
+- The source-component intake API now accepts, stores, and returns the version. Review of transaction/IPFT components requires the supported persisted version and requires sibling transaction/IPFT rows to agree on both mode and version before the existing combined/split validator runs.
+- Added API regression assertions for persistence and response round-trip. Implementation commit: `1d327b145fe25d871a763985b5f746e12e107b75`. Exact-head backend workflow [#40190287853](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190287853) was **in progress when this checkpoint was written**; do not mark the implementation CI-verified until its conclusion is successful. The documentation commit will require its own exact-head CI as well.
+- This is an auditability step, not tariff approval, source authenticity proof, GST approval, or authorization to promote more components. Live accounting still requires its existing six-component set; extra components remain fail-closed. Paper mode and live-order safeguards are unchanged; PR #6 stays draft/unmerged; original `Tradepro` remains out of scope.
+- Next single implementation gate: define and persist an explicit versioned component-set contract that distinguishes supported canonical accounting components from retained evidence-only components, then add tests proving missing, extra, duplicate, mixed-representation, and legacy-version rows cannot be silently omitted or promoted.

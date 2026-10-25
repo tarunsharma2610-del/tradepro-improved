@@ -9,10 +9,9 @@
 
 ## Current checkpoint — be precise about the CI boundary
 
-- Latest previously verified implementation HEAD: `97843aec1d9b0acc4d55d0fc4529b4ea5b81fd50`.
-- Exact-HEAD workflow [#40187635881](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40187635881) completed successfully on that SHA. Reported suite: **907 passed, 1 warning, 0 failures**.
-- The run covered the backend test workflow, including broker-write boundary checks, SQLite/PostgreSQL migration round-trips and synthetic database/document-storage restore checks, according to the recorded checkpoint. Synthetic restore is not proof of real Oracle Cloud backup recovery.
-- This report and the new Phase 3 roadmap/instructions are documentation changes after that implementation HEAD. **Do not treat run #40187635881 as CI for later documentation commits.** Exact-head CI for the latest documentation HEAD must be checked before calling the current HEAD green.
+- Latest verified documentation HEAD before this increment: `56ee81e2fb4f9c45031bbe5edea49dd0df061e5d`; exact-head CI [#40189674257](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189674257) passed.
+- New implementation commit: `1d327b145fe25d871a763985b5f746e12e107b75`; workflow [#40190287853](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190287853) was in progress at the time of this update. This is not yet a verified implementation result.
+- Older test counts (including 907/911) apply only to their cited SHAs. Do not reuse them as the result for this change or the next documentation commit.
 - The latest previously checked PR state was open/draft/unmerged. Recheck before relying on that status after further work.
 - PAPER mode remains mandatory; live broker order writes, automatic live-fill promotion and automatic scheduling remain disabled. Original `tarunsharma2610-del/Tradepro` is out of scope and must not be modified.
 
@@ -30,7 +29,7 @@ Do not infer completion percentages from test count or number of documentation u
 | Gate | Status | Evidence / remaining work |
 |---|---|---|
 | Durable allocation ledger, deterministic paise allocation, source-total reconciliation, replay/conflict controls and review/promotion safeguards | **Implemented; prior CI verified** | Current known exact-head run #40187635881 passed on SHA `97843aec1d9b0acc4d55d0fc4529b4ea5b81fd50`. Reconfirm relevant tests remain enabled in final CI. |
-| Source evidence intake and representation validation | **Implemented; source approval pending** | Versioned combined/split IPFT representation, raw-label retention and missing/ambiguous/conflicting input rejection exist. Source-label count validation alone is not proof of one-to-one label → normalized component → amount binding; inspect and close that gap if still present. |
+| Source evidence intake and representation validation | **Implemented; source approval pending** | Versioned combined/split IPFT representation, raw-label retention and missing/ambiguous/conflicting input rejection exist. Explicit source-label → normalized-component association and missing-label rejection are implemented and CI-verified on the cited source-label guard commit; authentic transcription still requires independent review against the original note. |
 | IPFT combined/split arithmetic | **Policy settled; end-to-end accounting acceptance pending** | NSE circular NSE/FA/73061: cash ₹307.00/crore, futures ₹183.00/crore, options ₹3,553.00/crore combined; split equivalent is ₹306.99+₹0.01, ₹182.99+₹0.01, ₹3,552.99+₹0.01. Do not add IPFT twice. |
 | GST taxable composition and invoice reconciliation | **Evidence/review pending** | Working 18% canonical taxable-base policy is documented; authentic invoice/tax-base validation by product, segment and effective date remains open. |
 | Effective-dated component tariff rules and actual API/contract-note mapping | **Open** | Tariff candidates remain DRAFT. Verify authentic Upstox field semantics and source provenance. Calculator is estimate-only; Get Trade Charges is aggregate reconciliation evidence, not per-fill actual evidence. |
@@ -43,7 +42,7 @@ Do not infer completion percentages from test count or number of documentation u
 ## Next actions — in order
 
 1. **Verify exact latest documentation HEAD and CI.** If any required job fails, diagnose and fix the cause without weakening safeguards; rerun on the resulting HEAD.
-2. **Audit source-label binding in code and tests.** Confirm each raw label is bound to the correct normalized component, amount and provenance; add focused adversarial tests only if the gap exists.
+2. **Complete the versioned component-set contract.** Define the canonical accounting set separately from evidence-only source vocabulary; require exact set/version agreement and reject missing, extra, duplicate, legacy, or mixed-representation rows without silently dropping evidence.
 3. **Approve evidence-backed, effective-dated component rules and API mappings.** Keep unsupported rules DRAFT and fail closed.
 4. **Wire the reviewed rules into per-fill allocation and test combined/split IPFT equivalence and GST no-double-count behavior end-to-end.**
 5. **Close GST/invoice reconciliation and component-specific edge cases** (multi-fill brokerage caps, STT/CTT side/product, stamp duty, demat/other charges and effective-date boundaries).
@@ -118,3 +117,13 @@ If CI fails or is still running, update status to **verification pending/failed*
 - The source-label guard is **CI verified** on the implementation SHA above. It prevents fabricated labels and preserves prior authorization/fill-validation ordering. Authentic source transcription still requires independent review.
 - The current progress-report synchronization commit is newer than those two verified SHAs; verify its exact-head CI before describing the current branch head as green.
 
+
+
+## Phase 3 forward checkpoint — persisted representation-contract version (2026-10-25)
+
+- Audited the actual branch and confirmed the previous source-label authenticity guard is already implemented and CI-verified at `b92d0185f588e24d54510b36659944e77f498a6e`; this task does not repeat that work.
+- Added nullable `representation_contract_version` to `BrokerChargeSourceComponent` and migration `202610250021`. Null is retained for legacy/undeclared rows; the migration does not infer a version for historical records.
+- The source-component intake API now accepts, stores, and returns the version. Review of transaction/IPFT components requires the supported persisted version and requires sibling transaction/IPFT rows to agree on both mode and version before the existing combined/split validator runs.
+- Added API regression assertions for persistence and response round-trip. Implementation commit: `1d327b145fe25d871a763985b5f746e12e107b75`. Exact-head backend workflow [#40190287853](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190287853) was **in progress when this checkpoint was written**; do not mark the implementation CI-verified until its conclusion is successful. The documentation commit will require its own exact-head CI as well.
+- This is an auditability step, not tariff approval, source authenticity proof, GST approval, or authorization to promote more components. Live accounting still requires its existing six-component set; extra components remain fail-closed. Paper mode and live-order safeguards are unchanged; PR #6 stays draft/unmerged; original `Tradepro` remains out of scope.
+- Next single implementation gate: define and persist an explicit versioned component-set contract that distinguishes supported canonical accounting components from retained evidence-only components, then add tests proving missing, extra, duplicate, mixed-representation, and legacy-version rows cannot be silently omitted or promoted.

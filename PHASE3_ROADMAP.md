@@ -31,18 +31,25 @@ NSE circular NSE/FA/73061 (27 February 2026; effective 1 March 2026) gives combi
 ## Ordered completion plan
 
 ### Gate 0 — Establish the exact baseline and audit the actual gap
-**Status: baseline CI passed; fresh planning-doc head must be rechecked.**
+**Status: baseline and documentation head CI passed through `56ee81e2fb4f9c45031bbe5edea49dd0df061e5d`; current implementation/doc checkpoint pending exact-head CI.**
 - Re-read this roadmap, `PHASE3_INSTRUCTIONS.md`, `PHASE3_PROGRESS_REPORT.md`, the allocation contract, component acceptance matrix, current source and tests.
 - Confirm branch and repository before every write; inspect current diff/HEAD; check PR #6 and exact-head CI.
 - Specifically inspect whether each retained source label is bound to its own normalized component and amount, not merely whether label count equals component count.
 **Accept when:** actual implementation gaps are listed with file/test references; no duplicate work is planned.
 
 ### Gate 1 — Close source-label-to-component/amount binding
-**Status: open pending code inspection and regression proof.**
+**Status: implemented and CI verified on `b92d0185f588e24d54510b36659944e77f498a6e`; authentic transcription review remains separate.**
 - Ensure every raw label maps explicitly to exactly one normalized component and its exact raw amount/value/provenance; reject reordered, duplicated, omitted, contradictory or mismatched label/component/amount associations.
 - Preserve source order and raw payload/provenance for audit; do not infer API semantics from spelling alone.
 - Add focused positive and adversarial regression tests.
-**Accept when:** each label-to-component-to-amount relationship is deterministic, auditable and fail-closed; focused tests and full suite pass.
+**Accept when:** each label-to-component relationship is explicit and fail-closed; the implementation and regression suite passed on the cited SHA. Independent comparison with authentic contract notes remains an evidence gate.
+
+### Gate 1A — Persist and enforce a versioned component-set contract
+**Status: implementation committed; exact-head CI pending.**
+- Persist the representation-contract version used to review transaction/IPFT source rows; do not infer versions for legacy rows.
+- Define the expected canonical live-accounting component set separately from the broader source-evidence vocabulary. Evidence-only components must be retained without being silently mapped, dropped, or promoted.
+- Reject missing/extra/duplicate component sets, mixed combined/split declarations, unsupported contract versions, and legacy rows lacking a version.
+**Accept when:** schema migration round-trips on SQLite and PostgreSQL; adversarial API/service tests prove the set is exact and version-consistent; exact-head CI passes.
 
 ### Gate 2 — Complete evidence-backed component and tariff-rule selection
 **Status: open.**
@@ -105,3 +112,13 @@ For every step:
 6. Verify exact-HEAD CI and required jobs. Until it passes, mark the step **implemented, verification pending**, not complete.
 7. Only after successful verification update `PHASE3_PROGRESS_REPORT.md`, `PROGRESS.md`, `HANDOVER.md`, and any directly affected Phase 3 docs with commit SHA and CI link.
 8. End each session with the current HEAD, successful CI run, open gate, next concrete action, and safety state.
+
+
+## Phase 3 forward checkpoint — persisted representation-contract version (2026-10-25)
+
+- Audited the actual branch and confirmed the previous source-label authenticity guard is already implemented and CI-verified at `b92d0185f588e24d54510b36659944e77f498a6e`; this task does not repeat that work.
+- Added nullable `representation_contract_version` to `BrokerChargeSourceComponent` and migration `202610250021`. Null is retained for legacy/undeclared rows; the migration does not infer a version for historical records.
+- The source-component intake API now accepts, stores, and returns the version. Review of transaction/IPFT components requires the supported persisted version and requires sibling transaction/IPFT rows to agree on both mode and version before the existing combined/split validator runs.
+- Added API regression assertions for persistence and response round-trip. Implementation commit: `1d327b145fe25d871a763985b5f746e12e107b75`. Exact-head backend workflow [#40190287853](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190287853) was **in progress when this checkpoint was written**; do not mark the implementation CI-verified until its conclusion is successful. The documentation commit will require its own exact-head CI as well.
+- This is an auditability step, not tariff approval, source authenticity proof, GST approval, or authorization to promote more components. Live accounting still requires its existing six-component set; extra components remain fail-closed. Paper mode and live-order safeguards are unchanged; PR #6 stays draft/unmerged; original `Tradepro` remains out of scope.
+- Next single implementation gate: define and persist an explicit versioned component-set contract that distinguishes supported canonical accounting components from retained evidence-only components, then add tests proving missing, extra, duplicate, mixed-representation, and legacy-version rows cannot be silently omitted or promoted.

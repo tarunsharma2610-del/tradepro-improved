@@ -63,6 +63,14 @@ For each increment:
 9. After success, update `PHASE3_PROGRESS_REPORT.md`, `PROGRESS.md`, `HANDOVER.md`, and directly relevant Phase 3 contract/matrix/roadmap entries. Record exact SHA, CI URL, pass/fail/warning count, and next gate. Do not rewrite historical counts as if they belonged to the new run.
 10. At session end, record exact HEAD, CI run, PR state, open blocker, next concrete action and unchanged safety state.
 
+## 7A. Versioned component-set contract — next implementation gate
+
+- The representation mode alone is insufficient for reproducible review; persist the exact supported representation-contract version with each transaction/IPFT source component.
+- Legacy rows with a null contract version remain undeclared and must fail closed; never backfill the current version based on current code.
+- Define the exact canonical component set consumed by live accounting separately from the wider source-component evidence vocabulary. Retaining a source line is not approval to allocate it.
+- Test missing, extra, duplicate, legacy-version, mixed-mode, and inconsistent sibling version cases. Never silently drop an evidence component or widen the live-accounting component set without an approved mapping and migration plan.
+- Current implementation commit `1d327b145fe25d871a763985b5f746e12e107b75` adds version persistence; exact-head CI must pass before calling it verified.
+
 ## 7. Required evidence for the real live-fill accounting integration gate
 
 The final PostgreSQL integration acceptance must exercise the real `LiveFillAccountingService.promote_trade` and `_load_reconciled_allocation_fees` path while allocation-ledger verification/promotion races. A stubbed loader alone is insufficient.
@@ -100,3 +108,13 @@ If a test does not exercise one of these paths, document that limitation rather 
 - [ ] Authentic source/invoice and actual Oracle restore gaps are completed or explicitly retained as external operational acceptance gates.
 - [ ] Phase 3 docs are synchronized; PR #6 remains draft/unmerged until user approval.
 - [ ] User explicitly approves Phase 3 closure and any subsequent change in trading safety posture.
+
+
+## Phase 3 forward checkpoint — persisted representation-contract version (2026-10-25)
+
+- Audited the actual branch and confirmed the previous source-label authenticity guard is already implemented and CI-verified at `b92d0185f588e24d54510b36659944e77f498a6e`; this task does not repeat that work.
+- Added nullable `representation_contract_version` to `BrokerChargeSourceComponent` and migration `202610250021`. Null is retained for legacy/undeclared rows; the migration does not infer a version for historical records.
+- The source-component intake API now accepts, stores, and returns the version. Review of transaction/IPFT components requires the supported persisted version and requires sibling transaction/IPFT rows to agree on both mode and version before the existing combined/split validator runs.
+- Added API regression assertions for persistence and response round-trip. Implementation commit: `1d327b145fe25d871a763985b5f746e12e107b75`. Exact-head backend workflow [#40190287853](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190287853) was **in progress when this checkpoint was written**; do not mark the implementation CI-verified until its conclusion is successful. The documentation commit will require its own exact-head CI as well.
+- This is an auditability step, not tariff approval, source authenticity proof, GST approval, or authorization to promote more components. Live accounting still requires its existing six-component set; extra components remain fail-closed. Paper mode and live-order safeguards are unchanged; PR #6 stays draft/unmerged; original `Tradepro` remains out of scope.
+- Next single implementation gate: define and persist an explicit versioned component-set contract that distinguishes supported canonical accounting components from retained evidence-only components, then add tests proving missing, extra, duplicate, mixed-representation, and legacy-version rows cannot be silently omitted or promoted.

@@ -190,7 +190,7 @@ def test_concurrent_conflicting_fill_sets_serialize_on_evidence():
 def test_concurrent_source_verification_and_promotion_serialize_on_evidence(
     tmp_path, monkeypatch
 ):
-    """Verification racing promotion sees a complete pending or reconciled ledger."""
+    """Verification and duplicate promotions serialize to one complete ledger state."""
     url = os.environ["TEST_POSTGRES_URL"]
     engine = create_engine(url, pool_size=5, max_overflow=0, pool_pre_ping=True)
     Base.metadata.create_all(engine)
@@ -295,7 +295,11 @@ def test_concurrent_source_verification_and_promotion_serialize_on_evidence(
                 allocation_basis="EXPLICIT_REVIEWED",
             )
 
-        barrier = threading.Barrier(2)
+        # Two promotion attempts for the same reviewed component must both
+        # resolve idempotently to the same durable allocation set. The verifier
+        # races with them to ensure it observes only a complete pending or
+        # reconciled ledger, never a mixed intermediate state.
+        barrier = threading.Barrier(3)
         results = []
         result_lock = threading.Lock()
 
@@ -330,8 +334,12 @@ def test_concurrent_source_verification_and_promotion_serialize_on_evidence(
                 with result_lock:
                     results.append(outcome)
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            futures = [pool.submit(verify), pool.submit(promote)]
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [
+                pool.submit(verify),
+                pool.submit(promote),
+                pool.submit(promote),
+            ]
             for future in futures:
                 future.result(timeout=45)
 
@@ -341,6 +349,8 @@ def test_concurrent_source_verification_and_promotion_serialize_on_evidence(
         assert verification_results in (
             ["VERIFIED_PENDING_PROMOTION"], ["ALREADY_RECONCILED"]
         ), results
+        promotion_results = [result for result in results if result[0] == "promote"]
+        assert promotion_results == [("promote", 2), ("promote", 2)], results
         with Session() as db:
             rows = db.query(BrokerChargeAllocation).filter_by(
                 evidence_id=evidence_id, charge_component="brokerage"

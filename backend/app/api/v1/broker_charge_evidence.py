@@ -47,6 +47,7 @@ class SourceComponentInput(BaseModel):
     component_name: str
     source_label: str | None = Field(default=None, min_length=1, max_length=100)
     representation_mode: Literal["COMBINED_TRANSACTION_AND_IPFT", "SPLIT_TRANSACTION_AND_IPFT"] | None = None
+    representation_contract_version: Literal["exchange-charge-representation-v1"] | None = None
     source_amount: Decimal = Field(ge=Decimal("0"), max_digits=16, decimal_places=2)
     currency: str = "INR"
     source_locator: str = Field(min_length=1, max_length=200)
@@ -255,6 +256,7 @@ def record_source_component(
         component_name=payload.component_name,
         source_label=payload.source_label.strip() if payload.source_label is not None else None,
         representation_mode=payload.representation_mode,
+        representation_contract_version=payload.representation_contract_version,
         revision=revision,
         source_amount=payload.source_amount,
         currency="INR",
@@ -278,6 +280,7 @@ def record_source_component(
         "component_name": component.component_name,
         "source_label": component.source_label,
         "representation_mode": component.representation_mode,
+        "representation_contract_version": component.representation_contract_version,
         "revision": component.revision,
         "source_amount": str(component.source_amount),
         "currency": component.currency,
@@ -396,11 +399,30 @@ def review_source_component(
             .with_for_update()
             .all()
         )
+        if component.representation_mode not in {"COMBINED_TRANSACTION_AND_IPFT", "SPLIT_TRANSACTION_AND_IPFT"}:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Transaction/IPFT source rows require an explicit versioned representation mode before review.",
+            )
+        if component.representation_contract_version != CONTRACT_VERSION:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Transaction/IPFT source rows require a supported persisted representation contract version.",
+            )
+        if any(
+            row.representation_mode != component.representation_mode
+            or row.representation_contract_version != component.representation_contract_version
+            for row in siblings
+        ):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Transaction/IPFT rows on one evidence record must declare the same representation mode and contract version.",
+            )
         try:
             validate_charge_representation(
                 ChargeRepresentation(
-                    contract_version=CONTRACT_VERSION,
-                    mode=component.representation_mode or "UNSPECIFIED",
+                    contract_version=component.representation_contract_version,
+                    mode=component.representation_mode,
                     raw_labels=tuple(row.source_label or "" for row in source_rows),
                     components={row.component_name: Decimal(row.source_amount) for row in source_rows},
                     labels_by_component={
@@ -411,16 +433,6 @@ def review_source_component(
             )
         except ValueError as exc:
             raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-        if component.representation_mode not in {"COMBINED_TRANSACTION_AND_IPFT", "SPLIT_TRANSACTION_AND_IPFT"}:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                "Transaction/IPFT source rows require an explicit versioned representation mode before review.",
-            )
-        if any(row.representation_mode != component.representation_mode for row in siblings):
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                "Transaction/IPFT rows on one evidence record must declare the same representation mode.",
-            )
         sibling_names = {row.component_name for row in siblings}
         if component.representation_mode == "COMBINED_TRANSACTION_AND_IPFT" and "ipft" in sibling_names:
             raise HTTPException(

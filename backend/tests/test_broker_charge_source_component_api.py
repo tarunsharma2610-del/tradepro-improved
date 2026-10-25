@@ -645,6 +645,7 @@ def test_transaction_ipft_representation_is_persisted_and_combined_mode_rejects_
             "currency": "INR",
             "source_locator": "page 1, exchange transaction charge row",
             "representation_mode": "COMBINED_TRANSACTION_AND_IPFT",
+            "representation_contract_version": "exchange-charge-representation-v1",
         }
         transaction = client.post(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
@@ -658,6 +659,9 @@ def test_transaction_ipft_representation_is_persisted_and_combined_mode_rejects_
         assert ipft.status_code == 201, ipft.text
         assert transaction.json()["source_label"] == "Transaction Charges (includes IPFT)"
         assert transaction.json()["representation_mode"] == "COMBINED_TRANSACTION_AND_IPFT"
+        assert transaction.json()["representation_contract_version"] == "exchange-charge-representation-v1"
+        stored_transaction = db_session.get(BrokerChargeSourceComponent, UUID(transaction.json()["id"]))
+        assert stored_transaction.representation_contract_version == "exchange-charge-representation-v1"
         assert transaction.json()["status"] == "PENDING_REVIEW"
 
         app.dependency_overrides[get_current_user] = lambda: reviewer

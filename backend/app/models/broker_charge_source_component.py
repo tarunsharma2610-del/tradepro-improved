@@ -57,6 +57,9 @@ class BrokerChargeSourceComponent(BaseModel):
     source_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # Null means legacy/undeclared; never infer combined vs split semantics.
     representation_mode: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Persist the exact validator contract used for combined/split declarations.
+    # Null is legacy/undeclared and must never be inferred during review.
+    representation_contract_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     source_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR", server_default="INR")

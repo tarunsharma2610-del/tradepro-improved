@@ -9,9 +9,9 @@
 
 ## Current checkpoint — be precise about the CI boundary
 
-- Latest verified documentation HEAD before this increment: `56ee81e2fb4f9c45031bbe5edea49dd0df061e5d`; exact-head CI [#40189674257](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189674257) passed.
-- New implementation commit: `1d327b145fe25d871a763985b5f746e12e107b75`; workflow [#40190287853](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190287853) was in progress at the time of this update. This is not yet a verified implementation result.
-- Older test counts (including 907/911) apply only to their cited SHAs. Do not reuse them as the result for this change or the next documentation commit.
+- Latest verified implementation HEAD: `f61cedd25f5982846774db3028fb646d2e108e07`; exact-head CI [#40191140007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191140007) passed: **917 passed, 1 warning, 0 failures**.
+- The run included broker-write boundary verification, SQLite/PostgreSQL migration round-trips through `202610250022`, and the synthetic PostgreSQL/document-volume restore drill. Synthetic restore is not proof of actual Oracle Cloud recovery.
+- Documentation is now being synchronized after that verified implementation; the resulting documentation HEAD will require its own exact-head CI.
 - The latest previously checked PR state was open/draft/unmerged. Recheck before relying on that status after further work.
 - PAPER mode remains mandatory; live broker order writes, automatic live-fill promotion and automatic scheduling remain disabled. Original `tarunsharma2610-del/Tradepro` is out of scope and must not be modified.
 
@@ -42,7 +42,7 @@ Do not infer completion percentages from test count or number of documentation u
 ## Next actions — in order
 
 1. **Verify exact latest documentation HEAD and CI.** If any required job fails, diagnose and fix the cause without weakening safeguards; rerun on the resulting HEAD.
-2. **Complete the versioned component-set contract.** Define the canonical accounting set separately from evidence-only source vocabulary; require exact set/version agreement and reject missing, extra, duplicate, legacy, or mixed-representation rows without silently dropping evidence.
+2. **Map reviewed source representation to canonical accounting components.** Combined transaction/IPFT must become one canonical exchange-charge amount; split transaction + IPFT must be combined exactly once only after explicit representation review. Preserve original rows and fail closed on unsupported extras.
 3. **Approve evidence-backed, effective-dated component rules and API mappings.** Keep unsupported rules DRAFT and fail closed.
 4. **Wire the reviewed rules into per-fill allocation and test combined/split IPFT equivalence and GST no-double-count behavior end-to-end.**
 5. **Close GST/invoice reconciliation and component-specific edge cases** (multi-fill brokerage caps, STT/CTT side/product, stamp duty, demat/other charges and effective-date boundaries).
@@ -135,3 +135,15 @@ If CI fails or is still running, update status to **verification pending/failed*
 - Corrected the response wording without relaxing validation in commit `db1ee170629fcb853b5c6e46f0d9d8654056bc44`. The failure remains recorded as history and is not counted as a successful verification.
 - Workflow [#40190403007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190403007) was triggered for documentation HEAD `0abfa9a1ed5dcd553f1b92010ec86b41ccf77a2b`; that SHA predates the wording correction and must not be treated as verification of `db1ee170629fcb853b5c6e46f0d9d8654056bc44`. Exact-head CI for the corrected implementation and current documentation head remains pending.
 - Next action: confirm the corrected exact-head workflow succeeds, then add explicit missing-version API regression coverage and continue the versioned component-set contract. No tariff candidates are promoted; live accounting still requires the existing six canonical components.
+
+
+## Phase 3 forward checkpoint — versioned canonical component set (2026-10-25)
+
+- Added `broker_charge_component_set_contract.py` with explicit `live-fill-accounting-component-set-v1` and the exact six canonical accounting components: brokerage, STT, exchange charges, SEBI charges, stamp duty, and GST.
+- Added nullable `component_set_version` to source-component records via migration `202610250022`. No version is backfilled for legacy records. Canonical components receive the current set version only during independent review; evidence-only components remain unversioned and cannot be silently counted as canonical.
+- Live-fill promotion now checks the full non-rejected source-component set before accounting: missing/extra/duplicate components, null/unsupported versions, and unreviewed rows fail closed. Additional evidence labels are preserved but block promotion until an explicit reviewed mapping exists. The prior six-allocation check remains in place.
+- Added contract tests for exact set, missing/extra/duplicate components, legacy version and unreviewed rows. Updated the real PostgreSQL race fixture to declare the set version explicitly.
+- Implementation/test checkpoint: `f61cedd25f5982846774db3028fb646d2e108e07`. Exact-head CI [#40191140007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191140007) passed: **917 passed, 1 warning, 0 failures**. Broker-write boundary guard, SQLite/PostgreSQL migration round-trips through migration `202610250022`, and synthetic restore drill passed. Synthetic restore does not prove actual Oracle Cloud recovery.
+- Prior failed CI remains documented: run [#40190926423](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190926423) exposed a missing set-version value in the PostgreSQL concurrency fixture; the fixture was corrected in the verified commit above. It is not counted as a successful run.
+- This does not yet map raw `transaction_charges` + `ipft` source rows to canonical `exchange_charges`, approve tariffs/GST, or enable promotion of evidence-only rows. Live broker writes remain disabled; PR #6 remains draft/unmerged; original `Tradepro` remains untouched.
+- Next single implementation gate: define and test an explicit, versioned source-to-canonical mapping for combined versus split transaction/IPFT evidence, preserving both raw source rows while producing one canonical exchange-charge amount only when the representation is explicitly reviewed. Other unsupported source components must continue to block promotion.

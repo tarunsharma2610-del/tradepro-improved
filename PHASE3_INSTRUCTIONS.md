@@ -69,7 +69,15 @@ For each increment:
 - Legacy rows with a null contract version remain undeclared and must fail closed; never backfill the current version based on current code.
 - Define the exact canonical component set consumed by live accounting separately from the wider source-component evidence vocabulary. Retaining a source line is not approval to allocate it.
 - Test missing, extra, duplicate, legacy-version, mixed-mode, and inconsistent sibling version cases. Never silently drop an evidence component or widen the live-accounting component set without an approved mapping and migration plan.
-- Current implementation commit `1d327b145fe25d871a763985b5f746e12e107b75` adds version persistence; exact-head CI must pass before calling it verified.
+- Representation contract version persistence was implemented in `1d327b145fe25d871a763985b5f746e12e107b75`; exact-head CI passed on the later verified checkpoint `f61cedd25f5982846774db3028fb646d2e108e07`.
+
+## 7B. Source-to-canonical mapping gate
+
+- Keep original transcribed rows immutable; mapping must not overwrite source labels, source amounts, or evidence locators.
+- COMBINED transaction/IPFT maps the evidenced combined amount once to canonical `exchange_charges` and rejects a separate IPFT row.
+- SPLIT transaction/IPFT combines transaction charges excluding IPFT and separately evidenced IPFT exactly once; mode and contract version must match across sibling rows.
+- Do not map clearing, demat, other, or unsupported rows by guesswork. Until each has an approved canonical mapping and GST treatment, it blocks live accounting promotion.
+- Add end-to-end tests for canonical amount reconciliation, exact paise behavior, replay/conflict handling, and no IPFT/GST double count.
 
 ## 7. Required evidence for the real live-fill accounting integration gate
 
@@ -126,3 +134,15 @@ If a test does not exercise one of these paths, document that limitation rather 
 - Corrected the response wording without relaxing validation in commit `db1ee170629fcb853b5c6e46f0d9d8654056bc44`. The failure remains recorded as history and is not counted as a successful verification.
 - Workflow [#40190403007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190403007) was triggered for documentation HEAD `0abfa9a1ed5dcd553f1b92010ec86b41ccf77a2b`; that SHA predates the wording correction and must not be treated as verification of `db1ee170629fcb853b5c6e46f0d9d8654056bc44`. Exact-head CI for the corrected implementation and current documentation head remains pending.
 - Next action: confirm the corrected exact-head workflow succeeds, then add explicit missing-version API regression coverage and continue the versioned component-set contract. No tariff candidates are promoted; live accounting still requires the existing six canonical components.
+
+
+## Phase 3 forward checkpoint — versioned canonical component set (2026-10-25)
+
+- Added `broker_charge_component_set_contract.py` with explicit `live-fill-accounting-component-set-v1` and the exact six canonical accounting components: brokerage, STT, exchange charges, SEBI charges, stamp duty, and GST.
+- Added nullable `component_set_version` to source-component records via migration `202610250022`. No version is backfilled for legacy records. Canonical components receive the current set version only during independent review; evidence-only components remain unversioned and cannot be silently counted as canonical.
+- Live-fill promotion now checks the full non-rejected source-component set before accounting: missing/extra/duplicate components, null/unsupported versions, and unreviewed rows fail closed. Additional evidence labels are preserved but block promotion until an explicit reviewed mapping exists. The prior six-allocation check remains in place.
+- Added contract tests for exact set, missing/extra/duplicate components, legacy version and unreviewed rows. Updated the real PostgreSQL race fixture to declare the set version explicitly.
+- Implementation/test checkpoint: `f61cedd25f5982846774db3028fb646d2e108e07`. Exact-head CI [#40191140007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191140007) passed: **917 passed, 1 warning, 0 failures**. Broker-write boundary guard, SQLite/PostgreSQL migration round-trips through migration `202610250022`, and synthetic restore drill passed. Synthetic restore does not prove actual Oracle Cloud recovery.
+- Prior failed CI remains documented: run [#40190926423](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190926423) exposed a missing set-version value in the PostgreSQL concurrency fixture; the fixture was corrected in the verified commit above. It is not counted as a successful run.
+- This does not yet map raw `transaction_charges` + `ipft` source rows to canonical `exchange_charges`, approve tariffs/GST, or enable promotion of evidence-only rows. Live broker writes remain disabled; PR #6 remains draft/unmerged; original `Tradepro` remains untouched.
+- Next single implementation gate: define and test an explicit, versioned source-to-canonical mapping for combined versus split transaction/IPFT evidence, preserving both raw source rows while producing one canonical exchange-charge amount only when the representation is explicitly reviewed. Other unsupported source components must continue to block promotion.

@@ -45,11 +45,19 @@ NSE circular NSE/FA/73061 (27 February 2026; effective 1 March 2026) gives combi
 **Accept when:** each label-to-component relationship is explicit and fail-closed; the implementation and regression suite passed on the cited SHA. Independent comparison with authentic contract notes remains an evidence gate.
 
 ### Gate 1A — Persist and enforce a versioned component-set contract
-**Status: implementation committed; exact-head CI pending.**
+**Status: implemented and CI verified at `f61cedd25f5982846774db3028fb646d2e108e07`; mapping of source rows to canonical components remains open.**
 - Persist the representation-contract version used to review transaction/IPFT source rows; do not infer versions for legacy rows.
 - Define the expected canonical live-accounting component set separately from the broader source-evidence vocabulary. Evidence-only components must be retained without being silently mapped, dropped, or promoted.
 - Reject missing/extra/duplicate component sets, mixed combined/split declarations, unsupported contract versions, and legacy rows lacking a version.
-**Accept when:** schema migration round-trips on SQLite and PostgreSQL; adversarial API/service tests prove the set is exact and version-consistent; exact-head CI passes.
+**Accept when:** migration `202610250022` round-trips on SQLite and PostgreSQL; adversarial contract tests reject missing/extra/duplicate/legacy/unreviewed rows; exact-head CI [#40191140007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191140007) passed with 917 tests and 1 warning. Source-to-canonical mapping remains a separate gate.
+
+### Gate 1B — Map combined/split source rows to canonical accounting components
+**Status: open; do not promote source rows through a name-only mapping.**
+- Preserve raw `transaction_charges` and `ipft` rows, labels, amounts, source locators, evidence digest and the persisted representation-contract version.
+- Under explicit reviewed COMBINED mode, map the evidenced combined amount once to canonical `exchange_charges`; reject any separate IPFT row in that representation.
+- Under explicit reviewed SPLIT mode, combine transaction charges excluding IPFT with separately evidenced IPFT exactly once into canonical `exchange_charges`. Do not use field names alone to infer mode.
+- Define deterministic canonical amount and source-total reconciliation; keep both raw rows immutable and auditable. Clearing, demat, other or unsupported lines remain blockers until an explicit reviewed mapping and GST treatment exists.
+**Accept when:** positive combined/split equivalence tests, missing/mixed/conflicting representation tests, exact paise reconciliation and end-to-end no-double-count tests pass; live promotion consumes only the canonical set.
 
 ### Gate 2 — Complete evidence-backed component and tariff-rule selection
 **Status: open.**
@@ -130,3 +138,15 @@ For every step:
 - Corrected the response wording without relaxing validation in commit `db1ee170629fcb853b5c6e46f0d9d8654056bc44`. The failure remains recorded as history and is not counted as a successful verification.
 - Workflow [#40190403007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190403007) was triggered for documentation HEAD `0abfa9a1ed5dcd553f1b92010ec86b41ccf77a2b`; that SHA predates the wording correction and must not be treated as verification of `db1ee170629fcb853b5c6e46f0d9d8654056bc44`. Exact-head CI for the corrected implementation and current documentation head remains pending.
 - Next action: confirm the corrected exact-head workflow succeeds, then add explicit missing-version API regression coverage and continue the versioned component-set contract. No tariff candidates are promoted; live accounting still requires the existing six canonical components.
+
+
+## Phase 3 forward checkpoint — versioned canonical component set (2026-10-25)
+
+- Added `broker_charge_component_set_contract.py` with explicit `live-fill-accounting-component-set-v1` and the exact six canonical accounting components: brokerage, STT, exchange charges, SEBI charges, stamp duty, and GST.
+- Added nullable `component_set_version` to source-component records via migration `202610250022`. No version is backfilled for legacy records. Canonical components receive the current set version only during independent review; evidence-only components remain unversioned and cannot be silently counted as canonical.
+- Live-fill promotion now checks the full non-rejected source-component set before accounting: missing/extra/duplicate components, null/unsupported versions, and unreviewed rows fail closed. Additional evidence labels are preserved but block promotion until an explicit reviewed mapping exists. The prior six-allocation check remains in place.
+- Added contract tests for exact set, missing/extra/duplicate components, legacy version and unreviewed rows. Updated the real PostgreSQL race fixture to declare the set version explicitly.
+- Implementation/test checkpoint: `f61cedd25f5982846774db3028fb646d2e108e07`. Exact-head CI [#40191140007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191140007) passed: **917 passed, 1 warning, 0 failures**. Broker-write boundary guard, SQLite/PostgreSQL migration round-trips through migration `202610250022`, and synthetic restore drill passed. Synthetic restore does not prove actual Oracle Cloud recovery.
+- Prior failed CI remains documented: run [#40190926423](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190926423) exposed a missing set-version value in the PostgreSQL concurrency fixture; the fixture was corrected in the verified commit above. It is not counted as a successful run.
+- This does not yet map raw `transaction_charges` + `ipft` source rows to canonical `exchange_charges`, approve tariffs/GST, or enable promotion of evidence-only rows. Live broker writes remain disabled; PR #6 remains draft/unmerged; original `Tradepro` remains untouched.
+- Next single implementation gate: define and test an explicit, versioned source-to-canonical mapping for combined versus split transaction/IPFT evidence, preserving both raw source rows while producing one canonical exchange-charge amount only when the representation is explicitly reviewed. Other unsupported source components must continue to block promotion.

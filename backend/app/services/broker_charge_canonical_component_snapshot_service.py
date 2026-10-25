@@ -23,6 +23,54 @@ from app.services.broker_charge_verified_component_canonicalization import (
 )
 
 
+def canonical_source_snapshot_fingerprint(
+    *,
+    evidence: BrokerChargeEvidence,
+    canonical_component: str,
+    canonical_amount: str,
+    mapping_version: str,
+    representation_contract_version: str | None,
+    source_rows: list[BrokerChargeSourceComponent],
+) -> str:
+    """Fingerprint every source and allocation field that affects a canonical snapshot."""
+    ordered_rows = sorted(source_rows, key=lambda row: (row.component_name, row.revision, str(row.id)))
+    payload = {
+        "evidence_id": str(evidence.id),
+        "evidence_sha256": evidence.source_sha256,
+        "canonical_component": canonical_component,
+        "canonical_amount": canonical_amount,
+        "mapping_version": mapping_version,
+        "representation_contract_version": representation_contract_version,
+        "component_set_version": LIVE_FILL_COMPONENT_SET_VERSION,
+        "source_rows": [
+            {
+                "id": str(row.id),
+                "name": row.component_name,
+                "revision": row.revision,
+                "amount": format(Decimal(row.source_amount), ".2f"),
+                "source_sha256": row.source_sha256,
+                "source_label": row.source_label,
+                "source_locator": row.source_locator,
+                "representation_mode": row.representation_mode,
+                "representation_contract_version": row.representation_contract_version,
+                "currency": row.currency,
+                "component_set_version": row.component_set_version,
+                "eligible_fill_ids_json": row.eligible_fill_ids_json,
+                "eligible_fill_weights_json": row.eligible_fill_weights_json,
+                "eligible_fill_set_sha256": row.eligible_fill_set_sha256,
+                "rounding_policy": row.rounding_policy,
+                "allocation_basis": row.allocation_basis,
+                "reviewed_by_user_id": str(row.reviewed_by_user_id) if row.reviewed_by_user_id else None,
+                "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
+            }
+            for row in ordered_rows
+        ],
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
 def materialize_canonical_charge_component_snapshots(
     db: Session,
     *,
@@ -169,41 +217,14 @@ def materialize_canonical_charge_component_snapshots(
         source_rows.sort(key=lambda row: (row.component_name, row.revision, str(row.id)))
         source_ids = [str(row.id) for row in source_rows]
         source_ids_json = json.dumps(source_ids, separators=(",", ":"))
-        fingerprint_payload = {
-            "evidence_id": str(evidence.id),
-            "evidence_sha256": evidence.source_sha256,
-            "canonical_component": canonical_name,
-            "canonical_amount": canonical["canonical_components"][canonical_name],
-            "mapping_version": canonical["mapping_version"],
-            "representation_contract_version": canonical["representation_contract_version"],
-            "component_set_version": LIVE_FILL_COMPONENT_SET_VERSION,
-            "source_rows": [
-                {
-                    "id": str(row.id),
-                    "name": row.component_name,
-                    "revision": row.revision,
-                    "amount": format(Decimal(row.source_amount), ".2f"),
-                    "source_sha256": row.source_sha256,
-                    "source_label": row.source_label,
-                    "source_locator": row.source_locator,
-                    "representation_mode": row.representation_mode,
-                    "representation_contract_version": row.representation_contract_version,
-                    "currency": row.currency,
-                    "component_set_version": row.component_set_version,
-                    "eligible_fill_ids_json": row.eligible_fill_ids_json,
-                    "eligible_fill_weights_json": row.eligible_fill_weights_json,
-                    "eligible_fill_set_sha256": row.eligible_fill_set_sha256,
-                    "rounding_policy": row.rounding_policy,
-                    "allocation_basis": row.allocation_basis,
-                    "reviewed_by_user_id": str(row.reviewed_by_user_id) if row.reviewed_by_user_id else None,
-                    "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
-                }
-                for row in source_rows
-            ],
-        }
-        fingerprint = hashlib.sha256(
-            json.dumps(fingerprint_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        ).hexdigest()
+        fingerprint = canonical_source_snapshot_fingerprint(
+            evidence=evidence,
+            canonical_component=canonical_name,
+            canonical_amount=canonical["canonical_components"][canonical_name],
+            mapping_version=canonical["mapping_version"],
+            representation_contract_version=canonical["representation_contract_version"],
+            source_rows=source_rows,
+        )
         existing = (
             db.query(BrokerChargeCanonicalComponent)
             .filter(

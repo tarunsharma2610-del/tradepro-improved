@@ -2216,3 +2216,10 @@ Safety: PAPER mode mandatory; live broker order writes disabled; PR #6 draft/unm
 - Added split transaction/IPFT normalized-link, successful promotion/replay and tamper-blocking tests. Commit `621ce7cd289057a419be5eeff0262e158b18c001` Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) was in progress at checkpoint; latest reconciliation code is not marked green until completed.
 - Next: fix any exact-head CI failures, then add conflict/rollback and PostgreSQL concurrency coverage before closing this Phase 3 gate.
 - Safety: Improved repository only; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes remain blocked.
+
+
+## CI result update — canonical reconciliation gate (25 October 2026)
+
+- Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) completed successfully for code/test commit `621ce7cd289057a419be5eeff0262e158b18c001`. Pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore all passed.
+- This verifies the normalized source-link schema and canonical allocation reconciliation tests at that code/test head. Later docs-only commits still need exact-head CI verification if a workflow is triggered.
+- Next: explicit rollback/conflicting-set and PostgreSQL concurrent-promotion coverage, followed by fresh exact-head CI.

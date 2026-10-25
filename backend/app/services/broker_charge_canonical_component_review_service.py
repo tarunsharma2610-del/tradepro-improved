@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
+from app.models.broker_charge_canonical_source_link import BrokerChargeCanonicalSourceLink
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.user import User
@@ -94,6 +95,20 @@ def review_canonical_charge_component_snapshot(
     )
     if {row.id for row in records} != set(parsed_ids):
         raise ValueError("Canonical snapshot references missing or foreign source rows.")
+    links = (
+        db.query(BrokerChargeCanonicalSourceLink)
+        .filter(BrokerChargeCanonicalSourceLink.canonical_component_id == snapshot.id)
+        .order_by(BrokerChargeCanonicalSourceLink.source_ordinal)
+        .with_for_update()
+        .all()
+    )
+    linked_ids = [str(link.source_component_id) for link in links]
+    if (
+        linked_ids != source_ids
+        or [link.source_ordinal for link in links] != list(range(len(source_ids)))
+        or len({link.source_component_id for link in links}) != len(links)
+    ):
+        raise ValueError("Normalized canonical source links disagree with the immutable source manifest.")
     records.sort(key=lambda row: (row.component_name, row.revision, str(row.id)))
     if [str(row.id) for row in records] != source_ids:
         raise ValueError("Canonical snapshot source-row manifest is not in canonical order.")

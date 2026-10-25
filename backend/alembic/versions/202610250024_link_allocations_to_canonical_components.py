@@ -16,34 +16,28 @@ depends_on = None
 def upgrade() -> None:
     # Existing allocations remain NULL: do not infer a canonical source snapshot
     # for historical rows without a reviewed source-to-canonical association.
-    op.add_column(
-        "broker_charge_allocations",
-        sa.Column("canonical_component_id", sa.Uuid(), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_broker_charge_allocations_canonical_component_id",
-        "broker_charge_allocations",
-        "broker_charge_canonical_components",
-        ["canonical_component_id"],
-        ["id"],
-        ondelete="RESTRICT",
-    )
-    op.create_index(
-        "ix_broker_charge_allocations_canonical_component_id",
-        "broker_charge_allocations",
-        ["canonical_component_id"],
-        unique=False,
-    )
+    # Batch mode is required for SQLite's table-rebuild approach to constraints.
+    with op.batch_alter_table("broker_charge_allocations") as batch:
+        batch.add_column(sa.Column("canonical_component_id", sa.Uuid(), nullable=True))
+        batch.create_foreign_key(
+            "fk_broker_charge_allocations_canonical_component_id",
+            "broker_charge_canonical_components",
+            ["canonical_component_id"],
+            ["id"],
+            ondelete="RESTRICT",
+        )
+        batch.create_index(
+            "ix_broker_charge_allocations_canonical_component_id",
+            ["canonical_component_id"],
+            unique=False,
+        )
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "ix_broker_charge_allocations_canonical_component_id",
-        table_name="broker_charge_allocations",
-    )
-    op.drop_constraint(
-        "fk_broker_charge_allocations_canonical_component_id",
-        "broker_charge_allocations",
-        type_="foreignkey",
-    )
-    op.drop_column("broker_charge_allocations", "canonical_component_id")
+    with op.batch_alter_table("broker_charge_allocations") as batch:
+        batch.drop_index("ix_broker_charge_allocations_canonical_component_id")
+        batch.drop_constraint(
+            "fk_broker_charge_allocations_canonical_component_id",
+            type_="foreignkey",
+        )
+        batch.drop_column("canonical_component_id")

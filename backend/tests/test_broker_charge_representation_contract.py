@@ -17,6 +17,7 @@ def representation(mode, components, labels=None):
         mode=mode,
         raw_labels=labels,
         components={name: Decimal(amount) for name, amount in components.items()},
+        labels_by_component=dict(zip(components.keys(), labels, strict=True)),
     )
 
 
@@ -28,6 +29,10 @@ def test_combined_representation_preserves_label_and_does_not_add_ipft_twice():
     assert result["components"] == {"transaction_charges": "307.00", "gst": "55.26"}
     assert result["total_components"] == "362.26"
     assert result["raw_labels"] == ["Transaction Charges", "Gst"]
+    assert result["labels_by_component"] == {
+        "transaction_charges": "Transaction Charges",
+        "gst": "Gst",
+    }
     assert result["accounting_approved"] is False
 
 
@@ -109,4 +114,46 @@ def test_contract_version_is_pinned():
         components={"transaction_charges": Decimal("307.00")},
     )
     with pytest.raises(ValueError, match="Unsupported charge representation contract version"):
+        validate_charge_representation(value)
+
+
+
+def test_representation_requires_explicit_component_to_source_label_association():
+    value = ChargeRepresentation(
+        contract_version=CONTRACT_VERSION,
+        mode="COMBINED_TRANSACTION_AND_IPFT",
+        raw_labels=("Transaction Charges",),
+        components={"transaction_charges": Decimal("307.00")},
+    )
+    with pytest.raises(ValueError, match="explicit source-label association"):
+        validate_charge_representation(value)
+
+
+def test_representation_rejects_label_mapping_that_does_not_match_raw_label_order():
+    value = ChargeRepresentation(
+        contract_version=CONTRACT_VERSION,
+        mode="SPLIT_TRANSACTION_AND_IPFT",
+        raw_labels=("Transaction Charges", "IPFT"),
+        components={
+            "transaction_charges": Decimal("306.99"),
+            "ipft": Decimal("0.01"),
+        },
+        labels_by_component={
+            "transaction_charges": "IPFT",
+            "ipft": "Transaction Charges",
+        },
+    )
+    with pytest.raises(ValueError, match="must match the explicit component-to-label association order"):
+        validate_charge_representation(value)
+
+
+def test_representation_rejects_label_mapping_for_wrong_component_set():
+    value = ChargeRepresentation(
+        contract_version=CONTRACT_VERSION,
+        mode="COMBINED_TRANSACTION_AND_IPFT",
+        raw_labels=("Transaction Charges",),
+        components={"transaction_charges": Decimal("307.00")},
+        labels_by_component={"ipft": "Transaction Charges"},
+    )
+    with pytest.raises(ValueError, match="associations must match normalized components exactly"):
         validate_charge_representation(value)

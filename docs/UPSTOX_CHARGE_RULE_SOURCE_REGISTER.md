@@ -1,15 +1,14 @@
-## Authoritative audit reconciliation — 25 October 2026
+## Canonical checkpoint reconciliation — 25 October 2026
 
-- **Repository/branch:** `tarunsharma2610-del/tradepro-improved` / `phase3/durable-per-fill-charge-allocation`. PR #6 remains draft and unmerged.
-- **Last verified branch head before this documentation reconciliation:** `ecdaae1035779631bcb45ee5d50f60094c35d1ab`. Backend workflow [#40205635687](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40205635687) completed successfully on that exact SHA; the Backend pytest job passed.
-- This confirms the inspected pre-reconciliation head, not any subsequent documentation commit. The final documentation head must receive its own exact-head CI check.
-- These Upstox API/SDK/Agent Skill/source-register documents are part of the **18-document living checkpoint inventory**. The previous inventory omitted them; they were present in the repository.
-- **SDK decision:** do not add an unused SDK runtime dependency or replace the existing async `httpx` client wholesale without a concrete documented capability/correctness benefit. Preserve timeout handling, error redaction, parser/semantic gates, and the broker-write boundary.
-- **Agent Skill decision:** static-review reference only; do not execute examples, use live credentials, or import the skill wholesale. It contains live order/GTT examples and unsafe patterns. No real credentials, live calls, or orders were used in this audit.
-- Brokerage calculator results remain estimates; the Trade Charges API is aggregate reconciliation evidence, not proof of actual per-fill charges. GST/IPFT/tariff candidates remain DRAFT until authentic account-specific source evidence and independent review support approval.
-- **Safeguards:** only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PAPER mandatory; live broker order writes disabled.
+- **Repository:** `tarunsharma2610-del/tradepro-improved` only. **Branch:** `phase3/durable-per-fill-charge-allocation`. **PR #6:** open, draft, unmerged.
+- **Latest verified implementation/documentation base before this synchronization:** `fee15a546ebbdfba9fdbb6040cfe5550d5cdac43`. Backend workflow [#40206354866](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40206354866) completed successfully on that exact commit.
+- This synchronization corrects stale checkpoint references and aligns maintained documents to that verified base. The new documentation-sync commit must receive its own exact-HEAD CI run; the run above does not validate a later commit.
+- **Phase 3 next step after this docs checkpoint passes CI:** inspect existing conflicting-fill-set and rollback coverage for a demonstrated acceptance gap; add only missing coverage, then run the full backend CI gate. Do not duplicate existing PostgreSQL concurrency, incomplete-fill-set, promotion atomicity, or rollback tests without a concrete uncovered case.
+- **Upstox decisions:** API/SDK and Agent Skill audits are included in the canonical inventory. No unused SDK runtime dependency is approved; Agent Skill remains static-review-only and must not be executed or given live credentials. Brokerage calculator output is estimate-only; aggregate charge endpoints are not per-fill actual evidence.
+- **Safeguards:** original `tarunsharma2610-del/Tradepro` is out of scope and must remain untouched; PAPER mode mandatory; live broker order writes disabled; GST/IPFT/tariff candidates remain DRAFT until authentic, applicable evidence and independent review support approval.
 
 ---
+
 
 # Upstox charge-rule source register
 

@@ -1,3 +1,9 @@
+# Legacy duplicate — canonical register is docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md
+
+This root-level copy is retained for history and compatibility only. The canonical maintained Upstox charge-rule source register is `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`. Do not independently edit or use this duplicate to determine current tariff status. All tariff candidates remain DRAFT unless the canonical register and independent review establish approval.
+
+---
+
 # Upstox Charge Rule and Evidence Source Register
 
 **Audit date:** 2026-10-24  

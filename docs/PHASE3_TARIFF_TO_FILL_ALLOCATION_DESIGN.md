@@ -1,3 +1,14 @@
+## Canonical checkpoint reconciliation — 25 October 2026
+
+- **Repository:** `tarunsharma2610-del/tradepro-improved` only. **Branch:** `phase3/durable-per-fill-charge-allocation`. **PR #6:** open, draft, unmerged.
+- **Latest verified implementation/documentation base before this synchronization:** `fee15a546ebbdfba9fdbb6040cfe5550d5cdac43`. Backend workflow [#40206354866](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40206354866) completed successfully on that exact commit.
+- This synchronization corrects stale checkpoint references and aligns maintained documents to that verified base. The new documentation-sync commit must receive its own exact-HEAD CI run; the run above does not validate a later commit.
+- **Phase 3 next step after this docs checkpoint passes CI:** inspect existing conflicting-fill-set and rollback coverage for a demonstrated acceptance gap; add only missing coverage, then run the full backend CI gate. Do not duplicate existing PostgreSQL concurrency, incomplete-fill-set, promotion atomicity, or rollback tests without a concrete uncovered case.
+- **Upstox decisions:** API/SDK and Agent Skill audits are included in the canonical inventory. No unused SDK runtime dependency is approved; Agent Skill remains static-review-only and must not be executed or given live credentials. Brokerage calculator output is estimate-only; aggregate charge endpoints are not per-fill actual evidence.
+- **Safeguards:** original `tarunsharma2610-del/Tradepro` is out of scope and must remain untouched; PAPER mode mandatory; live broker order writes disabled; GST/IPFT/tariff candidates remain DRAFT until authentic, applicable evidence and independent review support approval.
+
+---
+
 # Phase 3 tariff-to-fill allocation integration design
 
 Status: design checkpoint; implementation not yet approved for accounting promotion.

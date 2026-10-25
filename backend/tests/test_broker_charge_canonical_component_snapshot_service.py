@@ -423,3 +423,45 @@ def test_canonical_reconciliation_rejects_modified_allocation_before_promotion(d
         )
     db_session.refresh(allocations[0])
     assert allocations[0].status == "PENDING_RECONCILIATION"
+
+
+def test_canonical_reconciliation_rejects_incomplete_allocation_fill_set(db_session, make_user, monkeypatch, tmp_path):
+    """A missing fill allocation must block promotion instead of reconciling a partial set."""
+    _context.split_exchange = True
+    try:
+        creator, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    finally:
+        _context.split_exchange = False
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=creator.id
+    )
+    db_session.commit()
+    reviewer = make_user(email=f"canonical-conflict-reviewer-{uuid4().hex}@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    exchange = next(row for row in snapshots if row.canonical_component == "exchange_charges")
+    review_canonical_charge_component_snapshot(
+        db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id,
+        decision="VERIFIED", review_note="Approve canonical exchange-charge fill set",
+    )
+    db_session.commit()
+    allocations = allocate_and_persist_canonical_snapshot(
+        db_session, snapshot_id=exchange.id,
+        broker_connection_id=evidence.broker_connection_id,
+        broker_report_reference=evidence.broker_report_reference,
+    )
+    db_session.commit()
+    assert len(allocations) == 2
+    db_session.delete(allocations[0])
+    db_session.commit()
+
+    with pytest.raises(ValueError, match="fill set differs from the reviewed snapshot manifest"):
+        promote_verified_canonical_component_allocations(
+            db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id
+        )
+    remaining = db_session.query(BrokerChargeAllocation).filter_by(
+        canonical_component_id=exchange.id
+    ).all()
+    assert len(remaining) == 1
+    assert remaining[0].status == "PENDING_RECONCILIATION"
+    assert remaining[0].reconciliation_reference is None

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
+from app.models.broker_charge_canonical_source_link import BrokerChargeCanonicalSourceLink
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.user import User
@@ -236,6 +237,16 @@ def materialize_canonical_charge_component_snapshots(
             .one_or_none()
         )
         if existing is not None:
+            linked_rows = (
+                db.query(BrokerChargeCanonicalSourceLink)
+                .filter(BrokerChargeCanonicalSourceLink.canonical_component_id == existing.id)
+                .order_by(BrokerChargeCanonicalSourceLink.source_ordinal)
+                .with_for_update()
+                .all()
+            )
+            linked_ids = [str(link.source_component_id) for link in linked_rows]
+            if linked_ids != source_ids:
+                raise ValueError("Canonical snapshot normalized source links disagree with its immutable manifest.")
             result.append(existing)
             continue
         next_revision = (
@@ -267,6 +278,13 @@ def materialize_canonical_charge_component_snapshots(
             status="PENDING_REVIEW",
         )
         db.add(snapshot)
+        db.flush()
+        for ordinal, source_row in enumerate(source_rows):
+            db.add(BrokerChargeCanonicalSourceLink(
+                canonical_component_id=snapshot.id,
+                source_component_id=source_row.id,
+                source_ordinal=ordinal,
+            ))
         db.flush()
         result.append(snapshot)
     return sorted(result, key=lambda row: row.canonical_component)

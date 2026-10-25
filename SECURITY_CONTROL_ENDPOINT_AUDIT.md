@@ -1,3 +1,14 @@
+## Authoritative audit reconciliation — 25 October 2026
+
+- **Repository/branch:** `tarunsharma2610-del/tradepro-improved` / `phase3/durable-per-fill-charge-allocation`. PR #6 remains draft and unmerged.
+- **Last verified branch head before this documentation reconciliation:** `ecdaae1035779631bcb45ee5d50f60094c35d1ab`. Backend workflow [#40205635687](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40205635687) completed successfully on that exact SHA; the Backend pytest job passed.
+- This confirms that inspected pre-reconciliation head, not any subsequent documentation commit. The final documentation head must receive its own exact-head CI check.
+- **Phase 3 next task:** audit existing tests for a demonstrated conflicting-set/rollback gap; add only missing coverage, then run the full backend CI gate. Do not repeat already-passed concurrent-promotion or incomplete-fill-set tests without a specific uncovered scenario.
+- **Upstox integration status:** the SDK and Agent Skill review documents exist under `docs/`; they were not absent from the repository, but they were incorrectly omitted from the rolling checkpoint inventory. Their review decision remains: no unused SDK runtime dependency; keep the skill as unexecuted development-only reference because it contains live order/GTT examples and unsafe patterns. Do not execute it or use live credentials.
+- **Safeguards:** only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PAPER mode mandatory; live broker order writes disabled; PR #6 draft/unmerged; GST/IPFT tariff candidates remain DRAFT until authentic, account-specific evidence and review support approval.
+
+---
+
 # Security Control / Endpoint Audit — authoritative current checkpoint
 
 **Last reconciled:** 25 October 2026  
@@ -9,7 +20,7 @@
 
 ## Current status (supersedes older status statements below)
 
-- This file was missing from the recently stated 13-document checkpoint list by mistake. It is now explicitly part of the authoritative **14-document checkpoint set**; it must be kept in sync after every Phase 3 CI result along with the other 13 listed in `PROJECT_INSTRUCTIONS.md`.
+- This file was missing from the recently stated 18-document checkpoint inventory by mistake. It is now explicitly part of the authoritative **18-document checkpoint set**; it must be kept in sync after every Phase 3 CI result along with the other 13 listed in `PROJECT_INSTRUCTIONS.md`.
 - Backend pytest, broker-write boundary enforcement, SQLite Alembic upgrade/downgrade/re-upgrade, PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, and the isolated synthetic PostgreSQL/document-volume restore drill all passed in run #40205177926 on the exact HEAD above.
 - This successful run verifies the inspected branch head. Any later commit—including documentation-only changes—requires its own exact-head CI before that later commit can be called verified.
 - Phase 3 engineering state: durable canonical source links, reviewed canonical snapshots, per-fill allocations, canonical-ledger verification/promotion, deterministic paise allocation, replay/rollback protections, incomplete-fill-set rejection, and PostgreSQL concurrent-promotion coverage are implemented and covered by prior successful implementation CI. The next step is to inspect current tests for a real conflicting-set/rollback gap; add only missing tests and run the full backend gate.

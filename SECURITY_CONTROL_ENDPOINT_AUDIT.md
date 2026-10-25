@@ -751,3 +751,10 @@ The upstream skill is external development material, not an app authorization bo
 - Added canonical allocation verification/promotion which rechecks reviewed snapshot source fingerprint and normalized source links, deterministic fill allocation and exact totals before atomic, idempotent reconciliation. Promotion re-queries only the verified snapshot/evidence/component allocation set and compares IDs to the verification result before changing state.
 - New reconciliation tests were on commit `621ce7cd289057a419be5eeff0262e158b18c001`; Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) was in progress at the last checkpoint. Await its result before declaring the new path green.
 - Safety unchanged: Improved repo only; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes and unreviewed/automatic accounting promotion disabled.
+
+
+## CI result update — canonical reconciliation gate (25 October 2026)
+
+- Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) completed successfully for code/test commit `621ce7cd289057a419be5eeff0262e158b18c001`. Pytest, broker-write boundary enforcement, SQLite/PostgreSQL 16 migration upgrade/downgrade/re-upgrade and synthetic PostgreSQL/document-volume restore all passed.
+- This green result verifies the normalized source-link schema and canonical allocation reconciliation tests at that code/test head. Later docs-only commits need exact-head CI verification if triggered.
+- Next: explicit rollback/conflicting-set and PostgreSQL concurrent-promotion coverage, then fresh exact-head CI. Live broker writes remain disabled; PR #6 stays draft/unmerged and PAPER remains mandatory.

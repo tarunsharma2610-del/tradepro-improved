@@ -616,3 +616,112 @@ def test_documented_upstox_charge_components_can_be_preserved_as_pending_source_
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_transaction_ipft_representation_is_persisted_and_combined_mode_rejects_separate_ipft(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    extractor = make_user(email="representation-extractor@example.com")
+    reviewer = make_user(email="representation-reviewer@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    connection = _connection(db_session, extractor)
+    trade = _trade(db_session, connection)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: extractor
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        base = {
+            "source_amount": "307.00",
+            "currency": "INR",
+            "source_locator": "page 1, exchange transaction charge row",
+            "representation_mode": "COMBINED_TRANSACTION_AND_IPFT",
+        }
+        transaction = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={**base, "component_name": "transaction_charges", "source_label": "Transaction Charges (includes IPFT)"},
+        )
+        ipft = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={**base, "component_name": "ipft", "source_label": "IPFT"},
+        )
+        assert transaction.status_code == 201, transaction.text
+        assert ipft.status_code == 201, ipft.text
+        assert transaction.json()["source_label"] == "Transaction Charges (includes IPFT)"
+        assert transaction.json()["representation_mode"] == "COMBINED_TRANSACTION_AND_IPFT"
+        assert transaction.json()["status"] == "PENDING_REVIEW"
+
+        app.dependency_overrides[get_current_user] = lambda: reviewer
+        reviewed = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{transaction.json()['id']}/review",
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(trade.id)],
+                "rounding_policy": "largest-remainder-v1",
+                "allocation_basis": "EXPLICIT_REVIEWED",
+                "eligible_fill_weights": [{"fill_record_id": str(trade.id), "weight": "1"}],
+            },
+        )
+        assert reviewed.status_code == 409
+        assert "must not be paired with a separate IPFT" in reviewed.text
+        stored = db_session.get(BrokerChargeSourceComponent, UUID(transaction.json()["id"]))
+        assert stored.status == "PENDING_REVIEW"
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_transaction_charge_source_cannot_be_reviewed_without_representation_mode(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    extractor = make_user(email="representation-missing-extractor@example.com")
+    reviewer = make_user(email="representation-missing-reviewer@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    connection = _connection(db_session, extractor)
+    trade = _trade(db_session, connection)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: extractor
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        created = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+            json={
+                "component_name": "transaction_charges",
+                "source_label": "Transaction Charges",
+                "source_amount": "307.00",
+                "currency": "INR",
+                "source_locator": "page 1, exchange charge row",
+            },
+        )
+        assert created.status_code == 201, created.text
+        app.dependency_overrides[get_current_user] = lambda: reviewer
+        reviewed = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{created.json()['id']}/review",
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(trade.id)],
+                "rounding_policy": "largest-remainder-v1",
+                "allocation_basis": "EXPLICIT_REVIEWED",
+                "eligible_fill_weights": [{"fill_record_id": str(trade.id), "weight": "1"}],
+            },
+        )
+        assert reviewed.status_code == 409
+        assert "explicit versioned representation mode" in reviewed.text
+        stored = db_session.get(BrokerChargeSourceComponent, UUID(created.json()["id"]))
+        assert stored.status == "PENDING_REVIEW"
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)

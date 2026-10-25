@@ -227,6 +227,8 @@ def record_source_component(
     """Record a human-transcribed amount as pending; never treat input as verified."""
     if payload.component_name not in SUPPORTED_COMPONENTS:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unsupported charge component.")
+    if payload.source_label is not None and not payload.source_label.strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Original source label must not be blank.")
     if payload.currency != "INR":
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Only INR source components are supported.")
     if not payload.source_locator.strip():

@@ -1760,3 +1760,18 @@ Safety remains unchanged: PAPER mode mandatory; live broker order writes disable
 - Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) has now completed successfully for code/test commit `621ce7cd289057a419be5eeff0262e158b18c001`. The complete job passed pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and the synthetic PostgreSQL/document-volume restore drill.
 - This green result covers the normalized source-link schema and canonical allocation reconciliation tests. Documentation-only commits after that code/test commit still need their own exact-head workflow result if triggered.
 - Next: add explicit rollback/conflicting-set and PostgreSQL concurrent-promotion coverage; then verify exact-head CI again before considering the canonical reconciliation gate complete.
+
+## AUTHORITATIVE CURRENT STATE — supersedes older next-step notes (25 October 2026)
+
+Historical entries remain historical records; they must not override this current checkpoint.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Branch: `phase3/durable-per-fill-charge-allocation`. PR #6 is open, draft, and unmerged. Never work in original `tarunsharma2610-del/Tradepro`.
+- Latest verified implementation/test head: `3d8c4e1425825e6b996500ce9f24630d6352ff5e`.
+- Exact-head Backend workflow [#40200645237](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40200645237) completed successfully. Pytest, broker-write boundary enforcement, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore all passed.
+- Latest test `test_canonical_reconciliation_rejects_incomplete_allocation_fill_set` removes one row from a two-fill canonical set and confirms promotion fails closed, leaving the remaining row pending without a reconciliation reference.
+- Completed; do not repeat: normalized canonical/source links, reviewed immutable snapshots, split transaction + IPFT provenance, durable per-fill allocations, canonical ledger verification, deterministic paise allocation, promotion/replay, tampered-allocation rejection, existing rollback assertions, and incomplete-fill-set rejection.
+- **Next single implementation step:** inspect existing coverage and add PostgreSQL concurrent-promotion tests proving concurrent attempts cannot create partial/mixed states or inconsistent durable references. Add conflicting-set/rollback tests only where a real gap remains. Then run the full backend CI gate.
+- CI protocol: on failure, diagnose/fix/rerun. On pass, update all 13 docs with exact SHA/run/result and next step, commit checkpoint, then verify CI on the checkpoint commit itself. Before resuming, refresh the live PR head and read docs from that exact SHA.
+- GST/IPFT production tariff/account-specific acceptance is a separate evidence gate and does not block synthetic engineering tests. Unapproved tariff candidates remain DRAFT.
+- Safety: PAPER mandatory; live broker order writes disabled; PR #6 stays draft/unmerged absent explicit authorization; original `Tradepro` untouched.
+

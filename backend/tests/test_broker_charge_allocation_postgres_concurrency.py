@@ -921,7 +921,7 @@ def test_concurrent_canonical_snapshot_promotions_are_atomic_and_idempotent(tmp_
                     extraction_method="MANUAL_TRANSCRIPTION", parser_version="manual-transcription-v1",
                     source_locator=f"page=1,row={index}", eligible_fill_ids_json=manifest,
                     eligible_fill_weights_json=weights, eligible_fill_set_sha256=manifest_hash,
-                    rounding_policy=METHOD_VERSION, allocation_basis="EXPLICIT_REVIEWED",
+                    rounding_policy="largest-remainder-paise-v1", allocation_basis="EXPLICIT_REVIEWED",
                     extracted_by_user_id=extractor_id, status="VERIFIED",
                     reviewed_by_user_id=owner_id, reviewed_at=now,
                     review_note="Independent synthetic source review",

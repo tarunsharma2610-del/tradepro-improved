@@ -1735,3 +1735,12 @@ Safety remains unchanged: PAPER mode mandatory; live broker order writes disable
 
 - Workflow [#40195695138](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40195695138) found a migration portability failure: SQLite cannot ALTER-add the foreign-key constraint directly. The migration was corrected to use Alembic batch mode, and the model's FK name was aligned with the migration.
 - Fix commits: migration `c4ee0e6910aa7b07bdd4bb7e4db1ca67ab27b110`; model `b7df1496ecf8d9c6553d85a68d2661d3b0ad99f0`. Exact-head Backend workflow [#40195975929](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40195975929) was in progress at last check; the FK migration is not yet declared green.
+
+
+## Phase 3 — normalized source-to-canonical charge links (25 October 2026)
+
+- Forward progress beyond the JSON manifest: added `BrokerChargeCanonicalSourceLink` and migration `202610250025_normalize_canonical_source_links.py`. The database now has one foreign-key row per canonical-snapshot/source-row relationship, with unique pair and ordered-source constraints. Migration backfills only from each snapshot's already-persisted ordered source-ID manifest; it does not infer mappings from labels or amounts.
+- Snapshot creation now persists normalized source links and checks them on idempotent replay. Independent snapshot review requires the normalized link rows, their exact order, and the immutable manifest to agree. Missing or altered membership fails closed. Split transaction + IPFT therefore has explicit two-source-row-to-one-canonical-charge linkage in relational rows; allocations remain linked to that canonical snapshot.
+- Previous branch head `4dbaf27fae124d11935c271f2f4cdec44015dbaa` passed Backend workflow [#40196030459](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196030459), including the migration correction. New source-link model/migration/service/test commit `d1153a0f0751339f3ca82fc062701db0141d4749` requires fresh CI verification; do not call this latest normalized-link change green until its run finishes.
+- Next gate: verify SQLite/PostgreSQL migration upgrade, downgrade/re-upgrade and tests on the normalized relationship; then extend promotion/reconciliation to require this relational source membership and verified canonical snapshot fingerprint.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6 remains draft/unmerged; PAPER mandatory; live broker writes and automatic accounting promotion disabled.

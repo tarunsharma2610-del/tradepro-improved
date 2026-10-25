@@ -729,6 +729,26 @@ def test_transaction_charge_source_cannot_be_reviewed_without_representation_mod
         assert "representation mode must be explicitly reviewed" in reviewed.text
         stored = db_session.get(BrokerChargeSourceComponent, UUID(created.json()["id"]))
         assert stored.status == "PENDING_REVIEW"
+
+        # Even if a mode is later transcribed, the current contract version
+        # must be explicitly persisted; legacy/null version is never inferred.
+        stored.representation_mode = "COMBINED_TRANSACTION_AND_IPFT"
+        db_session.commit()
+        missing_version = client.post(
+            f"/api/v1/broker-charge-evidence/{evidence['id']}/components/{created.json()['id']}/review",
+            json={
+                "confirm_source_matches": True,
+                "eligible_fill_record_ids": [str(trade.id)],
+                "rounding_policy": "largest-remainder-v1",
+                "allocation_basis": "EXPLICIT_REVIEWED",
+                "eligible_fill_weights": [{"fill_record_id": str(trade.id), "weight": "1"}],
+            },
+        )
+        assert missing_version.status_code == 409
+        assert "supported persisted representation contract version" in missing_version.text
+        db_session.refresh(stored)
+        assert stored.status == "PENDING_REVIEW"
+        assert stored.representation_contract_version is None
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)

@@ -188,6 +188,15 @@ def materialize_canonical_charge_component_snapshots(
                     "source_locator": row.source_locator,
                     "representation_mode": row.representation_mode,
                     "representation_contract_version": row.representation_contract_version,
+                    "currency": row.currency,
+                    "component_set_version": row.component_set_version,
+                    "eligible_fill_ids_json": row.eligible_fill_ids_json,
+                    "eligible_fill_weights_json": row.eligible_fill_weights_json,
+                    "eligible_fill_set_sha256": row.eligible_fill_set_sha256,
+                    "rounding_policy": row.rounding_policy,
+                    "allocation_basis": row.allocation_basis,
+                    "reviewed_by_user_id": str(row.reviewed_by_user_id) if row.reviewed_by_user_id else None,
+                    "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
                 }
                 for row in source_rows
             ],

@@ -1496,3 +1496,10 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 
 - The first API regression run exposed two assertion-message mismatches: the validator correctly rejected ambiguous combined-plus-IPFT input and undeclared representation mode, but the tests expected different wording. Updated the tests to assert the validator's actual fail-closed error messages; no safety rule was weakened.
 - Follow-up exact-head CI for commit `df344e9c64aeb6ec3f2f01fef01f3c05739d4800` and subsequent documentation synchronization is pending. Do not call the current head green until the full workflow completes.
+
+
+## Source-label completeness gate — 25 October 2026
+
+- The representation contract now rejects intake where the retained source-label count differs from the normalized component count; regression coverage exercises missing labels. This preserves provenance and does not approve field semantics or actual charge accounting.
+- Confirm exact-head CI after documentation synchronization. Tariff candidates remain DRAFT; API mappings and GST composition remain unapproved; no generic quantity/notional allocation or live broker order writes are enabled.
+- Work only in `tarunsharma2610-del/tradepro-improved`; PR #6 remains draft/unmerged; PAPER mode remains mandatory; original `Tradepro` is out of scope.

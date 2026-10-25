@@ -133,3 +133,13 @@ Public-format review is complete using the linked third-party examples; no perso
 - Aggregate charges and brokerage calculator endpoints remain disallowed as per-fill actual evidence even if the mapping registry contains a misleadingly labelled approved row.
 - Guard checks canonicalize broker name and endpoint path for safety restrictions, covering trailing slashes, query strings, absolute URLs and broker-name casing. Registry selection remains exact and version/date/scope-bound.
 - Regression tests cover both restricted endpoints. This does not resolve transaction/IPFT semantics or establish contract-note actual charges; no production mapping is approved.
+
+
+## Phase 3 checkpoint — verified source-component canonicalization adapter (25 October 2026)
+
+- Added `backend/app/services/broker_charge_verified_component_canonicalization.py` and focused tests in `backend/tests/test_broker_charge_verified_component_canonicalization.py`.
+- The adapter accepts only persisted `VERIFIED` rows tied to the expected evidence ID and matching SHA-256, with INR currency, reviewer identity/timestamp, unique row IDs, and source locators. It delegates six-component and combined/split transaction/IPFT rules to the existing canonicalization contract and returns source-record provenance.
+- Output remains `accounting_approved=false`. This is a validation adapter, not yet the transaction-owning persistence/promotion integration. It does not prove broker-origin authenticity, establish GST/tariff applicability, or enable automatic allocation.
+- Implementation commit `d3a2fc076a4309f23edbb14b0a47ba41fec0b557`; regression-test commit `c8e3748f12c5674b1b77e76ff8fcf9b8f3dc68a6`. Exact-head CI is not yet verified; observed Backend workflow `40192323693` was in progress on the earlier implementation commit and does not validate the added tests. Do not call the latest head green.
+- Next gate: integrate this adapter into the existing locked source-component verification/allocation-promotion path; persist canonical totals and source-row associations atomically; test duplicate/replay/conflict, rollback, partial fill sets, and PostgreSQL concurrency.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes and automatic accounting promotion disabled; production tariff/GST/IPFT interpretations unapproved.

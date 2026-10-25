@@ -1,4 +1,4 @@
-<!-- Authoritative Phase 3 README checkpoint: 2026-10-25; branch phase3/durable-per-fill-charge-allocation; code commit be231ca1aeefb33d46c55ad311375c26829d5c37; exact-head backend CI run 40183057425 passed. -->
+<!-- Authoritative Phase 3 README checkpoint: 2026-10-25; branch phase3/durable-per-fill-charge-allocation. Code/test implementation commit 51f00627d4a267db2e4e1862a372f961812ff935 passed exact-head CI run 40185122013. Every subsequent documentation commit requires its own exact-head CI verification. -->
 
 ## Phase 3 forward checkpoint — 25 October 2026
 
@@ -7,6 +7,7 @@
 - Preserve the existing NSE/IPFT calculation: documented combined ₹307/crore versus ₹306.99 transaction + ₹0.01 IPFT yields the same ₹307 base and ₹55.26 GST at 18%. This arithmetic is already tested; it does not prove Upstox endpoint or contract-note field semantics.
 - GST component composition remains product-, date- and invoice-dependent. No production tariff or API mapping is approved. Exact-head CI for the new code/migration/test changes is required before this checkpoint is called verified.
 - PR #6 remains open/draft/unmerged; PAPER mode remains mandatory; live broker order writes and automatic generic quantity/notional allocation remain disabled. Work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.
+
 ## Brokerage cap entrypoint integration — 23 October 2026
 
 - The previous exact-head implementation CI passed on commit [3445a748b3fbd3944362ed6e46873bffc30fd384](https://github.com/tarunsharma2610-del/tradepro-improved/commit/3445a748b3fbd3944362ed6e46873bffc30fd384): **712 passed, 1 warning**; SQLite/PostgreSQL migration round-trips, broker-write boundary guard, synthetic restore drill and evidence retention also passed.

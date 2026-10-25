@@ -1,7 +1,7 @@
 """Normalized source-row membership for canonical broker-charge snapshots."""
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -20,6 +20,8 @@ class BrokerChargeCanonicalSourceLink(BaseModel):
             "canonical_component_id", "source_ordinal",
             name="uq_charge_canonical_source_link_ordinal",
         ),
+        UniqueConstraint("source_component_id", name="uq_charge_canonical_source_link_source"),
+        CheckConstraint("source_ordinal >= 0", name="ck_charge_canonical_source_link_ordinal_nonnegative"),
     )
 
     canonical_component_id: Mapped[uuid.UUID] = mapped_column(

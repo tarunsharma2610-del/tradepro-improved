@@ -402,7 +402,7 @@ def review_source_component(
         if component.representation_mode not in {"COMBINED_TRANSACTION_AND_IPFT", "SPLIT_TRANSACTION_AND_IPFT"}:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "Transaction/IPFT source rows require an explicit versioned representation mode before review.",
+                "Charge representation mode must be explicitly reviewed and versioned before review.",
             )
         if component.representation_contract_version != CONTRACT_VERSION:
             raise HTTPException(

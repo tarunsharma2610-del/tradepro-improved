@@ -58,6 +58,11 @@ def validate_charge_representation(value: ChargeRepresentation) -> dict[str, obj
         raise ValueError("Duplicate raw source labels are ambiguous.")
     if not value.components:
         raise ValueError("At least one normalized source component is required.")
+    # Each transcribed amount must retain one corresponding source label. A
+    # free-floating label list cannot prove which printed label supplied which
+    # normalized amount, so ambiguous/incomplete evidence is not reviewable.
+    if len(value.raw_labels) != len(value.components):
+        raise ValueError("Every normalized source component must retain exactly one original source label.")
 
     normalized: dict[str, str] = {}
     for name, amount in value.components.items():

@@ -1,3 +1,19 @@
+# Legacy Upstox Charge Rule Source Register (root-level duplicate)
+
+**Canonical source register:** `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`. Maintain charge-source records in the canonical `docs/` file only; this root-level file is retained for historical compatibility and must not diverge.
+
+
+- **Repository:** `tarunsharma2610-del/tradepro-improved` only. **Branch:** `phase3/durable-per-fill-charge-allocation`. **PR #6:** open, draft, unmerged.
+- **Latest verified code/test commit:** `50802e96e06756b57a9f930e0c54c680777922d4`. Exact-head Backend CI [run #40209741299](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40209741299) completed successfully on that SHA.
+- **Verified:** backend pytest; broker-write boundary enforcement; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade; synthetic PostgreSQL/document-volume restore drill. The synthetic restore does not prove actual Oracle Cloud recovery.
+- **Concurrency acceptance gap closed:** the PostgreSQL test now races two promotion calls for the same reviewed component alongside verification; both promotion calls must return the full allocation set, and the final ledger must contain complete reconciled rows with one consistent durable reference.
+- **Next single implementation step:** close the canonical-ledger integration gap (Phase 3 Gates 1C/5). Canonical snapshot materialization/review/allocation/reconciliation services exist, but `live_fill_accounting_service` still verifies raw source-component rows and the legacy six-row source ledger. Audit the intended canonical snapshot path and implement/test a fail-closed end-to-end route from reviewed source rows (including combined/split transaction/IPFT) through canonical snapshot allocation/reconciliation into live-fill accounting. Do not silently drop or double-count extra source components; do not add generic quantity/notional allocation.
+- **Remaining gates:** evidence-backed effective-dated tariff selection (Gate 2), approved per-fill rule wiring (Gate 3), invoice/source-backed GST/component acceptance (Gate 4), final adversarial/migration/restore review (Gate 6), and final exact-head docs/sign-off (Gate 7) remain open.
+- **Upstox decisions:** no unused SDK runtime dependency; Agent Skill remains static-review-only and must not be executed or given live credentials. Brokerage calculator output is estimate-only; aggregate charge endpoints are not per-fill actual evidence. GST/IPFT/tariff candidates remain DRAFT until authentic applicable evidence and independent review support approval.
+- **Safeguards:** original `tarunsharma2610-del/Tradepro` is out of scope and must remain untouched; PAPER mode mandatory; live broker order writes, automatic live-fill promotion, and automatic scheduling remain disabled. Do not merge PR #6 without explicit user approval.
+
+---
+
 # Legacy duplicate — canonical register is docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md
 
 This root-level copy is retained for history and compatibility only. The canonical maintained Upstox charge-rule source register is `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`. Do not independently edit or use this duplicate to determine current tariff status. All tariff candidates remain DRAFT unless the canonical register and independent review establish approval.

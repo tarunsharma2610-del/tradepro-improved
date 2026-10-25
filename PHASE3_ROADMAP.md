@@ -1,11 +1,13 @@
-## Canonical checkpoint reconciliation — 25 October 2026
+## Canonical checkpoint reconciliation — 25 October 2026 (after exact-head CI)
 
 - **Repository:** `tarunsharma2610-del/tradepro-improved` only. **Branch:** `phase3/durable-per-fill-charge-allocation`. **PR #6:** open, draft, unmerged.
-- **Latest verified implementation/documentation base before this synchronization:** `fee15a546ebbdfba9fdbb6040cfe5550d5cdac43`. Backend workflow [#40206354866](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40206354866) completed successfully on that exact commit.
-- This synchronization corrects stale checkpoint references and aligns maintained documents to that verified base. The new documentation-sync commit must receive its own exact-HEAD CI run; the run above does not validate a later commit.
-- **Phase 3 next step after this docs checkpoint passes CI:** inspect existing conflicting-fill-set and rollback coverage for a demonstrated acceptance gap; add only missing coverage, then run the full backend CI gate. Do not duplicate existing PostgreSQL concurrency, incomplete-fill-set, promotion atomicity, or rollback tests without a concrete uncovered case.
-- **Upstox decisions:** API/SDK and Agent Skill audits are included in the canonical inventory. No unused SDK runtime dependency is approved; Agent Skill remains static-review-only and must not be executed or given live credentials. Brokerage calculator output is estimate-only; aggregate charge endpoints are not per-fill actual evidence.
-- **Safeguards:** original `tarunsharma2610-del/Tradepro` is out of scope and must remain untouched; PAPER mode mandatory; live broker order writes disabled; GST/IPFT/tariff candidates remain DRAFT until authentic, applicable evidence and independent review support approval.
+- **Latest verified code/test commit:** `50802e96e06756b57a9f930e0c54c680777922d4`. Exact-head Backend CI [run #40209741299](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40209741299) completed successfully on that SHA.
+- **Verified:** backend pytest; broker-write boundary enforcement; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade; synthetic PostgreSQL/document-volume restore drill. The synthetic restore does not prove actual Oracle Cloud recovery.
+- **Concurrency acceptance gap closed:** the PostgreSQL test now races two promotion calls for the same reviewed component alongside verification; both promotion calls must return the full allocation set, and the final ledger must contain complete reconciled rows with one consistent durable reference.
+- **Next single implementation step:** close the canonical-ledger integration gap (Phase 3 Gates 1C/5). Canonical snapshot materialization/review/allocation/reconciliation services exist, but `live_fill_accounting_service` still verifies raw source-component rows and the legacy six-row source ledger. Audit the intended canonical snapshot path and implement/test a fail-closed end-to-end route from reviewed source rows (including combined/split transaction/IPFT) through canonical snapshot allocation/reconciliation into live-fill accounting. Do not silently drop or double-count extra source components; do not add generic quantity/notional allocation.
+- **Remaining gates:** evidence-backed effective-dated tariff selection (Gate 2), approved per-fill rule wiring (Gate 3), invoice/source-backed GST/component acceptance (Gate 4), final adversarial/migration/restore review (Gate 6), and final exact-head docs/sign-off (Gate 7) remain open.
+- **Upstox decisions:** no unused SDK runtime dependency; Agent Skill remains static-review-only and must not be executed or given live credentials. Brokerage calculator output is estimate-only; aggregate charge endpoints are not per-fill actual evidence. GST/IPFT/tariff candidates remain DRAFT until authentic applicable evidence and independent review support approval.
+- **Safeguards:** original `tarunsharma2610-del/Tradepro` is out of scope and must remain untouched; PAPER mode mandatory; live broker order writes, automatic live-fill promotion, and automatic scheduling remain disabled. Do not merge PR #6 without explicit user approval.
 
 ---
 
@@ -15,7 +17,7 @@
 **Scope:** Phase 3 only. This file is the execution order for remaining Phase 3 work; it does not replace the whole-project guardrails in `PROJECT_INSTRUCTIONS.md`.
 **Repository:** `tarunsharma2610-del/tradepro-improved`
 **Working branch:** `phase3/durable-per-fill-charge-allocation`
-**Baseline checked:** 2026-10-25, branch HEAD `97843aec1d9b0acc4d55d0fc4529b4ea5b81fd50`; exact-head backend CI run [40187635881](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40187635881) succeeded (reported 907 passed, 1 warning).
+**Latest verified code/test checkpoint:** `50802e96e06756b57a9f930e0c54c680777922d4`; exact-head Backend CI [#40209741299](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40209741299) succeeded. See the current checkpoint at the top of this file.
 **PR:** [#6](https://github.com/tarunsharma2610-del/tradepro-improved/pull/6), open, draft, unmerged at baseline.
 **Status rule:** Roadmap status only changes after code/docs are committed and the relevant verification succeeds. A test written, local pass, or an older green run is not completion evidence for a later HEAD.
 
@@ -72,7 +74,7 @@ NSE circular NSE/FA/73061 (27 February 2026; effective 1 March 2026) gives combi
 **Accept when:** the pure mapping tests cover combined/split equivalence, missing/mixed/conflicting representation, exact paise amounts and unsupported extras. Those unit tests passed in [CI #40191589060](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191589060); end-to-end ledger integration and no-double-count tests remain open.
 
 ### Gate 1C — Integrate canonicalization with source review and durable allocation
-**Status: open; pure mapping helper is not yet called by the API or ledger.**
+**Status: partially implemented; end-to-end live-fill accounting integration remains open.** The canonicalization adapter is used by canonical snapshot materialization/review, and snapshot allocation/reconciliation services exist. However, `live_fill_accounting_service` still validates raw source-component rows through the legacy six-row ledger; the canonical snapshot ledger is not yet consumed end-to-end by live-fill accounting.
 - Invoke the mapping contract only after every relevant source row has independent review and persisted mode/version agreement.
 - Preserve each raw row and its provenance; store a derived canonical component with links/digests to its contributing source rows, rather than rewriting or deleting source rows.
 - Persist allocations against the canonical component, reconcile exact source totals in paise, and make replay/conflict behavior deterministic.
@@ -189,7 +191,7 @@ Historical entries remain historical records; they must not override this curren
 - Exact-head Backend workflow [#40200645237](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40200645237) completed successfully. Pytest, broker-write boundary enforcement, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore all passed.
 - Latest test `test_canonical_reconciliation_rejects_incomplete_allocation_fill_set` removes one row from a two-fill canonical set and confirms promotion fails closed, leaving the remaining row pending without a reconciliation reference.
 - Completed; do not repeat: normalized canonical/source links, reviewed immutable snapshots, split transaction + IPFT provenance, durable per-fill allocations, canonical ledger verification, deterministic paise allocation, promotion/replay, tampered-allocation rejection, existing rollback assertions, and incomplete-fill-set rejection.
-- **Next single implementation step:** inspect existing coverage and add PostgreSQL concurrent-promotion tests proving concurrent attempts cannot create partial/mixed states or inconsistent durable references. Add conflicting-set/rollback tests only where a real gap remains. Then run the full backend CI gate.
+- **Next single implementation step:** integrate the verified canonical snapshot allocation/reconciliation path with live-fill accounting, preserving source provenance and safely handling combined/split transaction/IPFT. Add focused integration tests for exact replay, six-component totals, and rejection of extra/unmapped components; then run the full backend CI gate.
 - CI protocol: on failure, diagnose/fix/rerun. On pass, update all 18 maintained checkpoint documents with exact SHA/run/result and next step, commit checkpoint, then verify CI on the checkpoint commit itself. Before resuming, refresh the live PR head and read docs from that exact SHA.
 - GST/IPFT production tariff/account-specific acceptance is a separate evidence gate and does not block synthetic engineering tests. Unapproved tariff candidates remain DRAFT.
 - Safety: PAPER mandatory; live broker order writes disabled; PR #6 stays draft/unmerged absent explicit authorization; original `Tradepro` untouched.

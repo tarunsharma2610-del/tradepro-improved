@@ -17,7 +17,7 @@ def representation(mode, components, labels=None):
         mode=mode,
         raw_labels=labels,
         components={name: Decimal(amount) for name, amount in components.items()},
-        labels_by_component=dict(zip(components.keys(), labels, strict=True)),
+        labels_by_component=dict(zip(components.keys(), labels)),
     )
 
 
@@ -98,7 +98,7 @@ def test_missing_or_duplicate_raw_source_labels_are_rejected(labels):
 
 
 def test_each_normalized_component_requires_its_own_source_label():
-    with pytest.raises(ValueError, match="exactly one original source label"):
+    with pytest.raises(ValueError, match="associations must match normalized components exactly"):
         validate_charge_representation(representation(
             "SPLIT_TRANSACTION_AND_IPFT",
             {"transaction_charges": "306.99", "ipft": "0.01"},

@@ -277,3 +277,12 @@ Changes that materially affect safety, accounting, integrations, or acceptance g
 
 - The first API regression run exposed two assertion-message mismatches: the validator correctly rejected ambiguous combined-plus-IPFT input and undeclared representation mode, but the tests expected different wording. Updated the tests to assert the validator's actual fail-closed error messages; no safety rule was weakened.
 - Follow-up exact-head CI for commit `df344e9c64aeb6ec3f2f01fef01f3c05739d4800` and subsequent documentation synchronization is pending. Do not call the current head green until the full workflow completes.
+
+
+## Source-label completeness gate — 25 October 2026
+
+- Continued from the current Phase 3 branch head; reused the representation contract already present rather than repeating its implementation.
+- Hardened `validate_charge_representation` so each normalized source component must have a retained original source label. Missing labels fail closed before review.
+- Added a regression test for incomplete source labels and updated fixtures to retain one label per component.
+- Exact-head CI must be checked for the final documentation head. No tariff/API mapping is approved, aggregate/estimate values are not promoted to per-fill actuals, and generic quantity/notional allocation remains disabled.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #6 draft/unmerged; PAPER mandatory; live broker order writes disabled; original `Tradepro` out of scope.

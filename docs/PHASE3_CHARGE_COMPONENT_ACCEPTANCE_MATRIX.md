@@ -21,7 +21,7 @@
 - The set consumed by live accounting must be explicitly versioned and exact. Evidence-only source labels such as clearing, separate IPFT, other, or demat transaction charges remain preserved but cannot be silently dropped or added to the six-component accounting set.
 - Acceptance requires positive and adversarial tests for missing/extra/duplicate components, mixed combined/split rows, inconsistent sibling versions, legacy null versions, and migration round-trips.
 
-**Current canonical-set implementation:** exact six-component contract v1 is CI-verified at `f61cedd25f5982846774db3028fb646d2e108e07`; source-to-canonical combined/split mapping remains open. Additional source labels are retained but block promotion until mapped explicitly.
+**Current canonical-set implementation:** exact six-component contract v1 is CI-verified at `f61cedd25f5982846774db3028fb646d2e108e07`. The pure combined/split source-canonicalization helper is CI-verified at `44c12acd133924711cd68c27f315d9298c6acfde`; wiring it into API review and durable allocations remains open. Additional source labels block promotion until mapped explicitly.
 
 ## Component matrix
 
@@ -225,3 +225,12 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 - Prior failed CI remains documented: run [#40190926423](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190926423) exposed a missing set-version value in the PostgreSQL concurrency fixture; the fixture was corrected in the verified commit above. It is not counted as a successful run.
 - This does not yet map raw `transaction_charges` + `ipft` source rows to canonical `exchange_charges`, approve tariffs/GST, or enable promotion of evidence-only rows. Live broker writes remain disabled; PR #6 remains draft/unmerged; original `Tradepro` remains untouched.
 - Next single implementation gate: define and test an explicit, versioned source-to-canonical mapping for combined versus split transaction/IPFT evidence, preserving both raw source rows while producing one canonical exchange-charge amount only when the representation is explicitly reviewed. Other unsupported source components must continue to block promotion.
+
+
+## Phase 3 forward checkpoint — combined/split source canonicalization contract (2026-10-25)
+
+- Added `broker_charge_source_canonicalization.py` and focused tests. The pure contract maps explicit COMBINED transaction/IPFT source representation to one canonical `exchange_charges` amount, or sums SPLIT transaction charges plus separately evidenced IPFT exactly once. It retains source-row associations in its result and rejects ambiguous/mixed versions, double mapping, duplicate/missing labels, invalid amounts, and unsupported clearing/demat/other components.
+- Exact-head CI [#40191589060](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191589060) passed on implementation/test commit `44c12acd133924711cd68c27f315d9298c6acfde`: **930 passed, 1 warning, 0 failures**. Broker-write boundary guard and synthetic restore drill passed. Synthetic restore is not actual Oracle recovery.
+- Important boundary: this is a tested pure canonicalization contract, **not yet wired into the API review flow or durable allocation ledger**. It does not authenticate source notes, approve tariffs/GST, allocate canonical totals to fills, or enable live accounting. Do not count the end-to-end mapping gate as complete.
+- Current branch/PR safety remains unchanged: work only in `tarunsharma2610-del/tradepro-improved`; PR #6 stays draft/unmerged; PAPER mode mandatory; live broker writes disabled; original `Tradepro` untouched.
+- Next single implementation gate: wire this canonicalization contract into reviewed source-component validation and per-fill allocation persistence so raw source rows remain immutable, canonical exchange charges reconcile exactly, and promotion cannot omit or double-count source components.

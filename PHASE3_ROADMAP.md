@@ -51,13 +51,21 @@ NSE circular NSE/FA/73061 (27 February 2026; effective 1 March 2026) gives combi
 - Reject missing/extra/duplicate component sets, mixed combined/split declarations, unsupported contract versions, and legacy rows lacking a version.
 **Accept when:** migration `202610250022` round-trips on SQLite and PostgreSQL; adversarial contract tests reject missing/extra/duplicate/legacy/unreviewed rows; exact-head CI [#40191140007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191140007) passed with 917 tests and 1 warning. Source-to-canonical mapping remains a separate gate.
 
-### Gate 1B — Map combined/split source rows to canonical accounting components
-**Status: open; do not promote source rows through a name-only mapping.**
+### Gate 1B — Define combined/split source-to-canonical mapping
+**Status: pure contract implemented and CI verified at `44c12acd133924711cd68c27f315d9298c6acfde`; integration remains open.**
 - Preserve raw `transaction_charges` and `ipft` rows, labels, amounts, source locators, evidence digest and the persisted representation-contract version.
 - Under explicit reviewed COMBINED mode, map the evidenced combined amount once to canonical `exchange_charges`; reject any separate IPFT row in that representation.
 - Under explicit reviewed SPLIT mode, combine transaction charges excluding IPFT with separately evidenced IPFT exactly once into canonical `exchange_charges`. Do not use field names alone to infer mode.
 - Define deterministic canonical amount and source-total reconciliation; keep both raw rows immutable and auditable. Clearing, demat, other or unsupported lines remain blockers until an explicit reviewed mapping and GST treatment exists.
-**Accept when:** positive combined/split equivalence tests, missing/mixed/conflicting representation tests, exact paise reconciliation and end-to-end no-double-count tests pass; live promotion consumes only the canonical set.
+**Accept when:** the pure mapping tests cover combined/split equivalence, missing/mixed/conflicting representation, exact paise amounts and unsupported extras. Those unit tests passed in [CI #40191589060](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191589060); end-to-end ledger integration and no-double-count tests remain open.
+
+### Gate 1C — Integrate canonicalization with source review and durable allocation
+**Status: open; pure mapping helper is not yet called by the API or ledger.**
+- Invoke the mapping contract only after every relevant source row has independent review and persisted mode/version agreement.
+- Preserve each raw row and its provenance; store a derived canonical component with links/digests to its contributing source rows, rather than rewriting or deleting source rows.
+- Persist allocations against the canonical component, reconcile exact source totals in paise, and make replay/conflict behavior deterministic.
+- Prove combined and split IPFT produce the same canonical exchange-charge and GST-base inputs without counting IPFT twice. Extra clearing/demat/other rows remain blocked until separately mapped and tax treatment is evidenced.
+**Accept when:** API + persistence + verifier + live-fill promotion use the same mapping version; end-to-end combined/split, replay, conflict, rollback and exact-total tests pass.
 
 ### Gate 2 — Complete evidence-backed component and tariff-rule selection
 **Status: open.**
@@ -150,3 +158,12 @@ For every step:
 - Prior failed CI remains documented: run [#40190926423](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40190926423) exposed a missing set-version value in the PostgreSQL concurrency fixture; the fixture was corrected in the verified commit above. It is not counted as a successful run.
 - This does not yet map raw `transaction_charges` + `ipft` source rows to canonical `exchange_charges`, approve tariffs/GST, or enable promotion of evidence-only rows. Live broker writes remain disabled; PR #6 remains draft/unmerged; original `Tradepro` remains untouched.
 - Next single implementation gate: define and test an explicit, versioned source-to-canonical mapping for combined versus split transaction/IPFT evidence, preserving both raw source rows while producing one canonical exchange-charge amount only when the representation is explicitly reviewed. Other unsupported source components must continue to block promotion.
+
+
+## Phase 3 forward checkpoint — combined/split source canonicalization contract (2026-10-25)
+
+- Added `broker_charge_source_canonicalization.py` and focused tests. The pure contract maps explicit COMBINED transaction/IPFT source representation to one canonical `exchange_charges` amount, or sums SPLIT transaction charges plus separately evidenced IPFT exactly once. It retains source-row associations in its result and rejects ambiguous/mixed versions, double mapping, duplicate/missing labels, invalid amounts, and unsupported clearing/demat/other components.
+- Exact-head CI [#40191589060](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191589060) passed on implementation/test commit `44c12acd133924711cd68c27f315d9298c6acfde`: **930 passed, 1 warning, 0 failures**. Broker-write boundary guard and synthetic restore drill passed. Synthetic restore is not actual Oracle recovery.
+- Important boundary: this is a tested pure canonicalization contract, **not yet wired into the API review flow or durable allocation ledger**. It does not authenticate source notes, approve tariffs/GST, allocate canonical totals to fills, or enable live accounting. Do not count the end-to-end mapping gate as complete.
+- Current branch/PR safety remains unchanged: work only in `tarunsharma2610-del/tradepro-improved`; PR #6 stays draft/unmerged; PAPER mode mandatory; live broker writes disabled; original `Tradepro` untouched.
+- Next single implementation gate: wire this canonicalization contract into reviewed source-component validation and per-fill allocation persistence so raw source rows remain immutable, canonical exchange charges reconcile exactly, and promotion cannot omit or double-count source components.

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 import os
 import threading
 from decimal import Decimal
@@ -16,6 +17,7 @@ from app.models.user import User
 
 from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_evidence import BrokerChargeEvidence
+from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_order import BrokerOrder
 from app.models.order import Order
@@ -25,6 +27,10 @@ from app.models.broker_trade_record import BrokerTradeRecord
 from app.services.broker_charge_allocation_persistence_service import (
     allocate_and_persist_component,
 )
+from app.services.broker_charge_verified_allocation_persistence_service import (
+    allocate_and_persist_verified_canonical_component,
+)
+from app.services.broker_charge_component_set_contract import LIVE_FILL_COMPONENT_SET_VERSION
 
 
 def _trade(db, connection_id, trade_id):
@@ -415,3 +421,92 @@ def test_postgres_concurrent_disjoint_fill_sets_serialize_on_evidence_lock():
         with admin_engine.begin() as connection:
             connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
         admin_engine.dispose()
+
+
+def _verified_canonical_source_set(db, user, evidence, extractor, trades):
+    import hashlib
+
+    fill_ids = sorted(str(trade.id) for trade in trades)
+    manifest = json.dumps(fill_ids, separators=(",", ":"))
+    manifest_hash = hashlib.sha256(manifest.encode("utf-8")).hexdigest()
+    weights_json = json.dumps(
+        [{"fill_record_id": fill_id, "weight": "1"} for fill_id in fill_ids],
+        separators=(",", ":"),
+    )
+    amounts = {
+        "brokerage": "1.00",
+        "stt": "0.20",
+        "exchange_charges": "0.30",
+        "sebi_charges": "0.01",
+        "stamp_duty": "0.03",
+        "gst": "0.28",
+    }
+    for name, amount in amounts.items():
+        db.add(BrokerChargeSourceComponent(
+            evidence_id=evidence.id,
+            source_sha256=evidence.source_sha256,
+            component_name=name,
+            source_label=name.replace("_", " ").title(),
+            component_set_version=LIVE_FILL_COMPONENT_SET_VERSION,
+            revision=1,
+            source_amount=Decimal(amount),
+            currency="INR",
+            extraction_method="MANUAL_TRANSCRIPTION",
+            parser_version="manual-transcription-v1",
+            source_locator=f"page=1,row={name}",
+            eligible_fill_ids_json=manifest,
+            eligible_fill_weights_json=weights_json,
+            eligible_fill_set_sha256=manifest_hash,
+            rounding_policy="largest-remainder-v1",
+            allocation_basis="EXPLICIT_REVIEWED",
+            extracted_by_user_id=extractor.id,
+            status="VERIFIED",
+            reviewed_by_user_id=user.id,
+            reviewed_at=datetime.now(timezone.utc),
+            review_note="Independently reviewed test fixture",
+        ))
+    db.commit()
+
+
+def test_verified_canonical_component_adapter_persists_only_reviewed_plan(reviewed_evidence, make_user):
+    db, user, connection, evidence = reviewed_evidence
+    extractor = make_user(email="canonical-extractor@example.com")
+    trades = [_trade(db, connection.id, "canonical-fill-a"), _trade(db, connection.id, "canonical-fill-b")]
+    _verified_canonical_source_set(db, user, evidence, extractor, trades)
+
+    rows = allocate_and_persist_verified_canonical_component(
+        db,
+        evidence_id=evidence.id,
+        broker_connection_id=connection.id,
+        broker_report_reference=evidence.broker_report_reference,
+        reviewer_user_id=user.id,
+        canonical_component="brokerage",
+    )
+
+    assert len(rows) == 2
+    assert {row.charge_component for row in rows} == {"brokerage"}
+    assert {row.status for row in rows} == {"PENDING_RECONCILIATION"}
+    assert sum((Decimal(row.allocated_amount) for row in rows), Decimal("0")) == Decimal("1.00")
+
+
+def test_verified_canonical_component_adapter_rejects_unapproved_component_set(reviewed_evidence, make_user):
+    db, user, connection, evidence = reviewed_evidence
+    extractor = make_user(email="canonical-extractor-badset@example.com")
+    trades = [_trade(db, connection.id, "canonical-badset-a"), _trade(db, connection.id, "canonical-badset-b")]
+    _verified_canonical_source_set(db, user, evidence, extractor, trades)
+    source = db.query(BrokerChargeSourceComponent).filter_by(
+        evidence_id=evidence.id, component_name="gst"
+    ).one()
+    source.component_set_version = "unapproved-version"
+    db.commit()
+
+    with pytest.raises(ValueError, match="missing the supported version"):
+        allocate_and_persist_verified_canonical_component(
+            db,
+            evidence_id=evidence.id,
+            broker_connection_id=connection.id,
+            broker_report_reference=evidence.broker_report_reference,
+            reviewer_user_id=user.id,
+            canonical_component="brokerage",
+        )
+    assert db.query(BrokerChargeAllocation).filter_by(evidence_id=evidence.id).count() == 0

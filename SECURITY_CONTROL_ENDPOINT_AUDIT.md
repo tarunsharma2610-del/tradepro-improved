@@ -1,3 +1,24 @@
+# Security Control / Endpoint Audit — authoritative current checkpoint
+
+**Last reconciled:** 25 October 2026  
+**Repository:** `tarunsharma2610-del/tradepro-improved`  
+**Branch:** `phase3/durable-per-fill-charge-allocation`  
+**PR #6:** open, draft, unmerged  
+**Latest documentation HEAD inspected:** `7d9d0fc408b2b94cc974a875ce086b455feb8d5e`  
+**Exact-HEAD Backend CI:** [run #40205177926 — successful](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40205177926)
+
+## Current status (supersedes older status statements below)
+
+- This file was missing from the recently stated 13-document checkpoint list by mistake. It is now explicitly part of the authoritative **14-document checkpoint set**; it must be kept in sync after every Phase 3 CI result along with the other 13 listed in `PROJECT_INSTRUCTIONS.md`.
+- Backend pytest, broker-write boundary enforcement, SQLite Alembic upgrade/downgrade/re-upgrade, PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, and the isolated synthetic PostgreSQL/document-volume restore drill all passed in run #40205177926 on the exact HEAD above.
+- This successful run verifies the inspected branch head. Any later commit—including documentation-only changes—requires its own exact-head CI before that later commit can be called verified.
+- Phase 3 engineering state: durable canonical source links, reviewed canonical snapshots, per-fill allocations, canonical-ledger verification/promotion, deterministic paise allocation, replay/rollback protections, incomplete-fill-set rejection, and PostgreSQL concurrent-promotion coverage are implemented and covered by prior successful implementation CI. The next step is to inspect current tests for a real conflicting-set/rollback gap; add only missing tests and run the full backend gate.
+- This audit remains a **requirements and security-control inventory**, not evidence that deferred live-trading controls are implemented. Do not claim that persistent account safety controls, kill-switch trip/reset, trusted grants, central broker-write authorization, or live preflight are complete unless separately implemented and verified.
+- Synthetic CI restore evidence does not prove restoration of an actual retained Oracle Cloud backup. Authentic account-specific Upstox contract-note validation and production tariff/GST/IPFT acceptance remain separate evidence gates.
+- Safety remains unchanged: work only in `tarunsharma2610-del/tradepro-improved`; never modify original `tarunsharma2610-del/Tradepro`; PR #6 stays draft/unmerged absent explicit approval; PAPER mode is mandatory; live broker order writes and automatic accounting promotion remain disabled; unapproved tariff candidates remain DRAFT.
+
+---
+
 ## PostgreSQL CI execution confirmation — 24 October 2026
 
 - Inspected `.github/workflows/backend-tests.yml` and successful Backend pytest run [39921411680](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39921411680) on commit `db1053d7f7c53e1c57016f153f11c9897fa59682`. The workflow provisions PostgreSQL 16, sets `TEST_POSTGRES_URL` for `python -m pytest -q`, and the Backend pytest job completed successfully. Thus the `skipif(not TEST_POSTGRES_URL)` PostgreSQL-only tests were enabled for that run (job logs/test output should be consulted if exact per-test counts are needed).

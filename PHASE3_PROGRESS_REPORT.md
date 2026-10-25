@@ -110,3 +110,11 @@ If CI fails or is still running, update status to **verification pending/failed*
 - Corrected in `b92d0185f588e24d54510b36659944e77f498a6e` by moving the new representation/source-label checks after the existing authorization and fill/weight validations but before any state mutation. This preserves fail-closed label handling without bypassing the established validation order.
 - The failure is retained as history. Exact-head CI for the correction and the current documentation HEAD must pass before the source-label authenticity guard can be marked complete.
 
+### Successful verification — missing source-label guard (2026-10-25)
+
+- Corrected review-validation ordering in `b92d0185f588e24d54510b36659944e77f498a6e`; exact-head workflow [#40189481491](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189481491) passed: **911 passed, 1 warning, 0 failures**.
+- Verified steps include broker-write boundary guard, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore drill.
+- Documentation checkpoint `704d9d5caa8a893195d5213ae38b97c30639de96` also passed exact-head workflow [#40189515861](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189515861).
+- The source-label guard is **CI verified** on the implementation SHA above. It prevents fabricated labels and preserves prior authorization/fill-validation ordering. Authentic source transcription still requires independent review.
+- The current progress-report synchronization commit is newer than those two verified SHAs; verify its exact-head CI before describing the current branch head as green.
+

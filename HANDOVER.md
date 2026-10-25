@@ -1854,3 +1854,9 @@ Verification boundary: exact-head CI passed on implementation SHA `97843aec1d9b0
 
 - CI found an ordering regression in the missing-label guard: workflow [#40189211122](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189211122) failed with 909 passed, 2 failed, 1 warning because the guard masked existing 403/422 authorization/fill validation responses. Corrected by moving label/representation checks after authorization and fill validation in `b92d0185f588e24d54510b36659944e77f498a6e`. Verify exact-head CI before proceeding.
 
+### Phase 3 checkpoint — source-label authenticity guard
+
+- Implementation `b92d0185f588e24d54510b36659944e77f498a6e` passed exact-head CI [#40189481491](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189481491): 911 passed, 1 warning, 0 failures; broker-write guard, SQLite/PostgreSQL migration round-trips and synthetic restore passed.
+- Documentation checkpoint `704d9d5caa8a893195d5213ae38b97c30639de96` passed [CI #40189515861](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189515861).
+- Latest report synchronization commit is newer and requires exact-head CI. Continue next with effective-dated component-rule scope and end-to-end per-fill reconciliation; do not activate draft tariffs or claim authentic Upstox mapping approval.
+

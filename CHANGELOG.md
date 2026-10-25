@@ -325,3 +325,9 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 - Missing labels remain null and block review; added API regression coverage.
 - Exact-head CI pending for implementation HEAD `34e3d3e865660f96b432968565f2b8ceeb9c9184`.
 
+## 2026-10-25 — Phase 3 source-label guard verified
+
+- Missing source labels remain absent rather than being replaced by normalized component names; review rejects missing labels after authorization/fill validation.
+- Implementation SHA `b92d0185f588e24d54510b36659944e77f498a6e` passed [CI #40189481491](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189481491), 911 passed / 1 warning / 0 failures. Documentation SHA `704d9d5caa8a893195d5213ae38b97c30639de96` passed [CI #40189515861](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40189515861).
+- The report synchronization commit requires its own exact-head CI check.
+

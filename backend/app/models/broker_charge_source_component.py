@@ -53,6 +53,10 @@ class BrokerChargeSourceComponent(BaseModel):
     )
     source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     component_name: Mapped[str] = mapped_column(String(30), nullable=False)
+    # Preserve the exact source wording separately from the normalized ledger name.
+    source_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Null means legacy/undeclared; never infer combined vs split semantics.
+    representation_mode: Mapped[str | None] = mapped_column(String(50), nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     source_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR", server_default="INR")

@@ -25,6 +25,10 @@ from app.services.broker_charge_canonical_component_review_service import (
 from app.services.broker_charge_canonical_allocation_persistence_service import (
     allocate_and_persist_canonical_snapshot,
 )
+from app.services.broker_charge_canonical_allocation_reconciliation_service import (
+    verify_canonical_component_allocation_ledger,
+    promote_verified_canonical_component_allocations,
+)
 from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.services.broker_charge_document_storage_service import store_document
 from app.services.broker_charge_representation_contract import CONTRACT_VERSION
@@ -330,6 +334,24 @@ def test_verified_split_snapshot_persists_allocations_linked_to_canonical_snapsh
     assert db_session.query(BrokerChargeAllocation).filter_by(
         evidence_id=evidence.id, charge_component="exchange_charges"
     ).count() == 2
+    verification = verify_canonical_component_allocation_ledger(
+        db_session, snapshot_id=exchange.id
+    )
+    assert verification["status"] == "VERIFIED_PENDING_PROMOTION"
+    assert verification["canonical_amount"] == "307.00"
+    promoted = promote_verified_canonical_component_allocations(
+        db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id
+    )
+    db_session.commit()
+    assert {row.status for row in promoted} == {"RECONCILED"}
+    assert {row.reconciliation_reference for row in promoted} == {
+        verification["reconciliation_reference"]
+    }
+    replayed = promote_verified_canonical_component_allocations(
+        db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id
+    )
+    assert {row.id for row in replayed} == {row.id for row in promoted}
+    assert {row.status for row in replayed} == {"RECONCILED"}
 
 
 def test_snapshot_review_fails_closed_when_normalized_source_link_is_missing(db_session, make_user, monkeypatch, tmp_path):
@@ -355,3 +377,38 @@ def test_snapshot_review_fails_closed_when_normalized_source_link_is_missing(db_
         )
     db_session.refresh(exchange)
     assert exchange.status == "PENDING_REVIEW"
+
+
+def test_canonical_reconciliation_rejects_modified_allocation_before_promotion(db_session, make_user, monkeypatch, tmp_path):
+    _context.split_exchange = True
+    try:
+        creator, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    finally:
+        _context.split_exchange = False
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=creator.id
+    )
+    db_session.commit()
+    reviewer = make_user(email=f"canonical-reconcile-reviewer-{uuid4().hex}@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    exchange = next(row for row in snapshots if row.canonical_component == "exchange_charges")
+    review_canonical_charge_component_snapshot(
+        db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id,
+        decision="VERIFIED", review_note="Approved canonical exchange total",
+    )
+    db_session.commit()
+    allocations = allocate_and_persist_canonical_snapshot(
+        db_session, snapshot_id=exchange.id,
+        broker_connection_id=evidence.broker_connection_id,
+        broker_report_reference=evidence.broker_report_reference,
+    )
+    db_session.commit()
+    allocations[0].allocated_amount = Decimal(allocations[0].allocated_amount) + Decimal("0.01")
+    db_session.commit()
+    with pytest.raises(ValueError, match="deterministic paise allocation"):
+        promote_verified_canonical_component_allocations(
+            db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id
+        )
+    db_session.refresh(allocations[0])
+    assert allocations[0].status == "PENDING_RECONCILIATION"

@@ -349,6 +349,10 @@ def review_source_component(
                     mode=component.representation_mode or "UNSPECIFIED",
                     raw_labels=tuple(row.source_label or row.component_name for row in source_rows),
                     components={row.component_name: Decimal(row.source_amount) for row in source_rows},
+                    labels_by_component={
+                        row.component_name: row.source_label or row.component_name
+                        for row in source_rows
+                    },
                 )
             )
         except ValueError as exc:

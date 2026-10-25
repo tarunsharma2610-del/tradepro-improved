@@ -856,6 +856,9 @@ def test_concurrent_canonical_snapshot_promotions_are_atomic_and_idempotent(tmp_
     owner_id, canonical_reviewer_id, extractor_id, connection_id, evidence_id = (
         uuid4(), uuid4(), uuid4(), uuid4(), uuid4()
     )
+    portfolio_id, instrument_id = uuid4(), uuid4()
+    order_ids = [uuid4(), uuid4()]
+    broker_order_ids = [uuid4(), uuid4()]
     report_ref = f"CN-CANONICAL-PROMOTION-RACE-{suffix}"
     original = f"synthetic canonical source note {suffix}".encode()
     digest = hashlib.sha256(original).hexdigest()
@@ -880,6 +883,32 @@ def test_concurrent_canonical_snapshot_promotions_are_atomic_and_idempotent(tmp_
                 redirect_uri="https://example.invalid/callback", is_connected=True,
             ))
             db.flush()
+            db.add(Portfolio(
+                id=portfolio_id, user_id=owner_id, name=f"canonical-race-{suffix}",
+                virtual_capital=Decimal("10000.00"), cash_balance=Decimal("10000.00"),
+            ))
+            db.add(Instrument(
+                id=instrument_id, instrument_key=f"TEST|CANONICAL-RACE-{suffix}",
+                exchange="NSE", segment="NSE_EQ", instrument_type="EQUITY",
+                trading_symbol=f"CRACE{suffix}", name="Canonical Race Test Instrument",
+            ))
+            db.flush()
+            for order_id in order_ids:
+                db.add(Order(
+                    id=order_id, portfolio_id=portfolio_id, instrument_id=instrument_id,
+                    side="BUY", order_type="MARKET", segment="EQUITY_INTRADAY",
+                    quantity=1, status="FILLED", trading_mode="PAPER",
+                    execution_reason="MANUAL", placed_at=now,
+                ))
+            db.flush()
+            for index, broker_order_id in enumerate(broker_order_ids, start=1):
+                db.add(BrokerOrder(
+                    id=broker_order_id, broker_connection_id=connection_id,
+                    order_id=order_ids[index - 1], broker_name="upstox",
+                    broker_order_id=f"canonical-race-order-{suffix}-{index}",
+                    requested_quantity=1, filled_quantity=1, status="COMPLETE",
+                ))
+            db.flush()
             db.add(BrokerChargeEvidence(
                 id=evidence_id, broker_connection_id=connection_id,
                 source_kind="CONTRACT_NOTE", broker_report_reference=report_ref,
@@ -898,11 +927,13 @@ def test_concurrent_canonical_snapshot_promotions_are_atomic_and_idempotent(tmp_
             for index, fill_id in enumerate(fill_ids, start=1):
                 db.add(BrokerTradeRecord(
                     id=UUID(fill_id), broker_connection_id=connection_id,
-                    broker_order_ref_id=uuid4(), broker_trade_id=f"canonical-race-{suffix}-{index}",
+                    broker_order_ref_id=broker_order_ids[index - 1],
+                    broker_trade_id=f"canonical-race-{suffix}-{index}",
                     quantity=1, price=Decimal("100.0000"), side="BUY",
                     instrument_token="NSE_EQ|CANONICAL-RACE",
                     exchange_timestamp=now.isoformat(),
                 ))
+            db.flush()
             values = [
                 ("brokerage", "20.00", "Brokerage", None, None),
                 ("stt", "0.20", "STT", None, None),
@@ -986,8 +1017,13 @@ def test_concurrent_canonical_snapshot_promotions_are_atomic_and_idempotent(tmp_
             db.execute(text("DELETE FROM broker_charge_canonical_components WHERE evidence_id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_charge_source_components WHERE evidence_id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_trade_records WHERE broker_connection_id = :id"), {"id": str(connection_id)})
+            db.execute(text("DELETE FROM broker_orders WHERE broker_connection_id = :id"), {"id": str(connection_id)})
             db.execute(text("DELETE FROM broker_charge_evidence WHERE id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_connections WHERE id = :id"), {"id": str(connection_id)})
+            db.execute(text("DELETE FROM orders WHERE id IN (:order_a, :order_b)"),
+                       {"order_a": str(order_ids[0]), "order_b": str(order_ids[1])})
+            db.execute(text("DELETE FROM instruments WHERE id = :id"), {"id": str(instrument_id)})
+            db.execute(text("DELETE FROM portfolios WHERE id = :id"), {"id": str(portfolio_id)})
             db.execute(text("DELETE FROM users WHERE id IN (:owner, :reviewer, :extractor)"),
                        {"owner": str(owner_id), "reviewer": str(canonical_reviewer_id), "extractor": str(extractor_id)})
         engine.dispose()

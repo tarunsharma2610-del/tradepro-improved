@@ -1,3 +1,16 @@
+## Authoritative audit reconciliation — 25 October 2026
+
+- **Repository/branch:** `tarunsharma2610-del/tradepro-improved` / `phase3/durable-per-fill-charge-allocation`. PR #6 remains draft and unmerged.
+- **Last verified branch head before this documentation reconciliation:** `ecdaae1035779631bcb45ee5d50f60094c35d1ab`. Backend workflow [#40205635687](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40205635687) completed successfully on that exact SHA; the Backend pytest job passed.
+- This confirms the inspected pre-reconciliation head, not any subsequent documentation commit. The final documentation head must receive its own exact-head CI check.
+- These Upstox API/SDK/Agent Skill/source-register documents are part of the **18-document living checkpoint inventory**. The previous inventory omitted them; they were present in the repository.
+- **SDK decision:** do not add an unused SDK runtime dependency or replace the existing async `httpx` client wholesale without a concrete documented capability/correctness benefit. Preserve timeout handling, error redaction, parser/semantic gates, and the broker-write boundary.
+- **Agent Skill decision:** static-review reference only; do not execute examples, use live credentials, or import the skill wholesale. It contains live order/GTT examples and unsafe patterns. No real credentials, live calls, or orders were used in this audit.
+- Brokerage calculator results remain estimates; the Trade Charges API is aggregate reconciliation evidence, not proof of actual per-fill charges. GST/IPFT/tariff candidates remain DRAFT until authentic account-specific source evidence and independent review support approval.
+- **Safeguards:** only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PAPER mandatory; live broker order writes disabled.
+
+---
+
 # Upstox API, SDK, Framework and Agent-Skill Usage Policy
 
 **Mandatory for Tradepro Improved. Last reviewed: 2026-10-24.** Scope is only `tarunsharma2610-del/tradepro-improved`; never modify original `tarunsharma2610-del/Tradepro`.

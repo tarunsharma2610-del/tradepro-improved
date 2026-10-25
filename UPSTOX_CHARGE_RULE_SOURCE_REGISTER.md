@@ -1,7 +1,4 @@
-# Legacy Upstox Charge Rule Source Register (root-level duplicate)
-
-**Canonical source register:** `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`. Maintain charge-source records in the canonical `docs/` file only; this root-level file is retained for historical compatibility and must not diverge.
-
+## Canonical checkpoint reconciliation — 25 October 2026 (after exact-head CI)
 
 - **Repository:** `tarunsharma2610-del/tradepro-improved` only. **Branch:** `phase3/durable-per-fill-charge-allocation`. **PR #6:** open, draft, unmerged.
 - **Latest verified code/test commit:** `50802e96e06756b57a9f930e0c54c680777922d4`. Exact-head Backend CI [run #40209741299](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40209741299) completed successfully on that SHA.
@@ -14,11 +11,6 @@
 
 ---
 
-# Legacy duplicate — canonical register is docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md
-
-This root-level copy is retained for history and compatibility only. The canonical maintained Upstox charge-rule source register is `docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`. Do not independently edit or use this duplicate to determine current tariff status. All tariff candidates remain DRAFT unless the canonical register and independent review establish approval.
-
----
 
 # Upstox Charge Rule and Evidence Source Register
 

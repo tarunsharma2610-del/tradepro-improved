@@ -12,7 +12,9 @@
 ---
 
 
-# Upstox Charge Rule and Evidence Source Register
+# Legacy Upstox Charge Rule Source Register (root-level duplicate)
+
+**Canonical source register:** [`docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md`](docs/UPSTOX_CHARGE_RULE_SOURCE_REGISTER.md). This root-level copy is retained for historical compatibility only. Maintain source records and status changes in the canonical `docs/` file; do not edit this duplicate independently.
 
 **Audit date:** 2026-10-24  
 **Status:** Research register only. No tariff rule in this document is approved for automatic accounting or live trading.

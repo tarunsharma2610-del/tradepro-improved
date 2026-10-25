@@ -185,11 +185,17 @@ def promote_verified_canonical_component_allocations(
         )
         rows = (
             db.query(BrokerChargeAllocation)
-            .filter(BrokerChargeAllocation.canonical_component_id == snapshot.id)
+            .filter(
+                BrokerChargeAllocation.canonical_component_id == snapshot.id,
+                BrokerChargeAllocation.evidence_id == UUID(str(verification["evidence_id"])),
+                BrokerChargeAllocation.charge_component == str(verification["canonical_component"]),
+            )
             .order_by(BrokerChargeAllocation.broker_trade_record_id, BrokerChargeAllocation.id)
             .with_for_update()
             .all()
         )
+        if {str(row.id) for row in rows} != set(verification["allocation_ids"]):
+            raise ValueError("Canonical allocation set changed between verification and promotion.")
         reference = str(verification["reconciliation_reference"])
         if verification["status"] == "ALREADY_RECONCILED":
             if not rows or any(row.reconciliation_reference != reference for row in rows):

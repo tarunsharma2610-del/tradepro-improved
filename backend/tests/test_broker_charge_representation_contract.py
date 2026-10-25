@@ -9,7 +9,9 @@ from app.services.broker_charge_representation_contract import (
 )
 
 
-def representation(mode, components, labels=("Transaction Charges",)):
+def representation(mode, components, labels=None):
+    if labels is None:
+        labels = tuple(name.replace("_", " ").title() for name in components)
     return ChargeRepresentation(
         contract_version=CONTRACT_VERSION,
         mode=mode,
@@ -33,7 +35,7 @@ def test_split_representation_preserves_both_components_and_same_exchange_base()
     result = validate_charge_representation(representation(
         "SPLIT_TRANSACTION_AND_IPFT",
         {"transaction_charges": "306.99", "ipft": "0.01", "gst": "55.26"},
-        labels=("Transaction Charges", "IPFT"),
+        labels=("Transaction Charges", "IPFT", "GST"),
     ))
     assert result["components"]["transaction_charges"] == "306.99"
     assert result["components"]["ipft"] == "0.01"
@@ -87,6 +89,15 @@ def test_missing_or_duplicate_raw_source_labels_are_rejected(labels):
             "SPLIT_TRANSACTION_AND_IPFT",
             {"transaction_charges": "306.99", "ipft": "0.01"},
             labels=labels,
+        ))
+
+
+def test_each_normalized_component_requires_its_own_source_label():
+    with pytest.raises(ValueError, match="exactly one original source label"):
+        validate_charge_representation(representation(
+            "SPLIT_TRANSACTION_AND_IPFT",
+            {"transaction_charges": "306.99", "ipft": "0.01"},
+            labels=("Transaction Charges",),
         ))
 
 

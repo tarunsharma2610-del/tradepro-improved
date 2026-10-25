@@ -1528,3 +1528,15 @@ Reference: https://upstox.com/brokerage-charges/
 Settled: combined/split arithmetic, no IPFT double-counting, GST on applicable canonical taxable components once, ambiguous formats fail closed. Remaining production gates: authentic Upstox API/contract-note field semantics, effective-dated mapping and GST composition corroborated against invoices, per-fill equivalence/no-double-count tests, and exact-head CI. Upstox Get Trade Charges is aggregate reconciliation evidence, not per-fill actual evidence. These gates do not reverse the agreed policy.
 
 Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6 draft/unmerged pending review and user approval. Work only in `tarunsharma2610-del/tradepro-improved`, never original `tarunsharma2610-del/Tradepro`.
+
+## Phase 3 execution-control documents — 25 October 2026
+
+The detailed, Phase 3-only source of truth is now split into:
+- `PHASE3_ROADMAP.md` — ordered remaining gates and exit criteria.
+- `PHASE3_INSTRUCTIONS.md` — Phase 3 guardrails, repository/safety checks, evidence rules and verification workflow.
+- `PHASE3_PROGRESS_REPORT.md` — gate-by-gate status and commit/CI evidence log.
+
+Use these files before continuing Phase 3; do not recreate the plan from conversation history. Whole-project safeguards remain in force: only `tarunsharma2610-del/tradepro-improved`, never original `tarunsharma2610-del/Tradepro`; PAPER mode mandatory; live broker writes and automatic live-fill promotion/scheduling disabled; PR #6 remains draft/unmerged pending explicit user approval; preserve `BrokerFillIdentity` and `BrokerTradeRecord` separation; do not reopen Phase 2.
+
+Verification boundary: exact-head CI passed on implementation SHA `97843aec1d9b0acc4d55d0fc4529b4ea5b81fd50` in [run #40187635881](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40187635881) (907 passed, 1 warning). The new Phase 3 planning/reporting documents were committed after that SHA. Therefore, this newer documentation HEAD must not be described as CI-verified until its own required workflow succeeds. Keep the Phase 3 report updated only after successful verification; record failed/pending runs honestly.
+

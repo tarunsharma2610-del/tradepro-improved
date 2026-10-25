@@ -322,6 +322,55 @@ def review_source_component(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source component not found.")
     if component.status != "PENDING_REVIEW":
         raise HTTPException(status.HTTP_409_CONFLICT, "Only pending source components can be reviewed.")
+    if component.source_sha256 != evidence.source_sha256:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Source component fingerprint no longer matches evidence.")
+    if component.extracted_by_user_id == user.id:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A different user must independently review this source component.")
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only a platform administrator may review source charge evidence.")
+    if len(set(payload.eligible_fill_record_ids)) != len(payload.eligible_fill_record_ids):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Eligible fill IDs must not contain duplicates.")
+    fill_ids = sorted(payload.eligible_fill_record_ids, key=str)
+    trades = (
+        db.query(BrokerTradeRecord)
+        .filter(BrokerTradeRecord.id.in_(fill_ids))
+        .with_for_update()
+        .all()
+    )
+    if {trade.id for trade in trades} != set(fill_ids):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Every eligible fill must be a persisted broker trade record.")
+    if any(trade.broker_connection_id != evidence.broker_connection_id for trade in trades):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Eligible fills must belong to the evidence broker connection.")
+    canonical_fill_ids = json.dumps([str(fill_id) for fill_id in fill_ids], separators=(",", ":"))
+    fill_set_sha256 = hashlib.sha256(canonical_fill_ids.encode("utf-8")).hexdigest()
+    canonical_weights = None
+    if payload.allocation_basis == "EXPLICIT_REVIEWED":
+        if payload.eligible_fill_weights is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Explicit reviewed allocation requires a reviewed weight for every eligible fill.",
+            )
+        weight_ids = [item.fill_record_id for item in payload.eligible_fill_weights]
+        if len(set(weight_ids)) != len(weight_ids) or set(weight_ids) != set(fill_ids):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Explicit reviewed weights must match the eligible fill set exactly without duplicates.",
+            )
+        if sum((item.weight for item in payload.eligible_fill_weights), Decimal("0")) <= 0:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "At least one reviewed fill weight must be positive.")
+        weights_by_id = {item.fill_record_id: item.weight for item in payload.eligible_fill_weights}
+        canonical_weights = json.dumps(
+            [
+                {"fill_record_id": str(fill_id), "weight": str(weights_by_id[fill_id])}
+                for fill_id in fill_ids
+            ],
+            separators=(",", ":"),
+        )
+    elif payload.eligible_fill_weights is not None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Explicit weights are only accepted with the EXPLICIT_REVIEWED allocation basis.",
+        )
     if component.source_label is None or not component.source_label.strip():
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -383,55 +432,6 @@ def review_source_component(
                 status.HTTP_409_CONFLICT,
                 "Split representation requires both transaction_charges and ipft source rows.",
             )
-    if component.source_sha256 != evidence.source_sha256:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Source component fingerprint no longer matches evidence.")
-    if component.extracted_by_user_id == user.id:
-        raise HTTPException(status.HTTP_409_CONFLICT, "A different user must independently review this source component.")
-    if not user.is_admin:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only a platform administrator may review source charge evidence.")
-    if len(set(payload.eligible_fill_record_ids)) != len(payload.eligible_fill_record_ids):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Eligible fill IDs must not contain duplicates.")
-    fill_ids = sorted(payload.eligible_fill_record_ids, key=str)
-    trades = (
-        db.query(BrokerTradeRecord)
-        .filter(BrokerTradeRecord.id.in_(fill_ids))
-        .with_for_update()
-        .all()
-    )
-    if {trade.id for trade in trades} != set(fill_ids):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Every eligible fill must be a persisted broker trade record.")
-    if any(trade.broker_connection_id != evidence.broker_connection_id for trade in trades):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Eligible fills must belong to the evidence broker connection.")
-    canonical_fill_ids = json.dumps([str(fill_id) for fill_id in fill_ids], separators=(",", ":"))
-    fill_set_sha256 = hashlib.sha256(canonical_fill_ids.encode("utf-8")).hexdigest()
-    canonical_weights = None
-    if payload.allocation_basis == "EXPLICIT_REVIEWED":
-        if payload.eligible_fill_weights is None:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "Explicit reviewed allocation requires a reviewed weight for every eligible fill.",
-            )
-        weight_ids = [item.fill_record_id for item in payload.eligible_fill_weights]
-        if len(set(weight_ids)) != len(weight_ids) or set(weight_ids) != set(fill_ids):
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "Explicit reviewed weights must match the eligible fill set exactly without duplicates.",
-            )
-        if sum((item.weight for item in payload.eligible_fill_weights), Decimal("0")) <= 0:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "At least one reviewed fill weight must be positive.")
-        weights_by_id = {item.fill_record_id: item.weight for item in payload.eligible_fill_weights}
-        canonical_weights = json.dumps(
-            [
-                {"fill_record_id": str(fill_id), "weight": str(weights_by_id[fill_id])}
-                for fill_id in fill_ids
-            ],
-            separators=(",", ":"),
-        )
-    elif payload.eligible_fill_weights is not None:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "Explicit weights are only accepted with the EXPLICIT_REVIEWED allocation basis.",
-        )
     component.eligible_fill_ids_json = canonical_fill_ids
     component.eligible_fill_set_sha256 = fill_set_sha256
     component.eligible_fill_weights_json = canonical_weights

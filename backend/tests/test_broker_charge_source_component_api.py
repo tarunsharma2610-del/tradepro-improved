@@ -669,7 +669,7 @@ def test_transaction_ipft_representation_is_persisted_and_combined_mode_rejects_
             },
         )
         assert reviewed.status_code == 409
-        assert "must not be paired with a separate IPFT" in reviewed.text
+        assert "must not also include a separate IPFT amount" in reviewed.text
         stored = db_session.get(BrokerChargeSourceComponent, UUID(transaction.json()["id"]))
         assert stored.status == "PENDING_REVIEW"
     finally:
@@ -719,7 +719,7 @@ def test_transaction_charge_source_cannot_be_reviewed_without_representation_mod
             },
         )
         assert reviewed.status_code == 409
-        assert "explicit versioned representation mode" in reviewed.text
+        assert "representation mode must be explicitly reviewed" in reviewed.text
         stored = db_session.get(BrokerChargeSourceComponent, UUID(created.json()["id"]))
         assert stored.status == "PENDING_REVIEW"
     finally:

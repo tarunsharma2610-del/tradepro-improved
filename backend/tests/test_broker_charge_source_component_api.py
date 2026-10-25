@@ -649,7 +649,7 @@ def test_transaction_ipft_representation_is_persisted_and_combined_mode_rejects_
         )
         ipft = client.post(
             f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
-            json={**base, "component_name": "ipft", "source_label": "IPFT"},
+            json={**base, "component_name": "ipft", "source_label": "IPFT", "source_amount": "0.01"},
         )
         assert transaction.status_code == 201, transaction.text
         assert ipft.status_code == 201, ipft.text

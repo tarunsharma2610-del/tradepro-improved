@@ -1729,3 +1729,9 @@ Safety remains unchanged: PAPER mode mandatory; live broker order writes disable
 - Latest canonical-allocation persistence test commit `be761f4064136662ea1e5c18fef0c2b40237a387`; Backend workflow [#40195695138](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40195695138) was in progress at last check. Do not call the new migration/persistence path green until it completes.
 - Next: verify exact-head CI; then implement canonical-snapshot allocation verification and promotion so live-fill accounting validates canonical snapshot IDs and fingerprints instead of assuming one raw source row per canonical component.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes and automatic accounting promotion disabled.
+
+
+## Phase 3 CI correction — canonical allocation foreign-key migration (25 October 2026)
+
+- Workflow [#40195695138](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40195695138) found a migration portability failure: SQLite cannot ALTER-add the foreign-key constraint directly. The migration was corrected to use Alembic batch mode, and the model's FK name was aligned with the migration.
+- Fix commits: migration `c4ee0e6910aa7b07bdd4bb7e4db1ca67ab27b110`; model `b7df1496ecf8d9c6553d85a68d2661d3b0ad99f0`. Exact-head Backend workflow [#40195975929](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40195975929) was in progress at last check; the FK migration is not yet declared green.

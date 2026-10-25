@@ -42,6 +42,7 @@ from app.services.broker_charge_source_reconciliation_service import (
     verify_component_allocation_ledger,
 )
 from app.services.broker_charge_document_storage_service import store_document
+from app.services.broker_charge_component_set_contract import LIVE_FILL_COMPONENT_SET_VERSION
 from app.services.live_fill_accounting_service import (
     LiveFillAccountingService,
     LiveFillChargeBreakdown,
@@ -452,6 +453,7 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
                 component = BrokerChargeSourceComponent(
                     evidence_id=evidence_id, source_sha256=digest,
                     component_name=component_name, revision=1, source_amount=amount,
+                    component_set_version=LIVE_FILL_COMPONENT_SET_VERSION,
                     currency="INR", extraction_method="MANUAL_TRANSCRIPTION",
                     parser_version="manual-transcription-v1",
                     source_locator=f"synthetic note / {component_name}",

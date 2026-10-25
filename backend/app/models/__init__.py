@@ -6,6 +6,7 @@ from app.models.broker_trade_record import BrokerTradeRecord  # noqa: F401
 from app.models.broker_charge_evidence import BrokerChargeEvidence  # noqa: F401
 from app.models.broker_charge_allocation import BrokerChargeAllocation  # noqa: F401
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent  # noqa: F401
+from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent  # noqa: F401
 from app.models.tariff_estimate_snapshot_record import TariffEstimateSnapshotRecord  # noqa: F401
 from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord  # noqa: F401
 from app.models.live_position import LivePosition  # noqa: F401

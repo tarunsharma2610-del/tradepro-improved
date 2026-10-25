@@ -1,0 +1,167 @@
+import hashlib
+import json
+from datetime import datetime, timezone
+from decimal import Decimal
+from uuid import uuid4
+
+import pytest
+
+from app.core.config import settings
+from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
+from app.models.broker_charge_evidence import BrokerChargeEvidence
+from app.models.broker_charge_source_component import BrokerChargeSourceComponent
+from app.models.broker_connection import BrokerConnection
+from app.models.user import User
+from app.services.broker_charge_allocation_service import METHOD_VERSION
+from app.services.broker_charge_component_set_contract import LIVE_FILL_COMPONENT_SET_VERSION
+from app.services.broker_charge_canonical_component_snapshot_service import (
+    materialize_canonical_charge_component_snapshots,
+)
+from app.services.broker_charge_document_storage_service import store_document
+from app.services.broker_charge_representation_contract import CONTRACT_VERSION
+
+
+def _context(db, make_user, monkeypatch, tmp_path):
+    reviewer = make_user(email=f"canonical-reviewer-{uuid4().hex}@example.com")
+    reviewer.is_admin = True
+    db.commit()
+    extractor = make_user(email=f"canonical-extractor-{uuid4().hex}@example.com")
+    connection = BrokerConnection(
+        user_id=reviewer.id,
+        broker="upstox",
+        api_key_encrypted="encrypted-key",
+        api_secret_encrypted="encrypted-secret",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=True,
+    )
+    db.add(connection)
+    db.commit()
+    original = b"synthetic canonical source contract note"
+    evidence = BrokerChargeEvidence(
+        broker_connection_id=connection.id,
+        source_kind="CONTRACT_NOTE",
+        broker_report_reference=f"CN-{uuid4().hex[:12]}",
+        source_filename="synthetic-contract-note.pdf",
+        source_sha256=hashlib.sha256(original).hexdigest(),
+        byte_size=len(original),
+        status="REVIEWED",
+        reviewed_by_user_id=reviewer.id,
+        reviewed_at=datetime.now(timezone.utc),
+        review_note="Synthetic reviewed evidence",
+    )
+    db.add(evidence)
+    db.commit()
+    storage_key = evidence.id.hex
+    store_document(original, root=tmp_path, storage_key=storage_key)
+    evidence.storage_key = storage_key
+    db.commit()
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    fill_ids = sorted([str(uuid4()), str(uuid4())])
+    manifest = json.dumps(fill_ids, separators=(",", ":"))
+    manifest_hash = hashlib.sha256(manifest.encode()).hexdigest()
+    weights = json.dumps(
+        [{"fill_record_id": fill_id, "weight": "1"} for fill_id in fill_ids],
+        separators=(",", ":"),
+    )
+    values = [
+        ("brokerage", "20.00", "Brokerage", None, None),
+        ("stt", "0.20", "STT", None, None),
+        ("sebi_charges", "0.01", "SEBI Turnover", None, None),
+        ("stamp_duty", "0.03", "Stamp Duty", None, None),
+        ("gst", "58.91", "GST", None, None),
+    ]
+    if getattr(_context, "split_exchange", False):
+        values.extend([
+            ("transaction_charges", "306.99", "Transaction Charges", "SPLIT_TRANSACTION_AND_IPFT", CONTRACT_VERSION),
+            ("ipft", "0.01", "IPFT", "SPLIT_TRANSACTION_AND_IPFT", CONTRACT_VERSION),
+        ])
+    else:
+        values.append(("exchange_charges", "307.00", "Exchange Charges", None, None))
+    for index, (name, amount, label, mode, contract_version) in enumerate(values, start=1):
+        db.add(BrokerChargeSourceComponent(
+            evidence_id=evidence.id,
+            source_sha256=evidence.source_sha256,
+            component_name=name,
+            source_label=label,
+            representation_mode=mode,
+            representation_contract_version=contract_version,
+            component_set_version=LIVE_FILL_COMPONENT_SET_VERSION,
+            revision=1,
+            source_amount=Decimal(amount),
+            currency="INR",
+            extraction_method="MANUAL_TRANSCRIPTION",
+            parser_version="manual-transcription-v1",
+            source_locator=f"page=1,row={index}",
+            eligible_fill_ids_json=manifest,
+            eligible_fill_weights_json=weights,
+            eligible_fill_set_sha256=manifest_hash,
+            rounding_policy=METHOD_VERSION,
+            allocation_basis="EXPLICIT_REVIEWED",
+            extracted_by_user_id=extractor.id,
+            status="VERIFIED",
+            reviewed_by_user_id=reviewer.id,
+            reviewed_at=datetime.now(timezone.utc),
+            review_note="Independent synthetic review",
+        ))
+    db.commit()
+    return reviewer, evidence
+
+
+def test_materialize_canonical_snapshots_are_pending_and_idempotent(db_session, make_user, monkeypatch, tmp_path):
+    reviewer, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    first = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=reviewer.id
+    )
+    db_session.commit()
+    second = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=reviewer.id
+    )
+    assert len(first) == 6
+    assert {row.status for row in first} == {"PENDING_REVIEW"}
+    assert {row.id for row in first} == {row.id for row in second}
+    assert db_session.query(BrokerChargeCanonicalComponent).filter_by(evidence_id=evidence.id).count() == 6
+
+
+def test_split_transaction_and_ipft_materialize_one_exchange_snapshot(db_session, make_user, monkeypatch, tmp_path):
+    _context.split_exchange = True
+    try:
+        reviewer, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    finally:
+        _context.split_exchange = False
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=reviewer.id
+    )
+    exchange = next(row for row in snapshots if row.canonical_component == "exchange_charges")
+    source_ids = json.loads(exchange.source_component_ids_json)
+    source_rows = db_session.query(BrokerChargeSourceComponent).filter(
+        BrokerChargeSourceComponent.id.in_(source_ids)
+    ).all()
+    assert Decimal(exchange.canonical_amount) == Decimal("307.00")
+    assert {row.component_name for row in source_rows} == {"transaction_charges", "ipft"}
+    assert len(source_ids) == 2
+    assert exchange.status == "PENDING_REVIEW"
+
+
+def test_snapshot_materialization_rejects_unverified_source_row(db_session, make_user, monkeypatch, tmp_path):
+    reviewer, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    row = db_session.query(BrokerChargeSourceComponent).filter_by(
+        evidence_id=evidence.id, component_name="brokerage"
+    ).one()
+    row.status = "PENDING_REVIEW"
+    db_session.commit()
+    with pytest.raises(ValueError, match="independently verified"):
+        materialize_canonical_charge_component_snapshots(
+            db_session, evidence_id=evidence.id, requested_by_user_id=reviewer.id
+        )
+    assert db_session.query(BrokerChargeCanonicalComponent).filter_by(evidence_id=evidence.id).count() == 0
+
+
+def test_snapshot_materialization_rejects_tampered_original_document(db_session, make_user, monkeypatch, tmp_path):
+    reviewer, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    (tmp_path / evidence.storage_key).write_bytes(b"tampered source")
+    with pytest.raises(ValueError, match="source integrity check failed"):
+        materialize_canonical_charge_component_snapshots(
+            db_session, evidence_id=evidence.id, requested_by_user_id=reviewer.id
+        )
+    assert db_session.query(BrokerChargeCanonicalComponent).filter_by(evidence_id=evidence.id).count() == 0

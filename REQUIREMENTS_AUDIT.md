@@ -2198,3 +2198,12 @@ Safety: PAPER mode mandatory; live broker order writes disabled; PR #6 draft/unm
 - Latest persistence test commit `be761f4064136662ea1e5c18fef0c2b40237a387`; Backend workflow [#40195695138](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40195695138) was in progress at last check. Do not call the new migration/persistence path green until it completes.
 - Next: verify exact-head CI; then implement canonical-snapshot allocation verification and promotion so live-fill accounting validates canonical snapshot IDs and fingerprints instead of assuming one raw source row per canonical component.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes and automatic accounting promotion disabled.
+
+
+## Phase 3 — normalized source-to-canonical charge links (25 October 2026)
+
+- Added `BrokerChargeCanonicalSourceLink` and migration `202610250025_normalize_canonical_source_links.py`. The database stores a foreign-key row per canonical snapshot/source-row relationship, with uniqueness constraints for each pair and source order. Existing links are backfilled only from the snapshot's persisted ordered source-ID manifest; no mapping is inferred from labels or amounts.
+- Snapshot creation persists normalized links and checks them on idempotent replay. Independent review requires normalized links, order and manifest to agree; missing or altered membership fails closed. This explicitly represents split transaction + IPFT as two raw rows belonging to one canonical exchange-charge snapshot.
+- Previous branch head `4dbaf27fae124d11935c271f2f4cdec44015dbaa` passed Backend workflow [#40196030459](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196030459). New normalized-link change `d1153a0f0751339f3ca82fc062701db0141d4749` awaits fresh CI verification.
+- Next: verify migration upgrade/downgrade/re-upgrade on SQLite and PostgreSQL 16, then require normalized source membership and canonical snapshot fingerprint in promotion/reconciliation.
+- Safety: only the Improved repository; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes and automatic accounting promotion remain disabled.

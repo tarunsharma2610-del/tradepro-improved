@@ -31,7 +31,8 @@ class BrokerChargeAllocation(BaseModel):
         ),
         CheckConstraint(
             "charge_component IN ('brokerage', 'stt', 'exchange_charges', "
-            "'sebi_charges', 'stamp_duty', 'gst')",
+            "'transaction_charges', 'clearing_charges', 'ipft', 'other_charges', "
+            "'demat_transaction_charges', 'sebi_charges', 'stamp_duty', 'gst')",
             name="ck_charge_allocation_component",
         ),
         CheckConstraint(

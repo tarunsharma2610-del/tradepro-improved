@@ -20,6 +20,7 @@ from app.repositories.instrument_repository import InstrumentRepository
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.services.instrument_service import InstrumentService
 from app.services.broker_charge_allocation_service import METHOD_VERSION
+from app.services.broker_charge_component_set_contract import LIVE_FILL_COMPONENT_SET_VERSION
 from app.services.live_fill_accounting_service import (
     LiveFillAccountingService,
     LiveFillChargeBreakdown,
@@ -73,6 +74,7 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
             component = BrokerChargeSourceComponent(
                 evidence_id=evidence.id, source_sha256=evidence.source_sha256, component_name=name,
                 revision=1, source_amount=amount, currency="INR", extraction_method="MANUAL_TRANSCRIPTION",
+                component_set_version=LIVE_FILL_COMPONENT_SET_VERSION,
                 parser_version="phase3-test", source_locator="test fixture / page 1",
                 eligible_fill_ids_json=manifest, eligible_fill_set_sha256=manifest_hash,
                 eligible_fill_weights_json=json.dumps([{"fill_record_id": str(record.id), "weight": "1"}], separators=(",", ":")),

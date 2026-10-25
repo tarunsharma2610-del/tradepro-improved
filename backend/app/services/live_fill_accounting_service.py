@@ -29,6 +29,11 @@ from app.models.order import Order
 from app.models.portfolio import Portfolio
 from app.models.user import User
 from app.services.broker_charge_evidence_service import require_reviewed_charge_evidence
+from app.services.broker_charge_component_set_contract import (
+    LIVE_FILL_ACCOUNTING_COMPONENTS,
+    LIVE_FILL_COMPONENT_SET_VERSION,
+    validate_live_fill_component_set,
+)
 from app.services.broker_charge_source_reconciliation_service import verify_component_allocation_ledger
 from app.services.position_math import apply_fill
 from app.services.transaction_costs import Side
@@ -429,7 +434,7 @@ class LiveFillAccountingService:
         supplied_fees: dict[str, Decimal],
     ) -> dict[str, Decimal]:
         """Fail closed unless a complete source-reviewed ledger backs this fill."""
-        names = ("brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst")
+        names = LIVE_FILL_ACCOUNTING_COMPONENTS
         evidence = (
             self.db.query(BrokerChargeEvidence)
             .filter(
@@ -443,6 +448,23 @@ class LiveFillAccountingService:
         )
         if evidence is None or not evidence.storage_key:
             raise ValueError("Reviewed original contract-note evidence is required for reconciled accounting.")
+        # Evidence is already locked. Intake/review must lock this parent row
+        # before mutating components, so the set check remains stable through
+        # promotion without reversing the child lock order.
+        source_components = (
+            self.db.query(BrokerChargeSourceComponent)
+            .filter(
+                BrokerChargeSourceComponent.evidence_id == evidence_id,
+                BrokerChargeSourceComponent.status != "REJECTED",
+            )
+            .order_by(BrokerChargeSourceComponent.component_name, BrokerChargeSourceComponent.revision)
+            .all()
+        )
+        validate_live_fill_component_set(
+            component_names=[row.component_name for row in source_components],
+            component_set_versions=[row.component_set_version for row in source_components],
+            component_statuses=[row.status for row in source_components],
+        )
         # Read the target fill's allocations without locking them yet. The
         # source verifier acquires each component lock before its allocation rows;
         # locking target allocations here first would invert that order and can
@@ -497,6 +519,8 @@ class LiveFillAccountingService:
             )
             if component is None or component.status != "VERIFIED" or component.reviewed_by_user_id is None or component.reviewed_at is None:
                 raise ValueError("Every live-fill charge component must have a currently verified source component.")
+            if component.component_set_version != LIVE_FILL_COMPONENT_SET_VERSION:
+                raise ValueError("Verified source component is missing the supported live-accounting component-set version.")
             if component.source_sha256 != evidence.source_sha256 or component.currency != "INR":
                 raise ValueError("Verified source component fingerprint or currency conflicts with contract-note evidence.")
             if not component.rounding_policy or not component.allocation_basis:

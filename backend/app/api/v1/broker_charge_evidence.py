@@ -27,6 +27,10 @@ from app.services.broker_charge_document_storage_service import (
     read_verified_document,
     store_document,
 )
+from app.services.broker_charge_component_set_contract import (
+    LIVE_FILL_ACCOUNTING_COMPONENTS,
+    LIVE_FILL_COMPONENT_SET_VERSION,
+)
 from app.services.broker_charge_representation_contract import (
     CONTRACT_VERSION,
     ChargeRepresentation,
@@ -281,6 +285,7 @@ def record_source_component(
         "source_label": component.source_label,
         "representation_mode": component.representation_mode,
         "representation_contract_version": component.representation_contract_version,
+        "component_set_version": component.component_set_version,
         "revision": component.revision,
         "source_amount": str(component.source_amount),
         "currency": component.currency,
@@ -449,6 +454,11 @@ def review_source_component(
     component.eligible_fill_weights_json = canonical_weights
     component.rounding_policy = payload.rounding_policy
     component.allocation_basis = payload.allocation_basis
+    component.component_set_version = (
+        LIVE_FILL_COMPONENT_SET_VERSION
+        if component.component_name in LIVE_FILL_ACCOUNTING_COMPONENTS
+        else None
+    )
     component.status = "VERIFIED"
     component.reviewed_by_user_id = user.id
     component.reviewed_at = datetime.now(timezone.utc)

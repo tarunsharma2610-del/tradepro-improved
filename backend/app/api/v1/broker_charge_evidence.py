@@ -40,6 +40,8 @@ SUPPORTED_COMPONENTS = {
 
 class SourceComponentInput(BaseModel):
     component_name: str
+    source_label: str | None = Field(default=None, min_length=1, max_length=100)
+    representation_mode: Literal["COMBINED_TRANSACTION_AND_IPFT", "SPLIT_TRANSACTION_AND_IPFT"] | None = None
     source_amount: Decimal = Field(ge=Decimal("0"), max_digits=16, decimal_places=2)
     currency: str = "INR"
     source_locator: str = Field(min_length=1, max_length=200)
@@ -244,6 +246,8 @@ def record_source_component(
         evidence_id=evidence.id,
         source_sha256=evidence.source_sha256,
         component_name=payload.component_name,
+        source_label=(payload.source_label or payload.component_name).strip(),
+        representation_mode=payload.representation_mode,
         revision=revision,
         source_amount=payload.source_amount,
         currency="INR",
@@ -265,6 +269,8 @@ def record_source_component(
         "evidence_id": str(component.evidence_id),
         "source_sha256": component.source_sha256,
         "component_name": component.component_name,
+        "source_label": component.source_label,
+        "representation_mode": component.representation_mode,
         "revision": component.revision,
         "source_amount": str(component.source_amount),
         "currency": component.currency,
@@ -309,6 +315,38 @@ def review_source_component(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source component not found.")
     if component.status != "PENDING_REVIEW":
         raise HTTPException(status.HTTP_409_CONFLICT, "Only pending source components can be reviewed.")
+    if component.component_name in {"transaction_charges", "ipft"}:
+        siblings = (
+            db.query(BrokerChargeSourceComponent)
+            .filter(
+                BrokerChargeSourceComponent.evidence_id == evidence.id,
+                BrokerChargeSourceComponent.component_name.in_(["transaction_charges", "ipft"]),
+                BrokerChargeSourceComponent.status != "REJECTED",
+            )
+            .with_for_update()
+            .all()
+        )
+        if component.representation_mode not in {"COMBINED_TRANSACTION_AND_IPFT", "SPLIT_TRANSACTION_AND_IPFT"}:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Transaction/IPFT source rows require an explicit versioned representation mode before review.",
+            )
+        if any(row.representation_mode != component.representation_mode for row in siblings):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Transaction/IPFT rows on one evidence record must declare the same representation mode.",
+            )
+        sibling_names = {row.component_name for row in siblings}
+        if component.representation_mode == "COMBINED_TRANSACTION_AND_IPFT" and "ipft" in sibling_names:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Combined transaction charges must not be paired with a separate IPFT source row.",
+            )
+        if component.representation_mode == "SPLIT_TRANSACTION_AND_IPFT" and sibling_names != {"transaction_charges", "ipft"}:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Split representation requires both transaction_charges and ipft source rows.",
+            )
     if component.source_sha256 != evidence.source_sha256:
         raise HTTPException(status.HTTP_409_CONFLICT, "Source component fingerprint no longer matches evidence.")
     if component.extracted_by_user_id == user.id:
@@ -377,6 +415,8 @@ def review_source_component(
         "id": str(component.id),
         "evidence_id": str(component.evidence_id),
         "component_name": component.component_name,
+        "source_label": component.source_label,
+        "representation_mode": component.representation_mode,
         "source_amount": str(component.source_amount),
         "currency": component.currency,
         "status": component.status,

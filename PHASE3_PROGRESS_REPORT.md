@@ -95,3 +95,12 @@ If CI fails or is still running, update status to **verification pending/failed*
 - This verifies the explicit component-to-source-label mapping change and its current tests on that SHA. Authentic transcription against real contract notes remains a separate evidence/review gate.
 - The next discovered gap is that the intake API still substitutes the normalized component name when `source_label` is omitted. That fabricates a source label rather than preserving the absence of source evidence. Next step: stop substituting normalized names and fail closed at review until a genuine source label is supplied; add API regression tests.
 
+### 2026-10-25 — stop fabricating missing source labels (verification pending)
+
+- Identified a follow-on evidence gap after the label-association gate passed: intake used `payload.source_label or payload.component_name`, silently inventing an apparent source label when none was transcribed.
+- Updated intake to preserve a missing label as `None`; review now rejects a component without a non-empty original source label and leaves it pending. The representation validator no longer substitutes normalized component names for missing sibling labels.
+- Added an API regression test proving missing label remains missing and cannot be reviewed; updated successful-review fixtures to include explicit source labels.
+- Code/test commits: `460c9bba1a9cb6240ccdf86d39087107fe23589f`, `34e3d3e865660f96b432968565f2b8ceeb9c9184`.
+- Current code HEAD at time of writing: `34e3d3e865660f96b432968565f2b8ceeb9c9184`. CI is pending for the code and any subsequent documentation commit. Do not mark this gate complete until exact-head CI passes.
+- Evidence limitation: requiring a label ensures explicit transcription; only independent review against the integrity-checked original note can confirm the label and amount are authentic.
+

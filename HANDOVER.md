@@ -1845,3 +1845,10 @@ Verification boundary: exact-head CI passed on implementation SHA `97843aec1d9b0
 
 - CI follow-up: run [#40188703796](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40188703796) failed on `fb147a3c5580091574bc71c35e7a641cf7386935` because the negative test fixture used strict zip while intentionally supplying fewer labels. Fixed in `e2758ae3db5309641196f0cd0ce035591f6c03ac`; verify CI for the corrected/current HEAD before marking the source-label gate complete.
 
+### Phase 3 next checkpoint — source-label authenticity guard (2026-10-25)
+
+- Explicit component-to-label association passed CI on `d70b1535e7a8b8680b90dadbd926e06b4ae41a16` (run [#40188968279](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40188968279), 910 passed, 1 warning).
+- A further gap was then found: missing source labels were replaced with normalized component names. Fixed intake to preserve missing labels as missing and block review; added API regression coverage in commits `460c9bba1a9cb6240ccdf86d39087107fe23589f` and `34e3d3e865660f96b432968565f2b8ceeb9c9184`.
+- Current exact-head CI is pending. Verify latest HEAD before marking this gate complete. Then continue with effective-dated component rules and end-to-end per-fill accounting. Structural validation does not authenticate real source content.
+- Keep PAPER-only posture, live broker writes disabled, original Tradepro untouched and PR #6 draft/unmerged.
+

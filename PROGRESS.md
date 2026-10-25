@@ -2608,3 +2608,7 @@ Verification boundary: exact-head CI passed on implementation SHA `97843aec1d9b0
 
 Implemented a fail-closed association between each normalized charge component and its retained original source label. The representation validator now requires exact component-key coverage and checks label uniqueness/order; the contract-note review API supplies the explicit mapping from persisted rows. Added regression tests for missing, mismatched and wrong-component associations. Commits: `79dd66d8c429498501e9edfb35e73a1ca0b756b4`, `0146ecd75f0e6a625b21761d3195c896bba293f7`, `fb147a3c5580091574bc71c35e7a641cf7386935`. **Verification pending:** exact-head CI must pass before this is counted as a completed acceptance step. See `PHASE3_PROGRESS_REPORT.md`.
 
+### Phase 3 — do not fabricate absent source labels (2026-10-25)
+
+The source-component intake no longer substitutes the normalized component name when the original source label is absent. Missing labels remain missing, and review fails closed while keeping the component pending. Added an API regression test and supplied explicit labels in success fixtures. Commits: `460c9bba1a9cb6240ccdf86d39087107fe23589f`, `34e3d3e865660f96b432968565f2b8ceeb9c9184`. **Exact-head CI pending**; see `PHASE3_PROGRESS_REPORT.md`.
+

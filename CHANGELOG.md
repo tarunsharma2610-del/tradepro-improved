@@ -319,3 +319,9 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 - Added adversarial tests for missing mappings, wrong component keys and inconsistent label ordering.
 - Exact-head CI verification pending at implementation HEAD `fb147a3c5580091574bc71c35e7a641cf7386935`; this entry records implementation, not a claim of successful verification.
 
+## 2026-10-25 — Phase 3 missing source-label guard
+
+- Removed fallback that fabricated a raw source label from the normalized component name.
+- Missing labels remain null and block review; added API regression coverage.
+- Exact-head CI pending for implementation HEAD `34e3d3e865660f96b432968565f2b8ceeb9c9184`.
+

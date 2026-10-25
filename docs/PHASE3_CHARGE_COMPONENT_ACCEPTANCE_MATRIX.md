@@ -172,3 +172,11 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 
 - CI history: workflow [#40188703796](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40188703796) failed on the first implementation SHA due to a malformed test helper that raised before reaching validation. Corrected in commit `e2758ae3db5309641196f0cd0ce035591f6c03ac`; exact-head CI is still required.
 
+## Added acceptance check — missing original source label
+
+- [x] Intake no longer substitutes a normalized component name for a missing original source label.
+- [x] Review rejects a component with a missing/blank original label and leaves it pending.
+- [x] API regression test covers missing-label preservation and fail-closed review.
+- [ ] Exact-head CI passes for implementation and documentation HEAD.
+- [ ] Independent reviewer confirms the transcribed label and amount against integrity-checked original contract-note evidence.
+

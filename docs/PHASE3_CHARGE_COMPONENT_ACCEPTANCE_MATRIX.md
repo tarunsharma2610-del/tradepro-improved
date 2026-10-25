@@ -170,3 +170,5 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 - [ ] Exact-head CI passes for implementation HEAD `fb147a3c5580091574bc71c35e7a641cf7386935`.
 - [ ] Authentic contract-note transcription is independently confirmed; code-level association alone does not authenticate source content.
 
+- CI history: workflow [#40188703796](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40188703796) failed on the first implementation SHA due to a malformed test helper that raised before reaching validation. Corrected in commit `e2758ae3db5309641196f0cd0ce035591f6c03ac`; exact-head CI is still required.
+

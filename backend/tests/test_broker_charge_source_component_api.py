@@ -566,3 +566,53 @@ def test_non_admin_owner_cannot_review_or_reject_component_transcribed_by_other_
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
 
+
+
+def test_documented_upstox_charge_components_can_be_preserved_as_pending_source_evidence(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    owner = make_user(email="upstox-component-vocabulary@example.com")
+    connection = _connection(db_session, owner)
+    monkeypatch.setattr(settings, "BROKER_CHARGE_DOCUMENT_ROOT", str(tmp_path))
+
+    def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: owner
+    expected_components = {
+        "transaction_charges",
+        "clearing_charges",
+        "ipft",
+        "other_charges",
+        "demat_transaction_charges",
+    }
+    try:
+        client = TestClient(app)
+        evidence = _upload_note(client, connection)
+        created_names = set()
+        for name in sorted(expected_components):
+            response = client.post(
+                f"/api/v1/broker-charge-evidence/{evidence['id']}/components",
+                json={
+                    "component_name": name,
+                    "source_amount": "0.01",
+                    "currency": "INR",
+                    "source_locator": f"page 1, raw source row: {name}",
+                },
+            )
+            assert response.status_code == 201, response.text
+            created_names.add(response.json()["component_name"])
+            assert response.json()["status"] == "PENDING_REVIEW"
+
+        assert created_names == expected_components
+        stored_names = {
+            row.component_name
+            for row in db_session.query(BrokerChargeSourceComponent)
+            .filter(BrokerChargeSourceComponent.evidence_id == UUID(evidence["id"]))
+            .all()
+        }
+        assert expected_components <= stored_names
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)

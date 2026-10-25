@@ -17,6 +17,9 @@ from app.services.broker_charge_component_set_contract import LIVE_FILL_COMPONEN
 from app.services.broker_charge_canonical_component_snapshot_service import (
     materialize_canonical_charge_component_snapshots,
 )
+from app.services.broker_charge_canonical_component_review_service import (
+    review_canonical_charge_component_snapshot,
+)
 from app.services.broker_charge_document_storage_service import store_document
 from app.services.broker_charge_representation_contract import CONTRACT_VERSION
 
@@ -189,3 +192,73 @@ def test_changed_reviewed_allocation_metadata_creates_new_snapshot_revision(db_s
     assert len(second) == 6
     assert all(row.revision == 2 for row in second)
     assert db_session.query(BrokerChargeCanonicalComponent).filter_by(evidence_id=evidence.id).count() == 12
+
+
+def test_independent_admin_can_verify_split_exchange_snapshot_idempotently(db_session, make_user, monkeypatch, tmp_path):
+    _context.split_exchange = True
+    try:
+        creator, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    finally:
+        _context.split_exchange = False
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=creator.id
+    )
+    db_session.commit()
+    reviewer = make_user(email=f"canonical-second-reviewer-{uuid4().hex}@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    exchange = next(row for row in snapshots if row.canonical_component == "exchange_charges")
+
+    reviewed = review_canonical_charge_component_snapshot(
+        db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id,
+        decision="VERIFIED", review_note="Confirmed split transaction and IPFT sum",
+    )
+    db_session.commit()
+    replay = review_canonical_charge_component_snapshot(
+        db_session, snapshot_id=exchange.id, reviewer_user_id=reviewer.id,
+        decision="VERIFIED", review_note="Confirmed split transaction and IPFT sum",
+    )
+    assert reviewed.status == "VERIFIED"
+    assert reviewed.reviewed_by_user_id == reviewer.id
+    assert replay.id == reviewed.id
+    assert Decimal(reviewed.canonical_amount) == Decimal("307.00")
+
+
+def test_snapshot_creator_cannot_self_review(db_session, make_user, monkeypatch, tmp_path):
+    creator, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=creator.id
+    )
+    db_session.commit()
+    with pytest.raises(ValueError, match="distinct from creator"):
+        review_canonical_charge_component_snapshot(
+            db_session, snapshot_id=snapshots[0].id, reviewer_user_id=creator.id,
+            decision="VERIFIED", review_note="Self-review must be blocked",
+        )
+    db_session.refresh(snapshots[0])
+    assert snapshots[0].status == "PENDING_REVIEW"
+
+
+def test_snapshot_review_rejects_changed_source_fingerprint(db_session, make_user, monkeypatch, tmp_path):
+    creator, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=creator.id
+    )
+    db_session.commit()
+    reviewer = make_user(email=f"canonical-fingerprint-reviewer-{uuid4().hex}@example.com")
+    reviewer.is_admin = True
+    db_session.commit()
+    source = db_session.query(BrokerChargeSourceComponent).filter_by(
+        evidence_id=evidence.id, component_name="brokerage"
+    ).one()
+    source.source_locator = "changed after snapshot"
+    db_session.commit()
+
+    brokerage = next(row for row in snapshots if row.canonical_component == "brokerage")
+    with pytest.raises(ValueError, match="source fingerprint is stale"):
+        review_canonical_charge_component_snapshot(
+            db_session, snapshot_id=brokerage.id, reviewer_user_id=reviewer.id,
+            decision="VERIFIED", review_note="Source changed after snapshot",
+        )
+    db_session.refresh(brokerage)
+    assert brokerage.status == "PENDING_REVIEW"

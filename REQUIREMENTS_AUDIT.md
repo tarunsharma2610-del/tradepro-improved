@@ -2010,3 +2010,12 @@ Safety: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro
 - NSE combined-vs-split IPFT arithmetic is already covered by regression tests; actual Upstox field semantics and GST component composition still require independent endpoint/schema and contract-note/invoice evidence.
 - Exact-head CI is required for the new migration/code/test head. PR #6 remains draft/unmerged, PAPER mandatory, live broker writes disabled, original `Tradepro` untouched.
 
+
+
+## Versioned exchange-charge representation contract — 25 October 2026
+
+- Added `backend/app/services/broker_charge_representation_contract.py` with pinned contract version `exchange-charge-representation-v1`. The validator requires an explicit reviewed representation mode, preserves original source labels, validates normalized component names and paise-precision amounts, and rejects combined transaction charges plus a separate IPFT amount to prevent double counting.
+- Added `backend/tests/test_broker_charge_representation_contract.py` covering combined versus split representations, equivalent ₹307.00 exchange-charge base, duplicate IPFT rejection, missing components, unknown/inferred modes, invalid amounts, raw-label retention, and unsupported component labels.
+- This contract validates representation only. It deliberately returns `accounting_approved: false`; it does not authenticate a source document, approve a broker API mapping, decide GST taxable composition, allocate aggregate amounts to fills, or enable live accounting. Existing promotion remains fail-closed.
+- The implementation and test commits are `3c9ac46ea58257ba4c9c87b1b664eee14c6bd35a` and `be505e3dbc0e93eaa25a012d6a9afba81712e9ab`. Exact-head CI for the latest docs/code head must be checked before this checkpoint is called verified.
+- PR #6 remains draft/open/unmerged; PAPER mode remains mandatory; live broker order writes and automatic generic quantity/notional allocation remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.

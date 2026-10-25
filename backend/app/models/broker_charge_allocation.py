@@ -93,5 +93,5 @@ class BrokerChargeAllocation(BaseModel):
         index=True,
     )
     reconciliation_reference: Mapped[str | None] = mapped_column(
-        String(200), nullable=True
+        String(320), nullable=True
     )

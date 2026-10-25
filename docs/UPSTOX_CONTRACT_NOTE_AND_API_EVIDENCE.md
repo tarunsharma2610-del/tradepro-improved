@@ -227,3 +227,12 @@ Public-format review is complete using the linked third-party examples; no perso
 - Previous branch head `4dbaf27fae124d11935c271f2f4cdec44015dbaa` passed Backend workflow [#40196030459](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196030459). Normalized-link change `d1153a0f0751339f3ca82fc062701db0141d4749` is pending fresh CI verification.
 - Next: verify the new migration on SQLite/PostgreSQL 16 including downgrade/re-upgrade and all tests; then bind accounting promotion/reconciliation to normalized source links and canonical snapshot fingerprints.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes and automatic accounting promotion disabled.
+
+
+## Phase 3 — normalized source links and canonical reconciliation gate (25 October 2026)
+
+- Normalized source-link migration passed Backend workflow [#40196529023](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196529023), including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration upgrade/downgrade/re-upgrade and synthetic restore drill.
+- Added `broker_charge_canonical_allocation_reconciliation_service.py` to validate the independently verified snapshot, source fingerprint and normalized source links, fill manifest, deterministic paise amounts, INR/method/basis and exact total before atomic promotion. Reconciliation is idempotent and its durable reference binds snapshot ID, source fingerprint, fill-set hash and allocation method; caller owns commit/rollback.
+- Added split transaction/IPFT source-link, promotion/replay and tamper-blocking tests. Commit `621ce7cd289057a419be5eeff0262e158b18c001` Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) was in progress at the checkpoint; do not call the new path green before completion.
+- Next: resolve exact-head CI failures, then cover conflicting evidence, transaction rollback and PostgreSQL concurrent promotion.
+- Safety unchanged: Improved repo only; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; no live broker writes enabled.

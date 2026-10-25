@@ -38,6 +38,8 @@ class ChargeRepresentation:
     mode: str
     raw_labels: tuple[str, ...]
     components: Mapping[str, Decimal]
+    # Explicit one-to-one mapping from normalized component name to the exact source label.
+    labels_by_component: Mapping[str, str] | None = None
 
 
 def validate_charge_representation(value: ChargeRepresentation) -> dict[str, object]:
@@ -58,11 +60,20 @@ def validate_charge_representation(value: ChargeRepresentation) -> dict[str, obj
         raise ValueError("Duplicate raw source labels are ambiguous.")
     if not value.components:
         raise ValueError("At least one normalized source component is required.")
-    # Each transcribed amount must retain one corresponding source label. A
-    # free-floating label list cannot prove which printed label supplied which
-    # normalized amount, so ambiguous/incomplete evidence is not reviewable.
-    if len(value.raw_labels) != len(value.components):
-        raise ValueError("Every normalized source component must retain exactly one original source label.")
+    # A parallel list plus a component->amount mapping is not enough: list order
+    # does not prove which printed label supplied which amount. Require an
+    # explicit component->source-label association and cross-check the retained
+    # raw-label list against it.
+    if value.labels_by_component is None:
+        raise ValueError("Every normalized component requires an explicit source-label association.")
+    if set(value.labels_by_component) != set(value.components):
+        raise ValueError("Source-label associations must match normalized components exactly.")
+    if any(not isinstance(label, str) or not label.strip() for label in value.labels_by_component.values()):
+        raise ValueError("Every normalized component requires a non-empty original source label.")
+    if len(set(value.labels_by_component.values())) != len(value.labels_by_component):
+        raise ValueError("Duplicate source labels cannot be associated unambiguously with components.")
+    if tuple(value.labels_by_component.values()) != value.raw_labels:
+        raise ValueError("Raw source labels must match the explicit component-to-label association order.")
 
     normalized: dict[str, str] = {}
     for name, amount in value.components.items():
@@ -93,6 +104,7 @@ def validate_charge_representation(value: ChargeRepresentation) -> dict[str, obj
         "contract_version": CONTRACT_VERSION,
         "mode": value.mode,
         "raw_labels": list(value.raw_labels),
+        "labels_by_component": dict(value.labels_by_component),
         "components": normalized,
         "total_components": format(sum((Decimal(v) for v in normalized.values()), Decimal("0")).quantize(CENT), "f"),
         "reviewable": True,

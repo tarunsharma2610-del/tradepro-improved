@@ -51,8 +51,12 @@ def canonicalize_verified_component_records(
             raise ValueError("Source component hash does not match the expected evidence bytes.")
         if getattr(record, "status", None) != "VERIFIED":
             raise ValueError("Only independently VERIFIED source components can be canonicalized.")
-        if getattr(record, "reviewed_by_user_id", None) is None or getattr(record, "reviewed_at", None) is None:
+        reviewer_id = getattr(record, "reviewed_by_user_id", None)
+        extractor_id = getattr(record, "extracted_by_user_id", None)
+        if reviewer_id is None or getattr(record, "reviewed_at", None) is None:
             raise ValueError("Verified source components require reviewer identity and timestamp.")
+        if extractor_id is None or reviewer_id == extractor_id:
+            raise ValueError("Verified source components require a reviewer distinct from the extractor.")
         if getattr(record, "currency", None) != "INR":
             raise ValueError("Only INR source components are supported.")
         label = getattr(record, "source_label", None)

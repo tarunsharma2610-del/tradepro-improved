@@ -105,3 +105,12 @@ Phase 3 cannot be marked complete solely because tests pass. Completion requires
 - Intake can preserve separate transaction, clearing, IPFT, other and demat transaction source labels after migration `202610250019`; this is source-evidence capture only.
 - The live-fill promotion contract still requires exactly six reconciled components and must reject a ledger containing an additional IPFT/clearing/demat/other allocation. Do not relax this guard until a versioned component set and combined-vs-split normalization contract is approved.
 - Existing regression coverage establishes the narrow arithmetic equivalence between a documented combined NSE charge and its equivalent split representation. Production API and contract-note semantics, as well as GST base approval by product/date/invoice, remain open gates.
+
+
+## Versioned exchange-charge representation contract — 25 October 2026
+
+- Added `backend/app/services/broker_charge_representation_contract.py` with pinned contract version `exchange-charge-representation-v1`. The validator requires an explicit reviewed representation mode, preserves original source labels, validates normalized component names and paise-precision amounts, and rejects combined transaction charges plus a separate IPFT amount to prevent double counting.
+- Added `backend/tests/test_broker_charge_representation_contract.py` covering combined versus split representations, equivalent ₹307.00 exchange-charge base, duplicate IPFT rejection, missing components, unknown/inferred modes, invalid amounts, raw-label retention, and unsupported component labels.
+- This contract validates representation only. It deliberately returns `accounting_approved: false`; it does not authenticate a source document, approve a broker API mapping, decide GST taxable composition, allocate aggregate amounts to fills, or enable live accounting. Existing promotion remains fail-closed.
+- Implementation/test commits: `3c9ac46ea58257ba4c9c87b1b664eee14c6bd35a` and `be505e3dbc0e93eaa25a012d6a9afba81712e9ab`. Exact-head CI for the final documentation head must be checked before this checkpoint is called verified.
+- PR #6 remains draft/open/unmerged; PAPER mode remains mandatory; live broker order writes and automatic generic quantity/notional allocation remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched.

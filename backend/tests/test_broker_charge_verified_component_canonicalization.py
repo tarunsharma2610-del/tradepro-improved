@@ -36,6 +36,7 @@ def records():
             currency="INR",
             source_locator=f"page=1,row={index}",
             status="VERIFIED",
+            extracted_by_user_id=UUID("44444444-4444-4444-8444-444444444444"),
             reviewed_by_user_id=UUID("33333333-3333-4333-8333-333333333333"),
             reviewed_at=datetime(2026, 10, 25, tzinfo=timezone.utc),
         )
@@ -88,4 +89,13 @@ def test_empty_or_malformed_source_hash_fails_closed():
     with pytest.raises(ValueError, match="64-character hexadecimal"):
         canonicalize_verified_component_records(
             records(), expected_evidence_id=EVIDENCE_ID, expected_source_sha256="not-a-hash"
+        )
+
+
+def test_same_user_cannot_extract_and_verify_source_component():
+    rows = records()
+    rows[0].extracted_by_user_id = rows[0].reviewed_by_user_id
+    with pytest.raises(ValueError, match="distinct from the extractor"):
+        canonicalize_verified_component_records(
+            rows, expected_evidence_id=EVIDENCE_ID, expected_source_sha256=SOURCE_HASH
         )

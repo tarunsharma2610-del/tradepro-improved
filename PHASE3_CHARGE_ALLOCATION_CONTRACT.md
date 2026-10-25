@@ -719,3 +719,11 @@ A first persistence slice adds `broker_charge_evidence` and migration `202610210
 - Resolver now blocks `/v2/charges/brokerage` from `PER_FILL_ACTUAL` and actual `AGGREGATE_SUMMARY` use even if a mapping is misleadingly labelled. Existing guard still blocks `/v2/trade/profit-loss/charges` from per-fill actual use. New regression tests cover both misuse cases.
 - Implementation `3486d854dae2451858a858cb627602aca7338969`; tests `6c92101a1890a0f4d761e86ed3db047a269fd10d`. Prior head `6cc8b58f635fcb4f1b1cb3e5997099d074800a28` passed workflow #40111501429. CI for the new commits must be verified.
 - Production mappings/tariffs remain unapproved; null is not zero; automatic quantity/notional allocation and live broker order submission remain disabled. PR #6 stays draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
+
+
+## Source-label completeness gate — 25 October 2026
+
+- The source representation contract now requires one retained original source label for every normalized charge component. Incomplete label intake is rejected before review; this does not approve any API field mapping or production accounting rule.
+- Regression coverage includes a split transaction/IPFT payload missing a source label. Exact-head CI for the synchronized documentation head remains a required verification gate.
+- Tariff candidates remain DRAFT; GST component composition and Upstox API/contract-note field semantics remain open. No generic quantity/notional allocation or live broker order writes were enabled.
+- Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #6 draft/unmerged; PAPER mode mandatory; original `Tradepro` untouched.

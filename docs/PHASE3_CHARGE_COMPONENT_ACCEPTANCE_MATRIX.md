@@ -128,3 +128,11 @@ Phase 3 cannot be marked complete solely because tests pass. Completion requires
 
 - The first API regression run exposed two assertion-message mismatches: the validator correctly rejected ambiguous combined-plus-IPFT input and undeclared representation mode, but the tests expected different wording. Updated the tests to assert the validator's actual fail-closed error messages; no safety rule was weakened.
 - Follow-up exact-head CI for commit `df344e9c64aeb6ec3f2f01fef01f3c05739d4800` and subsequent documentation synchronization is pending. Do not call the current head green until the full workflow completes.
+
+
+## Source-label completeness gate — 25 October 2026
+
+- The source representation contract now requires one retained original source label for every normalized charge component. Incomplete label intake is rejected before review; this does not approve any API field mapping or production accounting rule.
+- Regression coverage includes a split transaction/IPFT payload missing a source label. Exact-head CI for the synchronized documentation head remains a required verification gate.
+- Tariff candidates remain DRAFT; GST component composition and Upstox API/contract-note field semantics remain open. No generic quantity/notional allocation or live broker order writes were enabled.
+- Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #6 draft/unmerged; PAPER mode mandatory; original `Tradepro` untouched.

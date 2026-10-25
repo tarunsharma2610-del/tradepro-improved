@@ -18,7 +18,7 @@ Implemented and previously verified: normalized canonical source links; immutabl
 **Next step:** after this documentation checkpoint's CI is green, audit existing coverage for any real conflicting-set/rollback gap. Add tests only for demonstrated gaps, then run the full backend CI gate.
 
 ## Required checkpoint protocol
-After every CI run, refresh PR head and inspect that exact run. On failure, diagnose full logs, fix root cause and rerun. On success, update all 13 designated documents with exact SHA/run/result/next step, commit the checkpoint, then verify CI on that checkpoint commit. Never inherit a parent's green result as proof a child commit is green.
+After every CI run, refresh PR head and inspect that exact run. On failure, diagnose full logs, fix root cause and rerun. On success, update all 14 designated checkpoint documents with exact SHA/run/result/next step, commit the checkpoint, then verify CI on that checkpoint commit. Never inherit a parent's green result as proof a child commit is green.
 
 ## Safeguards
 Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` remains untouched. PR #6 stays draft/unmerged absent explicit authorization. PAPER mode is mandatory and live broker order writes remain disabled. Production GST/IPFT tariff acceptance is a separate evidence gate; unapproved tariff candidates remain DRAFT.

@@ -35,6 +35,7 @@ def allocate_and_persist_component(
     charge_component: str,
     fill_weights: dict[UUID, Decimal | str | int],
     allocation_basis: str,
+    canonical_component_id: UUID | None = None,
 ) -> list[BrokerChargeAllocation]:
     """Persist one source charge component across a reviewed set of broker fills.
 
@@ -115,11 +116,13 @@ def allocate_and_persist_component(
                     or existing.allocation_basis != allocation_basis
                     or existing.method_version != METHOD_VERSION
                     or existing.currency != "INR"
+                    or existing.canonical_component_id != canonical_component_id
                 ):
                     raise ValueError("Conflicting replay: existing allocation values differ.")
                 continue
             db.add(BrokerChargeAllocation(
                 evidence_id=evidence_id,
+                canonical_component_id=canonical_component_id,
                 broker_connection_id=broker_connection_id,
                 broker_trade_record_id=trade_id,
                 charge_component=charge_component,

@@ -1777,3 +1777,49 @@ Read [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_
 - Added a regression test for incomplete source labels and updated fixtures to retain one label per component.
 - Exact-head CI must be checked for the final documentation head. No tariff/API mapping is approved, aggregate/estimate values are not promoted to per-fill actuals, and generic quantity/notional allocation remains disabled.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #6 draft/unmerged; PAPER mandatory; live broker order writes disabled; original `Tradepro` out of scope.
+
+
+## Authoritative IPFT/GST decision — 25 October 2026
+
+This is the carried-forward project decision. Do not restart the IPFT/GST policy discussion or describe the agreed arithmetic as undecided. Keep the policy decision separate from the remaining source-evidence and production-approval gates.
+
+### IPFT and NSE exchange-charge representation
+
+Effective 1 March 2026, NSE circular NSE/FA/73061 records combined exchange-charge rates that include the IPFT contribution:
+- Cash equity: ₹307.00 per crore.
+- Equity futures: ₹183.00 per crore.
+- Equity options: ₹3,553.00 per crore.
+
+Canonical equivalent split arithmetic (transaction charges excluding IPFT, plus IPFT exactly once):
+- Cash equity: ₹306.99 + ₹0.01 = ₹307.00 per crore.
+- Equity futures: ₹182.99 + ₹0.01 = ₹183.00 per crore.
+- Equity options: ₹3,552.99 + ₹0.01 = ₹3,553.00 per crore.
+
+Rules:
+1. For an explicitly reviewed combined source, preserve and use the combined transaction-charge amount; do not add a separate IPFT amount.
+2. For an explicitly reviewed split source, use the transaction-charge amount excluding IPFT and add the separately evidenced IPFT amount once.
+3. Never infer combined/split semantics from a field name alone. Preserve the original source label, endpoint/schema/version and raw value.
+4. If the representation is missing, conflicting, null where an actual amount is required, or otherwise ambiguous, fail closed; do not silently substitute zero or promote it to actual per-fill accounting.
+5. The combined/split validator is a representation safeguard, not proof of authentic source data or approval of a production API mapping.
+
+Primary reference: NSE circular NSE/FA/73061, dated 27 February 2026, effective 1 March 2026: https://nsearchives.nseindia.com/content/circulars/FA73061.pdf
+
+### GST calculation policy
+
+Use 18% GST on the applicable, evidence-backed taxable service-charge base, calculated from canonical components once. The working component policy recorded for Upstox is:
+- Delivery: brokerage + transaction charges/IPFT + applicable demat transaction charges.
+- Intraday, futures and options: brokerage + transaction charges/IPFT.
+- Where transaction charges are represented as a combined amount that already includes IPFT, include that combined amount once; do not add IPFT again to the GST base.
+- Where the source is split, combine transaction charges excluding IPFT with the separately evidenced IPFT exactly once.
+- Apply pure-agent/exclusion treatment only where the applicable tax rule and invoice evidence support it; do not assume every charge is excluded from GST merely because it is statutory or separately labelled.
+- Use the applicable product, segment and effective date, with documented rounding and invoice reconciliation. Do not reuse a taxable-base rule across products/dates without evidence.
+
+Reference for published broker treatment: https://upstox.com/brokerage-charges/
+
+### Decision versus remaining implementation gates
+
+**Settled policy:** the combined-versus-split IPFT arithmetic above; IPFT must never be counted twice; GST is calculated from the applicable taxable canonical components once; unknown representation fails closed.
+
+**Still required before production approval:** corroborate actual Upstox API/contract-note field semantics against authentic source evidence; approve effective-dated product/segment mappings and GST composition against invoices; test combined/split equivalence and no-double-count behavior in per-fill accounting; and pass exact-head CI. The Upstox Get Trade Charges endpoint is aggregate reconciliation evidence, not proof of actual per-fill charges. Do not label these remaining evidence/implementation gates as a reversal of the agreed calculation policy.
+
+Safety remains unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6 remains draft/unmerged pending review and user approval. All work is limited to `tarunsharma2610-del/tradepro-improved`; do not modify the original `tarunsharma2610-del/Tradepro`.

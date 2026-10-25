@@ -27,7 +27,7 @@ def test_combined_representation_preserves_label_and_does_not_add_ipft_twice():
     ))
     assert result["components"] == {"transaction_charges": "307.00", "gst": "55.26"}
     assert result["total_components"] == "362.26"
-    assert result["raw_labels"] == ["Transaction Charges"]
+    assert result["raw_labels"] == ["Transaction Charges", "Gst"]
     assert result["accounting_approved"] is False
 
 

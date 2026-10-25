@@ -743,3 +743,11 @@ The upstream skill is external development material, not an app authorization bo
 - Snapshot creation and independent review require normalized links to match the immutable manifest. Missing/reordered links fail closed, preserving the two-source-row-to-one-canonical-charge relationship for split transaction/IPFT.
 - Previous branch head `4dbaf27fae124d11935c271f2f4cdec44015dbaa` passed Backend workflow [#40196030459](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196030459). Latest normalized-link change `d1153a0f0751339f3ca82fc062701db0141d4749` needs its own CI result.
 - Safety unchanged: Improved repo only, PR #6 draft/unmerged, PAPER mandatory, no live broker writes, and no automatic accounting approval/promotion.
+
+
+## Phase 3 — normalized source links and canonical reconciliation gate (25 October 2026)
+
+- Normalized source-link migration passed Backend workflow [#40196529023](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196529023), including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration upgrade/downgrade/re-upgrade and synthetic restore drill.
+- Added canonical allocation verification/promotion which rechecks reviewed snapshot source fingerprint and normalized source links, deterministic fill allocation and exact totals before atomic, idempotent reconciliation. Promotion re-queries only the verified snapshot/evidence/component allocation set and compares IDs to the verification result before changing state.
+- New reconciliation tests were on commit `621ce7cd289057a419be5eeff0262e158b18c001`; Backend workflow [#40196784435](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40196784435) was in progress at the last checkpoint. Await its result before declaring the new path green.
+- Safety unchanged: Improved repo only; original `Tradepro` untouched; PR #6 draft/unmerged; PAPER mandatory; live broker writes and unreviewed/automatic accounting promotion disabled.

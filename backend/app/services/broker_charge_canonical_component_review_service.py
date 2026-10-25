@@ -141,6 +141,35 @@ def review_canonical_charge_component_snapshot(
     )
     if fingerprint != snapshot.source_snapshot_sha256:
         raise ValueError("Canonical snapshot source fingerprint is stale.")
+    if (
+        snapshot.currency != "INR"
+        or snapshot.component_set_version != LIVE_FILL_COMPONENT_SET_VERSION
+        or snapshot.rounding_policy != "largest-remainder-v1"
+        or snapshot.allocation_basis != "EXPLICIT_REVIEWED"
+        or any(
+            getattr(snapshot, field) != getattr(records[0], field)
+            for field in (
+                "eligible_fill_ids_json",
+                "eligible_fill_weights_json",
+                "eligible_fill_set_sha256",
+                "rounding_policy",
+                "allocation_basis",
+            )
+        )
+        or any(
+            getattr(row, field) != getattr(records[0], field)
+            for row in records[1:]
+            for field in (
+                "eligible_fill_ids_json",
+                "eligible_fill_weights_json",
+                "eligible_fill_set_sha256",
+                "rounding_policy",
+                "allocation_basis",
+                "component_set_version",
+            )
+        )
+    ):
+        raise ValueError("Canonical snapshot allocation metadata no longer matches reviewed source rows.")
 
     actor = (
         db.query(User)

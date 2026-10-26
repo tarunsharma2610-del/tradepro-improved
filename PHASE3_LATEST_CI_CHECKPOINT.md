@@ -1,3 +1,20 @@
+# Phase 3 Latest CI Checkpoint — authoritative update (26 October 2026)
+
+## Latest verified green head before this checkpoint-document refresh
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only.
+- Branch: `phase3/cross-broker-gst-ipft-resolution`.
+- Verified code-and-document head: `7faafc5ecfb2fb22b0b88b8648d4565760b0e7d5`.
+- Exact-head Backend CI: [run #40376413478 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40376413478).
+- Result: **1,051 passed, 1 warning**. Broker-write boundary guard passed; SQLite and PostgreSQL 16 migration round-trips passed; synthetic PostgreSQL/database-volume restore drill passed.
+- This run is the latest verified CI at the time this record was written. The new commit that updates this checkpoint file must itself receive a successful exact-head CI run before it is considered the latest green checkpoint.
+- GST/IPFT state: statutory GST valuation primitive exists for CGST Act section 15, conditional Rule 33 pure-agent exclusion, and IGST Act section 12(12) state selection. It is **not yet integrated into durable per-fill accounting**. Public broker policies are estimate candidates, not approved actual-accounting policies.
+- Immediate next Phase 3 engineering step after this docs commit passes CI: implement the broker/segment/product/effective-date-scoped IPFT representation resolver (COMBINED / SEPARATE / NOT_APPLICABLE), connect it to the cross-broker GST component policy path, and add fail-closed tests preventing duplicate or wrong-exchange IPFT. After that, implement DP/demat persistence and total reconciliation, then integrate only reviewed policy paths.
+- Acceptance boundaries: actual per-fill invoice accounting remains source-evidence/review gated; no personal contract note is required from the user. Public/synthetic examples do not prove account-specific invoicing. Keep unknown/null distinct from zero.
+- Safety: PR #6 and PR #7 remain Draft/unmerged; PAPER mode mandatory; live broker order writes, live writes, and automatic live-fill promotion/scheduling remain disabled; original `tarunsharma2610-del/Tradepro` is out of scope and must not be modified.
+
+---
+
 ## Latest verified GST/IPFT checkpoint — 26 October 2026 (maintained-doc head CI passed; final checkpoint refresh under verification)
 
 - Target only: `tarunsharma2610-del/tradepro-improved`, branch `phase3/cross-broker-gst-ipft-resolution`.

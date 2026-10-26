@@ -97,3 +97,24 @@ def test_gst_estimate_does_not_claim_actual_billing_or_approve_actual_candidates
     )
     assert estimate.source_kind == "PUBLIC_SCHEDULE_ESTIMATE_ONLY"
     assert all(candidate.review_status == "DRAFT" for candidate in upstox_gst_component_set_candidates())
+
+
+def test_upstox_api_example_mismatch_does_not_override_published_gst_schedule():
+    # The public Brokerage Details API example shows transaction=5.68,
+    # IPFT=0.17 and GST=1.02. Its GST matches transaction-only (18% of 5.68),
+    # not the current published GST base including combined transaction/IPFT.
+    transaction = Decimal("5.68")
+    ipft = Decimal("0.17")
+    rate = Decimal("0.18")
+    api_example_gst = Decimal("1.02")
+    assert (transaction * rate).quantize(Decimal("0.01")) == api_example_gst
+    assert ((transaction + ipft) * rate).quantize(Decimal("0.01")) == Decimal("1.05")
+    estimate = calculate_upstox_public_gst_estimate(
+        trade_date=date(2026, 3, 1),
+        exchange="NSE",
+        segment="FO",
+        product="OPTIONS",
+        taxable_components={"brokerage": Decimal("0.00"), "exchange_charges": transaction + ipft},
+    )
+    assert estimate.gst_amount == Decimal("1.05")
+    assert estimate.source_kind == PUBLIC_SCHEDULE_ESTIMATE_ONLY

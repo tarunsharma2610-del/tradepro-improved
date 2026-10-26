@@ -5,8 +5,7 @@ The exchange_charges input is the source-backed exchange charge total. For NSE
 from 2026-03-01 this is the combined transaction/IPFT amount exactly once; for
 BSE options use the applicable BSE schedule and do not assume NSE IPFT applies.
 This function intentionally rejects a separate ipft component.
-The official API example currently conflicts with the published tariff wording;
-results must remain labelled estimates and must not be promoted to actuals.
+The API documentation example is internally inconsistent with the explicit public schedule. Use the public schedule for estimates; never treat an API example as actual invoice evidence.
 """
 from dataclasses import dataclass
 from datetime import date
@@ -63,8 +62,8 @@ def calculate_upstox_public_gst_estimate(
     only brokerage and exchange_charges. exchange_charges means the combined
     transaction/IPFT amount; a separate ipft key is rejected to prevent double
     counting. SEBI, STT, stamp duty and trade notional are not GST-base inputs
-    in this estimate function. The official API sample discrepancy remains
-    unresolved; this estimate is not an actual invoice calculation.
+    in this estimate function. The public schedule governs estimates; the API sample
+    arithmetic discrepancy does not override it. This is not an actual invoice calculation.
     """
     if not isinstance(trade_date, date):
         raise ValueError("trade_date must be an explicit date.")

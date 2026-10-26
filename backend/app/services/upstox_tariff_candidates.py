@@ -20,8 +20,9 @@ RETRIEVED_ON = date(2026, 10, 24)
 class GSTComponentSetCandidate:
     """Non-executable, source-backed GST component-set candidate.
 
-    These component sets are review inventory only. They do not determine legal
-    tax treatment and must not be passed to the calculator as approved sets.
+    These component sets are DRAFT for actual-charge/invoice acceptance. The separate
+    upstox_public_gst_estimate helper implements the official published component
+    set for clearly labelled estimates; this candidate inventory does not control it.
     """
     broker: str
     exchanges: tuple[str, ...]
@@ -40,7 +41,9 @@ def upstox_gst_component_set_candidates() -> tuple[GSTComponentSetCandidate, ...
 
     IPFT is represented inside canonical exchange_charges because the published
     Upstox schedule says IPFT is combined with transaction charges. The
-    delivery-only demat addition is explicit. No candidate is approved.
+    delivery-only demat addition is explicit. These candidates remain DRAFT for
+    actual invoice/per-fill acceptance; public-schedule estimate scope is handled
+    separately and is not blocked by these candidates.
     """
     observed_on = date(2026, 10, 24)
     common = ("brokerage", "exchange_charges")

@@ -104,6 +104,8 @@ def _context(db, make_user, monkeypatch, tmp_path):
         ])
     else:
         values.append(("exchange_charges", "307.00", "Exchange Charges", None, None))
+    if getattr(_context, "with_demat", False):
+        values.append(("demat_transaction_charges", "20.00", "Demat Transaction Charges", None, None))
     for index, (name, amount, label, mode, contract_version) in enumerate(values, start=1):
         db.add(BrokerChargeSourceComponent(
             evidence_id=evidence.id,
@@ -465,3 +467,52 @@ def test_canonical_reconciliation_rejects_incomplete_allocation_fill_set(db_sess
     assert len(remaining) == 1
     assert remaining[0].status == "PENDING_RECONCILIATION"
     assert remaining[0].reconciliation_reference is None
+
+
+
+def test_optional_demat_snapshot_is_reviewable_and_allocatable_but_not_promotable(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    _context.with_demat = True
+    try:
+        source_reviewer, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    finally:
+        _context.with_demat = False
+
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=source_reviewer.id
+    )
+    db_session.commit()
+    assert len(snapshots) == 7
+    demat = next(row for row in snapshots if row.canonical_component == "demat_transaction_charges")
+    assert Decimal(demat.canonical_amount) == Decimal("20.00")
+    assert demat.status == "PENDING_REVIEW"
+
+    independent_reviewer = make_user(email=f"demat-canonical-reviewer-{uuid4().hex}@example.com")
+    independent_reviewer.is_admin = True
+    db_session.commit()
+    review_canonical_charge_component_snapshot(
+        db_session,
+        snapshot_id=demat.id,
+        reviewer_user_id=independent_reviewer.id,
+        decision="VERIFIED",
+        review_note="Synthetic optional DP/demat source mapping review",
+    )
+    db_session.commit()
+
+    allocations = allocate_and_persist_canonical_snapshot(
+        db_session,
+        snapshot_id=demat.id,
+        broker_connection_id=evidence.broker_connection_id,
+        broker_report_reference=evidence.broker_report_reference,
+    )
+    db_session.commit()
+    assert len(allocations) == 2
+    assert all(row.charge_component == "demat_transaction_charges" for row in allocations)
+    assert all(row.status == "PENDING_RECONCILIATION" for row in allocations)
+
+    with pytest.raises(ValueError, match="DP/demat allocation promotion remains blocked"):
+        promote_verified_canonical_component_allocations(
+            db_session, snapshot_id=demat.id, reviewer_user_id=independent_reviewer.id
+        )
+    db_session.rollback()

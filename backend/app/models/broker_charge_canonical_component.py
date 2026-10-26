@@ -37,7 +37,7 @@ class BrokerChargeCanonicalComponent(BaseModel):
             name="uq_charge_canonical_component_source_snapshot",
         ),
         CheckConstraint(
-            "canonical_component IN ('brokerage', 'stt', 'exchange_charges', 'sebi_charges', 'stamp_duty', 'gst')",
+            "canonical_component IN ('brokerage', 'stt', 'exchange_charges', 'sebi_charges', 'stamp_duty', 'gst', 'demat_transaction_charges')",
             name="ck_charge_canonical_component_name",
         ),
         CheckConstraint("canonical_amount >= 0", name="ck_charge_canonical_amount_nonnegative"),

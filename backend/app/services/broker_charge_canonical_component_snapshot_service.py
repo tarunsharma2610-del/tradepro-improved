@@ -152,13 +152,19 @@ def materialize_canonical_charge_component_snapshots(
         expected_source_sha256=evidence.source_sha256,
     )
     mapping = canonical["source_components_by_canonical"]
+    optional_mapping = canonical.get("optional_source_components_by_canonical", {})
     if set(mapping) != set(CANONICAL_COMPONENTS):
-        raise ValueError("Canonical source mapping must produce exactly the approved six-component set.")
-    if canonical.get("optional_source_components_by_canonical", {}).get("demat_transaction_charges"):
-        raise ValueError(
-            "DP/demat source evidence is recognized but cannot be snapshotted for live accounting "
-            "until Execution persistence and total-charge reconciliation support it."
-        )
+        raise ValueError("Canonical source mapping must produce exactly the approved six-component core set.")
+    unsupported_optional = set(optional_mapping) - {"demat_transaction_charges"}
+    if unsupported_optional:
+        raise ValueError("Unsupported optional canonical components cannot be snapshotted: " + ", ".join(sorted(unsupported_optional)))
+    source_mapping = {**mapping, **optional_mapping}
+    amount_mapping = {
+        **canonical["canonical_components"],
+        **canonical.get("optional_canonical_components", {}),
+    }
+    if set(source_mapping) != set(amount_mapping):
+        raise ValueError("Canonical source and amount mappings disagree.")
 
     # All six components must describe the same reviewed fill population and
     # allocation policy. For split exchange charges, both source rows must agree.
@@ -218,8 +224,8 @@ def materialize_canonical_charge_component_snapshots(
         raise ValueError("Reviewed explicit weights are not in canonical JSON representation.")
 
     result: list[BrokerChargeCanonicalComponent] = []
-    for canonical_name in sorted(mapping):
-        source_names = set(mapping[canonical_name])
+    for canonical_name in sorted(source_mapping):
+        source_names = set(source_mapping[canonical_name])
         source_rows = [row for row in records if row.component_name in source_names]
         source_rows.sort(key=lambda row: (row.component_name, row.revision, str(row.id)))
         source_ids = [str(row.id) for row in source_rows]
@@ -227,7 +233,7 @@ def materialize_canonical_charge_component_snapshots(
         fingerprint = canonical_source_snapshot_fingerprint(
             evidence=evidence,
             canonical_component=canonical_name,
-            canonical_amount=canonical["canonical_components"][canonical_name],
+            canonical_amount=amount_mapping[canonical_name],
             mapping_version=canonical["mapping_version"],
             representation_contract_version=canonical["representation_contract_version"],
             source_rows=source_rows,
@@ -272,7 +278,7 @@ def materialize_canonical_charge_component_snapshots(
             source_snapshot_sha256=fingerprint,
             mapping_version=canonical["mapping_version"],
             representation_contract_version=canonical["representation_contract_version"],
-            canonical_amount=Decimal(canonical["canonical_components"][canonical_name]),
+            canonical_amount=Decimal(amount_mapping[canonical_name]),
             currency="INR",
             component_set_version=LIVE_FILL_COMPONENT_SET_VERSION,
             eligible_fill_ids_json=manifest_json,

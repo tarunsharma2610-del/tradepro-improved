@@ -137,10 +137,20 @@ def review_canonical_charge_component_snapshot(
         expected_evidence_id=evidence.id,
         expected_source_sha256=evidence.source_sha256,
     )
-    source_names = set(canonical["source_components_by_canonical"][snapshot.canonical_component])
+    canonical_source_mapping = {
+        **canonical["source_components_by_canonical"],
+        **canonical.get("optional_source_components_by_canonical", {}),
+    }
+    canonical_amount_mapping = {
+        **canonical["canonical_components"],
+        **canonical.get("optional_canonical_components", {}),
+    }
+    if snapshot.canonical_component not in canonical_source_mapping or snapshot.canonical_component not in canonical_amount_mapping:
+        raise ValueError("Canonical snapshot component is not present in the reviewed canonical mapping.")
+    source_names = set(canonical_source_mapping[snapshot.canonical_component])
     if {row.component_name for row in records} != source_names:
         raise ValueError("Canonical snapshot source rows no longer match the canonical mapping.")
-    if canonical["canonical_components"][snapshot.canonical_component] != format(Decimal(snapshot.canonical_amount), ".2f"):
+    if canonical_amount_mapping[snapshot.canonical_component] != format(Decimal(snapshot.canonical_amount), ".2f"):
         raise ValueError("Canonical snapshot amount no longer matches its reviewed source rows.")
     if snapshot.mapping_version != canonical["mapping_version"]:
         raise ValueError("Canonical snapshot mapping version no longer matches.")
@@ -149,7 +159,7 @@ def review_canonical_charge_component_snapshot(
     fingerprint = canonical_source_snapshot_fingerprint(
         evidence=evidence,
         canonical_component=snapshot.canonical_component,
-        canonical_amount=canonical["canonical_components"][snapshot.canonical_component],
+        canonical_amount=canonical_amount_mapping[snapshot.canonical_component],
         mapping_version=canonical["mapping_version"],
         representation_contract_version=canonical["representation_contract_version"],
         source_rows=records,

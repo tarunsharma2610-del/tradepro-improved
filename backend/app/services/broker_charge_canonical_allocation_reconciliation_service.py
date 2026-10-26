@@ -183,6 +183,10 @@ def promote_verified_canonical_component_allocations(
             .populate_existing()
             .one()
         )
+        if snapshot.canonical_component == "demat_transaction_charges":
+            raise ValueError(
+                "DP/demat allocation promotion remains blocked until Execution persistence and total-charge recomputation support it."
+            )
         rows = (
             db.query(BrokerChargeAllocation)
             .filter(

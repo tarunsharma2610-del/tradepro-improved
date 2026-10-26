@@ -88,7 +88,14 @@ def extract_upstox_contract_note_text(text: str) -> ContractNoteExtraction:
         for component, pattern in _COMPONENT_PATTERNS.items():
             match = pattern.fullmatch(line)
             if match:
-                amount = _parse_amount(match.group(1))
+                try:
+                    amount = _parse_amount(match.group(1))
+                except ValueError:
+                    # Keep malformed/negative amounts for review instead of
+                    # aborting extraction or treating them as zero.
+                    unmapped.append((line_number, raw_line))
+                    matched = True
+                    break
                 items.append(ExtractedLineItem(component, amount, raw_line, line_number))
                 counts[component] = counts.get(component, 0) + 1
                 matched = True

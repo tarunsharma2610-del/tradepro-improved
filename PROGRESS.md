@@ -2940,3 +2940,13 @@ Located and reconciled three public Upstox contract-note copies. Historical prin
 - Invariants: count combined transaction/IPFT once; never add legacy IPFT on top of combined tariff; never tax trade notional; missing/null is unknown, not zero; do not treat aggregate charges or estimates as actual per-fill GST evidence.
 - Next: continue Phase 3 evidence reconciliation and targeted tests only where supported by evidence. Do not repeat canonical live-fill integration. Defer AI/open-source integration including Algory.app until Phase 3 acceptance.
 - Safety: PAPER mode mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; PR #6 stays draft/unmerged absent explicit user approval.
+
+## Latest checkpoint update — 26 October 2026 (tariff-source reconciliation)
+
+- Current branch target remains `phase3/durable-per-fill-charge-allocation` in `tarunsharma2610-del/tradepro-improved` only. Do not modify original `tarunsharma2610-del/Tradepro`.
+- Previous documentation checkpoint: `bc2188b720354bea8791a8e6df7bd7165ebe42cb`; exact-head Backend CI run [#40330911741](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40330911741) was started and must be checked for completion. Any newer docs commit requires its own exact-head CI pass.
+- New evidence: current Upstox public tariff explicitly states GST base = brokerage + transaction + IPFT, plus demat/DP for equity delivery; it also states IPFT is combined with transaction charges from 1 March 2026. For estimates, represent that combined charge once; do not double-add IPFT. Source: https://upstox.com/brokerage-charges/ .
+- Remaining conflict: Upstox Brokerage Details API's published example GST ₹1.02 matches 18% of transaction ₹5.68 alone, despite IPFT ₹0.17 shown separately; a third-party calculator uses another presentation for DP GST. These are documentation/calculator discrepancies, not proof of live API or invoice behaviour. Current ordinary-trade invoice or written broker clarification is still required before actual per-fill promotion.
+- All four product GST component candidates remain `DRAFT`. No actual GST logic promoted by this documentation update. Aggregate charges and estimate APIs are not per-fill tax evidence.
+- Next gate: confirm exact-head CI; obtain/inspect current Upstox ordinary-trade contract notes/tax invoices or written clarification for delivery, intraday, futures and options; then update product rules/tests only when evidence resolves the discrepancy.
+- Safety unchanged: PAPER mode mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; PR #6 remains draft/unmerged unless user explicitly approves. Defer AI integrations including Algory.app until Phase 3 acceptance.

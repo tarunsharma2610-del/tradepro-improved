@@ -333,3 +333,20 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 - Keep all four product candidates `DRAFT` until current ordinary-trade Upstox contract notes/tax invoices or written broker clarification resolves taxable components for delivery, intraday, futures and options.
 - Invariants: combined transaction/IPFT counted once; no legacy IPFT double-counting; never tax trade notional; missing/null remains unknown; no promotion from estimates/aggregates to actual per-fill tax.
 - Safety: PAPER mode mandatory; live broker writes and automatic live-fill promotion/scheduling disabled; PR #6 remains draft/unmerged unless user explicitly approves.
+
+## Follow-up source reconciliation — 26 October 2026
+
+### Current public tariff wording is explicit; the API example remains inconsistent
+
+- Upstox's current public brokerage-charge page explicitly states GST is 18% on brokerage + transaction + IPFT for intraday, futures and options, and brokerage + transaction + demat + IPFT for equity delivery. It also says that from 1 March 2026 IPFT is combined with transaction charges. Source: https://upstox.com/brokerage-charges/ (reviewed 26 October 2026; see GST and transaction/IPFT sections).
+- For a schedule effective 1 March 2026 onward, the intended public-schedule estimate should therefore represent the exchange charge once as the combined transaction/IPFT amount. Do not add a separate legacy IPFT component on top of that combined value. For delivery, the public schedule also lists demat/DP charges in the GST base; do not infer DP is absent just because an estimate API example does not include it.
+- The Upstox Brokerage Details API documentation example remains internally inconsistent with that wording: GST ₹1.02 equals 18% of transaction ₹5.68 alone (rounded), while IPFT ₹0.17 is separately displayed and the example's DP plan minimum is described as extra/not included in brokerage calculation. Source: https://upstox.com/developer/api-documentation/get-brokerage/ . This is a documentation example discrepancy; it does not prove live API behaviour or actual contract-note treatment.
+- A third-party Upstox calculator surfaced in research (https://dematopen.com/tools/brokerage-calculator/) calculates GST on brokerage + transaction charges and lists DP charge with its own GST. That differs from Upstox's public delivery GST wording and is not authoritative; do not use it to override Upstox or invoice evidence.
+- Result: we can align the **public schedule estimate model** to the explicit tariff wording, with versioned effective dates and a single combined transaction/IPFT input. The actual per-fill GST rule still cannot be promoted until ordinary-trade contract-note/tax-invoice evidence or written Upstox clarification reconciles the API example and confirms delivery DP treatment. Keep all four actual component candidates `DRAFT`.
+
+## Revised evidence checklist
+
+- [ ] Written Upstox clarification or current ordinary-trade contract note/tax invoice showing taxable value and GST for delivery (including DP/demat), intraday, futures and options.
+- [ ] Clarify whether Brokerage Details API's sample GST is stale and whether actual live responses use the current tariff's combined transaction/IPFT base.
+- [ ] Verify BSE and NSE separately where rates/charge presentation differ; verify date-effective tariff selection around 1 March 2026.
+- [ ] Keep estimate rules separate from actual per-fill accounting; reconcile actual invoice/ledger totals without inferring per-fill tax from aggregates.

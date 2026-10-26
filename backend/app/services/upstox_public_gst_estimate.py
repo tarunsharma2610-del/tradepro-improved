@@ -9,13 +9,9 @@ The API documentation example is internally inconsistent with the explicit publi
 """
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Mapping
 
-from app.services.broker_gst_component_policy import (
-    GstComponentPolicy,
-    calculate_gst_estimate,
-)
 from app.services.upstox_tariff_candidates import (
     RETRIEVED_ON,
     SOURCE_SNAPSHOT_SHA256,
@@ -86,23 +82,23 @@ def calculate_upstox_public_gst_estimate(
             "exchange_charges already includes transaction/IPFT once."
         )
 
-    policy = GstComponentPolicy(
-        broker="Upstox",
-        exchange=normalized_scope[0],
-        segment=normalized_scope[1],
-        product=normalized_scope[2],
-        effective_from=GST_EFFECTIVE_FROM,
-        effective_to=None,
-        taxable_components=tuple(sorted(expected)),
-        ipft_mode="COMBINED" if normalized_scope[0] == "NSE" else "NOT_APPLICABLE",
-        source_url=UPSTOX_CHARGES_URL,
-        source_retrieved_on=RETRIEVED_ON,
-        source_sha256=SOURCE_SNAPSHOT_SHA256,
-        review_status="APPROVED",
+    # Public pricing is an estimate source, not an independently approved
+    # accounting policy. Do not instantiate GstComponentPolicy with APPROVED
+    # here: that would let this helper confer accounting approval by itself.
+    parsed: dict[str, Decimal] = {}
+    for name, value in taxable_components.items():
+        try:
+            amount = value if isinstance(value, Decimal) else Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError(f"GST estimate component {name} must be finite and nonnegative.") from exc
+        if not amount.is_finite() or amount < 0:
+            raise ValueError(f"GST estimate component {name} must be finite and nonnegative.")
+        parsed[name] = amount
+    base = sum(parsed.values(), Decimal("0.00")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
     )
-    base, amount = calculate_gst_estimate(
-        policy,
-        components=dict(taxable_components),
+    amount = (base * GST_RATE_PERCENT / Decimal("100")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
     )
     return UpstoxPublicGstEstimate(
         source_kind=PUBLIC_SCHEDULE_ESTIMATE_ONLY,

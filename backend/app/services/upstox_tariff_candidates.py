@@ -4,6 +4,7 @@ These rows are intentionally not APPROVED and select_tariff_rule must reject the
 They are a review/test inventory, not executable tariffs. Source snapshot:
 docs/source_snapshots/UPSTOX_CHARGES_2026-10-24.md
 """
+from dataclasses import dataclass
 from datetime import date
 
 from app.services.broker_tariff_rules import TariffRule
@@ -12,6 +13,56 @@ SOURCE_SNAPSHOT_SHA256 = "c59f7e940fde6b0d94ca1189766f16e5601c117d4a8c2bcd2415da
 UPSTOX_CHARGES_URL = "https://upstox.com/brokerage-charges/"
 NSE_STT_URL = "https://www.nseindia.com/static/products-services/equity-derivatives-securities-transaction-tax"
 RETRIEVED_ON = date(2026, 10, 24)
+
+
+
+@dataclass(frozen=True)
+class GSTComponentSetCandidate:
+    """Non-executable, source-backed GST component-set candidate.
+
+    These component sets are review inventory only. They do not determine legal
+    tax treatment and must not be passed to the calculator as approved sets.
+    """
+    broker: str
+    exchanges: tuple[str, ...]
+    segment: str
+    product: str
+    taxable_components: tuple[str, ...]
+    rate_percent: str
+    source_url: str
+    observed_on: date
+    source_snapshot_sha256: str
+    review_status: str = "DRAFT"
+
+
+def upstox_gst_component_set_candidates() -> tuple[GSTComponentSetCandidate, ...]:
+    """Return DRAFT GST-base candidates from Upstox's published charge schedule.
+
+    IPFT is represented inside canonical exchange_charges because the published
+    Upstox schedule says IPFT is combined with transaction charges. The
+    delivery-only demat addition is explicit. No candidate is approved.
+    """
+    observed_on = date(2026, 10, 24)
+    common = ("brokerage", "exchange_charges")
+    return (
+        GSTComponentSetCandidate(
+            "Upstox", ("NSE", "BSE"), "EQ", "DELIVERY",
+            common + ("demat_charges",), "18", UPSTOX_CHARGES_URL,
+            observed_on, SOURCE_SNAPSHOT_SHA256,
+        ),
+        GSTComponentSetCandidate(
+            "Upstox", ("NSE", "BSE"), "EQ", "INTRADAY",
+            common, "18", UPSTOX_CHARGES_URL, observed_on, SOURCE_SNAPSHOT_SHA256,
+        ),
+        GSTComponentSetCandidate(
+            "Upstox", ("NSE", "BSE"), "FO", "FUTURES",
+            common, "18", UPSTOX_CHARGES_URL, observed_on, SOURCE_SNAPSHOT_SHA256,
+        ),
+        GSTComponentSetCandidate(
+            "Upstox", ("NSE", "BSE"), "FO", "OPTIONS",
+            common, "18", UPSTOX_CHARGES_URL, observed_on, SOURCE_SNAPSHOT_SHA256,
+        ),
+    )
 
 
 def upstox_tariff_candidate_rules() -> tuple[TariffRule, ...]:

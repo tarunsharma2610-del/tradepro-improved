@@ -660,6 +660,37 @@ def test_gst_arithmetic_is_invariant_for_combined_vs_split_ipft_representation()
 
 
 
+
+def test_upstox_gst_component_sets_are_source_backed_and_remain_draft():
+    from app.services.upstox_tariff_candidates import upstox_gst_component_set_candidates
+
+    candidates = upstox_gst_component_set_candidates()
+    assert {(item.segment, item.product) for item in candidates} == {
+        ("EQ", "DELIVERY"),
+        ("EQ", "INTRADAY"),
+        ("FO", "FUTURES"),
+        ("FO", "OPTIONS"),
+    }
+    assert all(item.review_status == "DRAFT" for item in candidates)
+    assert all(item.rate_percent == "18" for item in candidates)
+    assert all(item.source_url == "https://upstox.com/brokerage-charges/" for item in candidates)
+    assert all(item.source_snapshot_sha256 for item in candidates)
+    by_product = {(item.segment, item.product): item for item in candidates}
+    assert by_product[("EQ", "DELIVERY")].taxable_components == (
+        "brokerage", "exchange_charges", "demat_charges"
+    )
+    for key in (("EQ", "INTRADAY"), ("FO", "FUTURES"), ("FO", "OPTIONS")):
+        assert by_product[key].taxable_components == ("brokerage", "exchange_charges")
+    # IPFT is already part of the canonical combined exchange-charge component.
+    assert all("ipft" not in item.taxable_components for item in candidates)
+    assert all(
+        excluded not in item.taxable_components
+        for item in candidates
+        for excluded in ("stt", "stamp_duty", "sebi_charges")
+    )
+
+
+
 def test_upstox_nse_exchange_candidates_do_not_leak_into_bse_or_mcx():
     from app.services.upstox_tariff_candidates import upstox_tariff_candidate_rules
 

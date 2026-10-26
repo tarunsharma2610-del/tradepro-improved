@@ -334,3 +334,12 @@ Safety: PAPER mode mandatory; live broker order writes disabled; PR #6 remains d
 - Upstox official tariff wording names brokerage + transaction + IPFT (and delivery demat). Its documented brokerage API example's GST ₹1.02 matches 18% of transaction ₹5.68 alone, while IPFT is ₹0.17 separately; this is a docs-example arithmetic mismatch, not proof of live endpoint behavior. Aggregate trade-charges API is not per-fill evidence.
 - Historical publicly surfaced Upstox notes dated 21-May-2024 and 12-Mar-2025 concern rights-entitlement/special-case transactions. They are conflict signals, not representative current evidence for ordinary trades.
 - Decision: all four GST component sets remain DRAFT. Next evidence gate is current ordinary-trade contract notes/tax invoices for delivery, intraday, futures and options, plus clarification of the public-tariff/API-example mismatch. Do not promote actual per-fill GST based only on a third-party formula or estimate API.
+
+## Canonical checkpoint update — 26 October 2026, after cross-repository GST/IPFT audit
+
+- Validated parent commit: `0e15bba3bfa425296f4104c96be6d10e3b42bf40`; Backend tests PASS on exact SHA, run [#40329710846](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40329710846). This documentation-only sync needs its own exact-head CI pass before it is the next validated checkpoint.
+- Cross-repository finding: OpenAlgo's configurable charge schedule is useful architecture, but not an Upstox tax authority; the inspected Shoonya formula is hard-coded and unverified; NautilusTrader is relevant only for fee-model mechanics. No inspected repository proves the correct current Upstox GST taxable base.
+- Upstox's documented brokerage API example has a GST arithmetic discrepancy versus current public tariff wording; this is not proof of live API miscalculation. Aggregate trades charges and estimate API responses cannot alone establish actual per-fill GST.
+- Keep all four product candidates `DRAFT` until current ordinary-trade Upstox contract notes/tax invoices or written broker clarification resolves taxable components for delivery, intraday, futures and options.
+- Invariants: combined transaction/IPFT counted once; no legacy IPFT double-counting; never tax trade notional; missing/null remains unknown; no promotion from estimates/aggregates to actual per-fill tax.
+- Safety: PAPER mode mandatory; live broker writes and automatic live-fill promotion/scheduling disabled; PR #6 remains draft/unmerged unless user explicitly approves.

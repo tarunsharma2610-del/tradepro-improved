@@ -363,7 +363,7 @@ def test_non_reconciled_charge_allocations_block_live_accounting(accounting_cont
     allocation.status = status
     db.commit()
 
-    with pytest.raises(ValueError, match="Canonical allocation rows do not match|No allocations are linked"):
+    with pytest.raises(ValueError, match="Canonical allocation rows do not match|No allocations are linked|Pending canonical allocations"):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -408,7 +408,7 @@ def test_separately_reported_ipft_component_blocks_six_component_live_promotion(
     ))
     db.commit()
 
-    with pytest.raises(ValueError, match="exactly six reconciled per-fill"):
+    with pytest.raises(ValueError, match="exactly six canonical per-fill charge allocations"):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -423,7 +423,7 @@ def test_caller_charge_amounts_must_match_reconciled_ledger(accounting_context):
         brokerage=Decimal("21.00"), total_charges=Decimal("24.86"),
         evidence_id=charges.evidence_id, reviewer_user_id=charges.reviewer_user_id,
     )
-    with pytest.raises(ValueError, match="differ from the reconciled per-fill"):
+    with pytest.raises(ValueError, match="differ from the reconciled canonical per-fill"):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, mismatched)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -780,6 +780,7 @@ def test_live_fill_promotion_uses_consistent_charge_then_trade_lock_order(accoun
     from sqlalchemy.orm import Query
 
     db, user, _portfolio, _instrument, _connection, _order, _child, record, _paper_position = accounting_context
+    charges = _reviewed_charges(accounting_context)
     locked_models = []
     original = Query.with_for_update
 
@@ -800,7 +801,7 @@ def test_live_fill_promotion_uses_consistent_charge_then_trade_lock_order(accoun
 
     monkeypatch.setattr(Query, "with_for_update", track_lock)
 
-    LiveFillAccountingService(db).promote_trade(user.id, record.id, _reviewed_charges(accounting_context))
+    LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
 
     # Order and child serialize parent-order accounting. Within charge
     # verification, source-component locks must precede allocation locks, and

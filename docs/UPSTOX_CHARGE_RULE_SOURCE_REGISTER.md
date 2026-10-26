@@ -531,3 +531,8 @@ See [Upstox GST/IPFT evidence review](UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md
 ## Historical contract-note GST-base discrepancy — 26 October 2026
 
 A public third-party copy of an Upstox contract note dated 21 May 2024 lists GST taxable value ₹77.56 as brokerage ₹0.01 + SEBI ₹0.11 + turnover charges ₹3.44 + demat ₹74.00, with IGST ₹13.96, while IPFT ₹0.11 is shown separately and excluded from that displayed sum. The arithmetic matches 18% rounded to paise. This conflicts with the current Upstox public schedule's stated GST base (brokerage + transaction + IPFT, plus demat for delivery; no SEBI listed). The copy is unauthenticated and predates the 2026 combined transaction/IPFT schedule, so it is a discrepancy signal—not a rule to copy. Keep GST component sets DRAFT until current treatment is reconciled. Details: [GST/IPFT evidence review](UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md).
+
+
+## Evidence-test wording correction — 26 October 2026
+
+The backend test run `40302129087` reported 1,002 passed / 1 failed because an assertion used a phrase not present verbatim in the GST evidence review. The actual evidence describes the historical note as materially different from Upstox's current public pricing page. Corrected the test assertion in commit `f792627fb0ead15551e2506731b183e9b91482bb`; current-head CI remains to be verified. This correction changes no tariff candidate status: all GST component sets remain DRAFT.

@@ -99,3 +99,11 @@ Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` re
 - CBIC confirms brokerage is taxable and statutory-recovery exclusion depends on Rule 33 pure-agent conditions. This does not resolve every product-specific GST component in Upstox's billing. Public historical contract-note copies are not authenticated/current proof; aggregate API data is not per-fill proof and nullable IPFT stays unknown.
 - Decision: all four GST component-set candidates remain DRAFT. Continue with focused regression tests and resolve taxable-base mapping before any approval. This is a source-research checkpoint only; exact-head CI is required after the documentation commit.
 - PR #6 remains open/draft/unmerged; PAPER mandatory; live broker writes and automatic live-fill promotion disabled; original `Tradepro` untouched.
+
+
+## Latest exact-head CI correction — 26 October 2026
+
+- Failed run: [Backend tests #40302129087](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40302129087), tested PR merge ref `6c5c5f84846e8fbc170d653194565ddc4361fa6b` containing branch commit `8f37b81914e1b46318d16d7c99ee5490449e8f06`.
+- Result: 1,002 passed, 1 failed. Sole failure was the evidence regression test expecting the phrase `conflicts with the current Upstox public pricing page`; the document actually says `materially different from Upstox's current public pricing page`. The evidence and DRAFT safety behavior were intact; the assertion was over-specific.
+- Correction pushed to branch: `f792627fb0ead15551e2506731b183e9b91482bb` (`test: fix GST evidence wording assertion`). This does not imply CI passed. Verify the latest workflow against this exact branch head and record the result before proceeding to another Phase 3 gate.
+- No GST candidate approved. Historical public note remains unauthenticated/out of date and cannot resolve current GST-base mapping. PAPER mandatory; live broker order writes and automatic live-fill promotion disabled; PR #6 open/draft/unmerged; original `Tradepro` untouched.

@@ -2877,3 +2877,10 @@ Historical entries remain historical records; they must not override this curren
 - Not approved: GST taxable-component sets for delivery/intraday/futures/options; BSE cash scrip-group/futures assumptions; stamp duty, SEBI, clearing/other and DP/demat tax-base composition. Public historical notes are unauthenticated and not current proof; API aggregate charges do not prove per-fill values. `ipft: null` is unknown, not zero.
 - Next: targeted tests for combined-vs-split IPFT, null field semantics, effective-date boundaries and GST-base component guardrails; then exact-head CI. Do not enable production tariff or automatic per-fill allocation from this research alone.
 - Safety unchanged: PAPER mandatory; live broker order writes and automatic live-fill promotion disabled; PR #6 open/draft/unmerged; original `Tradepro` untouched.
+
+
+## Phase 3 CI failure and correction — 26 October 2026
+
+- Exact tested PR merge ref for branch head `8f37b81914e1b46318d16d7c99ee5490449e8f06` failed backend pytest: **1,002 passed, 1 failed**. The sole failure was a brittle wording assertion in `test_gst_candidate_remains_draft_when_historical_note_conflicts_with_current_public_base`; the evidence text correctly described the note as “materially different from Upstox's current public pricing page”, while the test expected different wording. This was a test/evidence-text mismatch, not a GST candidate approval or calculation failure.
+- Corrected the assertion in commit `f792627fb0ead15551e2506731b183e9b91482bb`. The resulting head's CI must be verified before claiming green; this checkpoint is not yet accepted.
+- GST component sets remain DRAFT. The historical note is unauthenticated and not current proof; do not guess the taxable base. Safety remains unchanged: PAPER mandatory, live broker writes and automatic live-fill promotion disabled, PR #6 draft/unmerged, original `Tradepro` untouched.

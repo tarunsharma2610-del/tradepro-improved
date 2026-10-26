@@ -1,3 +1,15 @@
+## Latest work-in-progress checkpoint — 26 October 2026 (CI pending; supersedes prior code head for current work)
+
+- Target only: `tarunsharma2610-del/tradepro-improved`, branch `phase3/cross-broker-gst-ipft-resolution`. Latest verified green baseline remains `f9d302fce03e504985e96582a7af71b14fd89f28`, Backend CI #40366645906 (1,034 passed, 1 warning); this is **not** verification of the new GST statutory engine.
+- New implementation: `backend/app/services/statutory_stock_broking_gst.py`; tests: `backend/tests/test_statutory_stock_broking_gst.py`. Implementation/test commits: `dcad71e148b89a2c384631b36090008c8fad193e` and `037ad2da02dca34c399e0ec454674c50ae65b5a7`. Documentation synchronization commits follow those code/test changes. **Exact-head CI is pending/unverified.**
+- Engine implements section 15 default inclusion of supplier charges/third-party recoveries; a recovery is excluded only if every modeled Rule 33 pure-agent evidence condition is true. It applies IGST Act section 12(12) recipient location in supplier records, falling back to supplier state only when recipient location is not recorded; state comparison selects IGST or CGST+SGST.
+- Rounding detail: each intra-state 9% tax head is rounded independently to paise; total returned GST equals CGST+SGST. Tests include half-paise edge cases. This accounting convention still requires independent review before any live accounting approval.
+- Important limitation: service is not yet wired into actual per-fill accounting and does not resolve every broker's tariff policy. Upstox Brokerage Details API sample still conflicts with the published GST component description; keep the sample discrepancy explicit. Public estimates do not become actual invoice evidence.
+- Next gate: verify exact current branch head, run/check backend CI; fix any failures; checkpoint only the exact green head. Then continue broker/segment/date policy mapping, combined/separate IPFT resolver, DP/demat persistence/reconciliation, and integration tests. No personal contract note is needed.
+- Safety: PR #6/#7 remain Draft/unmerged; PAPER-only; live broker order writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
+
+---
+
 ## Latest authoritative checkpoint — 26 October 2026 (verified CI)
 
 - Target: [tarunsharma2610-del/tradepro-improved](https://github.com/tarunsharma2610-del/tradepro-improved), branch `phase3/cross-broker-gst-ipft-resolution`. Current verified code head before this checkpoint sync: `9d3f255480da9a71980a9d3819fbb69a34835753`.

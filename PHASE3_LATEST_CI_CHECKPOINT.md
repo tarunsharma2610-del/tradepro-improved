@@ -90,3 +90,12 @@ Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` re
 - CBIC permits exclusion of statutory recoveries such as STT/stamp duty only when pure-agent conditions are met; otherwise apply Section 15 and applicable valuation rules: https://cbic-gst.gov.in/sectoral-faq.html and https://cbic-gst.gov.in/valuation-rules.html. Do not hard-code universal exclusion without evidence.
 - No GST candidate is promoted. Missing/null API fields remain unknown, not zero. Any later API ingestion must preserve raw response/hash, retrieval time, query segment/date range, schema version and invoice linkage. Do not use the brokerage calculator as actual-charge evidence or infer per-fill values from aggregate responses.
 - Next gate: source-backed GST acceptance/reconciliation using actual invoice/contract-note evidence and per-product component sets, then exact-head CI and documentation verification. PAPER mandatory; live broker order writes disabled; PR #6 remains draft/unmerged; original `Tradepro` untouched.
+
+
+## GST/IPFT verification research — 26 October 2026 (work in progress)
+
+- Research evidence and decision matrix: [docs/UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md](docs/UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md).
+- Current official Upstox schedule states 18% GST on brokerage + transaction charges + IPFT, plus demat for equity delivery. NSE circular NSE/FA/73061 supports the combined NSE charge from 1 March 2026: ₹307/crore cash, ₹183/crore futures and ₹3,553/crore options premium, including ₹0.01/crore IPFT. Never add IPFT twice.
+- CBIC confirms brokerage is taxable and statutory-recovery exclusion depends on Rule 33 pure-agent conditions. This does not resolve every product-specific GST component in Upstox's billing. Public historical contract-note copies are not authenticated/current proof; aggregate API data is not per-fill proof and nullable IPFT stays unknown.
+- Decision: all four GST component-set candidates remain DRAFT. Continue with focused regression tests and resolve taxable-base mapping before any approval. This is a source-research checkpoint only; exact-head CI is required after the documentation commit.
+- PR #6 remains open/draft/unmerged; PAPER mandatory; live broker writes and automatic live-fill promotion disabled; original `Tradepro` untouched.

@@ -2867,3 +2867,13 @@ Historical entries remain historical records; they must not override this curren
 - CBIC permits exclusion of statutory recoveries such as STT/stamp duty only when pure-agent conditions are met; otherwise apply Section 15 and applicable valuation rules: https://cbic-gst.gov.in/sectoral-faq.html and https://cbic-gst.gov.in/valuation-rules.html. Do not hard-code universal exclusion without evidence.
 - No GST candidate is promoted. Missing/null API fields remain unknown, not zero. Any later API ingestion must preserve raw response/hash, retrieval time, query segment/date range, schema version and invoice linkage. Do not use the brokerage calculator as actual-charge evidence or infer per-fill values from aggregate responses.
 - Next gate: source-backed GST acceptance/reconciliation using actual invoice/contract-note evidence and per-product component sets, then exact-head CI and documentation verification. PAPER mandatory; live broker order writes disabled; PR #6 remains draft/unmerged; original `Tradepro` untouched.
+
+
+## GST/IPFT verification research checkpoint — 26 October 2026
+
+- Research artifact: [docs/UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md](docs/UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md).
+- Official Upstox public schedule and API docs, NSE circular NSE/FA/73061, CBIC stock-broking FAQs/valuation rules, and public historical contract-note examples were reviewed.
+- Supported: 18% as Upstox's published GST rate; NSE combined transaction/IPFT outflow effective 2026-03-01 of ₹307/crore cash, ₹183/crore futures, ₹3,553/crore options premium, with ₹0.01/crore IPFT included. Do not double-count IPFT on top of the combined charge.
+- Not approved: GST taxable-component sets for delivery/intraday/futures/options; BSE cash scrip-group/futures assumptions; stamp duty, SEBI, clearing/other and DP/demat tax-base composition. Public historical notes are unauthenticated and not current proof; API aggregate charges do not prove per-fill values. `ipft: null` is unknown, not zero.
+- Next: targeted tests for combined-vs-split IPFT, null field semantics, effective-date boundaries and GST-base component guardrails; then exact-head CI. Do not enable production tariff or automatic per-fill allocation from this research alone.
+- Safety unchanged: PAPER mandatory; live broker order writes and automatic live-fill promotion disabled; PR #6 open/draft/unmerged; original `Tradepro` untouched.

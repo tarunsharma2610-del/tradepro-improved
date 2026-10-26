@@ -3019,3 +3019,13 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Public GST estimate rule resolved: 18% on brokerage + combined transaction/IPFT exchange_charges, with explicit demat_charges additionally for equity delivery. Never double-count IPFT; do not add STT, stamp duty or SEBI to this published estimate base. API example mismatch is a documentation-example discrepancy; it does not override the published Upstox schedule.
 - Actual account invoice/per-fill GST is still evidence-gated; actual candidate records remain DRAFT. User is not required to supply a personal contract note. This does not block public-schedule estimate implementation.
 - Scope/safety unchanged: only tarunsharma2610-del/tradepro-improved; original Tradepro untouched; PAPER mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; PR #6 remains open/draft/unmerged; AI/Algory deferred until Phase 3 acceptance.
+
+
+## GST/IPFT continuation — 26 October 2026 (new draft branch; CI pending)
+
+- Created branch `phase3/cross-broker-gst-ipft-resolution` from the existing Phase 3 branch; created Draft PR #7: https://github.com/tarunsharma2610-del/tradepro-improved/pull/7
+- Added `docs/CROSS_BROKER_GST_IPFT_POLICY_RESEARCH_2026-10-26.md` with official NSE circular, CBIC pure-agent boundary, and broker-published Upstox/Zerodha/Angel One/Groww source observations.
+- Added `backend/app/services/broker_gst_component_policy.py`: fail-closed exact-scope/effective-date policy selection; DRAFT policies cannot calculate; explicit component sets; combined/separate/not-applicable IPFT modes prevent duplicate representations; finite nonnegative decimal inputs and paise rounding.
+- Added `backend/tests/test_broker_gst_component_policy.py` for IPFT mode validation, effective-date selection, duplicate/ambiguous rules, invalid amounts and exact component sets.
+- **Not yet complete:** the new generic policy primitive is not yet wired into the existing Upstox estimate path; cross-broker candidates remain unapproved; canonical DP/demat persistence/migration is still a separate accounting gate; exact-head CI has not yet reported a run for the new PR head. Do not call this a completed GST fix until integration, tests and CI pass.
+- Safety unchanged: PR #6 stays Draft/unmerged; PAPER mandatory; live broker writes disabled; original `tarunsharma2610-del/Tradepro` untouched; no personal contract note requested.

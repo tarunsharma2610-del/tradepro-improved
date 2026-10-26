@@ -96,6 +96,8 @@ def test_gst_estimate_does_not_claim_actual_billing_or_approve_actual_candidates
         taxable_components={"brokerage": "20.00", "exchange_charges": "0.31"},
     )
     assert estimate.source_kind == "PUBLIC_SCHEDULE_ESTIMATE_ONLY"
+    # Public estimates have no review-status field and cannot confer accounting approval.
+    assert not hasattr(estimate, "review_status")
     assert all(candidate.review_status == "DRAFT" for candidate in upstox_gst_component_set_candidates())
 
 

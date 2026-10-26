@@ -183,7 +183,7 @@ def test_gst_component_set_candidates_are_scoped_draft_and_never_tax_notional():
     assert all(candidate.exchanges == ("NSE", "BSE") for candidate in candidates)
     assert all(candidate.rate_percent == "18" for candidate in candidates)
     assert all(candidate.review_status == "DRAFT" for candidate in candidates)
-    assert all(candidate.source_sha256 if hasattr(candidate, "source_sha256") else candidate.source_snapshot_sha256 == SOURCE_SNAPSHOT_SHA256 for candidate in candidates)
+    assert all(candidate.source_snapshot_sha256 == SOURCE_SNAPSHOT_SHA256 for candidate in candidates)
     assert all(candidate.source_url.startswith("https://") for candidate in candidates)
     by_product = {(candidate.segment, candidate.product): candidate for candidate in candidates}
     assert set(by_product) == {

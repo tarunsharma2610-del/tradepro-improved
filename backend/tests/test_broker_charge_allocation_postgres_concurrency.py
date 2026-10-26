@@ -654,6 +654,8 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
             db.execute(text("DELETE FROM executions WHERE broker_connection_id = :id"), {"id": str(connection_id)})
             db.execute(text("DELETE FROM live_positions WHERE broker_connection_id = :id"), {"id": str(connection_id)})
             db.execute(text("DELETE FROM broker_charge_allocations WHERE evidence_id = :id"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_charge_canonical_source_links WHERE canonical_component_id IN (SELECT id FROM broker_charge_canonical_components WHERE evidence_id = :id)"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_charge_canonical_components WHERE evidence_id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_charge_source_components WHERE evidence_id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_trade_records WHERE broker_connection_id = :id"), {"id": str(connection_id)})
             db.execute(text("DELETE FROM broker_orders WHERE broker_connection_id = :id"), {"id": str(connection_id)})
@@ -662,8 +664,9 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
             db.execute(text("DELETE FROM orders WHERE id = :id"), {"id": str(order_id)})
             db.execute(text("DELETE FROM instruments WHERE id = :id"), {"id": str(instrument_id)})
             db.execute(text("DELETE FROM portfolios WHERE id = :id"), {"id": str(portfolio_id)})
-            db.execute(text("DELETE FROM users WHERE id IN (:owner, :reviewer, :extractor)"),
-                        {"owner": str(owner_id), "reviewer": str(reviewer_id), "extractor": str(extractor_id)})
+            db.execute(text("DELETE FROM users WHERE id IN (:owner, :reviewer, :extractor, :creator, :canonical_reviewer)"),
+                        {"owner": str(owner_id), "reviewer": str(reviewer_id), "extractor": str(extractor_id),
+                         "creator": str(snapshot_creator_id), "canonical_reviewer": str(canonical_reviewer_id)})
         engine.dispose()
 
 

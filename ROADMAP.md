@@ -1733,3 +1733,13 @@ Historical entries remain historical records; they must not override this curren
 - Next: after documentation checkpoint CI is green, audit whether any conflicting-set/rollback/concurrency acceptance gap remains, add tests only for verified gaps, then rerun the full backend gate.
 - Mandatory protocol: every CI failure → inspect full failure, fix root cause and rerun; every CI pass → update all 18 maintained checkpoint documents, commit a checkpoint with exact SHA/run/results/next step, then verify CI on that checkpoint commit itself.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched. PR #6 stays draft/unmerged. PAPER mode mandatory; live broker order writes disabled. GST/IPFT tariff acceptance remains a separate production-evidence gate; synthetic engineering work is not blocked.
+
+
+## Authoritative exact-head checkpoint — 26 October 2026
+
+- Repository: `tarunsharma2610-del/tradepro-improved`; branch: `phase3/durable-per-fill-charge-allocation`; verified implementation commit: `ac7d27f2c9922925483b5b906c484c0d5a4e3f53`.
+- Backend CI [run #40287765745](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40287765745) passed on this exact commit. Backend pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore/evidence retention succeeded. Synthetic restore is not proof of actual Oracle Cloud recovery.
+- Latest change approves identified effective-dated public Upstox STT/exchange-rate rules for **estimate-only** use. It does not approve account-specific actual charges, GST taxable-base composition, stamp duty, SEBI/DP/demat/other charges, unsupported exchange/segment mappings, or per-fill actual evidence. Candidate tariff entries remain DRAFT unless separately allowlisted/reviewed.
+- Phase 3 remains in progress. Next gates: independently reviewed effective-dated tariff applicability and component-specific per-fill allocation acceptance; invoice/source-backed GST/IPFT/product evidence; final adversarial/migration/recovery review; exact-head sign-off. Do not repeat canonical live-fill integration.
+- Safety unchanged: PAPER mode mandatory; live broker order writes, automatic live-fill promotion and automatic scheduling remain disabled; PR #6 remains open/draft/unmerged absent explicit user approval; original `Tradepro` is out of scope.
+- Documentation sync must pass CI on its own resulting commit before further implementation. Historical entries remain historical.

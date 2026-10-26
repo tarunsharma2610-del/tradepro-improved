@@ -61,7 +61,7 @@ def test_separate_ipft_policy_requires_both_rows_and_disallows_combined_total():
     )
     assert base == Decimal("25.85")
     assert gst == Decimal("4.65")
-    with pytest.raises(ValueError, match="SEPARATE mode"):
+    with pytest.raises(ValueError, match="SEPARATE IPFT mode"):
         policy(
             ipft_mode="SEPARATE",
             taxable_components=("brokerage", "exchange_charges", "ipft"),

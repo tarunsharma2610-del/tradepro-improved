@@ -1,3 +1,15 @@
+# Latest verified Phase 3 checkpoint — 27 October 2026 (DP/demat Execution persistence + charge-total recomputation)
+
+- **Latest verified code/test head:** `31ce2a10bcc789c223608c6566082b24aea7358c` on `phase3/cross-broker-gst-ipft-resolution`.
+- **Exact-head Backend CI:** [#40383076131 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40383076131). The Backend pytest job completed successfully for the exact head above. This confirms CI success for this increment; do not infer full Phase 3 acceptance from CI alone.
+- **Commit contents:** added migration `backend/alembic/versions/202610260028_execution_demat_charge.py`; added `backend/app/services/execution_charge_totals.py` for centralized total-charge recomputation; updated `backend/app/models/execution.py` and `backend/app/services/execution_service.py`; added `backend/tests/test_execution_charge_totals.py`.
+- **DP/demat status:** optional DP/demat has dedicated Execution persistence and a central total-recomputation path. The exact-head test run passed. The next work is a focused audit of optional/unknown semantics, equity-delivery versus non-delivery behavior, migration round-trips, idempotency, rollback, and interaction with the durable per-fill allocation/reconciliation flow.
+- **GST/IPFT status:** continue from the existing statutory GST engine, effective-dated cross-broker policy resolution, and combined/separate/not-applicable IPFT representation work. Do not restart or describe these as unimplemented. Actual invoice-level acceptance and independent tariff approval remain separate evidence/review gates; no personal contract note is required.
+- **Documentation synchronization:** this checkpoint file is being refreshed first. After this commit, check CI on the resulting documentation head and then synchronize the other maintained project documents to the same verified state; do not claim the docs head is green until its own run succeeds.
+- **Safety:** only `tarunsharma2610-del/tradepro-improved`; PR #6 and PR #7 remain Draft/unmerged; PAPER mode mandatory; live broker order writes and automatic live-fill promotion/scheduling remain disabled; original `tarunsharma2610-del/Tradepro` is out of scope and must not be modified.
+
+---
+
 # Latest verified Phase 3 checkpoint — 26 October 2026 (DP/demat snapshot gate)
 
 - **Latest exact-head docs-sync CI:** [#40382369408 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40382369408) on maintained-doc head `261e54a9b3857fb0d4190be0d7ad14510ced4760`: **1,057 passed, 1 warning**. Broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill and retained evidence passed.

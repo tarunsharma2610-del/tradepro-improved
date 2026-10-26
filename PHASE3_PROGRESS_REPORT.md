@@ -55,7 +55,7 @@ Do not infer completion percentages from test count or number of documentation u
 | Canonical per-fill allocation wired to live-fill accounting | **Implemented; exact-head CI verified** | Live accounting requires six independently verified canonical snapshots and reconciled allocations, exact fill manifest/weights and source totals; combined/split IPFT canonicalizes once. **Approved tariff/component-specific rule selection remains open.** Generic QUANTITY/NOTIONAL allocation remains disabled unless component-specific rules approve it. |
 | Real live-fill service vs canonical allocation verification/promotion concurrency | **Partially verified; broader gate open** | PostgreSQL exact-head CI now exercises the real `LiveFillAccountingService.promote_trade` path against canonical allocation promotion. Pending fail-closed/retry, exact replay and no-partial-write behavior are covered. Remaining: broader multi-fill duplicate replay, conflicting fill-set/source-change races and additional fault injection. |
 | Migrations, adversarial review and restore | **Prior synthetic CI checks passed; final review open** | Recheck SQLite and PostgreSQL 16 upgrade/downgrade/re-upgrade, broker-write boundary, evidence retention and synthetic restore on final HEAD. Actual retained Oracle backup restore is a separate operational check. |
-| Dedicated Phase 3 roadmap/instructions/progress reporting | **Created; latest-doc CI pending** | `PHASE3_ROADMAP.md`, `PHASE3_INSTRUCTIONS.md` and this report define gates, safety constraints and update rules. Verify exact current HEAD before marking documentation checkpoint green. |
+| Dedicated Phase 3 roadmap/instructions/progress reporting | **Updated; current status edit CI pending** | The 25-file checkpoint sync passed CI; the subsequent gate-status correction is the current documentation head and must pass exact-head CI before implementation resumes. |
 | Phase 3 sign-off / PR merge | **Not complete** | All acceptance gates and evidence gaps must be reconciled; PR #6 remains draft/unmerged until explicit user approval. No live-trading enablement is included in Phase 3 closure. |
 
 ## Next actions — in order
@@ -70,9 +70,9 @@ Do not infer completion percentages from test count or number of documentation u
 ## Verified step log
 
 | Date | Commit / workflow | Result |
-|---|---|
+|---|---|---|
 | 2026-10-26 | `255fc208eed4bc8b922977717209d27912055377`; [CI #40286205714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286205714) | **Passed:** 962 passed, 1 warning, 0 failures; broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore and evidence retention passed. Canonical live-fill integration and combined/split IPFT tests are included. |
-| 2026-10-26 | `c3166b05a132fe2339cebc7940e5cb1aa71152cf`; [CI #40286698642](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286698642) | **Passed:** 25 maintained checkpoint documents synchronized and exact-head Backend CI succeeded. This follow-up status edit requires its own exact-head CI. |---|
+| 2026-10-26 | `c3166b05a132fe2339cebc7940e5cb1aa71152cf`; [CI #40286698642](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286698642) | **Passed:** 25 maintained checkpoint documents synchronized and exact-head Backend CI succeeded. This follow-up status edit requires its own exact-head CI. |
 | 2026-10-25 | `97843aec1d9b0acc4d55d0fc4529b4ea5b81fd50`; [CI #40187635881](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40187635881) | **Passed:** 907 passed, 1 warning, 0 failures. This result applies to that SHA only. |
 | 2026-10-25 | New Phase 3 roadmap and instruction documents | Committed after the verified implementation SHA; exact-head CI is pending and must be recorded here only after it succeeds. |
 

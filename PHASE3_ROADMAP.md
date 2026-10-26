@@ -87,12 +87,12 @@ NSE circular NSE/FA/73061 (27 February 2026; effective 1 March 2026) gives combi
 **Acceptance result:** canonicalization, source review, allocation persistence, reconciliation and live-fill consumption use the same canonical mapping. Tariff applicability and invoice/tax acceptance remain separate open gates below.
 
 ### Gate 2 — Complete evidence-backed component and tariff-rule selection
-**Status: open.**
-- Inventory each charge component: brokerage, transaction charges/IPFT, STT/CTT, GST, stamp duty, applicable demat charges, clearing/other charges only where supported.
-- Require product/segment/side, effective dates, source record, reviewer/approval and precise rule identity where relevant.
-- Keep unverified rates and mappings DRAFT. Do not use generic quantity/notional allocation unless a reviewed component-specific rule explicitly supports that basis.
-- Treat official documentation, API schemas and authentic contract notes/invoices as separate evidence types; public examples alone do not authenticate the user's actual booked values.
-**Accept when:** approved rules are scoped and versioned, overlapping/expired rules fail closed, and no unsupported component is silently dropped or guessed.
+**Status: partially closed for public-schedule estimate rules; actual-account applicability remains open.**
+- A new explicit allowlist approves exactly 18 effective-dated STT/exchange-charge identities for public-schedule estimates only. The original candidate registry remains DRAFT; changes to rate, scope, effective date, source URL or source hash fail closed until re-review.
+- The approved subset covers the public STT transitions and exchange-charge rates corroborated by the dated Upstox source snapshot and NSE/FA/73061. It does not establish a user's account-specific brokerage plan or actual booked charges.
+- GST composition, stamp duty, SEBI turnover, DP/demat, clearing/other charges, BSE cash scrip groups, BSE futures, MCX and currency rules remain unapproved/unsupported until their exact scope and effective-date evidence is verified.
+- The current public brokerage calculator may display stale rates; it is an estimate cross-check, not the effective-dated source of record.
+**Accept when:** all in-scope estimate rules are approved and versioned, overlapping/expired rules fail closed, and actual-charge evidence remains separate from estimates. Unsupported product/segment rules must remain blocked.
 
 ### Gate 3 — Wire approved rules into per-fill allocation
 **Status: partially implemented; source-specific rule approval remains open.**

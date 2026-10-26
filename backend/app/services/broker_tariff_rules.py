@@ -182,6 +182,41 @@ def _calculate_rate_amount(
     return amount.quantize(PAISE, rounding="ROUND_HALF_UP")
 
 
+def calculate_stt_for_trade(
+    rule: TariffRule,
+    *,
+    product: str,
+    transaction_side: str,
+    calculation_base: Decimal | str | int | float,
+) -> Decimal:
+    """Calculate only an explicitly scoped STT shape from an approved rule.
+
+    This is estimate arithmetic, not legal advice or proof of booked charges.
+    Unsupported exchange/product/side/base combinations fail closed.
+    """
+    if not isinstance(rule, TariffRule) or rule.component.lower() != "stt":
+        raise ValueError("An STT tariff rule is required.")
+    if rule.review_status != "APPROVED":
+        raise ValueError("Only an approved tariff rule can be calculated.")
+    if rule.exchange != "NSE":
+        raise ValueError("STT calculation is enabled only for the reviewed NSE rule scope.")
+    if product != rule.product or transaction_side != rule.transaction_side:
+        raise ValueError("STT product and transaction side must exactly match the selected rule.")
+    allowed_shapes = {
+        ("DELIVERY", "BUY", "TURNOVER", "EQ"),
+        ("DELIVERY", "SELL", "TURNOVER", "EQ"),
+        ("INTRADAY", "SELL", "TURNOVER", "EQ"),
+        ("FUTURES", "SELL", "TURNOVER", "FO"),
+        ("OPTIONS", "SELL", "PREMIUM", "FO"),
+        ("OPTIONS_EXERCISED", "BUY", "INTRINSIC_VALUE", "FO"),
+    }
+    if (product, transaction_side, rule.calculation_basis, rule.segment) not in allowed_shapes:
+        raise ValueError("Unsupported STT product/side/calculation-basis combination.")
+    if rule.rate_unit != "PERCENT":
+        raise ValueError("STT requires a percentage-based approved rule.")
+    return _calculate_rate_amount(rule, calculation_base)
+
+
 def calculate_tariff_amount(
     rule: TariffRule,
     *,

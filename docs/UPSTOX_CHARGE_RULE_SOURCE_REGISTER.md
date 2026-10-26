@@ -61,6 +61,14 @@ Returns a charge breakdown for a segment and financial year, including total, br
 
 These pages explain how to obtain a real contract note and its role as a legal trade/charge record. Third-party examples in docs/UPSTOX_CONTRACT_NOTE_AND_API_EVIDENCE.md are not independently authenticated; use only for format research and synthetic fixtures. A personal note is optional for ongoing engineering, not a prerequisite to implement the generic engine.
 
+## Public schedule estimate-only review decision — 26 October 2026
+
+- Decision record: `docs/UPSTOX_TARIFF_REVIEW_DECISION.md`.
+- Exact allowlist: `backend/app/services/upstox_public_estimate_rules.py`; it promotes only the reviewed 18 STT/exchange-charge identities from the DRAFT candidate registry to APPROVED copies for **public-schedule estimates only**.
+- Public estimate snapshots are labelled `PUBLIC_SCHEDULE_ESTIMATE_ONLY`. The allowlist is bound to canonical source-payload SHA-256 `c59f7e940fde6b0d94ca1189766f16e5601c117d4a8c2bcd2415da0ecd6db420`; changed identities, effective dates, source URLs or hashes fail closed.
+- This approval does not authorize account-specific brokerage assumptions or actual-charge promotion. GST/tax composition, stamp duty, SEBI, DP/demat, clearing/other, BSE cash scrip groups, BSE futures, MCX and currency remain unapproved/unsupported.
+- Actual per-fill accounting still requires reviewed contract-note evidence and the canonical reconciled allocation path. The estimate registry is not imported by `LiveFillAccountingService`.
+
 ## Rule status and known gaps
 
 - Brokerage arithmetic helper/tests exist, but effective-dated product/order-specific rules must be selected before use.

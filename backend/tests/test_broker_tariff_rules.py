@@ -668,3 +668,52 @@ def test_upstox_nse_exchange_candidates_do_not_leak_into_bse_or_mcx():
     }
     assert not any(rule.exchange == "MCX" for rule in rules)
     assert all(rule.review_status == "DRAFT" for rule in rules)
+
+
+@pytest.mark.parametrize(
+    ("product", "side", "basis", "segment", "rate", "base", "expected"),
+    [
+        ("FUTURES", "SELL", "TURNOVER", "FO", "0.05", "1000000", "500.00"),
+        ("OPTIONS", "SELL", "PREMIUM", "FO", "0.15", "100000", "150.00"),
+        ("OPTIONS_EXERCISED", "BUY", "INTRINSIC_VALUE", "FO", "0.15", "100000", "150.00"),
+        ("DELIVERY", "BUY", "TURNOVER", "EQ", "0.1", "100000", "100.00"),
+    ],
+)
+def test_stt_specialized_calculator_requires_and_applies_exact_rule_shape(
+    product, side, basis, segment, rate, base, expected
+):
+    from app.services.broker_tariff_rules import calculate_stt_for_trade
+
+    rule = make_rule(
+        component="stt",
+        product=product,
+        transaction_side=side,
+        calculation_basis=basis,
+        segment=segment,
+        rate=Decimal(rate),
+        rate_unit="PERCENT",
+    )
+    assert calculate_stt_for_trade(
+        rule, product=product, transaction_side=side, calculation_base=base
+    ) == Decimal(expected)
+
+
+def test_stt_specialized_calculator_rejects_wrong_side_product_or_unreviewed_rule():
+    from app.services.broker_tariff_rules import calculate_stt_for_trade
+
+    rule = make_rule(
+        component="stt", product="FUTURES", transaction_side="SELL",
+        calculation_basis="TURNOVER", segment="FO",
+    )
+    with pytest.raises(ValueError, match="product and transaction side"):
+        calculate_stt_for_trade(
+            rule, product="FUTURES", transaction_side="BUY", calculation_base="100000"
+        )
+    with pytest.raises(ValueError, match="approved tariff rule"):
+        calculate_stt_for_trade(
+            make_rule(
+                component="stt", product="FUTURES", transaction_side="SELL",
+                calculation_basis="TURNOVER", segment="FO", review_status="DRAFT",
+            ),
+            product="FUTURES", transaction_side="SELL", calculation_base="100000",
+        )

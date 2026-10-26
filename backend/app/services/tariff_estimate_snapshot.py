@@ -15,7 +15,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
-from app.services.broker_tariff_rules import TariffRule, calculate_order_brokerage, calculate_tariff_amount
+from app.services.broker_tariff_rules import TariffRule, calculate_order_brokerage, calculate_stt_for_trade, calculate_tariff_amount
 
 
 SNAPSHOT_SCHEMA_VERSION = "tariff-estimate-snapshot-v4"
@@ -91,6 +91,7 @@ def build_tariff_estimate_snapshot(
     trade_date: date,
     calculation_base: Decimal | str | int | float,
     source_identity: str,
+    source_kind: str = "REVIEWED_TARIFF_RULE",
     source_trade_record_id: UUID | str | None = None,
     comparison_scope: str = "TRADE_FILL",
     source_fill_record_ids: list[UUID | str] | tuple[UUID | str, ...] | None = None,
@@ -102,6 +103,8 @@ def build_tariff_estimate_snapshot(
         raise ValueError("Only an approved tariff rule can be snapshotted.")
     if not source_identity or not source_identity.strip():
         raise ValueError("Stable source_identity is required for idempotency.")
+    if source_kind not in {"REVIEWED_TARIFF_RULE", "PUBLIC_SCHEDULE_ESTIMATE_ONLY"}:
+        raise ValueError("Unsupported tariff estimate source_kind.")
     if trade_date < rule.effective_from or (rule.effective_to and trade_date > rule.effective_to):
         raise ValueError("Tariff rule is not effective on the trade date.")
 
@@ -136,6 +139,13 @@ def build_tariff_estimate_snapshot(
     base = _decimal_string(calculation_base, "Calculation base")
     if rule.component.lower() == "brokerage" and rule.calculation_basis in {"ORDER_NOTIONAL", "ORDER_FIXED"}:
         amount = calculate_order_brokerage(rule, order_notional=Decimal(base))
+    elif rule.component.lower() == "stt":
+        amount = calculate_stt_for_trade(
+            rule,
+            product=rule.product,
+            transaction_side=rule.transaction_side,
+            calculation_base=Decimal(base),
+        )
     else:
         amount = calculate_tariff_amount(rule, calculation_base=Decimal(base))
     rule_payload: dict[str, Any] = {
@@ -192,6 +202,7 @@ def build_tariff_estimate_snapshot(
         comparison_scope=comparison_scope,
         source_fill_ids_json=fill_ids_json,
         source_fill_set_sha256=fill_set_sha256,
+        source_kind=source_kind,
     )
 
 

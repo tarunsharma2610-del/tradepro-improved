@@ -35,6 +35,7 @@ from app.services.position_math import apply_fill
 from app.services.portfolio_risk_service import check_portfolio_order
 from app.services.market_data_stream_manager import market_data_stream_manager
 from app.services.transaction_costs import Segment, Side, calculate_costs
+from app.services.execution_charge_totals import recompute_execution_total_charges
 
 
 class OrderValidationError(Exception):
@@ -357,10 +358,14 @@ class ExecutionService:
             sebi_charges=costs.sebi_charges,
             stamp_duty=costs.stamp_duty,
             gst=costs.gst,
+            demat_transaction_charges=None,
             total_charges=costs.total_charges,
             realized_pnl=update.realized_pnl,
             executed_at=now,
         )
+        # One shared component-based total calculation keeps the optional DP/demat
+        # field null when not sourced, and includes it only when explicitly present.
+        recompute_execution_total_charges(execution)
         self.db.add(execution)
         self.db.commit()
 

@@ -41,6 +41,8 @@ class Execution(BaseModel):
     sebi_charges: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     stamp_duty: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     gst: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
+    # Nullable so historical/non-delivery rows do not fabricate a DP/demat amount.
+    demat_transaction_charges: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
     total_charges: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
 
     # Paper fills default to estimated charges; live promotion requires audited broker-reported charges.

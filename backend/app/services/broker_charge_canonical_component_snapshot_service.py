@@ -218,7 +218,7 @@ def materialize_canonical_charge_component_snapshots(
         raise ValueError("Reviewed explicit weights are not in canonical JSON representation.")
 
     result: list[BrokerChargeCanonicalComponent] = []
-    for canonical_name in sorted(SUPPORTED_CANONICAL_COMPONENTS):
+    for canonical_name in sorted(mapping):
         source_names = set(mapping[canonical_name])
         source_rows = [row for row in records if row.component_name in source_names]
         source_rows.sort(key=lambda row: (row.component_name, row.revision, str(row.id)))

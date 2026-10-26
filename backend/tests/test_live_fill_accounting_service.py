@@ -44,7 +44,7 @@ def _charges(**overrides):
     return LiveFillChargeBreakdown(**values)
 
 
-def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001", trade_record_id=None):
+def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001", trade_record_id=None, representation="DIRECT"):
     db, user, _portfolio, _instrument, connection, *_rest = accounting_context
     if trade_record_id is not None:
         reference = f"{reference}-{str(trade_record_id)[:8]}"
@@ -98,14 +98,49 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
         if not source_components:
             manifest = json.dumps([str(record.id)], separators=(",", ":"))
             manifest_hash = hashlib.sha256(manifest.encode("utf-8")).hexdigest()
+            from app.services.broker_charge_representation_contract import CONTRACT_VERSION
+            raw_rows = []
             for name, amount in expected.items():
+                if name != "exchange_charges" or representation == "DIRECT":
+                    raw_rows.append({
+                        "component_name": name, "source_amount": amount,
+                        "source_label": name, "representation_mode": None,
+                        "representation_contract_version": None,
+                    })
+                elif representation == "COMBINED":
+                    raw_rows.append({
+                        "component_name": "transaction_charges", "source_amount": amount,
+                        "source_label": "Transaction Charges (includes IPFT)",
+                        "representation_mode": "COMBINED_TRANSACTION_AND_IPFT",
+                        "representation_contract_version": CONTRACT_VERSION,
+                    })
+                elif representation == "SPLIT":
+                    raw_rows.extend([
+                        {
+                            "component_name": "transaction_charges", "source_amount": Decimal("0.00"),
+                            "source_label": "Transaction Charges (excluding IPFT)",
+                            "representation_mode": "SPLIT_TRANSACTION_AND_IPFT",
+                            "representation_contract_version": CONTRACT_VERSION,
+                        },
+                        {
+                            "component_name": "ipft", "source_amount": amount,
+                            "source_label": "IPFT",
+                            "representation_mode": "SPLIT_TRANSACTION_AND_IPFT",
+                            "representation_contract_version": CONTRACT_VERSION,
+                        },
+                    ])
+                else:
+                    raise ValueError(f"Unsupported test source representation: {representation}")
+            for raw in raw_rows:
                 db.add(BrokerChargeSourceComponent(
                     evidence_id=evidence.id,
                     source_sha256=evidence.source_sha256,
-                    component_name=name,
-                    source_label=name,
+                    component_name=raw["component_name"],
+                    source_label=raw["source_label"],
+                    representation_mode=raw["representation_mode"],
+                    representation_contract_version=raw["representation_contract_version"],
                     revision=1,
-                    source_amount=amount,
+                    source_amount=raw["source_amount"],
                     currency="INR",
                     extraction_method="MANUAL_TRANSCRIPTION",
                     component_set_version=LIVE_FILL_COMPONENT_SET_VERSION,
@@ -286,6 +321,28 @@ def test_promote_live_trade_atomically_updates_live_position_and_execution_only(
     assert Decimal(str(portfolio.cash_balance)) == cash_before
     assert order.status == "PENDING"
     assert db.query(Execution).count() == 1
+
+
+@pytest.mark.parametrize("representation", ["COMBINED", "SPLIT"])
+def test_live_fill_accounting_canonicalizes_exchange_ipft_once(accounting_context, representation):
+    db, user, _portfolio, _instrument, connection, _order, _child, record, _paper_position = accounting_context
+    charges = _reviewed_charges(
+        accounting_context,
+        reference=f"contract-note-canonical-{representation.lower()}",
+        representation=representation,
+    )
+
+    result = LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+
+    execution = db.query(Execution).filter_by(
+        broker_connection_id=connection.id, broker_trade_id=record.broker_trade_id
+    ).one()
+    assert result.inserted is True
+    assert execution.exchange_charges == Decimal("0.01")
+    assert execution.total_charges == Decimal("23.86")
+    assert db.query(BrokerChargeAllocation).filter_by(
+        evidence_id=charges.evidence_id, broker_trade_record_id=record.id
+    ).count() == 6
 
 
 def test_replaying_same_broker_trade_does_not_double_count_position(accounting_context):

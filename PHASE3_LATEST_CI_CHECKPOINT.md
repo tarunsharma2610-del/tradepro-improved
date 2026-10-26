@@ -1,3 +1,14 @@
+# Latest verified Phase 3 checkpoint — 27 October 2026 (DP/demat accounting + maintained-doc synchronization)
+
+- **Verified code/test head:** `31ce2a10bcc789c223608c6566082b24aea7358c`; Backend CI [#40383076131 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40383076131).
+- **Checkpoint commit:** `61f23e5ce714c37a97f996f5f75c1963cc1136e6`. The first CI triggered for that checkpoint commit was [#40383798007](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40383798007); it was running when checked, so do not describe it as green without a completed result.
+- **Documentation synchronization:** the 29 maintained Phase 3 project documents listed in the branch tree were refreshed with this 27 October status note. This checkpoint refresh follows that batch. Individual document commits triggered concurrent CI runs; final docs-head CI must be checked against the eventual branch head, not inferred from earlier per-file runs.
+- **DP/demat implementation in the verified code head:** optional Execution DP/demat persistence, migration `backend/alembic/versions/202610260028_execution_demat_charge.py`, central total recomputation `backend/app/services/execution_charge_totals.py`, Execution/service integration, and tests `backend/tests/test_execution_charge_totals.py`. Next gate is focused audit of unknown-vs-zero semantics, delivery/non-delivery rules, migration round-trips, idempotency, rollback, and integration with durable per-fill allocation/reconciliation.
+- **GST/IPFT:** continue from the completed statutory GST engine and cross-broker/effective-dated IPFT representation work. Do not restart this work. Independent tariff approval and actual invoice/per-fill acceptance remain separate review/evidence gates; the user does not need to provide a personal contract note.
+- **Safety:** only `tarunsharma2610-del/tradepro-improved`; PR #6/#7 remain Draft/unmerged; PAPER mandatory; live broker writes and automatic live-fill promotion/scheduling disabled; original `tarunsharma2610-del/Tradepro` untouched and out of scope.
+
+---
+
 # Latest verified Phase 3 checkpoint — 27 October 2026 (DP/demat Execution persistence + charge-total recomputation)
 
 - **Latest verified code/test head:** `31ce2a10bcc789c223608c6566082b24aea7358c` on `phase3/cross-broker-gst-ipft-resolution`.

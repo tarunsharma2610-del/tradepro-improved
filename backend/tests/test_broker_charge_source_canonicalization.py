@@ -98,13 +98,13 @@ def test_reviewed_dp_demat_is_an_optional_separate_canonical_component():
     rows = canonical_rows()
     rows.append(SourceChargeRow("demat_transaction_charges", "20.00", "DP Charges"))
     result = canonicalize_reviewed_source_components(rows)
-    assert result["canonical_components"]["demat_transaction_charges"] == "20.00"
+    assert result["optional_canonical_components"]["demat_transaction_charges"] == "20.00"
     assert result["optional_source_components_by_canonical"]["demat_transaction_charges"] == [
         "demat_transaction_charges"
     ]
     assert set(result["canonical_components"]) == {
         "brokerage", "stt", "exchange_charges", "sebi_charges",
-        "stamp_duty", "gst", "demat_transaction_charges",
+        "stamp_duty", "gst",
     }
     assert set(result["source_components_by_canonical"]) == {
         "brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"
@@ -114,7 +114,7 @@ def test_reviewed_dp_demat_is_an_optional_separate_canonical_component():
 
 def test_absent_dp_demat_is_not_fabricated_as_zero():
     result = canonicalize_reviewed_source_components(canonical_rows())
-    assert "demat_transaction_charges" not in result["canonical_components"]
+    assert "demat_transaction_charges" not in result["optional_canonical_components"]
 
 
 def test_duplicate_or_missing_source_labels_are_rejected():

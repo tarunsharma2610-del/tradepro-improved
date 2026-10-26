@@ -1966,3 +1966,8 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 ## Phase 3 GST/IPFT closeout addendum — 26 October 2026
 
 Active continuation: Draft PR #7, `phase3/cross-broker-gst-ipft-resolution`. Research and generic GST component policy primitives are added; the work is not accepted until integrated and CI-verified. The required finish line is cross-broker/effective-dated taxable-component policies, combined-vs-separate IPFT safeguards, source-backed regression tests, DP/demat canonical accounting support, exact-head passing CI, and synchronized checkpoints. No personal contract note is required to implement public tariff rules; actual invoice acceptance remains evidence-gated. Do not advance to Phase 4/Upstox/UI/AI integrations before Phase 3 gates are met.
+
+
+## GST/IPFT verification update — 26 October 2026
+
+The new shared GST component policy is now connected to the Upstox public-schedule estimate helper. The prior CI run failed due to one incorrect test-message assertion; the assertion is corrected, and the helper distinguishes NSE combined IPFT from BSE options where NSE IPFT does not apply. Exact-head CI after the fix is still pending and must be verified. Remaining Phase 3 gates: source-backed cross-broker policies/tests, DP/demat canonical persistence/migration, exact-head passing CI and final synchronized checkpoint. Do not advance to Phase 4 before these gates pass.

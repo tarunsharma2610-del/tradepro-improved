@@ -2179,3 +2179,10 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Public GST estimate rule resolved: 18% on brokerage + combined transaction/IPFT exchange_charges, with explicit demat_charges additionally for equity delivery. Never double-count IPFT; do not add STT, stamp duty or SEBI to this published estimate base. API example mismatch is a documentation-example discrepancy; it does not override the published Upstox schedule.
 - Actual account invoice/per-fill GST is still evidence-gated; actual candidate records remain DRAFT. User is not required to supply a personal contract note. This does not block public-schedule estimate implementation.
 - Scope/safety unchanged: only tarunsharma2610-del/tradepro-improved; original Tradepro untouched; PAPER mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; PR #6 remains open/draft/unmerged; AI/Algory deferred until Phase 3 acceptance.
+
+
+## GST/IPFT audit addendum — 26 October 2026
+
+Cross-broker research now documents that GST is a statutory 18% rate but the component set must be explicit and broker/product/effective-date scoped. NSE circular NSE/FA/73061 effective 2026-03-01 changes the transaction/IPFT split while retaining total outflow; a combined charge representation must not receive a second IPFT addition. CBIC's pure-agent treatment for STT/stamp-duty/other tax recoveries is conditional on Rule 33 criteria, not a blanket rule for every broker line item.
+
+A fail-closed generic policy primitive and tests have been added on Draft PR #7. This does not yet close the audit finding: integration with the Upstox estimate path, broader cross-broker source-backed candidate tests, DP/demat canonical persistence/migration and exact-head CI remain open. Do not approve live tariffs or actual invoice accounting based on this addendum alone.

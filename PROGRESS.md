@@ -1,3 +1,11 @@
+## Deferred future work recorded — 26 October 2026
+
+- Added [AI integration and Algory.app gap plan](docs/AI_INTEGRATION_ALGORY_GAP_PLAN.md) and linked it from `MASTER_ROADMAP.md` and `HANDOVER.md`.
+- This is planning/documentation only; no AI integration or strategy engine changes were made. Phase 3 remains the active priority. Resume AI/Algory audit only after Phase 3 acceptance.
+- Exact-head CI for these documentation commits must be checked before declaring the documentation checkpoint green.
+
+---
+
 ## CURRENT AUTHORITATIVE CHECKPOINT — 26 October 2026 (GST per-fill allocation test CI passed)
 
 - Repository: `tarunsharma2610-del/tradepro-improved`; branch: `phase3/durable-per-fill-charge-allocation`; PR #6 remains open/draft.

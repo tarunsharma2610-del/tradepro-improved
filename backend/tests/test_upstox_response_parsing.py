@@ -309,17 +309,6 @@ def test_parse_brokerage_details_preserves_estimate_components_and_dp_charge():
 
 
 @pytest.mark.parametrize(
-    "mutate",
-    [
-        lambda p: p.update(status="error"),
-        lambda p: p["data"]["charges"].update(total=999),
-        lambda p: p["data"]["charges"]["taxes"].update(gst="NaN"),
-        lambda p: p["data"]["charges"]["other_charges"].update(transaction=-1),
-        lambda p: p["data"]["charges"]["other_charges"].pop("sebi_turnover"),
-        lambda p: p["data"]["charges"]["dp_plan"].update(min_expense="Infinity"),
-    ],
-)
-@pytest.mark.parametrize(
     ("field_path", "field"),
     [
         (("other_charges", "clearing"), "data.charges.other_charges.clearing"),
@@ -337,6 +326,17 @@ def test_parse_brokerage_details_rejects_null_optional_charges_as_unknown(field_
         parse_brokerage_details(payload)
 
 
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda p: p.update(status="error"),
+        lambda p: p["data"]["charges"].update(total=999),
+        lambda p: p["data"]["charges"]["taxes"].update(gst="NaN"),
+        lambda p: p["data"]["charges"]["other_charges"].update(transaction=-1),
+        lambda p: p["data"]["charges"]["other_charges"].pop("sebi_turnover"),
+        lambda p: p["data"]["charges"]["dp_plan"].update(min_expense="Infinity"),
+    ],
+)
 def test_parse_brokerage_details_rejects_malformed_or_inconsistent_response(mutate):
     payload = _brokerage_payload()
     mutate(payload)

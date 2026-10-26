@@ -7,6 +7,7 @@ import pytest
 
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_charge_allocation import BrokerChargeAllocation
+from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_order import BrokerOrder
@@ -45,52 +46,129 @@ def _charges(**overrides):
 
 def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001", trade_record_id=None):
     db, user, _portfolio, _instrument, connection, *_rest = accounting_context
-    # Keep the synthetic source bytes and reviewer lookup local to this helper;
-    # fixture-local variables are not visible in this function scope.
     if trade_record_id is not None:
         reference = f"{reference}-{str(trade_record_id)[:8]}"
-    # Evidence has a per-connection unique source hash; distinct synthetic
-    # contract-note references must therefore have distinct source bytes.
     synthetic_document = f"synthetic test contract note:{reference.strip()}".encode("utf-8")
     reviewer = db.query(User).filter_by(email="live-accounting-reviewer@example.com").one()
-    evidence = db.query(BrokerChargeEvidence).filter_by(broker_connection_id=connection.id, broker_report_reference=reference).one_or_none()
+    snapshot_creator = db.query(User).filter_by(email="canonical-snapshot-creator@example.com").one()
+    canonical_reviewer = db.query(User).filter_by(email="canonical-snapshot-reviewer@example.com").one()
+    evidence = db.query(BrokerChargeEvidence).filter_by(
+        broker_connection_id=connection.id, broker_report_reference=reference
+    ).one_or_none()
     if evidence is None:
         from datetime import date
         from uuid import uuid4
         storage_key = uuid4().hex
         db._synthetic_charge_documents[storage_key] = synthetic_document
-        evidence = BrokerChargeEvidence(broker_connection_id=connection.id, source_kind="CONTRACT_NOTE", broker_report_reference=reference.strip(), report_date=date(2026, 10, 18), segment="NSE", source_filename="reviewed-contract-note.pdf", storage_key=storage_key, source_sha256=hashlib.sha256(synthetic_document).hexdigest(), byte_size=len(synthetic_document), parser_version="phase3-test", status="REVIEWED", reviewed_at=datetime.now(timezone.utc), reviewed_by_user_id=reviewer.id)
+        evidence = BrokerChargeEvidence(
+            broker_connection_id=connection.id,
+            source_kind="CONTRACT_NOTE",
+            broker_report_reference=reference.strip(),
+            report_date=date(2026, 10, 18),
+            segment="NSE",
+            source_filename="reviewed-contract-note.pdf",
+            storage_key=storage_key,
+            source_sha256=hashlib.sha256(synthetic_document).hexdigest(),
+            byte_size=len(synthetic_document),
+            parser_version="phase3-test",
+            status="REVIEWED",
+            reviewed_at=datetime.now(timezone.utc),
+            reviewed_by_user_id=reviewer.id,
+        )
         db.add(evidence)
         db.flush()
     else:
         evidence.broker_report_reference = reference.strip()
-    record = db.get(BrokerTradeRecord, trade_record_id) if trade_record_id else db.query(BrokerTradeRecord).filter_by(broker_trade_id="trade-live-001").one()
-    expected = {"brokerage": Decimal("20.00"), "stt": Decimal("0.20"), "exchange_charges": Decimal("0.01"), "sebi_charges": Decimal("0.01"), "stamp_duty": Decimal("0.03"), "gst": Decimal("3.61")}
-    existing = db.query(BrokerChargeAllocation).filter_by(evidence_id=evidence.id, broker_trade_record_id=record.id).all()
-    if not existing:
-        manifest = json.dumps([str(record.id)], separators=(",", ":"))
-        manifest_hash = hashlib.sha256(manifest.encode("utf-8")).hexdigest()
-        for name, amount in expected.items():
-            component = BrokerChargeSourceComponent(
-                evidence_id=evidence.id, source_sha256=evidence.source_sha256, component_name=name,
-                revision=1, source_amount=amount, currency="INR", extraction_method="MANUAL_TRANSCRIPTION",
-                component_set_version=LIVE_FILL_COMPONENT_SET_VERSION,
-                parser_version="phase3-test", source_locator="test fixture / page 1",
-                eligible_fill_ids_json=manifest, eligible_fill_set_sha256=manifest_hash,
-                eligible_fill_weights_json=json.dumps([{"fill_record_id": str(record.id), "weight": "1"}], separators=(",", ":")),
-                rounding_policy=METHOD_VERSION, allocation_basis="EXPLICIT_REVIEWED",
-                extracted_by_user_id=user.id, status="VERIFIED", reviewed_by_user_id=reviewer.id,
-                reviewed_at=datetime.now(timezone.utc), review_note="Synthetic unit-test fixture",
-            )
-            db.add(component)
+    record = (
+        db.get(BrokerTradeRecord, trade_record_id)
+        if trade_record_id
+        else db.query(BrokerTradeRecord).filter_by(broker_trade_id="trade-live-001").one()
+    )
+    expected = {
+        "brokerage": Decimal("20.00"),
+        "stt": Decimal("0.20"),
+        "exchange_charges": Decimal("0.01"),
+        "sebi_charges": Decimal("0.01"),
+        "stamp_duty": Decimal("0.03"),
+        "gst": Decimal("3.61"),
+    }
+    snapshots = db.query(BrokerChargeCanonicalComponent).filter_by(evidence_id=evidence.id).all()
+    if not snapshots:
+        source_components = db.query(BrokerChargeSourceComponent).filter_by(evidence_id=evidence.id).all()
+        if not source_components:
+            manifest = json.dumps([str(record.id)], separators=(",", ":"))
+            manifest_hash = hashlib.sha256(manifest.encode("utf-8")).hexdigest()
+            for name, amount in expected.items():
+                db.add(BrokerChargeSourceComponent(
+                    evidence_id=evidence.id,
+                    source_sha256=evidence.source_sha256,
+                    component_name=name,
+                    source_label=name,
+                    revision=1,
+                    source_amount=amount,
+                    currency="INR",
+                    extraction_method="MANUAL_TRANSCRIPTION",
+                    component_set_version=LIVE_FILL_COMPONENT_SET_VERSION,
+                    parser_version="phase3-test",
+                    source_locator="test fixture / page 1",
+                    eligible_fill_ids_json=manifest,
+                    eligible_fill_set_sha256=manifest_hash,
+                    eligible_fill_weights_json=json.dumps(
+                        [{"fill_record_id": str(record.id), "weight": "1"}],
+                        separators=(",", ":"),
+                    ),
+                    rounding_policy=METHOD_VERSION,
+                    allocation_basis="EXPLICIT_REVIEWED",
+                    extracted_by_user_id=user.id,
+                    status="VERIFIED",
+                    reviewed_by_user_id=reviewer.id,
+                    reviewed_at=datetime.now(timezone.utc),
+                    review_note="Synthetic unit-test fixture",
+                ))
             db.flush()
-            db.add(BrokerChargeAllocation(
-                evidence_id=evidence.id, broker_connection_id=connection.id, broker_trade_record_id=record.id,
-                charge_component=name, source_component_total=amount, allocated_amount=amount,
-                currency="INR", allocation_basis="EXPLICIT_REVIEWED", method_version=METHOD_VERSION,
-                status="RECONCILED", reconciliation_reference=f"charge-component:{component.id}:sha256:{evidence.source_sha256}:fills:{manifest_hash}",
-            ))
-    db.commit()
+
+        from app.services.broker_charge_canonical_component_snapshot_service import (
+            materialize_canonical_charge_component_snapshots,
+        )
+        snapshots = materialize_canonical_charge_component_snapshots(
+            db, evidence_id=evidence.id, requested_by_user_id=snapshot_creator.id
+        )
+        db.commit()
+
+        from app.services.broker_charge_canonical_component_review_service import (
+            review_canonical_charge_component_snapshot,
+        )
+        for snapshot in snapshots:
+            review_canonical_charge_component_snapshot(
+                db,
+                snapshot_id=snapshot.id,
+                reviewer_user_id=canonical_reviewer.id,
+                decision="VERIFIED",
+                review_note="Independent synthetic canonical-snapshot review",
+            )
+            db.commit()
+
+        from app.services.broker_charge_canonical_allocation_persistence_service import (
+            allocate_and_persist_canonical_snapshot,
+        )
+        for snapshot in snapshots:
+            allocate_and_persist_canonical_snapshot(
+                db,
+                snapshot_id=snapshot.id,
+                broker_connection_id=connection.id,
+                broker_report_reference=reference.strip(),
+            )
+            db.commit()
+
+        from app.services.broker_charge_canonical_allocation_reconciliation_service import (
+            promote_verified_canonical_component_allocations,
+        )
+        for snapshot in snapshots:
+            promote_verified_canonical_component_allocations(
+                db, snapshot_id=snapshot.id, reviewer_user_id=canonical_reviewer.id
+            )
+            db.commit()
+
     return _charges(reference=reference, evidence_id=evidence.id, reviewer_user_id=reviewer.id)
 
 
@@ -99,11 +177,23 @@ def accounting_context(db_session, make_user, monkeypatch):
     user = make_user()
     reviewer = make_user(email="live-accounting-reviewer@example.com")
     reviewer.is_admin = True
+    snapshot_creator = make_user(email="canonical-snapshot-creator@example.com")
+    snapshot_creator.is_admin = True
+    canonical_reviewer = make_user(email="canonical-snapshot-reviewer@example.com")
+    canonical_reviewer.is_admin = True
     # Keep each synthetic document keyed by its opaque storage key so tests
     # can model distinct uploaded notes without violating the unique source hash.
     db_session._synthetic_charge_documents = {}
     monkeypatch.setattr(
         "app.services.broker_charge_source_reconciliation_service.read_verified_document",
+        lambda **kwargs: db_session._synthetic_charge_documents[kwargs["storage_key"]],
+    )
+    monkeypatch.setattr(
+        "app.services.broker_charge_canonical_component_snapshot_service.read_verified_document",
+        lambda **kwargs: db_session._synthetic_charge_documents[kwargs["storage_key"]],
+    )
+    monkeypatch.setattr(
+        "app.services.broker_charge_canonical_component_review_service.read_verified_document",
         lambda **kwargs: db_session._synthetic_charge_documents[kwargs["storage_key"]],
     )
     portfolio = PortfolioRepository(db_session).create(
@@ -273,7 +363,7 @@ def test_non_reconciled_charge_allocations_block_live_accounting(accounting_cont
     allocation.status = status
     db.commit()
 
-    with pytest.raises(ValueError, match="Pending, rejected, or unreferenced"):
+    with pytest.raises(ValueError, match="Canonical allocation rows do not match|No allocations are linked"):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -290,7 +380,7 @@ def test_missing_component_allocation_blocks_live_accounting(accounting_context)
     db.delete(allocation)
     db.commit()
 
-    with pytest.raises(ValueError, match="exactly six reconciled per-fill"):
+    with pytest.raises(ValueError, match="No allocations are linked|exactly six canonical per-fill charge allocations"):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0

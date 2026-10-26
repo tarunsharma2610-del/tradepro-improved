@@ -1,12 +1,13 @@
-## Authoritative Phase 3 checkpoint — 26 October 2026
+## Authoritative Phase 3 checkpoint — 26 October 2026 (latest verified CI)
 
-- Repository: `tarunsharma2610-del/tradepro-improved` only; branch `phase3/durable-per-fill-charge-allocation`; implementation head `a3f3473eb8f57b4fb6b83c95ddb18d8b3bd22e90`. Original `Tradepro` remains out of scope.
-- Exact-head Backend CI: [run #40292395932 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40292395932). Backend tests, broker-write boundary, SQLite/PostgreSQL migration round-trips, and synthetic restore drill passed; synthetic restore is not proof of actual Oracle recovery.
-- GST validation: supported Indian brokerage/market-charge estimate helper now accepts only 18% GST; tests reject 0%, 5%, 100%, and 100.01%. Taxable component names still require explicit approval/evidence. This does not determine the legal taxable base or make estimates actual booked charges.
-- Brokerage order-level cap is applied once before deterministic paise-exact allocation by reviewed fill weights.
-- Phase 3 remains IN PROGRESS: effective-dated tariff review; component-specific per-fill allocation acceptance; invoice/source-backed GST/IPFT and product/segment evidence; adversarial/migration/recovery review; final exact-head sign-off. Do not redo canonical live-fill integration.
-- Public tariff data and calculator/aggregate APIs are estimate/research evidence, not account-specific actual per-fill evidence. Do not infer approval of GST base composition, stamp duty, unsupported mappings, or missing IPFT values.
-- PAPER mandatory; live broker order writes, automatic live-fill promotion and automatic scheduling disabled. PR #6 remains open/draft/unmerged unless explicitly approved. Defer AI/open-source adaptations until Phase 3 acceptance. This documentation commit needs its own CI.
+- Target repository only: `tarunsharma2610-del/tradepro-improved`; branch `phase3/durable-per-fill-charge-allocation`; implementation/test head `44830ec48b50b4f470ec9ca95dd2d3f4339dd3df`. Do not modify original `Tradepro`.
+- Exact-head Backend CI: [run #40294178677 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40294178677), including the test separating NSE/IPFT arithmetic reconciliation from GST taxable-base approval.
+- GST estimate helper accepts exactly 18%; tests reject 0%, 5%, 100%, and 100.01%. This is a rate guard only; taxable component composition remains evidence/reviewer-controlled.
+- ₹307/crore versus ₹306.99/crore transaction charge + ₹0.01/crore IPFT is arithmetic reconciliation only, not GST-base approval.
+- Canonical live-fill integration is verified: six independently verified charge snapshots, source/mapping/fill evidence revalidated under lock, no raw-only fallback; brokerage cap applied once before deterministic paise-exact allocation.
+- Remaining Phase 3 gates: effective-dated tariff applicability; component-specific per-fill allocation acceptance; invoice/source-backed GST/IPFT and product/segment evidence; adversarial/migration/recovery review; final exact-head documentation/sign-off. Do not redo canonical integration.
+- Upstox public schedules/calculator are estimates; aggregate charges endpoint is not actual per-fill evidence. Null remains unknown, not zero. Synthetic restore is not actual Oracle recovery.
+- PAPER mandatory; live broker writes, automatic live-fill promotion and automatic scheduling disabled. PR #6 stays open/draft/unmerged unless explicitly approved. Defer AI/open-source adaptations until Phase 3 acceptance. This docs commit needs its own CI.
 
 ---
 

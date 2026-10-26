@@ -1,3 +1,13 @@
+## Deferred AI integration plan — Algory.app included (26 October 2026)
+
+- Persistent plan: [docs/AI_INTEGRATION_ALGORY_GAP_PLAN.md](docs/AI_INTEGRATION_ALGORY_GAP_PLAN.md).
+- This is deliberately deferred until Phase 3 is accepted; it does not authorize AI implementation now.
+- The later audit must explicitly evaluate Algory.app-inspired strategy discovery, out-of-sample/walk-forward validation, baseline comparisons, Monte Carlo stress testing, parameter sensitivity, richer performance reporting, portfolio diversification, candidate provenance, backtest-to-paper parity and strategy-decay monitoring against existing source and tests.
+- Reuse existing Tradepro Improved strategy/backtest/risk/accounting foundations; implement only verified gaps. Keep deterministic accounting/risk controls outside LLM authority, paper mode mandatory and live broker writes disabled.
+- The eight planned research-agent roles and acceptance checklist are recorded in the linked plan. Do not treat historical capability notes as proof of current implementation; re-audit at Phase 3 completion.
+
+---
+
 ## Authoritative Phase 3 checkpoint — 26 October 2026 (latest verified CI)
 
 - Target repository only: `tarunsharma2610-del/tradepro-improved`; branch `phase3/durable-per-fill-charge-allocation`; implementation/test head `44830ec48b50b4f470ec9ca95dd2d3f4339dd3df`. Do not modify original `Tradepro`.

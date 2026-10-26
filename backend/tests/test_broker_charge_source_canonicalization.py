@@ -94,11 +94,24 @@ def test_direct_exchange_and_transaction_rows_cannot_double_map():
         canonicalize_reviewed_source_components(rows)
 
 
-def test_extra_evidence_only_component_blocks_mapping_until_reviewed_rule_exists():
+def test_reviewed_dp_demat_is_an_optional_separate_canonical_component():
     rows = canonical_rows()
     rows.append(SourceChargeRow("demat_transaction_charges", "20.00", "DP Charges"))
-    with pytest.raises(ValueError, match="Unsupported evidence-only components"):
-        canonicalize_reviewed_source_components(rows)
+    result = canonicalize_reviewed_source_components(rows)
+    assert result["canonical_components"]["demat_transaction_charges"] == "20.00"
+    assert result["source_components_by_canonical"]["demat_transaction_charges"] == [
+        "demat_transaction_charges"
+    ]
+    assert set(result["canonical_components"]) == {
+        "brokerage", "stt", "exchange_charges", "sebi_charges",
+        "stamp_duty", "gst", "demat_transaction_charges",
+    }
+    assert result["accounting_approved"] is False
+
+
+def test_absent_dp_demat_is_not_fabricated_as_zero():
+    result = canonicalize_reviewed_source_components(canonical_rows())
+    assert "demat_transaction_charges" not in result["canonical_components"]
 
 
 def test_duplicate_or_missing_source_labels_are_rejected():

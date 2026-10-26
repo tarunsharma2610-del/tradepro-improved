@@ -546,3 +546,8 @@ Search results for publicly indexed Upstox realized-P&L reports covering FY 2025
 ## Follow-up correction to brittle evidence assertion — 26 October 2026
 
 The first wording-only assertion adjustment still failed because the exact phrase in the evidence document is split by Markdown emphasis (`**materially different**`). Updated the regression test to assert the stable semantic phrase `materially different` rather than formatting-sensitive exact markup. This is a test-only wording fix; the evidence finding and all GST candidate DRAFT statuses are unchanged. The current exact-head CI run must pass before the checkpoint is accepted.
+
+
+## Contract-note evidence added — 26 October 2026
+
+Public indexed Upstox note copies show three historical GST-base presentations: 11-Feb-2025 brokerage ₹2.96 + turnover ₹0.01 = ₹2.97 base and IGST ₹0.53; 21-May-2024 brokerage ₹0.01 + SEBI ₹0.11 + turnover ₹3.44 + demat ₹74 = ₹77.56 base and IGST ₹13.96, with IPFT ₹0.11 outside the displayed base; 12-Mar-2025 brokerage ₹2.75 base and IGST ₹0.50. Source URLs and arithmetic are recorded in UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md. These third-party copies show historical billing variation, not a universal rule. For current estimate-only logic, follow the current official Upstox published base (brokerage + transaction charges + demat + IPFT), canonicalizing IPFT inside combined transaction charges once. Actual per-fill GST remains evidence-gated.

@@ -278,3 +278,8 @@ Public-format review is complete using the linked third-party examples; no perso
 ## GST/IPFT cross-source verification — 26 October 2026
 
 See [UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md](UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md). The current Upstox page supports 18% and states product-specific GST components; NSE circular NSE/FA/73061 supports the revised combined transaction/IPFT arithmetic from 1 March 2026. The Upstox Trades Charges API documents separate output fields for transaction, clearing, IPFT, GST, SEBI and demat but is scoped to segment/FY/date-range totals and may return IPFT null. This is not per-fill proof. Historical public contract notes are useful for schema/layout but are unauthenticated and predate the current tariff window; they do not settle current GST-base composition. Keep GST candidates DRAFT and do not request a personal note as a prerequisite to engineering.
+
+
+## Contract-note sample reconciliation update — 26 October 2026
+
+Three publicly indexed Upstox contract notes were checked for the printed GST taxable-value lines and arithmetic (11-Feb-2025: ₹2.97 base / ₹0.53 IGST; 21-May-2024: ₹77.56 base / ₹13.96 IGST with IPFT separately excluded from that displayed base; 12-Mar-2025: ₹2.75 base / ₹0.50 IGST). Links and component details are in UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md. They are third-party historical copies. Current estimate-only rule follows the current official Upstox schedule; actual-charge accounting still requires reviewed current invoice evidence.

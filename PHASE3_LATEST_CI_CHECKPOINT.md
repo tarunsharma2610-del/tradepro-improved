@@ -117,3 +117,8 @@ Publicly indexed Upstox realized-P&L reports for FY 2025–26 show aggregate GST
 ## Follow-up correction to brittle evidence assertion — 26 October 2026
 
 The first wording-only assertion adjustment still failed because the exact phrase in the evidence document is split by Markdown emphasis (`**materially different**`). Updated the regression test to assert the stable semantic phrase `materially different` rather than formatting-sensitive exact markup. This is a test-only wording fix; the evidence finding and all GST candidate DRAFT statuses are unchanged. The current exact-head CI run must pass before the checkpoint is accepted.
+
+
+## GST/IPFT invoice evidence checkpoint update — 26 October 2026
+
+Direct public contract-note search now includes 11-Feb-2025, 21-May-2024 and 12-Mar-2025 Upstox note copies, with component sums and GST rounding independently reconciled. These historical third-party copies show different printed bases; they do not establish one universal/current actual-charge rule. The current official Upstox page does support the estimate-only direction: 18% on brokerage + transaction charges + demat + IPFT, with IPFT combined into transaction charges and counted once. Do not add SEBI to this current estimate base without current billing evidence. This narrows the research issue: public-schedule estimate direction is set, while actual-account invoice reconciliation remains a separate review gate. Exact-head CI must be checked before acceptance.

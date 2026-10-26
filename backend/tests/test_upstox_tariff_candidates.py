@@ -220,3 +220,19 @@ def test_gst_candidate_remains_draft_when_historical_note_conflicts_with_current
     assert "materially different" in evidence
     assert "cannot be authenticated" in evidence
     assert "not the correct current 2026 rule" in evidence
+
+
+def test_public_upstox_contract_note_examples_have_reconciled_gst_arithmetic_and_current_estimate_rule():
+    """Historical notes validate arithmetic but do not override current tariff."""
+    repository_root = Path(__file__).resolve().parents[2]
+    evidence = (
+        repository_root / "docs/UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md"
+    ).read_text(encoding="utf-8")
+    for value in ("₹2.97", "₹0.53", "₹77.56", "₹13.96", "₹2.75", "₹0.50"):
+        assert value in evidence
+    assert "11 February 2025" in evidence
+    assert "21 May 2024" in evidence
+    assert "March 2025" in evidence
+    assert "canonical exchange transaction charge including IPFT once" in evidence
+    assert "estimate-only" in evidence
+    assert all(candidate.review_status == "DRAFT" for candidate in upstox_gst_component_set_candidates())

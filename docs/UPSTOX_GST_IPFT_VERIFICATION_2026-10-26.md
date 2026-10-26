@@ -85,3 +85,38 @@ A publicly indexed Upstox realized-P&L report for October–November 2025 likewi
 Important legal-source nuance: CBIC's sectoral FAQ Q7 states that, under Section 15, value is inclusive of taxes except GST unless the Rule 33 pure-agent benefit applies; Q77 specifically addresses stockbroking recoveries and says exclusion depends on meeting Rule 33 conditions. Sources: https://cbic-gst.gov.in/sectoral-faq.html and https://cbic-gst.gov.in/valuation-rules.html. This makes it unsafe to assume that a label such as `SEBI`, `IPFT`, or `exchange charge` alone decides inclusion/exclusion. The broker's actual supply/invoice treatment and legal characterization must be reconciled. This research still does not authenticate the 2024 note or prove the current 2026 component set.
 
 **Decision unchanged:** all four GST component candidates remain DRAFT. Current public P&L reports do not expose the necessary GST taxable-base breakdown; community posts are not authoritative evidence. Do not activate GST component sets or derive GST from trade notional/turnover.
+
+
+## Direct contract-note image/PDF evidence — searched 26 October 2026
+
+The search located two full text-extracted Upstox contract-note/tax-invoice copies, in addition to the earlier 2024 example. These are public third-party Scribd copies, not authenticated Upstox originals; their arithmetic can be checked, but they are evidence of the displayed invoice for those dates only.
+
+### Example A — 11 February 2025, NSE equity cash
+Source: https://www.scribd.com/document/888335885/pdf (title: Upstox Settlement Details for 11/02/2025; indexed copy says digitally signed 11 Feb 2025).
+
+- Brokerage summary: ₹2.96.
+- TURNOVER CHG: ₹0.01.
+- IGST 18% On Brokerage: ₹0.53.
+- GST Taxable Value of Supply: brokerage ₹2.96 + turnover charge ₹0.01 = ₹2.97.
+- Recalculation: ₹2.97 × 18% = ₹0.5346, rounded to ₹0.53.
+- This displayed taxable base does not include a separately itemized SEBI, IPFT, or demat charge in this example; the note does not display a separate IPFT line. Absence of a line is not proof that a charge was zero or universally excluded.
+
+### Example B — 21 May 2024, NSE equity cash
+Source: https://www.scribd.com/document/735902961/CW-T-842243-20240521-NSE-35749411.
+
+- Brokerage ₹0.01 + SEBI fee ₹0.11 + turnover charge ₹3.44 + demat transaction charge ₹74.00 = taxable value ₹77.56.
+- IGST ₹13.96; ₹77.56 × 18% = ₹13.9608, rounded to ₹13.96.
+- IPFT ₹0.11 is listed separately and excluded from that printed taxable-value sum.
+
+### Example C — 12 March 2025, NSE equity cash
+Source: https://www.scribd.com/document/971660843/CW-T-3JCTYG-20250312-NSE-66319975-1.
+
+- Brokerage ₹2.75; IGST ₹0.50; printed taxable value ₹2.75.
+- ₹2.75 × 18% = ₹0.495, rounded to ₹0.50.
+- The indexed example has no separate turnover/IPFT line in its displayed summary, so it supports only the narrow brokerage-only base for that note.
+
+### Reconciliation conclusion
+
+The actual notes demonstrate that Upstox's printed taxable-base composition varied across historical notes/charge situations: (A) brokerage + turnover charge; (B) brokerage + SEBI + turnover + demat, but not the separately listed IPFT; (C) brokerage only. The current official Upstox pricing page now states GST is 18% of brokerage + transaction charges + demat + IPFT, and says IPFT is combined with transaction charges. That current tariff is the right source for a current public-schedule estimate, with combined exchange/IPFT represented once; it does not retroactively rewrite historical invoice examples.
+
+Practical decision: use the current official schedule as an estimate-only rule for new effective-dated candidate calculations: 18% × (brokerage + canonical exchange transaction charge including IPFT once + demat/DP where applicable). Do not add SEBI turnover fees to that estimate base unless the current applicable Upstox billing policy says so. Preserve raw separately reported fields as evidence and never infer zero from missing fields. Keep actual per-fill GST promotion gated on reviewed current contract-note evidence because the public historical copies do not prove the user's current plan/segment billing implementation.

@@ -2896,3 +2896,8 @@ Historical entries remain historical records; they must not override this curren
 ## Follow-up correction to brittle evidence assertion — 26 October 2026
 
 The first wording-only assertion adjustment still failed because the exact phrase in the evidence document is split by Markdown emphasis (`**materially different**`). Updated the regression test to assert the stable semantic phrase `materially different` rather than formatting-sensitive exact markup. This is a test-only wording fix; the evidence finding and all GST candidate DRAFT statuses are unchanged. The current exact-head CI run must pass before the checkpoint is accepted.
+
+
+## Contract-note search findings and GST implementation direction — 26 October 2026
+
+Located and reconciled three public Upstox contract-note copies. Historical printed bases differ: Feb 2025 ₹2.97 (brokerage ₹2.96 + turnover ₹0.01) -> IGST ₹0.53; May 2024 ₹77.56 (brokerage + SEBI + turnover + demat) -> IGST ₹13.96, with IPFT separately listed outside the base; March 2025 brokerage-only ₹2.75 -> IGST ₹0.50. Arithmetic rounds correctly. The copies are not authenticated/current, so they show historical billing presentation rather than a single universal/current actual-charge rule. For current public-schedule estimates, use Upstox's current official rule: 18% on brokerage + transaction charges + demat + IPFT, with IPFT included exactly once in the canonical combined transaction charge. Do not include SEBI in this current estimate base absent current source support. Actual per-fill GST remains gated on reviewed current invoice evidence.

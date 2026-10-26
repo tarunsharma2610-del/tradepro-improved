@@ -1,3 +1,11 @@
+## Deferred follow-up reminder — AI integration and Algory.app
+
+- Do not start AI integration until Phase 3 is accepted. The persistent plan is [docs/AI_INTEGRATION_ALGORY_GAP_PLAN.md](docs/AI_INTEGRATION_ALGORY_GAP_PLAN.md); the master roadmap links it.
+- The plan includes the Algory.app capability gap matrix and eight research-agent roles. At Phase 3 completion, re-audit current code/tests and decide only verified gaps; do not duplicate existing engines.
+- Current work remains Phase 3 tariff/component evidence gates. PAPER mandatory; live broker order writes disabled; PR #6 stays draft/unmerged absent explicit approval; original Tradepro repository untouched.
+
+---
+
 ## Authoritative Phase 3 checkpoint — 26 October 2026 (latest verified CI)
 
 - Target repository only: `tarunsharma2610-del/tradepro-improved`; branch `phase3/durable-per-fill-charge-allocation`; implementation/test head `44830ec48b50b4f470ec9ca95dd2d3f4339dd3df`. Do not modify original `Tradepro`.

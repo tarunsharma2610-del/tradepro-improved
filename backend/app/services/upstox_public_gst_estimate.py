@@ -12,7 +12,10 @@ from datetime import date
 from decimal import Decimal
 from typing import Mapping
 
-from app.services.broker_tariff_rules import TariffRule, calculate_gst_on_explicit_components
+from app.services.broker_gst_component_policy import (
+    GstComponentPolicy,
+    calculate_gst_estimate,
+)
 from app.services.upstox_tariff_candidates import (
     RETRIEVED_ON,
     SOURCE_SNAPSHOT_SHA256,
@@ -83,27 +86,23 @@ def calculate_upstox_public_gst_estimate(
             "exchange_charges already includes transaction/IPFT once."
         )
 
-    rule = TariffRule(
-        component="gst",
+    policy = GstComponentPolicy(
         broker="Upstox",
         exchange=normalized_scope[0],
         segment=normalized_scope[1],
         product=normalized_scope[2],
-        transaction_side="BOTH",
-        calculation_basis="GST_TAXABLE_COMPONENT_SUM",
-        rate=GST_RATE_PERCENT,
-        rate_unit="PERCENT",
         effective_from=GST_EFFECTIVE_FROM,
         effective_to=None,
+        taxable_components=tuple(sorted(expected)),
+        ipft_mode="COMBINED",
         source_url=UPSTOX_CHARGES_URL,
         source_retrieved_on=RETRIEVED_ON,
         source_sha256=SOURCE_SNAPSHOT_SHA256,
         review_status="APPROVED",
     )
-    base, amount = calculate_gst_on_explicit_components(
-        rule,
-        taxable_components=dict(taxable_components),
-        approved_taxable_component_names=tuple(sorted(expected)),
+    base, amount = calculate_gst_estimate(
+        policy,
+        components=dict(taxable_components),
     )
     return UpstoxPublicGstEstimate(
         source_kind=PUBLIC_SCHEDULE_ESTIMATE_ONLY,

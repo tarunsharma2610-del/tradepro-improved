@@ -1,8 +1,10 @@
 """Upstox public-schedule GST estimate only; never actual-charge evidence.
 
 Scope is limited to documented exchange/product combinations from 2026-03-01.
-The exchange_charges input MUST already be the combined transaction/IPFT amount
-exactly once. This function intentionally rejects a separate ipft component.
+The exchange_charges input is the source-backed exchange charge total. For NSE
+from 2026-03-01 this is the combined transaction/IPFT amount exactly once; for
+BSE options use the applicable BSE schedule and do not assume NSE IPFT applies.
+This function intentionally rejects a separate ipft component.
 The official API example currently conflicts with the published tariff wording;
 results must remain labelled estimates and must not be promoted to actuals.
 """

@@ -1879,3 +1879,12 @@ Historical entries remain historical records; they must not override this curren
 - Estimate may follow current schedule with effective-date/product/exchange handling and combined transaction/IPFT counted once. Actual per-fill GST candidates for delivery, intraday, futures and options remain DRAFT pending current public invoice evidence or written Upstox clarification. No actual-charge logic promoted.
 - Previous exact-head CI passed on 996b126ff678b97441f0214ea817451ee1592203: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40341429226 (tests, broker-write boundary, SQLite/PostgreSQL migration round-trips, synthetic restore and evidence retention). The next docs commit must pass its own exact-head CI.
 - Scope: repository tarunsharma2610-del/tradepro-improved only; original Tradepro untouched. PAPER mandatory; live order writes and automatic live-fill promotion/scheduling disabled; PR #6 draft/unmerged; do not ask user for a personal contract note; defer AI/Algory until Phase 3 acceptance.
+
+
+## GST estimate implementation update — 26 October 2026
+
+- Added backend/app/services/upstox_public_gst_estimate.py and backend/tests/test_upstox_public_gst_estimate.py. This is public-schedule estimate logic only, not actual-charge evidence; it uses explicit components and an 18% GST rule and labels results PUBLIC_SCHEDULE_ESTIMATE_ONLY.
+- Supported scopes from 1-Mar-2026: NSE EQ delivery/intraday, NSE FO futures/options, and BSE FO options. Delivery requires brokerage, exchange_charges and explicit demat_charges; other scopes require brokerage and exchange_charges. NSE exchange_charges includes combined transaction/IPFT once; separate ipft is rejected. For BSE options use applicable BSE charge source, do not assume an NSE IPFT component.
+- Official Upstox API sample conflict remains: transaction ₹5.68 + IPFT ₹0.17 but GST ₹1.02; 18% of ₹5.85 is about ₹1.05. Estimate follows tariff wording, actual per-fill billing remains unresolved. Four actual GST component candidates remain DRAFT.
+- See GST_IPFT_ACCEPTANCE_MATRIX.md. Code/test head 221493eb17729533cfaf855e2ce52532ef0903ac had CI run #40342805295 pending at note time; this documentation commit also needs exact-head CI.
+- Scope/safety: only tarunsharma2610-del/tradepro-improved; original Tradepro untouched; PAPER mandatory; live writes and automatic live-fill promotion/scheduling disabled; PR #6 draft/unmerged; no personal contract note required; defer AI/Algory until Phase 3 acceptance.

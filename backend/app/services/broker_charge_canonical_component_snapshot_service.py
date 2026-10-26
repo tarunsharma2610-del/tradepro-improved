@@ -153,6 +153,11 @@ def materialize_canonical_charge_component_snapshots(
     mapping = canonical["source_components_by_canonical"]
     if set(mapping) != SUPPORTED_CANONICAL_COMPONENTS:
         raise ValueError("Canonical source mapping must produce exactly the approved six-component set.")
+    if canonical.get("optional_source_components_by_canonical", {}).get("demat_transaction_charges"):
+        raise ValueError(
+            "DP/demat source evidence is recognized but cannot be snapshotted for live accounting "
+            "until Execution persistence and total-charge reconciliation support it."
+        )
 
     # All six components must describe the same reviewed fill population and
     # allocation policy. For split exchange charges, both source rows must agree.

@@ -1,10 +1,11 @@
 # Latest verified Phase 3 checkpoint — 26 October 2026 (DP/demat snapshot gate)
 
-- **Latest verified code head:** `6a6a3560aff18bb94d34b77640058a17d2a208b8`; exact-head Backend CI [#40381396722 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40381396722): **1,057 passed, 1 warning**. Broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill passed.
-- **GST/IPFT progress:** scope/date-selected COMBINED, SEPARATE and NOT_APPLICABLE IPFT representation is implemented for estimates with fail-closed duplicate/scope/date handling. Optional DP/demat canonical snapshots and pending allocations are now supported by migration and persistence paths.
-- **Explicit remaining blocker:** DP/demat allocations cannot be promoted to reconciled accounting until Execution persistence and total-charge recomputation support them. No live accounting approval has been granted; actual invoice/per-fill acceptance remains evidence-gated.
-- **Next Phase 3 gate:** add optional Execution DP/demat persistence and central total-charge recomputation; test migration round-trips, idempotency, rollback, and delivery/non-delivery behavior. No personal contract note is required.
-- **Safety:** PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes and automatic live-fill promotion/scheduling disabled; original Tradepro repo untouched.
+- **Latest exact-head docs-sync CI:** [#40382369408 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40382369408) on maintained-doc head `261e54a9b3857fb0d4190be0d7ad14510ced4760`: **1,057 passed, 1 warning**. Broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill and retained evidence passed.
+- **Latest code/test head:** `6a6a3560aff18bb94d34b77640058a17d2a208b8`; exact-head CI [#40381396722 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40381396722): **1,057 passed, 1 warning**.
+- **Maintained documents:** 28 files synchronized in `261e54a9b3857fb0d4190be0d7ad14510ced4760` to the verified DP/demat snapshot gate. This exact documentation head passed #40382369408.
+- **Completed in this increment:** optional `demat_transaction_charges` can be materialized as a distinct pending canonical snapshot and allocated into the durable per-fill allocation ledger after independent source review. Migration now permits that snapshot type. Final DP/demat reconciliation promotion remains explicitly blocked until Execution persistence and total-charge recomputation are implemented.
+- **Next Phase 3 implementation gate:** add optional Execution DP/demat persistence and a central verified total-charge recomputation path; test migration, idempotency, rollback and delivery/non-delivery behavior. Actual invoice/per-fill acceptance remains evidence-gated; no personal contract note is required.
+- **Safety:** PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes and automatic live-fill promotion/scheduling disabled; original `tarunsharma2610-del/Tradepro` untouched and out of scope.
 
 ---
 

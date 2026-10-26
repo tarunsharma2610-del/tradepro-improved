@@ -1,3 +1,22 @@
+## Resume point for next session — saved 27 October 2026
+
+Resume from this exact point only; do not roll back to the 26 October checkpoint or restart GST/IPFT.
+
+- **Current code baseline:** `31ce2a10bcc789c223608c6566082b24aea7358c`; Backend CI #40383076131 passed.
+- **Latest documentation-sync checkpoint before this resume note:** `7dcb7dded81a22598941aa2e86fa3894acdac48f`.
+- **CI on that exact checkpoint head:** run [#40385543103](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40385543103) was in progress at the last check. Verify its final conclusion before claiming the latest head is green. This resume-note commit will trigger another CI run; verify the resulting new exact head as well.
+- **Phase 3 state:** GST/IPFT implementation and policy-resolution work is already done; do not restart it. DP/demat Execution persistence and centralized total recomputation have been added.
+- **Next work after verifying CI:** audit DP/demat accounting in this order:
+  1. distinguish unknown/NULL DP charges from confirmed zero; do not present a six-component subtotal as a complete total when DP applicability is unresolved;
+  2. integrate DP/demat into live-fill accounting and Execution persistence without weakening the canonical evidence/reviewer flow;
+  3. cover equity delivery vs non-delivery, absent/not-applicable/unknown values, deterministic paise totals, idempotent replay/conflicting replay, rollback/atomicity, and migration upgrade/downgrade/re-upgrade;
+  4. run relevant targeted tests and full CI on the exact resulting code head;
+  5. after green CI, refresh maintained docs/checkpoint and verify the new documentation head CI before moving to the next Phase 3 acceptance gate.
+- **Evidence limits:** no personal contract note is available or required from the user. Synthetic fixtures/public references support engineering tests but do not prove account-specific invoicing. Independent tariff approval and actual invoice-level acceptance remain distinct review gates.
+- **Non-negotiable safety:** work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope and must not be modified; PR #6 and #7 stay Draft/unmerged; PAPER mode mandatory; live broker order writes and automatic live-fill promotion/scheduling remain disabled.
+
+---
+
 <!-- Final maintained-document sync audit: all 39 in-scope Phase 3/GST/IPFT/accounting Markdown documents in the branch tree were synchronized to the 27 October checkpoint. Earlier docs-head CI #40384521664 passed for head fbcefc1ae44f863b5d16d5e32fd819d277b0ead8; this later sync created additional commits, so CI must be checked again on the final resulting head before declaring the entire documentation set green. -->
 
 # Latest verified Phase 3 checkpoint — 27 October 2026 (DP/demat accounting + maintained-doc synchronization)

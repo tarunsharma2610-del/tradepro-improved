@@ -1,25 +1,13 @@
-## Latest verified GST/IPFT checkpoint — 26 October 2026 (code/test CI green; subsequent docs sync under verification)
+## Latest verified GST/IPFT checkpoint — 26 October 2026 (maintained-doc head CI passed; final checkpoint refresh under verification)
 
 - Target only: `tarunsharma2610-del/tradepro-improved`, branch `phase3/cross-broker-gst-ipft-resolution`.
-- Verified code/test checkpoint head: `cc2d591cf74daea5d68b6ba704ae87a342cc96fd`. Exact-head Backend CI [#40375335160 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40375335160): **1,051 passed, 1 warning**. Broker-write boundary guard passed; SQLite migration upgrade/downgrade/re-upgrade passed; PostgreSQL 16 migration upgrade/downgrade/re-upgrade passed; synthetic PostgreSQL/document-volume restore drill passed.
-- Added `backend/app/services/statutory_stock_broking_gst.py` and `backend/tests/test_statutory_stock_broking_gst.py`. This service implements Section 15 default valuation, evidence-gated Rule 33 pure-agent exclusion, and IGST Act section 12(12) recipient-location/fallback state selection for IGST versus CGST+SGST. It is a calculation primitive and is not yet wired into actual per-fill accounting.
-- Intra-state CGST/SGST are rounded independently to paise and the returned total equals their sum. This rounding convention still needs independent accounting/legal review before live use.
-- Upstox Brokerage Details API provides GST and separate charge fields for a proposed order estimate. Its published example (transaction ₹5.68, IPFT ₹0.17, GST ₹1.02) conflicts with the published pricing page's GST component description; preserve this discrepancy rather than treating the sample as actual invoice proof.
-- Nine maintained project documents were updated to record the passing code/test CI and remaining work. Latest doc synchronization commits include `6d7dbc59bb646f8b043e029777a45df1587d672a`; the checkpoint sync itself is a new commit, so **the latest documentation head must receive and pass its own exact-head CI before it is marked green**.
-- Next gates: verify latest documentation-head CI, then implement reviewed effective-dated broker/segment/product policy mapping, combined/separate IPFT resolver, DP/demat persistence and total reconciliation, and integration tests. No personal contract note is required.
-- Safety: PR #6/#7 remain Draft/unmerged; PAPER-only; live broker writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
-
----
-
-## Latest work-in-progress checkpoint — 26 October 2026 (CI pending; supersedes prior code head for current work)
-
-- Target only: `tarunsharma2610-del/tradepro-improved`, branch `phase3/cross-broker-gst-ipft-resolution`. Latest verified green baseline remains `f9d302fce03e504985e96582a7af71b14fd89f28`, Backend CI #40366645906 (1,034 passed, 1 warning); this is **not** verification of the new GST statutory engine.
-- New implementation: `backend/app/services/statutory_stock_broking_gst.py`; tests: `backend/tests/test_statutory_stock_broking_gst.py`. Implementation/test commits: `dcad71e148b89a2c384631b36090008c8fad193e` and `037ad2da02dca34c399e0ec454674c50ae65b5a7`. Documentation synchronization commits follow those code/test changes. **Exact-head CI is pending/unverified.**
-- Engine implements section 15 default inclusion of supplier charges/third-party recoveries; a recovery is excluded only if every modeled Rule 33 pure-agent evidence condition is true. It applies IGST Act section 12(12) recipient location in supplier records, falling back to supplier state only when recipient location is not recorded; state comparison selects IGST or CGST+SGST.
-- Rounding detail: each intra-state 9% tax head is rounded independently to paise; total returned GST equals CGST+SGST. Tests include half-paise edge cases. This accounting convention still requires independent review before any live accounting approval.
-- Important limitation: service is not yet wired into actual per-fill accounting and does not resolve every broker's tariff policy. Upstox Brokerage Details API sample still conflicts with the published GST component description; keep the sample discrepancy explicit. Public estimates do not become actual invoice evidence.
-- Next gate: verify exact current branch head, run/check backend CI; fix any failures; checkpoint only the exact green head. Then continue broker/segment/date policy mapping, combined/separate IPFT resolver, DP/demat persistence/reconciliation, and integration tests. No personal contract note is needed.
-- Safety: PR #6/#7 remain Draft/unmerged; PAPER-only; live broker order writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
+- Latest verified maintained-document head: `f899c3a1157c877a2ad4d8d8355f9d28c3dcd172`. Exact-head Backend CI [#40376023388 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40376023388): **1,051 passed, 1 warning**. Broker-write boundary guard passed; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade passed; synthetic PostgreSQL/document-volume restore drill passed.
+- New service: `backend/app/services/statutory_stock_broking_gst.py`; tests: `backend/tests/test_statutory_stock_broking_gst.py`. It implements Section 15 default valuation, evidence-gated Rule 33 pure-agent exclusion, and IGST Act section 12(12) recipient-location/fallback state selection. It is a calculation primitive, not yet integrated into actual per-fill accounting.
+- Test cases cover pure-agent conditions, same/cross-state tax split, missing recipient location, invalid amounts, duplicate rows, and paise rounding. Each intra-state 9% tax head rounds independently and the total returned GST equals CGST+SGST.
+- Upstox Brokerage Details API provides a GST value and separate transaction/IPFT/SEBI fields for a proposed order estimate. Its public sample's GST arithmetic conflicts with the published pricing-page component description. Preserve this discrepancy and do not treat the calculator response as an actual contract-note/per-fill accounting record.
+- Nine maintained docs plus this checkpoint have been synchronized. The current checkpoint refresh creates another documentation commit, so its exact-head CI must be checked before calling the new head green.
+- Remaining Phase 3 gates: finish reviewed effective-dated broker/segment/product mapping; resolve combined versus separate IPFT without double counting; add DP/demat persistence and total-charge reconciliation; integrate only reviewed policies; run component-level acceptance. No personal contract note is required.
+- Safety: PR #6/#7 Draft/unmerged; PAPER-only; live broker writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
 
 ---
 

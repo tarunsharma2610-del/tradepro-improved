@@ -6,7 +6,7 @@ os.environ["MASTER_ENCRYPTION_KEY"] = "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -40,7 +40,50 @@ def _clean_redis_rate_limits():
 @pytest.fixture()
 def db_session():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+
+    # SQLite's legacy driver mode may not emit a real BEGIN before SAVEPOINT.
+    # Force explicit transaction boundaries so nested savepoint rollback tests
+    # behave like the caller-owned transaction contract expected by services.
+    @event.listens_for(engine, "connect")
+    def _configure_sqlite_transaction_boundaries(dbapi_connection, _connection_record):
+        dbapi_connection.isolation_level = None
+
+    @event.listens_for(engine, "begin")
+    def _begin_sqlite_transaction(connection):
+        connection.exec_driver_sql("BEGIN")
+
     Base.metadata.create_all(engine)
+    # Mirror the migration's SQLite guards so unit tests can prove that direct
+    # SQL cannot mutate/delete snapshots (ORM listeners alone are insufficient).
+    with engine.begin() as connection:
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_tariff_estimate_snapshot_no_update
+            BEFORE UPDATE ON tariff_estimate_snapshot_records
+            BEGIN
+                SELECT RAISE(ABORT, 'tariff estimate snapshots are append-only');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_tariff_estimate_snapshot_no_delete
+            BEFORE DELETE ON tariff_estimate_snapshot_records
+            BEGIN
+                SELECT RAISE(ABORT, 'tariff estimate snapshots are append-only');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_tariff_estimate_variance_no_update
+            BEFORE UPDATE ON tariff_estimate_variance_records
+            BEGIN
+                SELECT RAISE(ABORT, 'tariff estimate variance records are append-only');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_tariff_estimate_variance_no_delete
+            BEFORE DELETE ON tariff_estimate_variance_records
+            BEGIN
+                SELECT RAISE(ABORT, 'tariff estimate variance records are append-only');
+            END
+        """)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSessionLocal()
     try:

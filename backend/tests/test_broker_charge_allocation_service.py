@@ -1,0 +1,268 @@
+from decimal import Decimal
+
+import pytest
+
+from app.services.broker_charge_allocation_service import (
+    METHOD_VERSION,
+    allocate_component_total,
+)
+
+
+def test_allocation_reconciles_source_total_with_deterministic_residual():
+    result = allocate_component_total(
+        "1.00",
+        {"fill-b": "1", "fill-a": "1", "fill-c": "1"},
+        allocation_basis="EXPLICIT_REVIEWED",
+    )
+    assert result == {
+        "fill-a": Decimal("0.34"),
+        "fill-b": Decimal("0.33"),
+        "fill-c": Decimal("0.33"),
+    }
+    assert sum(result.values()) == Decimal("1.00")
+
+
+def test_allocation_is_independent_of_input_mapping_order():
+    first = allocate_component_total(
+        "0.05", {"fill-z": 1, "fill-a": 1, "fill-m": 1},
+        allocation_basis="QUANTITY",
+    )
+    second = allocate_component_total(
+        "0.05", {"fill-m": 1, "fill-z": 1, "fill-a": 1},
+        allocation_basis="QUANTITY",
+    )
+    assert first == second
+    assert first == {
+        "fill-a": Decimal("0.02"),
+        "fill-m": Decimal("0.02"),
+        "fill-z": Decimal("0.01"),
+    }
+
+
+def test_zero_weight_targets_receive_no_charge_even_when_residual_is_one_paise():
+    result = allocate_component_total(
+        "0.01", {"fill-a": 0, "fill-b": 1, "fill-c": 1},
+        allocation_basis="NOTIONAL",
+    )
+    assert result == {
+        "fill-a": Decimal("0.00"),
+        "fill-b": Decimal("0.01"),
+        "fill-c": Decimal("0.00"),
+    }
+
+
+def test_zero_weight_targets_receive_no_charge_when_multiple_paise_residuals_exist():
+    result = allocate_component_total(
+        "0.02", {"fill-a": 0, "fill-b": 1, "fill-c": 1},
+        allocation_basis="NOTIONAL",
+    )
+    assert result == {
+        "fill-a": Decimal("0.00"),
+        "fill-b": Decimal("0.01"),
+        "fill-c": Decimal("0.01"),
+    }
+
+
+@pytest.mark.parametrize(
+    ("total", "weights", "basis", "message"),
+    [
+        ("-0.01", {"a": 1}, "QUANTITY", "cannot be negative"),
+        ("1.001", {"a": 1}, "QUANTITY", "paise precision"),
+        ("1.00", {}, "QUANTITY", "At least one fill"),
+        ("1.00", {"a": 0, "b": 0}, "QUANTITY", "weight must be positive"),
+        ("1.00", {"a": -1, "b": 2}, "QUANTITY", "weights cannot be negative"),
+        ("1.00", {"a": 1}, "UNKNOWN", "reviewed allocation basis"),
+        ("NaN", {"a": 1}, "QUANTITY", "finite decimal"),
+    ],
+)
+def test_allocation_fails_closed_for_invalid_inputs(total, weights, basis, message):
+    with pytest.raises(ValueError, match=message):
+        allocate_component_total(total, weights, allocation_basis=basis)
+
+
+def test_allocation_method_version_is_explicit_and_versioned():
+    assert METHOD_VERSION == "largest-remainder-v1"
+
+
+@pytest.mark.parametrize(
+    ("charges", "cap", "expected"),
+    [
+        ({"fill-a": "10.00", "fill-b": "15.00"}, "40.00", "25.00"),
+        ({"fill-a": "10.00", "fill-b": "15.00"}, "20.00", "20.00"),
+        ({"fill-a": "0.00", "fill-b": "0.00"}, "20.00", "0.00"),
+    ],
+)
+def test_order_brokerage_cap_applies_to_combined_order_total(charges, cap, expected):
+    from app.services.broker_charge_allocation_service import capped_order_brokerage_total
+
+    assert capped_order_brokerage_total(charges, cap) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("charges", "cap", "message"),
+    [
+        ({}, "20.00", "At least one fill"),
+        ({"fill-a": "-0.01"}, "20.00", "cannot be negative"),
+        ({"fill-a": "1.001"}, "20.00", "paise precision"),
+        ({"fill-a": "1.00"}, "-0.01", "cap cannot be negative"),
+        ({"fill-a": "1.00"}, "1.001", "paise precision"),
+    ],
+)
+def test_order_brokerage_cap_rejects_invalid_inputs(charges, cap, message):
+    from app.services.broker_charge_allocation_service import capped_order_brokerage_total
+
+    with pytest.raises(ValueError, match=message):
+        capped_order_brokerage_total(charges, cap)
+
+
+@pytest.mark.parametrize(
+    ("taxable_base", "rate_percent", "expected"),
+    [
+        ("100.00", "18", "18.00"),
+        ("0.03", "18", "0.01"),
+        ("0.02", "18", "0.00"),
+        ("100.00", "0", "0.00"),
+    ],
+)
+def test_gst_arithmetic_uses_explicit_base_and_paise_rounding(
+    taxable_base, rate_percent, expected
+):
+    from app.services.broker_charge_allocation_service import gst_on_explicit_taxable_base
+
+    assert gst_on_explicit_taxable_base(taxable_base, rate_percent) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("taxable_base", "rate_percent", "message"),
+    [
+        ("-0.01", "18", "base cannot be negative"),
+        ("1.001", "18", "paise precision"),
+        ("100.00", "-1", "between 0 and 100"),
+        ("100.00", "101", "between 0 and 100"),
+        ("NaN", "18", "finite decimal"),
+    ],
+)
+def test_gst_arithmetic_rejects_invalid_base_or_rate(
+    taxable_base, rate_percent, message
+):
+    from app.services.broker_charge_allocation_service import gst_on_explicit_taxable_base
+
+    with pytest.raises(ValueError, match=message):
+        gst_on_explicit_taxable_base(taxable_base, rate_percent)
+
+
+@pytest.mark.parametrize(
+    ("value", "rate_percent", "side", "expected"),
+    [
+        ("100000.00", "0.015", "BUY", "15.00"),
+        ("0.03", "0.015", "buy", "0.00"),
+        ("100000.00", "0", "BUY", "0.00"),
+    ],
+)
+def test_stamp_duty_arithmetic_requires_buy_side_and_rounds_to_paise(
+    value, rate_percent, side, expected
+):
+    from app.services.broker_charge_allocation_service import stamp_duty_for_explicit_buyer_side
+
+    assert stamp_duty_for_explicit_buyer_side(
+        value, rate_percent, transaction_side=side
+    ) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("value", "rate_percent", "side", "message"),
+    [
+        ("100.00", "0.015", "SELL", "requires an eligible BUY side"),
+        ("100.00", "0.015", "", "requires an eligible BUY side"),
+        ("-0.01", "0.015", "BUY", "cannot be negative"),
+        ("1.001", "0.015", "BUY", "paise precision"),
+        ("100.00", "-0.1", "BUY", "between 0 and 100"),
+    ],
+)
+def test_stamp_duty_rejects_ineligible_side_and_invalid_inputs(
+    value, rate_percent, side, message
+):
+    from app.services.broker_charge_allocation_service import stamp_duty_for_explicit_buyer_side
+
+    with pytest.raises(ValueError, match=message):
+        stamp_duty_for_explicit_buyer_side(
+            value, rate_percent, transaction_side=side
+        )
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "rate_percent", "expected"),
+    [
+        ("STT", "100000.00", "0.1", "100.00"),
+        ("CTT", "100000.00", "0.05", "50.00"),
+        ("stt", "0.03", "0.1", "0.00"),
+        ("CTT", "100.00", "0", "0.00"),
+    ],
+)
+def test_transaction_tax_arithmetic_uses_explicit_base_and_rate(
+    kind, value, rate_percent, expected
+):
+    from app.services.broker_charge_allocation_service import transaction_tax_on_explicit_base
+
+    assert transaction_tax_on_explicit_base(
+        value, rate_percent, tax_kind=kind
+    ) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "rate_percent", "message"),
+    [
+        ("GST", "100.00", "0.1", "must be STT or CTT"),
+        ("STT", "-0.01", "0.1", "cannot be negative"),
+        ("CTT", "1.001", "0.1", "paise precision"),
+        ("STT", "100.00", "-0.1", "between 0 and 100"),
+    ],
+)
+def test_transaction_tax_arithmetic_rejects_invalid_inputs(
+    kind, value, rate_percent, message
+):
+    from app.services.broker_charge_allocation_service import transaction_tax_on_explicit_base
+
+    with pytest.raises(ValueError, match=message):
+        transaction_tax_on_explicit_base(
+            value, rate_percent, tax_kind=kind
+        )
+
+
+@pytest.mark.parametrize(
+    ("kind", "base", "rate_percent", "expected"),
+    [
+        ("EXCHANGE_CHARGES", "100000.00", "0.003", "3.00"),
+        ("SEBI_CHARGES", "100000.00", "0.0001", "0.10"),
+        ("sebi_charges", "0.03", "0.0001", "0.00"),
+        ("EXCHANGE_CHARGES", "100.00", "0", "0.00"),
+    ],
+)
+def test_exchange_and_sebi_arithmetic_uses_explicit_base_and_rate(
+    kind, base, rate_percent, expected
+):
+    from app.services.broker_charge_allocation_service import exchange_or_sebi_charge_on_explicit_base
+
+    assert exchange_or_sebi_charge_on_explicit_base(
+        base, rate_percent, charge_kind=kind
+    ) == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("kind", "base", "rate_percent", "message"),
+    [
+        ("GST", "100.00", "0.1", "must be EXCHANGE_CHARGES or SEBI_CHARGES"),
+        ("SEBI_CHARGES", "-0.01", "0.1", "cannot be negative"),
+        ("EXCHANGE_CHARGES", "1.001", "0.1", "paise precision"),
+        ("SEBI_CHARGES", "100.00", "-0.1", "between 0 and 100"),
+    ],
+)
+def test_exchange_and_sebi_arithmetic_rejects_invalid_inputs(
+    kind, base, rate_percent, message
+):
+    from app.services.broker_charge_allocation_service import exchange_or_sebi_charge_on_explicit_base
+
+    with pytest.raises(ValueError, match=message):
+        exchange_or_sebi_charge_on_explicit_base(
+            base, rate_percent, charge_kind=kind
+        )

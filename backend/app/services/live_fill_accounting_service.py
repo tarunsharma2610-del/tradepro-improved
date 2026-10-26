@@ -7,6 +7,8 @@ are mandatory; estimated paper costs are rejected for live promotion.
 """
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
+import json
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from uuid import UUID
 
@@ -15,6 +17,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.broker_connection import BrokerConnection
+from app.models.broker_charge_allocation import BrokerChargeAllocation
+from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
+from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.execution import Execution
@@ -22,7 +27,14 @@ from app.models.instrument import Instrument
 from app.models.live_position import LivePosition
 from app.models.order import Order
 from app.models.portfolio import Portfolio
+from app.models.user import User
 from app.services.broker_charge_evidence_service import require_reviewed_charge_evidence
+from app.services.broker_charge_component_set_contract import (
+    LIVE_FILL_ACCOUNTING_COMPONENTS,
+    LIVE_FILL_COMPONENT_SET_VERSION,
+    validate_live_fill_component_set,
+)
+from app.services.broker_charge_canonical_allocation_reconciliation_service import verify_canonical_component_allocation_ledger
 from app.services.position_math import apply_fill
 from app.services.transaction_costs import Side
 
@@ -120,6 +132,10 @@ class LiveFillAccountingService:
             ):
                 raise ValueError("Broker child-order mapping changed while acquiring accounting locks.")
 
+            # Do not lock the trade row yet. Canonical charge verification locks
+            # all canonical snapshots first, then evidence, source rows, allocations,
+            # and finally the trade record. Taking the trade lock first would invert
+            # that order and can deadlock against verification/promotion.
             record = (
                 self.db.query(BrokerTradeRecord)
                 .filter(
@@ -127,7 +143,6 @@ class LiveFillAccountingService:
                     BrokerTradeRecord.broker_order_ref_id == child.id,
                     BrokerTradeRecord.broker_connection_id == child.broker_connection_id,
                 )
-                .with_for_update()
                 .populate_existing()
                 .first()
             )
@@ -163,6 +178,16 @@ class LiveFillAccountingService:
             if not price.is_finite() or price <= 0:
                 raise ValueError("Broker trade price is invalid.")
             executed_at = self._parse_exchange_timestamp(record.exchange_timestamp)
+            record_snapshot = (
+                record.broker_connection_id,
+                record.broker_order_ref_id,
+                record.broker_trade_id,
+                record.quantity,
+                Decimal(str(record.price)),
+                record.side,
+                record.instrument_token,
+                record.exchange_timestamp,
+            )
 
             existing = (
                 self.db.query(Execution)
@@ -173,6 +198,31 @@ class LiveFillAccountingService:
                 .first()
             )
             if existing is not None:
+                # Exact replay exits before charge-evidence locks, so it may safely
+                # lock/refresh the trade row here without reversing the ledger lock
+                # order used by source verification.
+                record = (
+                    self.db.query(BrokerTradeRecord)
+                    .filter(
+                        BrokerTradeRecord.id == broker_trade_record_id,
+                        BrokerTradeRecord.broker_order_ref_id == child.id,
+                        BrokerTradeRecord.broker_connection_id == child.broker_connection_id,
+                    )
+                    .with_for_update()
+                    .populate_existing()
+                    .first()
+                )
+                if record is None or (
+                    record.broker_connection_id,
+                    record.broker_order_ref_id,
+                    record.broker_trade_id,
+                    record.quantity,
+                    Decimal(str(record.price)),
+                    record.side,
+                    record.instrument_token,
+                    record.exchange_timestamp,
+                ) != record_snapshot:
+                    raise ValueError("Broker trade changed during existing-execution replay; review required.")
                 if not self._same_execution(existing, record, order, fee_values, charges):
                     raise ValueError("Broker trade already has a conflicting accounted execution.")
                 position = self._get_live_position(connection.id, instrument.id)
@@ -192,6 +242,7 @@ class LiveFillAccountingService:
                 broker_connection_id=connection.id,
                 broker_report_reference=charges.reference,
                 reviewer_user_id=charges.reviewer_user_id,
+                lock=False,
             )
 
             staged_child_quantity = (
@@ -236,6 +287,48 @@ class LiveFillAccountingService:
                 raise ValueError(
                     "Cumulative accounted trade quantity exceeds the local order quantity."
                 )
+
+            # Validate the allocation ledger after structural quantity/order checks,
+            # but before creating or mutating any accounting rows. Caller-supplied
+            # amounts are only a consistency assertion against the persisted ledger.
+            fee_values = self._load_reconciled_allocation_fees(
+                evidence_id=charges.evidence_id,
+                broker_connection_id=connection.id,
+                broker_trade_record_id=record.id,
+                reviewer_user_id=charges.reviewer_user_id,
+                supplied_fees=fee_values,
+                broker_report_reference=charges.reference,
+            )
+
+            # The verification path now owns the evidence -> component ->
+            # allocation -> trade lock order. Refresh the trade after those locks
+            # are acquired and fail closed if any intake fields changed meanwhile.
+            locked_record = (
+                self.db.query(BrokerTradeRecord)
+                .filter(
+                    BrokerTradeRecord.id == broker_trade_record_id,
+                    BrokerTradeRecord.broker_order_ref_id == child.id,
+                    BrokerTradeRecord.broker_connection_id == child.broker_connection_id,
+                )
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            if locked_record is None:
+                raise ValueError("Broker trade mapping changed during charge verification.")
+            locked_snapshot = (
+                locked_record.broker_connection_id,
+                locked_record.broker_order_ref_id,
+                locked_record.broker_trade_id,
+                locked_record.quantity,
+                Decimal(str(locked_record.price)),
+                locked_record.side,
+                locked_record.instrument_token,
+                locked_record.exchange_timestamp,
+            )
+            if locked_snapshot != record_snapshot:
+                raise ValueError("Broker trade changed during charge verification; manual reconciliation required.")
+            record = locked_record
 
             portfolio = (
                 self.db.query(Portfolio)
@@ -288,6 +381,7 @@ class LiveFillAccountingService:
                 total_charges=fee_values["total_charges"],
                 charge_source=charges.source,
                 charge_reference=charges.reference.strip(),
+                charge_evidence_id=charges.evidence_id,
                 realized_pnl=update.realized_pnl,
                 strategy_realized_pnl=None,
                 broker_order_ref_id=child.id,
@@ -331,6 +425,158 @@ class LiveFillAccountingService:
         except Exception:
             self.db.rollback()
             raise
+
+    def _load_reconciled_allocation_fees(
+        self,
+        *,
+        evidence_id: UUID,
+        broker_connection_id: UUID,
+        broker_trade_record_id: UUID,
+        reviewer_user_id: UUID,
+        supplied_fees: dict[str, Decimal],
+        broker_report_reference: str,
+    ) -> dict[str, Decimal]:
+        """Load actual fees only from six verified canonical snapshots.
+
+        Lock order is canonical snapshots (sorted by component) -> evidence ->
+        source rows -> allocation rows -> reviewer/trade rows. All six snapshots
+        are locked before any verifier locks the shared evidence row, preventing
+        cross-component verification deadlocks. Legacy raw-component allocations
+        are not an accounting fallback.
+        """
+        names = LIVE_FILL_ACCOUNTING_COMPONENTS
+        snapshots = (
+            self.db.query(BrokerChargeCanonicalComponent)
+            .filter(BrokerChargeCanonicalComponent.evidence_id == evidence_id)
+            .order_by(BrokerChargeCanonicalComponent.canonical_component)
+            .with_for_update()
+            .populate_existing()
+            .all()
+        )
+        by_name = {row.canonical_component: row for row in snapshots}
+        if (
+            len(snapshots) != len(names)
+            or len(by_name) != len(names)
+            or set(by_name) != set(names)
+        ):
+            raise ValueError(
+                "Live accounting requires exactly six independently verified canonical charge snapshots."
+            )
+        if any(
+            snapshot.status != "VERIFIED"
+            or snapshot.reviewed_by_user_id is None
+            or snapshot.reviewed_at is None
+            or snapshot.component_set_version != LIVE_FILL_COMPONENT_SET_VERSION
+            for snapshot in snapshots
+        ):
+            raise ValueError("Every canonical charge snapshot must be independently verified.")
+
+        # The complete snapshot set is locked first. The verifier rechecks source
+        # bytes, source links, representation mapping, snapshot fingerprint,
+        # exact fill manifest, explicit weights, deterministic amounts and
+        # durable reconciliation references inside this transaction.
+        verifications: dict[str, dict[str, object]] = {}
+        for name in names:
+            snapshot = by_name[name]
+            verification = verify_canonical_component_allocation_ledger(
+                self.db, snapshot_id=snapshot.id
+            )
+            if (
+                verification.get("status") != "ALREADY_RECONCILED"
+                or verification.get("canonical_component") != name
+                or verification.get("evidence_id") != str(evidence_id)
+            ):
+                raise ValueError(
+                    "Every canonical charge component must be fully verified and reconciled before accounting."
+                )
+            verifications[name] = verification
+
+        # The canonical verifier has locked and refreshed the evidence row.
+        evidence = (
+            self.db.query(BrokerChargeEvidence)
+            .filter(BrokerChargeEvidence.id == evidence_id)
+            .with_for_update()
+            .populate_existing()
+            .one_or_none()
+        )
+        if (
+            evidence is None
+            or evidence.broker_connection_id != broker_connection_id
+            or evidence.source_kind != "CONTRACT_NOTE"
+            or evidence.status != "REVIEWED"
+            or evidence.reviewed_by_user_id is None
+            or evidence.reviewed_by_user_id != reviewer_user_id
+            or not evidence.broker_report_reference
+            or evidence.broker_report_reference.strip() != broker_report_reference.strip()
+        ):
+            raise ValueError("Canonical charge evidence no longer matches the reviewed broker connection.")
+        # Reference comparison is repeated after the evidence row is locked.
+        if evidence.broker_report_reference.strip() == "":
+            raise ValueError("Reviewed broker contract-note reference is required.")
+
+        # Include every allocation row for this fill, not only canonical-linked
+        # rows, so an extra legacy/IPFT/unmapped row cannot be silently ignored.
+        fill_rows = (
+            self.db.query(BrokerChargeAllocation)
+            .filter(
+                BrokerChargeAllocation.evidence_id == evidence_id,
+                BrokerChargeAllocation.broker_trade_record_id == broker_trade_record_id,
+            )
+            .order_by(BrokerChargeAllocation.charge_component, BrokerChargeAllocation.id)
+            .with_for_update()
+            .populate_existing()
+            .all()
+        )
+        if len(fill_rows) != len(names) or {row.charge_component for row in fill_rows} != set(names):
+            raise ValueError(
+                "Live accounting requires exactly six canonical per-fill charge allocations; extra or unmapped rows block promotion."
+            )
+        for row in fill_rows:
+            snapshot = by_name.get(row.charge_component)
+            if (
+                snapshot is None
+                or row.canonical_component_id != snapshot.id
+                or row.broker_connection_id != broker_connection_id
+                or row.status != "RECONCILED"
+                or row.currency != "INR"
+                or not row.reconciliation_reference
+            ):
+                raise ValueError(
+                    "Every per-fill charge allocation must link to its verified canonical snapshot and durable reconciliation."
+                )
+
+        derived = {
+            row.charge_component: Decimal(str(row.allocated_amount)).quantize(CENT)
+            for row in fill_rows
+        }
+        for name in names:
+            verification = verifications[name]
+            if not verification.get("allocation_ids"):
+                raise ValueError("Canonical component verifier returned no reconciled allocation IDs.")
+            if not any(
+                str(row.id) in set(verification["allocation_ids"])
+                and row.charge_component == name
+                and row.canonical_component_id == by_name[name].id
+                for row in fill_rows
+            ):
+                raise ValueError("Per-fill allocation does not match the verified canonical allocation ledger.")
+
+        if any(supplied_fees[name] != derived[name] for name in names):
+            raise ValueError("Caller-supplied charge amounts differ from the reconciled canonical per-fill allocation ledger.")
+        total = sum((derived[name] for name in names), Decimal("0")).quantize(CENT)
+        if supplied_fees["total_charges"] != total:
+            raise ValueError("Total charges do not equal the reconciled canonical per-fill allocation ledger.")
+
+        reviewer = (
+            self.db.query(User)
+            .filter(User.id == reviewer_user_id)
+            .with_for_update()
+            .populate_existing()
+            .one_or_none()
+        )
+        if reviewer is None or not reviewer.is_active or not reviewer.is_admin:
+            raise ValueError("Only an active platform administrator may promote live-fill accounting.")
+        return {**derived, "total_charges": total}
 
     def _ensure_exchange_order(
         self,
@@ -478,6 +724,9 @@ class LiveFillAccountingService:
             )
             and execution.charge_source == charges.source
             and execution.charge_reference == charges.reference.strip()
+            # A replay may omit evidence metadata; if supplied, its identity must
+            # match. New promotions separately require reviewed evidence below.
+            and (charges.evidence_id is None or execution.charge_evidence_id == charges.evidence_id)
             and Decimal(str(execution.brokerage)) == fees["brokerage"]
             and Decimal(str(execution.stt)) == fees["stt"]
             and Decimal(str(execution.exchange_charges)) == fees["exchange_charges"]

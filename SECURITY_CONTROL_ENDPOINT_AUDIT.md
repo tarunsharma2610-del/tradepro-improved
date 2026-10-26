@@ -822,3 +822,11 @@ The upstream skill is external development material, not an app authorization bo
 - Phase 3 remains in progress. Next gates: independently reviewed tariff applicability; component-specific per-fill allocation rules; invoice/source-backed GST/IPFT and product/segment evidence; final adversarial, migration and recovery review; exact-head acceptance sign-off. Do not repeat canonical live-fill integration.
 - Safety: PAPER mode mandatory; live broker order writes, automatic live-fill promotion, and automatic scheduling remain disabled. PR #6 stays open/draft/unmerged without explicit user approval. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
 - This documentation commit’s CI is green. Continue only from this checkpoint and verify CI for every subsequent implementation/checkpoint commit. Historical entries do not supersede this checkpoint.
+
+
+## GST/IPFT checkpoint — 26 October 2026
+
+- Regression test `test_gst_arithmetic_is_invariant_for_combined_vs_split_ipft_representation` verifies equivalent synthetic combined/split components produce ₹307.00 base and ₹55.26 GST at 18%; this is arithmetic coverage only, not approval of real taxable-component mapping. Exact test commit `8b4ae0b431d6aa03f1a8ae347a0b5fa7bda44c4f` passed Backend CI [run 40296066304](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40296066304).
+- Source references: NSE circular `NSE/FA/73061` effective 1 Mar 2026 https://nsearchives.nseindia.com/content/circulars/FA73061.pdf; Upstox published charge schedule https://upstox.com/brokerage-charges/; CBIC stock-broking FAQ https://cbic-gst.gov.in/sectoral-faq.html and valuation Rule 33 https://cbic-gst.gov.in/valuation-rules.html.
+- Actual GST mapping remains blocked pending product/segment-specific review and reliable invoice/contract-note reconciliation. Never apply GST to trade notional/all charges indiscriminately or count separate IPFT twice; STT/stamp duty exclusion depends on Rule 33 pure-agent conditions. Candidate tariffs remain DRAFT.
+- Next gate: product-level GST acceptance cases across equity delivery, intraday and F&O, then exact-head CI. PAPER mode mandatory; live broker order writes disabled; PR #6 draft/unmerged; original `Tradepro` untouched.

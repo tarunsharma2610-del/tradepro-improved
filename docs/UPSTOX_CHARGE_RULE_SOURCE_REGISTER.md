@@ -501,3 +501,11 @@ Published broker reference: https://upstox.com/brokerage-charges/
 Settled: the arithmetic and no-double-counting rule above, component-based GST calculation once, and fail-closed handling of ambiguous representations. Still required for production approval: authentic Upstox API/contract-note field-semantic corroboration, effective-dated mapping and GST-base reconciliation against invoices, per-fill combined/split regression coverage, and exact-head CI. The Upstox Get Trade Charges endpoint is aggregate evidence, not proof of actual per-fill charges. These gates do not reverse the agreed policy.
 
 Safety: PAPER mode mandatory; live broker order writes disabled; PR #6 remains draft/unmerged pending review and user approval. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `tarunsharma2610-del/Tradepro` must remain untouched.
+
+
+## GST/IPFT checkpoint — 26 October 2026
+
+- Regression test `test_gst_arithmetic_is_invariant_for_combined_vs_split_ipft_representation` verifies equivalent synthetic combined/split components produce ₹307.00 base and ₹55.26 GST at 18%; this is arithmetic coverage only, not approval of real taxable-component mapping. Exact test commit `8b4ae0b431d6aa03f1a8ae347a0b5fa7bda44c4f` passed Backend CI [run 40296066304](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40296066304).
+- Source references: NSE circular `NSE/FA/73061` effective 1 Mar 2026 https://nsearchives.nseindia.com/content/circulars/FA73061.pdf; Upstox published charge schedule https://upstox.com/brokerage-charges/; CBIC stock-broking FAQ https://cbic-gst.gov.in/sectoral-faq.html and valuation Rule 33 https://cbic-gst.gov.in/valuation-rules.html.
+- Actual GST mapping remains blocked pending product/segment-specific review and reliable invoice/contract-note reconciliation. Never apply GST to trade notional/all charges indiscriminately or count separate IPFT twice; STT/stamp duty exclusion depends on Rule 33 pure-agent conditions. Candidate tariffs remain DRAFT.
+- Next gate: product-level GST acceptance cases across equity delivery, intraday and F&O, then exact-head CI. PAPER mode mandatory; live broker order writes disabled; PR #6 draft/unmerged; original `Tradepro` untouched.

@@ -536,3 +536,8 @@ A public third-party copy of an Upstox contract note dated 21 May 2024 lists GST
 ## Evidence-test wording correction — 26 October 2026
 
 The backend test run `40302129087` reported 1,002 passed / 1 failed because an assertion used a phrase not present verbatim in the GST evidence review. The actual evidence describes the historical note as materially different from Upstox's current public pricing page. Corrected the test assertion in commit `f792627fb0ead15551e2506731b183e9b91482bb`; current-head CI remains to be verified. This correction changes no tariff candidate status: all GST component sets remain DRAFT.
+
+
+## Additional GST-base evidence search — 26 October 2026
+
+Search results for publicly indexed Upstox realized-P&L reports covering FY 2025–26 show separate aggregate GST and IPFT totals but not the taxable-value component breakdown. A 2025 F&O P&L report lists GST, IPFT, SEBI, stamp duty and transaction charges as totals, without explaining the GST base. A July 2026 Reddit post describes GST on brokerage/charges but is anecdotal. These are not authenticated contract-note/tax-invoice evidence. CBIC FAQ Q7/Q77 and Rule 33 valuation guidance mean the tax-base treatment cannot be inferred solely from charge labels; actual contractual/invoice mapping remains unresolved. Keep GST candidates DRAFT.

@@ -2884,3 +2884,10 @@ Historical entries remain historical records; they must not override this curren
 - Exact tested PR merge ref for branch head `8f37b81914e1b46318d16d7c99ee5490449e8f06` failed backend pytest: **1,002 passed, 1 failed**. The sole failure was a brittle wording assertion in `test_gst_candidate_remains_draft_when_historical_note_conflicts_with_current_public_base`; the evidence text correctly described the note as “materially different from Upstox's current public pricing page”, while the test expected different wording. This was a test/evidence-text mismatch, not a GST candidate approval or calculation failure.
 - Corrected the assertion in commit `f792627fb0ead15551e2506731b183e9b91482bb`. The resulting head's CI must be verified before claiming green; this checkpoint is not yet accepted.
 - GST component sets remain DRAFT. The historical note is unauthenticated and not current proof; do not guess the taxable base. Safety remains unchanged: PAPER mandatory, live broker writes and automatic live-fill promotion disabled, PR #6 draft/unmerged, original `Tradepro` untouched.
+
+
+## Public GST evidence follow-up — 26 October 2026
+
+- Additional public searches found third-party indexed Upstox realized-P&L reports for FY 2025–26 and an Oct–Nov 2025 F&O period. They show GST and IPFT as separate aggregate report totals, but do not reveal the taxable-value component breakdown. A July 2026 Reddit discussion is anecdotal and cannot be used as a tariff authority.
+- Re-read CBIC FAQ Q7/Q77: Section 15 valuation generally includes taxes except GST unless pure-agent Rule 33 conditions are met; the specific stockbroker recovery question likewise makes exclusion conditional. A fee label alone cannot settle the taxable base. Current official tariff wording and historical invoice copy remain unreconciled.
+- Result: research broadened, but no approval. All four GST component sets stay DRAFT. No tax calculation or live accounting behavior changed. Exact-head CI must pass after the latest correction/documentation commit before the checkpoint can be called green.

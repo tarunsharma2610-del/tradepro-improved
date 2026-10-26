@@ -107,3 +107,8 @@ Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` re
 - Result: 1,002 passed, 1 failed. Sole failure was the evidence regression test expecting the phrase `conflicts with the current Upstox public pricing page`; the document actually says `materially different from Upstox's current public pricing page`. The evidence and DRAFT safety behavior were intact; the assertion was over-specific.
 - Correction pushed to branch: `f792627fb0ead15551e2506731b183e9b91482bb` (`test: fix GST evidence wording assertion`). This does not imply CI passed. Verify the latest workflow against this exact branch head and record the result before proceeding to another Phase 3 gate.
 - No GST candidate approved. Historical public note remains unauthenticated/out of date and cannot resolve current GST-base mapping. PAPER mandatory; live broker order writes and automatic live-fill promotion disabled; PR #6 open/draft/unmerged; original `Tradepro` untouched.
+
+
+## Additional GST-source search — 26 October 2026
+
+Publicly indexed Upstox realized-P&L reports for FY 2025–26 show aggregate GST and IPFT totals separately, and a 2025 F&O report also lists SEBI/stamp duty/transaction totals, but none supplies the GST taxable-value composition. A July 2026 Reddit discussion is anecdotal only. CBIC FAQ Q7/Q77 and Rule 33 make pure-agent exclusion conditional; a charge label alone does not decide whether an amount is in the taxable base. No new source resolves the current Upstox tariff versus historical-note discrepancy. GST candidates remain DRAFT. Current branch has a test-assertion fix and documentation updates; verify CI on the latest exact head before marking checkpoint green.

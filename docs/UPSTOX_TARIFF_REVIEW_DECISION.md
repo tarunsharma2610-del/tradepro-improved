@@ -74,3 +74,10 @@ The public 21 May 2024 Upstox-style contract note reports taxable value ₹77.56
 ## CI regression follow-up — 26 October 2026
 
 Backend CI run [#40302129087](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40302129087) failed with 1,002 passed and one failed assertion: the test expected an exact wording variant that was not present in the evidence document. The source text already said the historical note was materially different from the current Upstox public pricing page. The assertion was corrected in `f792627fb0ead15551e2506731b183e9b91482bb`. Wait for and verify CI on the new head; do not record green until confirmed. GST component sets remain DRAFT, and no legal/tax conclusion is inferred from this test-only fix.
+
+
+## Additional public evidence and GST legal-source nuance — 26 October 2026
+
+Publicly indexed FY 2025–26 Upstox realized-P&L reports list aggregate `INTEGRATED GST` and `IPFT CHG` totals separately but do not provide a GST taxable-value composition. An October–November 2025 F&O report similarly lists GST, IPFT, SEBI, stamp duty and transaction charges as aggregate totals. These third-party copies are not authenticated and cannot establish a per-trade taxable base. A July 2026 Reddit report describing GST on brokerage and charges is anecdotal only. See the evidence review for exact links and limitations.
+
+CBIC FAQ Q7 and Q77 together caution against a simplistic universal exclusion: taxes are generally included in value under Section 15 unless Rule 33 pure-agent conditions apply, and stockbroking recovery exclusion depends on those conditions. The label of a fee alone is not enough to decide GST-base treatment. No new authoritative/current source resolved the Upstox tariff-versus-historical-note discrepancy. All four GST component sets remain DRAFT.

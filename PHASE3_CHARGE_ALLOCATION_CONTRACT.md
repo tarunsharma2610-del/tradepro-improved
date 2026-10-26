@@ -932,3 +932,8 @@ This structural association does not prove that transcription matches the origin
 - Phase 3 remains in progress. Next gates: independently reviewed tariff applicability; component-specific per-fill allocation rules; invoice/source-backed GST/IPFT and product/segment evidence; final adversarial, migration and recovery review; exact-head acceptance sign-off. Do not repeat canonical live-fill integration.
 - Safety: PAPER mode mandatory; live broker order writes, automatic live-fill promotion, and automatic scheduling remain disabled. PR #6 stays open/draft/unmerged without explicit user approval. Only `tradepro-improved` is in scope; original `Tradepro` remains untouched.
 - This documentation commit’s CI is green. Continue only from this checkpoint and verify CI for every subsequent implementation/checkpoint commit. Historical entries do not supersede this checkpoint.
+
+
+## GST component evidence gate update — 26 October 2026
+
+Additional public searches found FY 2025–26 realized-P&L reports with separate aggregate GST/IPFT totals but no GST taxable-value breakdown; community reports are anecdotal. CBIC FAQ Q7/Q77 and Rule 33 mean a charge label alone cannot establish taxable-base inclusion/exclusion. The current GST component sets remain DRAFT. The earlier “latest verified CI” heading above refers to an older code head and must not be read as verification of the current branch head; the current correction/documentation commits require their own exact-head CI run before acceptance.

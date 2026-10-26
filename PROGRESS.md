@@ -3056,3 +3056,10 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - **Still not complete:** `Execution` database model/migration, DP/demat total-charge recomputation, persistence/promotion lock path, idempotency and delivery-vs-non-delivery tests. Actual delivery accounting remains blocked.
 - Exact-head CI for these latest mapping/allocation changes and this document sync is pending verification.
 - PR #6 and PR #7 remain Draft/unmerged; PAPER only; live broker writes disabled; original Tradepro repo untouched.
+
+## DP/demat live-boundary correction — 26 October 2026
+
+- The first DP/demat canonical mapping attempt failed exact-head Backend CI run #40362669264 (45 failed, 989 passed). Root cause: the optional component widened the existing six-component source mapping consumed by the live snapshot service, causing broad live-fill promotion tests to fail.
+- Corrected the interface: the six-component `source_components_by_canonical` remains unchanged; optional DP/demat evidence is exposed separately as `optional_source_components_by_canonical`. Non-persisted allocation planning can use that optional mapping.
+- The live canonical snapshot service now explicitly blocks promotion when DP/demat evidence is present until Execution persistence and total-charge reconciliation support it. This prevents silent dropping and preserves existing six-component live accounting.
+- Re-run exact-head CI and checkpoint only after green. Current head is not yet verified.

@@ -64,3 +64,8 @@ Re-review if the official pricing page changes, the source payload hash changes,
 ## GST/IPFT focused re-review — 26 October 2026
 
 New evidence record: [UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md](UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md). Result: keep all four GST component sets DRAFT. Upstox currently publishes 18% and says GST base is brokerage + transaction charges + IPFT (plus demat for delivery); newer NSE combined transaction/IPFT rates effective 1 March 2026 are ₹307/crore cash, ₹183/crore futures, and ₹3,553/crore options premium, including ₹0.01/crore IPFT. Do not add a separate IPFT amount to those combined rates. CBIC confirms stock-broking service brokerage is taxable and pure-agent exclusion for STT/stamp duty recoveries depends on Rule 33 conditions. Public historical contract notes are not authenticated/current enough to resolve present product-specific GST composition. No production GST candidate is approved by this research update. Public estimates remain separate from actual-charge/per-fill accounting.
+
+
+## Blocking discrepancy discovered in public historical note — 26 October 2026
+
+The public 21 May 2024 Upstox-style contract note reports taxable value ₹77.56 from brokerage ₹0.01 + SEBI ₹0.11 + turnover charges ₹3.44 + demat ₹74.00; IGST ₹13.96; IPFT ₹0.11 is shown separately and excluded from that displayed base. Current Upstox public pricing instead lists IPFT in the GST base and does not list SEBI there. The public copy is unauthenticated and historical, so it does not establish current treatment—but the mismatch blocks approval. Keep all GST component-set candidates DRAFT; do not resolve by guessing. See [evidence review](UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md).

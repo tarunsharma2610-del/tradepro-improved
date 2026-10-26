@@ -526,3 +526,8 @@ Safety: PAPER mode mandatory; live broker order writes disabled; PR #6 remains d
 ## Focused GST/IPFT verification update — 26 October 2026
 
 See [Upstox GST/IPFT evidence review](UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md) for the source-by-source decision and component matrix. Current conclusion: 18% GST is supported as the public schedule rate; March 2026 NSE combined transaction/IPFT arithmetic is supported; the taxable GST component sets remain DRAFT because the public tariff statement is not equivalent to a verified invoice/tax-base mapping. Public 2024/2025 contract-note copies are unauthenticated historical evidence, not current proof. Do not add IPFT on top of the new combined NSE rate. Null API IPFT remains unknown, not zero. The public Trades Charges API returns a segment/FY/date-range breakdown and may return `ipft: null`; it does not prove per-fill amounts. See the new review document for links and acceptance conditions.
+
+
+## Historical contract-note GST-base discrepancy — 26 October 2026
+
+A public third-party copy of an Upstox contract note dated 21 May 2024 lists GST taxable value ₹77.56 as brokerage ₹0.01 + SEBI ₹0.11 + turnover charges ₹3.44 + demat ₹74.00, with IGST ₹13.96, while IPFT ₹0.11 is shown separately and excluded from that displayed sum. The arithmetic matches 18% rounded to paise. This conflicts with the current Upstox public schedule's stated GST base (brokerage + transaction + IPFT, plus demat for delivery; no SEBI listed). The copy is unauthenticated and predates the 2026 combined transaction/IPFT schedule, so it is a discrepancy signal—not a rule to copy. Keep GST component sets DRAFT until current treatment is reconciled. Details: [GST/IPFT evidence review](UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md).

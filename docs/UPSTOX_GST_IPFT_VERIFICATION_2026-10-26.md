@@ -63,3 +63,14 @@ At ₹1 crore of eligible base, the new NSE combined cash-equity charge is ₹30
 GST component composition is **not approved**. The 18% rate and the narrow March 2026 NSE combined-charge arithmetic are supported, but they are not enough to approve the four GST component sets. Continue researching public invoice examples and authoritative rules; then update tests and candidate decisions only when the taxable-base conflict is resolved. No user-supplied contract note is required to continue engineering, and none has been requested as a prerequisite.
 
 PAPER mode remains mandatory. Live broker order writes, automatic live-fill promotion and automatic scheduling remain disabled. PR #6 stays open/draft/unmerged absent explicit user approval. Work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.
+
+
+## Material discrepancy from the public historical contract-note example
+
+The publicly indexed Upstox contract-note copy dated 21 May 2024 explicitly reports:
+
+- `[IGST 18% On Charges]`: ₹13.96.
+- `GST Taxable Value of Supply`: brokerage ₹0.01 + SEBI fees ₹0.11 + turnover charges ₹3.44 + demat transaction charges ₹74.00 = ₹77.56.
+- `[IPFT CHG]`: ₹0.11 appears as a separate levy but is not included in that displayed taxable-value sum.
+
+The arithmetic is internally consistent: ₹77.56 × 18% = ₹13.9608, rounded to ₹13.96. This is **materially different** from Upstox's current public pricing page, which says its GST base includes IPFT and does not list SEBI fees in that base. The note is a third-party Scribd copy and cannot be authenticated; it is also from 2024, before the current combined transaction/IPFT tariff. It therefore proves a documented historical presentation, not the correct current 2026 rule. It is strong enough to block automatic approval until the discrepancy is explained by a current official source, current authentic invoice example, or documented billing policy. Do not infer that IPFT is universally excluded or that SEBI is universally included.

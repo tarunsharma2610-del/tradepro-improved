@@ -204,3 +204,19 @@ def test_gst_component_set_candidates_are_scoped_draft_and_never_tax_notional():
         # adding it again would double count the same published outflow.
         assert "ipft" not in candidate.taxable_components
         assert candidate.taxable_components.count("exchange_charges") == 1
+
+
+def test_gst_candidate_remains_draft_when_historical_note_conflicts_with_current_public_base():
+    """Historical public note is a conflict signal, not approval authority."""
+    repository_root = Path(__file__).resolve().parents[2]
+    evidence = (
+        repository_root / "docs/UPSTOX_GST_IPFT_VERIFICATION_2026-10-26.md"
+    ).read_text(encoding="utf-8")
+    candidates = upstox_gst_component_set_candidates()
+    assert all(candidate.review_status == "DRAFT" for candidate in candidates)
+    assert "₹77.56" in evidence
+    assert "₹13.96" in evidence
+    assert "IPFT" in evidence
+    assert "conflicts with the current Upstox public pricing page" in evidence
+    assert "cannot be authenticated" in evidence
+    assert "does not establish current treatment" in evidence

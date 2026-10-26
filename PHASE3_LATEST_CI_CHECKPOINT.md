@@ -1,3 +1,16 @@
+## Latest verified GST/IPFT checkpoint — 26 October 2026 (code/test CI green; subsequent docs sync under verification)
+
+- Target only: `tarunsharma2610-del/tradepro-improved`, branch `phase3/cross-broker-gst-ipft-resolution`.
+- Verified code/test checkpoint head: `cc2d591cf74daea5d68b6ba704ae87a342cc96fd`. Exact-head Backend CI [#40375335160 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40375335160): **1,051 passed, 1 warning**. Broker-write boundary guard passed; SQLite migration upgrade/downgrade/re-upgrade passed; PostgreSQL 16 migration upgrade/downgrade/re-upgrade passed; synthetic PostgreSQL/document-volume restore drill passed.
+- Added `backend/app/services/statutory_stock_broking_gst.py` and `backend/tests/test_statutory_stock_broking_gst.py`. This service implements Section 15 default valuation, evidence-gated Rule 33 pure-agent exclusion, and IGST Act section 12(12) recipient-location/fallback state selection for IGST versus CGST+SGST. It is a calculation primitive and is not yet wired into actual per-fill accounting.
+- Intra-state CGST/SGST are rounded independently to paise and the returned total equals their sum. This rounding convention still needs independent accounting/legal review before live use.
+- Upstox Brokerage Details API provides GST and separate charge fields for a proposed order estimate. Its published example (transaction ₹5.68, IPFT ₹0.17, GST ₹1.02) conflicts with the published pricing page's GST component description; preserve this discrepancy rather than treating the sample as actual invoice proof.
+- Nine maintained project documents were updated to record the passing code/test CI and remaining work. Latest doc synchronization commits include `6d7dbc59bb646f8b043e029777a45df1587d672a`; the checkpoint sync itself is a new commit, so **the latest documentation head must receive and pass its own exact-head CI before it is marked green**.
+- Next gates: verify latest documentation-head CI, then implement reviewed effective-dated broker/segment/product policy mapping, combined/separate IPFT resolver, DP/demat persistence and total reconciliation, and integration tests. No personal contract note is required.
+- Safety: PR #6/#7 remain Draft/unmerged; PAPER-only; live broker writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
+
+---
+
 ## Latest work-in-progress checkpoint — 26 October 2026 (CI pending; supersedes prior code head for current work)
 
 - Target only: `tarunsharma2610-del/tradepro-improved`, branch `phase3/cross-broker-gst-ipft-resolution`. Latest verified green baseline remains `f9d302fce03e504985e96582a7af71b14fd89f28`, Backend CI #40366645906 (1,034 passed, 1 warning); this is **not** verification of the new GST statutory engine.

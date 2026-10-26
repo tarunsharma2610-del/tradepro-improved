@@ -1961,3 +1961,8 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Public GST estimate rule resolved: 18% on brokerage + combined transaction/IPFT exchange_charges, with explicit demat_charges additionally for equity delivery. Never double-count IPFT; do not add STT, stamp duty or SEBI to this published estimate base. API example mismatch is a documentation-example discrepancy; it does not override the published Upstox schedule.
 - Actual account invoice/per-fill GST is still evidence-gated; actual candidate records remain DRAFT. User is not required to supply a personal contract note. This does not block public-schedule estimate implementation.
 - Scope/safety unchanged: only tarunsharma2610-del/tradepro-improved; original Tradepro untouched; PAPER mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; PR #6 remains open/draft/unmerged; AI/Algory deferred until Phase 3 acceptance.
+
+
+## Phase 3 GST/IPFT closeout addendum — 26 October 2026
+
+Active continuation: Draft PR #7, `phase3/cross-broker-gst-ipft-resolution`. Research and generic GST component policy primitives are added; the work is not accepted until integrated and CI-verified. The required finish line is cross-broker/effective-dated taxable-component policies, combined-vs-separate IPFT safeguards, source-backed regression tests, DP/demat canonical accounting support, exact-head passing CI, and synchronized checkpoints. No personal contract note is required to implement public tariff rules; actual invoice acceptance remains evidence-gated. Do not advance to Phase 4/Upstox/UI/AI integrations before Phase 3 gates are met.

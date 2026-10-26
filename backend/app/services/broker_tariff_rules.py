@@ -349,8 +349,8 @@ def calculate_gst_on_explicit_components(
         raise ValueError("GST requires an approved GST_TAXABLE_COMPONENT_SUM percent rule.")
     if rule.review_status != "APPROVED":
         raise ValueError("Only an approved tariff rule can be calculated.")
-    if not rule.rate.is_finite() or rule.rate < 0 or rule.rate > Decimal("100"):
-        raise ValueError("GST rate percent must be finite and between 0 and 100.")
+    if rule.rate != Decimal("18"):
+        raise ValueError("Supported Indian brokerage/market-charge GST calculations require an 18 percent rate.")
     if not isinstance(taxable_components, dict) or not taxable_components:
         raise ValueError("An explicit nonempty taxable component mapping is required.")
     if not isinstance(approved_taxable_component_names, (tuple, list)) or not approved_taxable_component_names:

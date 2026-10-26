@@ -797,15 +797,15 @@ def test_gst_rejects_component_amounts_not_valid_inr_paise(amount):
         )
 
 
-@pytest.mark.parametrize("rate", ["100.01"])
-def test_gst_rejects_out_of_range_percentage(rate):
+@pytest.mark.parametrize("rate", ["0", "5", "100", "100.01"])
+def test_gst_rejects_rates_other_than_supported_18_percent(rate):
     from app.services.broker_tariff_rules import calculate_gst_on_explicit_components
 
     rule = make_rule(
         component="gst", calculation_basis="GST_TAXABLE_COMPONENT_SUM",
         rate=Decimal(rate), rate_unit="PERCENT",
     )
-    with pytest.raises(ValueError, match="GST rate percent"):
+    with pytest.raises(ValueError, match="require an 18 percent rate"):
         calculate_gst_on_explicit_components(
             rule, taxable_components={"brokerage": "100.00"},
             approved_taxable_component_names=("brokerage",),

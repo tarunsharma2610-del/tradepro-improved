@@ -2202,3 +2202,9 @@ New parser-level coverage is in `backend/app/services/upstox_contract_note_text_
 The Upstox estimate helper no longer constructs a `GstComponentPolicy(review_status="APPROVED")` internally. Public tariff estimates and approved actual accounting are now separate concepts in this path. The user-supplied Upstox claim including SEBI in the taxable base and DP ₹18.50 base is not accepted as an authoritative rule because it conflicts with Upstox's public pricing page (GST formula: brokerage + transaction + IPFT, plus demat for equity delivery; DP ₹20 per scrip/day on delivery sell). The actual invoice/tax treatment remains evidence-gated.
 
 Known blocker remains: source canonicalization explicitly rejects `demat_transaction_charges`, and Execution persists six charge components. Actual delivery accounting must remain fail-closed until DP/demat has an explicit canonical component, database migration, total-charge handling, idempotency and regression coverage. MCX and NSE-CD policy rows must not be guessed from the supplied examples. Latest exact-head CI is pending verification.
+
+## DP/demat mapping audit delta — 26 October 2026
+
+The source-to-canonical mapper now treats `demat_transaction_charges` as an optional separate canonical component only when an explicit reviewed source row exists. Allocation-plan support is added and remains non-persisting/non-approving. Regression tests cover absence as absent rather than fabricated zero, and separate deterministic allocation.
+
+Persistence remains unsupported: `Execution` lacks a DP/demat field and the Alembic migration, total-charge calculations, promotion/locking, idempotency and product-side regression coverage are still open. The change is not a Phase 3 acceptance gate by itself. Exact-head CI is pending for this code and document sync.

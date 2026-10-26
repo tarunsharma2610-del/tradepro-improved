@@ -298,6 +298,7 @@ class LiveFillAccountingService:
                 broker_trade_record_id=record.id,
                 reviewer_user_id=charges.reviewer_user_id,
                 supplied_fees=fee_values,
+                broker_report_reference=charges.reference,
             )
 
             # The verification path now owns the evidence -> component ->
@@ -434,6 +435,7 @@ class LiveFillAccountingService:
         broker_trade_record_id: UUID,
         reviewer_user_id: UUID,
         supplied_fees: dict[str, Decimal],
+        broker_report_reference: str,
     ) -> dict[str, Decimal]:
         """Load actual fees only from six verified canonical snapshots.
 
@@ -506,6 +508,7 @@ class LiveFillAccountingService:
             or evidence.reviewed_by_user_id is None
             or evidence.reviewed_by_user_id != reviewer_user_id
             or not evidence.broker_report_reference
+            or evidence.broker_report_reference.strip() != broker_report_reference.strip()
         ):
             raise ValueError("Canonical charge evidence no longer matches the reviewed broker connection.")
         # Reference comparison is repeated after the evidence row is locked.

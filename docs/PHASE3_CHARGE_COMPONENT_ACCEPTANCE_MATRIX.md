@@ -315,3 +315,12 @@ Safety unchanged: PAPER mode mandatory; live broker order writes disabled; PR #6
 - **Decision:** all four product GST component candidates remain `DRAFT`; actual per-fill GST promotion is blocked pending reviewed current source/invoice mapping. Never tax trade notional, infer zero from missing/null fields, or double-count IPFT. Aggregate charges API data is not per-fill evidence; the brokerage calculator is estimate-only.
 - **Next gate:** continue Phase 3 product/segment-specific GST component acceptance and evidence reconciliation. Do not repeat canonical live-fill integration or restart from older checkpoints. Defer AI/open-source adaptations, including Algory.app, until Phase 3 acceptance.
 - **Safety:** PAPER mode mandatory; live broker order writes and automatic live-fill promotion/scheduling remain disabled. Do not merge PR #6 without explicit user approval. This documentation-sync commit must pass exact-head CI.
+
+## Cross-repository GST/IPFT audit — 26 October 2026
+
+- OpenAlgo's composable charge schedule is a useful architecture reference, but its inspected India delivery preset taxes brokerage + exchange transaction charges + SEBI and does not explicitly model IPFT/demat; this conflicts with the current Upstox public GST wording. Do not copy its formula.
+- A Shoonya backtest example taxes brokerage + SEBI + transaction charges and adds IPFT separately; it is hard-coded sample logic, not tax authority.
+- NautilusTrader's pluggable per-fill fee models are relevant for simulation mechanics only, not Indian GST interpretation.
+- Upstox official tariff wording names brokerage + transaction + IPFT (and delivery demat). Its documented brokerage API example's GST ₹1.02 matches 18% of transaction ₹5.68 alone, while IPFT is ₹0.17 separately; this is a docs-example arithmetic mismatch, not proof of live endpoint behavior. Aggregate trade-charges API is not per-fill evidence.
+- Historical publicly surfaced Upstox notes dated 21-May-2024 and 12-Mar-2025 concern rights-entitlement/special-case transactions. They are conflict signals, not representative current evidence for ordinary trades.
+- Decision: all four GST component sets remain DRAFT. Next evidence gate is current ordinary-trade contract notes/tax invoices for delivery, intraday, futures and options, plus clarification of the public-tariff/API-example mismatch. Do not promote actual per-fill GST based only on a third-party formula or estimate API.

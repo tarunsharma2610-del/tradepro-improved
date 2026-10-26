@@ -1,0 +1,79 @@
+# Cross-repository GST/IPFT borrowing audit — 26 October 2026
+
+**Status: research/design only; no GST component promoted.**  
+**Target:** `tarunsharma2610-del/tradepro-improved` only.  
+**Safety:** PAPER mode mandatory; live broker writes remain disabled; PR #6 remains draft/unmerged.
+
+## Executive decision
+
+No inspected third-party implementation proves the correct current Upstox GST taxable base for every Indian product/segment. Reuse generic architecture only; do not copy another repository's Indian tax formula into actual accounting.
+
+The strongest evidence is a conflict between (a) Upstox's current public charge schedule, (b) its documented brokerage API example, and (c) historical public contract-note examples. The historical notes found in this search are rights-entitlement/special-case notes rather than sufficient representative evidence for ordinary current delivery/intraday/futures/options trades. They flag a conflict; they do not settle it.
+
+## Findings by source
+
+### 1. Upstox official sources — primary broker evidence, but not yet sufficient to approve per-fill GST
+
+- Public charge schedule: https://upstox.com/brokerage-charges/
+  - Current published wording says GST is 18% on brokerage + transaction charges + IPFT for intraday/futures/options, with delivery additionally including demat charges.
+  - Since 1 March 2026, the page says IPFT is combined with transaction charges. Canonicalize this as one exchange-charge outflow; never add legacy IPFT rates on top of the combined tariff.
+  - The public schedule is a published estimate/tariff statement, not a substitute for the actual account's invoice.
+- Brokerage Details API: https://upstox.com/developer/api-documentation/get-brokerage/
+  - The documentation example reports GST ₹1.02, transaction charges ₹5.68, IPFT ₹0.17 and SEBI turnover ₹0.17. ₹1.02 equals 18% of ₹5.68 rounded to paise; 18% of transaction + IPFT would be ₹1.05 before rounding. This is a **documentation-example arithmetic discrepancy**, not proof of the live API's actual behaviour. The example must not override current tariff wording.
+  - API is estimate-oriented, not the actual contract-note tax invoice.
+- Trades Charges API: https://upstox.com/developer/api-documentation/get-trade-charges/
+  - Returns aggregate segment/FY charges including GST and an IPFT field that may be null. It can support aggregate reconciliation but cannot uniquely determine a per-fill taxable component breakdown. Null means unknown, not zero.
+- Upstox SDK exposes these documented endpoints; an SDK wrapper adds no independent tax interpretation.
+
+### 2. Historical Upstox contract-note examples — conflict signals, not approval evidence
+
+- Public note dated 21 May 2024 (rights-entitlement context): https://www.scribd.com/document/735902961/CW-T-842243-20240521-NSE-35749411
+  - Prints taxable value ₹77.56 = brokerage ₹0.01 + SEBI ₹0.11 + turnover charges ₹3.44 + demat ₹74.00; IGST ₹13.96; IPFT ₹0.11 shown separately outside the printed taxable-value equation.
+  - This note includes a special rights-entitlement context and is historical; do not generalize its base to all regular products or today's tariff.
+- Public note dated 12 March 2025 (rights-entitlement context): https://www.scribd.com/document/971660843/CW-T-3JCTYG-20250312-NSE-66319975-1
+  - Prints GST taxable value as brokerage ₹2.75 and IGST ₹0.50; it does not provide representative ordinary-trade evidence for the current tariff.
+- These examples show why a generic formula or public calculator alone is not enough. Obtain current ordinary-trade contract notes/tax invoices covering delivery, intraday, futures and options, including cases where IPFT and transaction charges are separately or jointly displayed.
+
+### 3. OpenAlgo — borrow the composable schedule pattern, not its Indian GST formula
+
+- Repository/source: https://github.com/marketcalls/openalgo/blob/main/portfolio/costs.py
+- Useful design: a `Charge` record declares basis (turnover/buy/sell/order), rate/flat/cap and a `taxed` flag; `CostSchedule.breakdown` itemizes charges and calculates tax over marked components. This is a good pattern for explicit, auditable, market-specific rules.
+- Its inspected India delivery preset marks brokerage, exchange transaction charges and SEBI charges as taxable, while STT and stamp duty are not marked taxable. It does not explicitly model IPFT as its own line in that preset and does not model delivery demat there.
+- This preset therefore conflicts with the current Upstox published base (which names IPFT and delivery demat, but does not name SEBI). It is not an Upstox-specific authority and must not be copied as the answer.
+
+### 4. Shoonya backtesting example — reject as tax authority
+
+- Source: https://github.com/ctrlaltprofit/backtesting_with_real_bokerage_charges_shoonya/blob/main/backtesting_brokerage_and_slippage.py
+- The function computes GST as 18% of brokerage + SEBI + transaction charges, then adds IPFT separately to total cost.
+- It is a small hard-coded backtest example, not a documented Upstox tax invoice or authoritative GST ruling. Its GST formula has the same component-treatment uncertainty as our unresolved question; do not reuse its formula.
+
+### 5. NautilusTrader — borrow fee-model separation only
+
+- Docs: https://nautilustrader.io/docs/latest/concepts/behavioral_models/
+- Its pluggable fee model and fill-level commission accounting are relevant architecture patterns for simulation. They do not encode Indian GST law or Upstox IPFT treatment.
+- Keep deterministic GST/tariff and ledger logic within Tradepro Improved's existing reviewed accounting services. Do not import a trading engine to solve the tax interpretation.
+
+### 6. CBIC / exchange sources
+
+- CBIC sector FAQs: https://cbic-gst.gov.in/sectoral-faq.html
+- GST valuation rules: https://cbic-gst.gov.in/valuation-rules.html
+- NSE circular for the combined transaction/IPFT schedule: https://nsearchives.nseindia.com/content/circulars/FA73061.pdf
+- These help interpret the law and exchange fee schedule, but neither generic repository formulas nor a broad FAQ alone proves the broker's actual invoice component mapping.
+
+## Recommended implementation direction
+
+1. Keep the existing four Upstox product GST component candidates `DRAFT`.
+2. Retain the current single canonical `exchange_charges` component for the combined transaction/IPFT tariff when reconciling the published schedule; do not create an additional IPFT charge from the same combined schedule.
+3. Add an explicit, versioned taxable-component policy object only after the evidence gate is satisfied. Each component needs source provenance, product/segment/exchange scope, effective dates, taxability status and reviewer decision. Keep estimates separate from actual-charge ledger entries.
+4. Reconcile the Upstox estimate endpoint and aggregate charges endpoint separately, marking their evidence scope clearly; neither should silently promote actual per-fill GST.
+5. Obtain current ordinary-trade Upstox contract notes/tax invoices across the four products, preferably with broker-provided clarification of why the public tariff and API example arithmetic differ. Preserve redacted source files and hashes in the private project/repo evidence process; do not publish personal/account identifiers.
+6. Only then write per-product expected-base tests and actual-invoice reconciliation tests. Include rounding, split/combined IPFT, missing/null, stale schedule, DP applicability and effective-date cases.
+7. Do not modify the original `tarunsharma2610-del/Tradepro` repository. Do not start deferred AI integrations until Phase 3 acceptance.
+
+## Acceptance gate
+
+- [ ] Current ordinary-trade contract-note/tax-invoice evidence for delivery, intraday, futures and options.
+- [ ] Broker explanation or authoritative evidence resolving the Upstox public schedule vs documented brokerage-API example mismatch.
+- [ ] Taxable-base component decision recorded for each applicable product/segment and effective date.
+- [ ] Independent review; candidates remain DRAFT until approved.
+- [ ] Exact-head CI passes after any implementation.

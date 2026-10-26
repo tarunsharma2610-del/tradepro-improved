@@ -1,3 +1,5 @@
+<!-- Final maintained-document sync audit: all 39 in-scope Phase 3/GST/IPFT/accounting Markdown documents in the branch tree were synchronized to the 27 October checkpoint. Earlier docs-head CI #40384521664 passed for head fbcefc1ae44f863b5d16d5e32fd819d277b0ead8; this later sync created additional commits, so CI must be checked again on the final resulting head before declaring the entire documentation set green. -->
+
 # Latest verified Phase 3 checkpoint — 27 October 2026 (DP/demat accounting + maintained-doc synchronization)
 
 - **Verified code/test head:** `31ce2a10bcc789c223608c6566082b24aea7358c`; Backend CI [#40383076131 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40383076131).

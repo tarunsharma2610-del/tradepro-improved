@@ -1986,3 +1986,17 @@ Before Phase 3 closure: verify exact-head CI; add canonical DP/demat component p
 ## DP/demat implementation sequencing — 26 October 2026
 
 DP/demat source canonicalization and non-persisted allocation-plan support are now implemented as a partial step. Next sequence: (1) inspect existing Alembic chain and charge persistence paths; (2) add backward-compatible DP/demat storage and migration; (3) update total-charge recomputation and all execution creation/serialization paths; (4) verify locked promotion, replay/idempotency and rollback; (5) add delivery-sell vs non-delivery regression tests; (6) run exact-head CI and update the authoritative checkpoint. Keep actual delivery accounting blocked until the entire sequence passes.
+
+
+## Cross-broker GST implementation update — 26 October 2026
+
+New official-source comparison confirms the taxable GST component set must not be copied from one broker to another:
+- Zerodha states GST on brokerage + SEBI charges + transaction charges: https://zerodha.com/charges/
+- Dhan states GST on brokerage + transaction charges + SEBI turnover + IPFT/other tax: https://dhan.co/pricing/
+- FYERS states GST on brokerage + exchange transaction + clearing + SEBI turnover + NSE IPFT: https://fyers.in/charges-list
+- Upstox publishes brokerage + transaction charges + IPFT, with demat charges additionally for equity delivery: https://upstox.com/brokerage-charges/
+- Angel One lists transaction charges and IPFT as separate rows; its published table alone does not settle whether a displayed exchange rate is combined for every effective period: https://www.angelone.in/exchange-transaction-charges
+- NSE circular NSE/FA/73061 effective 2026-03-01 specifies total outflow as transaction + IPFT: cash ₹306.99 + ₹0.01 per crore, futures ₹182.99 + ₹0.01, options ₹3,552 + ₹0.01. Never add old IPFT rates on top of a combined total: https://nsearchives.nseindia.com/content/circulars/FA73061.pdf
+- CBIC stock-broking FAQ says STT/stamp-duty/other tax recoveries are outside GST value only when Rule 33 pure-agent conditions are met; otherwise section 15/Rule 27 valuation applies: https://cbic-gst.gov.in/sectoral-faq.html
+
+Code now includes a generic public-schedule estimate function for source-backed DRAFT/REVIEWED policies. It preserves broker/scope/date/source provenance, requires an exact component set, uses Decimal and paise rounding, and cannot approve a policy or promote actual accounting. Added tests use differing broker component sets as fixtures only; they are not a production-approved tariff registry. Actual invoice reconciliation, policy review, DP/demat persistence and exact-head CI remain separate gates. PAPER-only; live writes disabled; PR #6 and #7 remain Draft/unmerged; original Tradepro repository remains out of scope.

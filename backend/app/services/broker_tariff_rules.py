@@ -349,6 +349,8 @@ def calculate_gst_on_explicit_components(
         raise ValueError("GST requires an approved GST_TAXABLE_COMPONENT_SUM percent rule.")
     if rule.review_status != "APPROVED":
         raise ValueError("Only an approved tariff rule can be calculated.")
+    if not rule.rate.is_finite() or rule.rate < 0 or rule.rate > Decimal("100"):
+        raise ValueError("GST rate percent must be finite and between 0 and 100.")
     if not isinstance(taxable_components, dict) or not taxable_components:
         raise ValueError("An explicit nonempty taxable component mapping is required.")
     if not isinstance(approved_taxable_component_names, (tuple, list)) or not approved_taxable_component_names:
@@ -370,6 +372,8 @@ def calculate_gst_on_explicit_components(
             raise ValueError(f"Taxable component {name} must be a finite nonnegative decimal.") from exc
         if not amount.is_finite() or amount < 0:
             raise ValueError(f"Taxable component {name} must be a finite nonnegative decimal.")
+        if amount != amount.quantize(PAISE):
+            raise ValueError(f"Taxable component {name} must be expressed to paise precision.")
         taxable_base += amount
     taxable_base = taxable_base.quantize(PAISE, rounding="ROUND_HALF_UP")
     gst_amount = _calculate_rate_amount(rule, taxable_base)
@@ -405,7 +409,17 @@ def calculate_stamp_duty_for_trade(
         raise ValueError("Stamp duty requires an explicitly percentage-based approved rule.")
     if rule.review_status != "APPROVED":
         raise ValueError("Only an approved tariff rule can be calculated.")
-    return _calculate_rate_amount(rule, calculation_base)
+    if not rule.rate.is_finite() or rule.rate < 0 or rule.rate > Decimal("100"):
+        raise ValueError("Stamp duty rate percent must be finite and between 0 and 100.")
+    try:
+        base = calculation_base if isinstance(calculation_base, Decimal) else Decimal(str(calculation_base))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("Stamp duty calculation base must be a finite nonnegative decimal.") from exc
+    if not base.is_finite() or base < 0:
+        raise ValueError("Stamp duty calculation base must be a finite nonnegative decimal.")
+    if base != base.quantize(PAISE):
+        raise ValueError("Stamp duty calculation base must be expressed to paise precision.")
+    return _calculate_rate_amount(rule, base)
 
 
 

@@ -780,3 +780,61 @@ def test_multi_fill_brokerage_allocation_rejects_unapproved_tariff():
             order_notional="100000",
             reviewed_fill_weights={"fill-a": "1", "fill-b": "1"},
         )
+
+
+@pytest.mark.parametrize("amount", ["100.001", "0.009", "-0.01", "NaN", "Infinity"])
+def test_gst_rejects_component_amounts_not_valid_inr_paise(amount):
+    from app.services.broker_tariff_rules import calculate_gst_on_explicit_components
+
+    rule = make_rule(
+        component="gst", calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+        rate=Decimal("18"), rate_unit="PERCENT",
+    )
+    with pytest.raises(ValueError):
+        calculate_gst_on_explicit_components(
+            rule, taxable_components={"brokerage": amount},
+            approved_taxable_component_names=("brokerage",),
+        )
+
+
+@pytest.mark.parametrize("rate", ["100.01", "-0.01", "NaN", "Infinity"])
+def test_gst_rejects_out_of_range_or_nonfinite_percentage(rate):
+    from app.services.broker_tariff_rules import calculate_gst_on_explicit_components
+
+    rule = make_rule(
+        component="gst", calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+        rate=Decimal(rate), rate_unit="PERCENT",
+    )
+    with pytest.raises(ValueError, match="GST rate percent"):
+        calculate_gst_on_explicit_components(
+            rule, taxable_components={"brokerage": "100.00"},
+            approved_taxable_component_names=("brokerage",),
+        )
+
+
+@pytest.mark.parametrize("base", ["100.001", "0.009", "-0.01", "NaN", "Infinity"])
+def test_stamp_duty_rejects_invalid_or_subpaise_base(base):
+    from app.services.broker_tariff_rules import calculate_stamp_duty_for_trade
+
+    rule = make_rule(
+        component="stamp_duty", product="OPTIONS", transaction_side="BUY",
+        calculation_basis="OPTION_PREMIUM", rate=Decimal("0.001"), rate_unit="PERCENT",
+    )
+    with pytest.raises(ValueError):
+        calculate_stamp_duty_for_trade(
+            rule, transaction_side="BUY", product="OPTIONS", calculation_base=base,
+        )
+
+
+@pytest.mark.parametrize("rate", ["100.01", "-0.01", "NaN", "Infinity"])
+def test_stamp_duty_rejects_out_of_range_or_nonfinite_percentage(rate):
+    from app.services.broker_tariff_rules import calculate_stamp_duty_for_trade
+
+    rule = make_rule(
+        component="stamp_duty", product="OPTIONS", transaction_side="BUY",
+        calculation_basis="OPTION_PREMIUM", rate=Decimal(rate), rate_unit="PERCENT",
+    )
+    with pytest.raises(ValueError, match="Stamp duty rate percent"):
+        calculate_stamp_duty_for_trade(
+            rule, transaction_side="BUY", product="OPTIONS", calculation_base="100.00",
+        )

@@ -2249,3 +2249,9 @@ The user supplied AI-generated sample contract-note structures for Zerodha, Grow
 New code: `backend/app/services/upstox_contract_note_text_extractor.py` plus `backend/tests/test_upstox_contract_note_text_extractor.py`. The extractor retains raw line text/line number and amount, flags duplicate component labels, identifies segment tags, and surfaces unmapped charge-like lines. It does not determine taxable base or approve accounting. `upstox_public_gst_estimate.py` no longer marks an internal policy APPROVED to calculate an estimate.
 
 Next: confirm exact-head CI; then update the authoritative checkpoint to the successful exact commit/run. Continue the canonical DP/demat persistence + migration audit. Keep tariff candidates DRAFT, don't require personal contract notes, don't enable live writes, and don't merge PR #6 or #7.
+
+## DP/demat mapping status — 26 October 2026
+
+Source canonicalization now accepts an explicitly reviewed `demat_transaction_charges` row as a separate optional canonical component; it is never invented as zero when absent. Per-fill allocation planning also supports the separate component with a regression test, while preserving `accounting_approved=False` and `persisted=False`.
+
+This does not yet make DP/demat persistable on an Execution. Next work must inspect the Alembic migration chain, add a nullable/backward-compatible field and migration, update total-charge recomputation and any serializer/repository/promotion code, and add idempotency plus delivery/non-delivery regression tests. Do not accept actual delivery accounting before those checks and exact-head CI pass.

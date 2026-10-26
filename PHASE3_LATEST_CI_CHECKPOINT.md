@@ -1,3 +1,14 @@
+# Latest verified Phase 3 checkpoint — 26 October 2026 (current exact-head CI)
+
+- **Latest exact-head Backend CI:** [#40379600708 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40379600708) on `b1ff723206a40326f1132d533ff31f6d7db6d437`: **1,056 passed, 1 warning**. Broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill and retained restore evidence passed.
+- **Latest code/test head:** `13e201661d26b04c9bf75bb7e3aaf567ad1e69c4`; exact-head CI [#40378072884 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40378072884), also **1,056 passed, 1 warning**.
+- **Maintained docs:** 28 project documents synchronized in `1fe84861c7317b793f9ce2d10c1253c262ae3934`; exact-head docs-sync CI [#40379073914 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40379073914). Checkpoint-refresh head `660a8f9817d905bc58a9ee17254b690c66fd0acd` passed CI [#40379187311](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40379187311).
+- **Completed implementation:** scope/date-selected GST policy resolution for `COMBINED`, `SEPARATE`, and `NOT_APPLICABLE` IPFT representation. It blocks duplicate IPFT, simultaneous combined and split representations, wrong exchange/scope, unapproved policy, and out-of-window policy. This is estimate-policy plumbing, not actual invoice reconciliation or tariff approval.
+- **Next Phase 3 implementation gate:** safely persist optional DP/demat charges through canonical snapshots/allocation ledger and charge-total reconciliation; then integrate statutory GST valuation only through reviewed source-backed policy paths. Keep actual per-fill invoice acceptance evidence-gated; do not request a personal contract note.
+- **Safety:** PR #6/#7 Draft and unmerged; PAPER mandatory; live broker writes and automatic live-fill promotion/scheduling disabled; original `tarunsharma2610-del/Tradepro` untouched and out of scope.
+
+---
+
 # Latest verified Phase 3 checkpoint — 26 October 2026 (supersedes earlier checkpoint headers)
 
 - **Latest exact-head CI:** [Backend CI #40379187311 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40379187311) on checkpoint-refresh commit `660a8f9817d905bc58a9ee17254b690c66fd0acd`: **1,056 passed, 1 warning**. Broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill and retained evidence passed.

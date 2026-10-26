@@ -3029,3 +3029,11 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Added `backend/tests/test_broker_gst_component_policy.py` for IPFT mode validation, effective-date selection, duplicate/ambiguous rules, invalid amounts and exact component sets.
 - **Not yet complete:** the new generic policy primitive is not yet wired into the existing Upstox estimate path; cross-broker candidates remain unapproved; canonical DP/demat persistence/migration is still a separate accounting gate; exact-head CI has not yet reported a run for the new PR head. Do not call this a completed GST fix until integration, tests and CI pass.
 - Safety unchanged: PR #6 stays Draft/unmerged; PAPER mandatory; live broker writes disabled; original `tarunsharma2610-del/Tradepro` untouched; no personal contract note requested.
+
+
+## GST/IPFT CI failure and fix — 26 October 2026
+
+- CI run #40358027077 on prior head `59bdfd2cc66768eff882cdc1ffd00a9dade9c015` failed with 1 test failure and 1,023 passing. Failure was a test assertion expecting the wrong validation message (implementation correctly raised `SEPARATE IPFT mode requires...`); corrected the assertion.
+- Routed `calculate_upstox_public_gst_estimate` through the shared `GstComponentPolicy` / `calculate_gst_estimate` policy module. IPFT mode is now `COMBINED` for NSE and `NOT_APPLICABLE` for the supported BSE options scope, avoiding an incorrect NSE-IPFT assumption for BSE.
+- New implementation head: `393804cc5c21ba70a579b32a6736f6561569413b`. Exact-head CI result has not yet been returned; do not mark passing until checked.
+- Still open: source-backed candidate/test coverage for other brokers, canonical DP/demat persistence/migration, and final exact-head passing CI. No tariff candidates activated. PR #6 remains Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro untouched.

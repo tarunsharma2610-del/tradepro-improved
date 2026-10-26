@@ -3048,3 +3048,11 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Still blocked: canonical DP/demat accounting persistence/migration/allocation; verified dated MCX and NSE-CD tax-component matrix; independent tariff approval; actual per-fill invoice evidence. User is not required to provide a personal contract note.
 - Exact-head CI for the latest implementation is pending; do not mark the change green until Actions confirms success.
 - Safety unchanged: target repository only is `tarunsharma2610-del/tradepro-improved`; PR #6 and PR #7 stay Draft/unmerged; PAPER mode mandatory; live broker writes disabled; original `Tradepro` repository untouched.
+
+## DP/demat canonical mapping follow-up — 26 October 2026
+
+- Added optional `demat_transaction_charges` canonical mapping when a reviewed source row explicitly exists. Absence remains absent/unknown, not zero.
+- Added deterministic per-fill allocation-plan support and tests for the separate DP/demat component; output remains `accounting_approved=False` and `persisted=False`.
+- **Still not complete:** `Execution` database model/migration, DP/demat total-charge recomputation, persistence/promotion lock path, idempotency and delivery-vs-non-delivery tests. Actual delivery accounting remains blocked.
+- Exact-head CI for these latest mapping/allocation changes and this document sync is pending verification.
+- PR #6 and PR #7 remain Draft/unmerged; PAPER only; live broker writes disabled; original Tradepro repo untouched.

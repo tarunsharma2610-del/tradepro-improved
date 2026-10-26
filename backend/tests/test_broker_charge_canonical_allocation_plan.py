@@ -88,6 +88,29 @@ def test_direct_source_rows_produce_exact_non_persisted_plan():
     assert result["persisted"] is False
 
 
+
+def test_gst_allocation_plan_uses_only_reviewed_invoice_component_total():
+    rows = source_rows()
+    result = build_verified_component_allocation_plan(
+        rows,
+        evidence_id=EVIDENCE,
+        source_sha256=SOURCE_HASH,
+        canonical_component="gst",
+    )
+    assert result["canonical_source_total"] == "58.91"
+    assert result["allocations"] == {
+        FILL_IDS[0]: "19.64",
+        FILL_IDS[1]: "39.27",
+    }
+    assert sum(Decimal(value) for value in result["allocations"].values()) == Decimal("58.91")
+    assert result["source_record_provenance"][0]["component_name"] == "gst"
+    # This is a plan from a reviewed source amount, not GST recomputed from
+    # trade notional or from other charge rows; it remains non-promotable.
+    assert result["accounting_approved"] is False
+    assert result["persisted"] is False
+
+
+
 def test_split_transaction_and_ipft_are_combined_once_before_allocation():
     rows = source_rows(split_exchange=True)
     result = build_verified_component_allocation_plan(

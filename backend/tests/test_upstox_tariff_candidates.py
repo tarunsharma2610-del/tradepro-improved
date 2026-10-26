@@ -10,6 +10,7 @@ import pytest
 from app.services.broker_tariff_rules import select_tariff_rule
 from app.services.upstox_tariff_candidates import (
     SOURCE_SNAPSHOT_SHA256,
+    upstox_gst_component_set_candidates,
     upstox_tariff_candidate_rules,
 )
 
@@ -172,3 +173,34 @@ def test_equity_stt_candidates_preserve_published_2023_effective_date():
         ("INTRADAY", "SELL", Decimal("0.025")),
     }
     assert all(rule.review_status == "DRAFT" for rule in rules)
+
+
+
+def test_gst_component_set_candidates_are_scoped_draft_and_never_tax_notional():
+    candidates = upstox_gst_component_set_candidates()
+    assert len(candidates) == 4
+    assert all(candidate.broker == "Upstox" for candidate in candidates)
+    assert all(candidate.exchanges == ("NSE", "BSE") for candidate in candidates)
+    assert all(candidate.rate_percent == "18" for candidate in candidates)
+    assert all(candidate.review_status == "DRAFT" for candidate in candidates)
+    assert all(candidate.source_sha256 if hasattr(candidate, "source_sha256") else candidate.source_snapshot_sha256 == SOURCE_SNAPSHOT_SHA256 for candidate in candidates)
+    assert all(candidate.source_url.startswith("https://") for candidate in candidates)
+    by_product = {(candidate.segment, candidate.product): candidate for candidate in candidates}
+    assert set(by_product) == {
+        ("EQ", "DELIVERY"),
+        ("EQ", "INTRADAY"),
+        ("FO", "FUTURES"),
+        ("FO", "OPTIONS"),
+    }
+    assert by_product[("EQ", "DELIVERY")].taxable_components == (
+        "brokerage", "exchange_charges", "demat_charges"
+    )
+    for key in (("EQ", "INTRADAY"), ("FO", "FUTURES"), ("FO", "OPTIONS")):
+        assert by_product[key].taxable_components == ("brokerage", "exchange_charges")
+    for candidate in candidates:
+        assert "trade_notional" not in candidate.taxable_components
+        assert "turnover" not in candidate.taxable_components
+        # IPFT is already part of canonical exchange_charges for this source;
+        # adding it again would double count the same published outflow.
+        assert "ipft" not in candidate.taxable_components
+        assert candidate.taxable_components.count("exchange_charges") == 1

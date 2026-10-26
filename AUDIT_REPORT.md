@@ -2186,3 +2186,10 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 Cross-broker research now documents that GST is a statutory 18% rate but the component set must be explicit and broker/product/effective-date scoped. NSE circular NSE/FA/73061 effective 2026-03-01 changes the transaction/IPFT split while retaining total outflow; a combined charge representation must not receive a second IPFT addition. CBIC's pure-agent treatment for STT/stamp-duty/other tax recoveries is conditional on Rule 33 criteria, not a blanket rule for every broker line item.
 
 A fail-closed generic policy primitive and tests have been added on Draft PR #7. This does not yet close the audit finding: integration with the Upstox estimate path, broader cross-broker source-backed candidate tests, DP/demat canonical persistence/migration and exact-head CI remain open. Do not approve live tariffs or actual invoice accounting based on this addendum alone.
+
+
+## GST/IPFT verification addendum — 26 October 2026
+
+The first CI run on the new policy branch failed 1 test (1,023 passed); the failure was a test regex mismatch against the implementation's explicit validation message. The assertion has been corrected. The Upstox public GST estimate is now wired through the shared explicit-component policy calculator. NSE combined IPFT representation and BSE options not-applicable treatment are distinguished.
+
+This is not yet a passing CI checkpoint: exact-head workflow result after these fixes remains pending. Cross-broker policy/test coverage and canonical DP/demat persistence/migration remain open. Do not activate tariff candidates or declare GST/IPFT fully closed until those gates and CI pass.

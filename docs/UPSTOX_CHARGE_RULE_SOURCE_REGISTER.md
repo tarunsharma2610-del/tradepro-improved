@@ -541,3 +541,8 @@ The backend test run `40302129087` reported 1,002 passed / 1 failed because an a
 ## Additional GST-base evidence search — 26 October 2026
 
 Search results for publicly indexed Upstox realized-P&L reports covering FY 2025–26 show separate aggregate GST and IPFT totals but not the taxable-value component breakdown. A 2025 F&O P&L report lists GST, IPFT, SEBI, stamp duty and transaction charges as totals, without explaining the GST base. A July 2026 Reddit post describes GST on brokerage/charges but is anecdotal. These are not authenticated contract-note/tax-invoice evidence. CBIC FAQ Q7/Q77 and Rule 33 valuation guidance mean the tax-base treatment cannot be inferred solely from charge labels; actual contractual/invoice mapping remains unresolved. Keep GST candidates DRAFT.
+
+
+## Follow-up correction to brittle evidence assertion — 26 October 2026
+
+The first wording-only assertion adjustment still failed because the exact phrase in the evidence document is split by Markdown emphasis (`**materially different**`). Updated the regression test to assert the stable semantic phrase `materially different` rather than formatting-sensitive exact markup. This is a test-only wording fix; the evidence finding and all GST candidate DRAFT statuses are unchanged. The current exact-head CI run must pass before the checkpoint is accepted.

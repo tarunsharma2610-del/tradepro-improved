@@ -937,3 +937,8 @@ This structural association does not prove that transcription matches the origin
 ## GST component evidence gate update — 26 October 2026
 
 Additional public searches found FY 2025–26 realized-P&L reports with separate aggregate GST/IPFT totals but no GST taxable-value breakdown; community reports are anecdotal. CBIC FAQ Q7/Q77 and Rule 33 mean a charge label alone cannot establish taxable-base inclusion/exclusion. The current GST component sets remain DRAFT. The earlier “latest verified CI” heading above refers to an older code head and must not be read as verification of the current branch head; the current correction/documentation commits require their own exact-head CI run before acceptance.
+
+
+## Follow-up correction to brittle evidence assertion — 26 October 2026
+
+The first wording-only assertion adjustment still failed because the exact phrase in the evidence document is split by Markdown emphasis (`**materially different**`). Updated the regression test to assert the stable semantic phrase `materially different` rather than formatting-sensitive exact markup. This is a test-only wording fix; the evidence finding and all GST candidate DRAFT statuses are unchanged. The current exact-head CI run must pass before the checkpoint is accepted.

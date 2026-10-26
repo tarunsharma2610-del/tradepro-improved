@@ -81,3 +81,8 @@ Backend CI run [#40302129087](https://github.com/tarunsharma2610-del/tradepro-im
 Publicly indexed FY 2025–26 Upstox realized-P&L reports list aggregate `INTEGRATED GST` and `IPFT CHG` totals separately but do not provide a GST taxable-value composition. An October–November 2025 F&O report similarly lists GST, IPFT, SEBI, stamp duty and transaction charges as aggregate totals. These third-party copies are not authenticated and cannot establish a per-trade taxable base. A July 2026 Reddit report describing GST on brokerage and charges is anecdotal only. See the evidence review for exact links and limitations.
 
 CBIC FAQ Q7 and Q77 together caution against a simplistic universal exclusion: taxes are generally included in value under Section 15 unless Rule 33 pure-agent conditions apply, and stockbroking recovery exclusion depends on those conditions. The label of a fee alone is not enough to decide GST-base treatment. No new authoritative/current source resolved the Upstox tariff-versus-historical-note discrepancy. All four GST component sets remain DRAFT.
+
+
+## Follow-up correction to brittle evidence assertion — 26 October 2026
+
+The first wording-only assertion adjustment still failed because the exact phrase in the evidence document is split by Markdown emphasis (`**materially different**`). Updated the regression test to assert the stable semantic phrase `materially different` rather than formatting-sensitive exact markup. This is a test-only wording fix; the evidence finding and all GST candidate DRAFT statuses are unchanged. The current exact-head CI run must pass before the checkpoint is accepted.

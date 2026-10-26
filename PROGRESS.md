@@ -2891,3 +2891,8 @@ Historical entries remain historical records; they must not override this curren
 - Additional public searches found third-party indexed Upstox realized-P&L reports for FY 2025–26 and an Oct–Nov 2025 F&O period. They show GST and IPFT as separate aggregate report totals, but do not reveal the taxable-value component breakdown. A July 2026 Reddit discussion is anecdotal and cannot be used as a tariff authority.
 - Re-read CBIC FAQ Q7/Q77: Section 15 valuation generally includes taxes except GST unless pure-agent Rule 33 conditions are met; the specific stockbroker recovery question likewise makes exclusion conditional. A fee label alone cannot settle the taxable base. Current official tariff wording and historical invoice copy remain unreconciled.
 - Result: research broadened, but no approval. All four GST component sets stay DRAFT. No tax calculation or live accounting behavior changed. Exact-head CI must pass after the latest correction/documentation commit before the checkpoint can be called green.
+
+
+## Follow-up correction to brittle evidence assertion — 26 October 2026
+
+The first wording-only assertion adjustment still failed because the exact phrase in the evidence document is split by Markdown emphasis (`**materially different**`). Updated the regression test to assert the stable semantic phrase `materially different` rather than formatting-sensitive exact markup. This is a test-only wording fix; the evidence finding and all GST candidate DRAFT statuses are unchanged. The current exact-head CI run must pass before the checkpoint is accepted.

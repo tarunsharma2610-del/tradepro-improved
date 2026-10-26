@@ -112,3 +112,8 @@ Only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` re
 ## Additional GST-source search — 26 October 2026
 
 Publicly indexed Upstox realized-P&L reports for FY 2025–26 show aggregate GST and IPFT totals separately, and a 2025 F&O report also lists SEBI/stamp duty/transaction totals, but none supplies the GST taxable-value composition. A July 2026 Reddit discussion is anecdotal only. CBIC FAQ Q7/Q77 and Rule 33 make pure-agent exclusion conditional; a charge label alone does not decide whether an amount is in the taxable base. No new source resolves the current Upstox tariff versus historical-note discrepancy. GST candidates remain DRAFT. Current branch has a test-assertion fix and documentation updates; verify CI on the latest exact head before marking checkpoint green.
+
+
+## Follow-up correction to brittle evidence assertion — 26 October 2026
+
+The first wording-only assertion adjustment still failed because the exact phrase in the evidence document is split by Markdown emphasis (`**materially different**`). Updated the regression test to assert the stable semantic phrase `materially different` rather than formatting-sensitive exact markup. This is a test-only wording fix; the evidence finding and all GST candidate DRAFT statuses are unchanged. The current exact-head CI run must pass before the checkpoint is accepted.

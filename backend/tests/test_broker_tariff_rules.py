@@ -620,31 +620,16 @@ def test_upstox_nse_exchange_candidates_are_combined_rates_and_remain_draft():
     assert not any(rule.component.lower() == "ipft" for rule in rules)
 
 
-def test_upstox_nse_combined_and_split_ipft_representations_have_same_gst_base():
-    from app.services.broker_tariff_rules import calculate_gst_on_explicit_components
+def test_upstox_nse_combined_and_split_ipft_representations_reconcile_before_gst():
+    # NSE's circular defines these as equivalent combined member outflows:
+    # ₹307/crore = ₹306.99/crore transaction charge + ₹0.01/crore IPFT.
+    # This is representation arithmetic only. It does NOT approve either
+    # representation for GST taxable-base inclusion; that requires reviewed
+    # tax/invoice evidence under the component acceptance matrix.
+    combined_exchange_outflow = Decimal("307.00")
+    split_exchange_outflow = Decimal("306.99") + Decimal("0.01")
 
-    gst_rule = make_rule(
-        component="gst",
-        calculation_basis="GST_TAXABLE_COMPONENT_SUM",
-        rate=Decimal("18"),
-        review_status="APPROVED",
-    )
-    combined_base, combined_gst = calculate_gst_on_explicit_components(
-        gst_rule,
-        taxable_components={"exchange_charges": Decimal("307.00")},
-        approved_taxable_component_names=["exchange_charges"],
-    )
-    split_base, split_gst = calculate_gst_on_explicit_components(
-        gst_rule,
-        taxable_components={
-            "transaction_charges": Decimal("306.99"),
-            "ipft": Decimal("0.01"),
-        },
-        approved_taxable_component_names=["transaction_charges", "ipft"],
-    )
-
-    assert combined_base == split_base == Decimal("307.00")
-    assert combined_gst == split_gst == Decimal("55.26")
+    assert combined_exchange_outflow == split_exchange_outflow
 
 
 def test_upstox_nse_exchange_candidates_do_not_leak_into_bse_or_mcx():

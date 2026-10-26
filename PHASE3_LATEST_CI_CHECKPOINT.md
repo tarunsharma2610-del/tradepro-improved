@@ -7,6 +7,8 @@
 - **Next Phase 3 step:** canonical DP/demat persistence and migration, total-charge recomputation, then reviewed-policy integration with statutory GST valuation. Actual per-fill invoice acceptance remains evidence-gated; no personal contract note is required.
 - **Status:** Phase 3 remains in progress. PR #6/#7 remain Draft/unmerged; PAPER mandatory; live broker writes and automatic live-fill promotion/scheduling disabled; original Tradepro repo untouched.
 
+- **Maintained-document synchronization:** commit `1fe84861c7317b793f9ce2d10c1253c262ae3934` refreshed 28 maintained project documents to the verified code head above. This checkpoint refresh makes the documentation CI result visible; no application code changed in that 28-file synchronization.
+
 ---
 
 # Phase 3 Latest CI Checkpoint — authoritative update (26 October 2026)

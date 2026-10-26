@@ -45,7 +45,12 @@ def build_verified_component_allocation_plan(
         expected_evidence_id=evidence_id,
         expected_source_sha256=source_sha256,
     )
-    contributing_names = set(canonical["source_components_by_canonical"][canonical_component])
+    source_mapping = canonical["source_components_by_canonical"]
+    optional_mapping = canonical.get("optional_source_components_by_canonical", {})
+    component_sources = source_mapping.get(canonical_component) or optional_mapping.get(canonical_component)
+    if not component_sources:
+        raise ValueError("Verified source rows do not provide the requested canonical component.")
+    contributing_names = set(component_sources)
     contributing = [
         row for row in rows
         if getattr(row, "component_name", None) in contributing_names

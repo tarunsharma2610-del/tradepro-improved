@@ -1,3 +1,13 @@
+## Authoritative Phase 3 checkpoint — 26 October 2026
+
+- Repository `tarunsharma2610-del/tradepro-improved`; branch `phase3/durable-per-fill-charge-allocation`; implementation head `eeea33a11303d03bee508be2f5af887dd5ee26e0`; exact-head Backend CI [#40290116323 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40290116323).
+- Latest implementation: order-level brokerage cap applied once before deterministic paise-exact allocation using explicitly reviewed fill weights. Tests cover cap behavior, unequal weights, deterministic ties, invalid weights and rejection of DRAFT tariffs.
+- Phase 3 remains IN PROGRESS. Next gates: independently reviewed effective-dated tariff applicability; component-specific allocation acceptance; invoice/source-backed GST/IPFT and product/segment evidence; adversarial/migration/recovery review; final exact-head sign-off.
+- Public tariff estimates are not actual booked charge evidence. Do not infer production acceptance of GST taxable base, stamp duty, or unsupported exchange/segment mappings. Canonical live-fill integration is already verified and should not be repeated.
+- Safety unchanged: PAPER mandatory; live broker order writes, automatic live-fill promotion and automatic scheduling disabled; PR #6 open/draft/unmerged unless user approves; AI/open-source work waits until Phase 3 acceptance. This documentation commit requires its own CI.
+
+---
+
 # Phase 3 reviewer-authority fix and exact-head CI — 24 October 2026
 
 ## Scope and safety

@@ -1,3 +1,14 @@
+## Authoritative Phase 3 checkpoint — 26 October 2026
+
+- Scope: `tarunsharma2610-del/tradepro-improved` only; branch `phase3/durable-per-fill-charge-allocation`. The original `Tradepro` repository must remain untouched.
+- Implementation head: `eeea33a11303d03bee508be2f5af887dd5ee26e0`. Exact-head Backend CI [#40290116323 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40290116323). The capped order-level brokerage estimate is calculated once and then distributed using explicit reviewed fill weights, with deterministic paise rounding; tests cover caps, unequal weights, tie stability, invalid weights and DRAFT tariff rejection.
+- Phase 3 is still IN PROGRESS. Remaining gates: independently reviewed effective-dated tariff applicability; component-specific per-fill allocation acceptance; invoice/source-backed GST/IPFT and product/segment evidence; adversarial/migration/recovery review; final exact-head sign-off.
+- Public tariff rules are estimate-only, not proof of account-specific booked charges. Do not infer approval of GST base, stamp duty, unsupported segment mappings, or actual per-fill charges from helper calculations.
+- Do not redo verified canonical live-fill integration. PAPER mode mandatory; live broker order writes, automatic live-fill promotion and automatic scheduling remain disabled. PR #6 stays open/draft/unmerged absent explicit user approval. AI/open-source adaptations wait until Phase 3 acceptance.
+- This checkpoint's code CI is green. This documentation synchronization commit requires its own exact-head CI before it can be called a fully verified checkpoint.
+
+---
+
 ## Current Phase 3 checkpoint — 21 October 2026
 
 - **Latest verified code/test HEAD:** `3963c2bf4e6ffe2bb33d327b10e2995cd243d003`. Exact-head [Backend CI run 39607630055](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/39607630055) passed **484 tests, 1 warning in 29.34s**; the broker-write boundary guard passed, and SQLite/PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade checks passed.

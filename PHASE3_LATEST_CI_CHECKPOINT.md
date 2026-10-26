@@ -232,3 +232,15 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Implementation + synchronized GST decision commit b75a97f6cd0043c185375cc253b84a1e6d6bfea1 passed exact-head Backend CI [#40345937942](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40345937942): 1,012 passed, 1 warning in 62.33s. Broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention passed.
 - Estimate decision: use 18% on brokerage + combined transaction/IPFT exchange charges; add explicit demat charges for equity delivery. Count IPFT once. Exclude STT, stamp duty and SEBI from the published estimate base. API example GST mismatch is a docs-example inconsistency and does not override the current Upstox schedule.
 - Actual invoice/per-fill GST acceptance remains separate and evidence-gated; actual component-set candidates stay DRAFT. Do not request a personal contract note. Safety: PAPER mandatory, live order writes/promotion/scheduling disabled, PR #6 draft/unmerged, original Tradepro untouched.
+
+
+## Cross-broker GST/IPFT work in progress — 26 October 2026
+
+- New active work branch: `phase3/cross-broker-gst-ipft-resolution`.
+- Draft PR #7: https://github.com/tarunsharma2610-del/tradepro-improved/pull/7
+- Research added: `docs/CROSS_BROKER_GST_IPFT_POLICY_RESEARCH_2026-10-26.md`.
+- Generic policy primitive added: `backend/app/services/broker_gst_component_policy.py`; regression tests added: `backend/tests/test_broker_gst_component_policy.py`.
+- Current head at this checkpoint update: `eb4e6953428ec7da773558b800118ed8b1ef50fc` (research + implementation primitive + tests before this documentation sync).
+- CI status: **not yet verified** for the new PR/head; do not mark green until a workflow run reports success on the exact final head.
+- Remaining: wire policy into Upstox estimate helper, add source-backed cross-broker policy candidates/tests, resolve canonical DP/demat persistence and migration gap, then synchronize documentation to exact passing CI commit.
+- This is an incremental foundation, not the full GST/IPFT resolution. Tariff candidates remain DRAFT; actual invoice acceptance remains evidence-gated. PR #6 stays Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro untouched.

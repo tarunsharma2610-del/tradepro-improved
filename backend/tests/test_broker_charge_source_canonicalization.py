@@ -99,12 +99,15 @@ def test_reviewed_dp_demat_is_an_optional_separate_canonical_component():
     rows.append(SourceChargeRow("demat_transaction_charges", "20.00", "DP Charges"))
     result = canonicalize_reviewed_source_components(rows)
     assert result["canonical_components"]["demat_transaction_charges"] == "20.00"
-    assert result["source_components_by_canonical"]["demat_transaction_charges"] == [
+    assert result["optional_source_components_by_canonical"]["demat_transaction_charges"] == [
         "demat_transaction_charges"
     ]
     assert set(result["canonical_components"]) == {
         "brokerage", "stt", "exchange_charges", "sebi_charges",
         "stamp_duty", "gst", "demat_transaction_charges",
+    }
+    assert set(result["source_components_by_canonical"]) == {
+        "brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"
     }
     assert result["accounting_approved"] is False
 

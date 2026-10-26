@@ -1,3 +1,13 @@
+## Latest authoritative checkpoint — 26 October 2026 (verified CI)
+
+- Target: [tarunsharma2610-del/tradepro-improved](https://github.com/tarunsharma2610-del/tradepro-improved), branch `phase3/cross-broker-gst-ipft-resolution`. Current verified code head before this checkpoint sync: `9d3f255480da9a71980a9d3819fbb69a34835753`.
+- Exact-head Backend CI [#40368554399 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40368554399); `Backend pytest` completed successfully on that exact SHA.
+- GST public-schedule estimate helper/tests are green on that head, but they are estimate-only, not actual accounting approval.
+- CBIC statutory research: CGST Act section 15 and CGST Rules Rule 33/Rule 27 govern valuation; Rule 33 pure-agent treatment is conditional on evidence. IGST Act section 12(12) determines stock-broking place of supply from recipient location in supplier records (fallback supplier location if missing); compare supplier and place-of-supply states for IGST vs CGST+SGST. Official starting point: https://cbic-gst.gov.in/sectoral-faq.html and https://cbic-gst.gov.in/valuation-rules.html.
+- Next: implement a standalone statutory GST valuation service + tests. Not implemented yet; GST/IPFT acceptance remains open. Include section 15 component inclusion, Rule 33 evidence checks, tax-state split, Decimal/paise rounding and fail-closed missing facts. IPFT combined/separate representation and DP/demat persistence/reconciliation also remain open.
+- No personal contract note available or required. Public examples are not actual per-fill accounting proof.
+- Safety: PR #6/#7 Draft/unmerged; PAPER-only; live broker writes disabled; original Tradepro repository out of scope.
+
 ## Latest authoritative checkpoint — 26 October 2026, 22:45 IST
 
 - **Repository/branch:** only `tarunsharma2610-del/tradepro-improved`, branch `phase3/cross-broker-gst-ipft-resolution`. PR #7 remains open/Draft/unmerged; PR #6 remains Draft/unmerged. PAPER only; live broker writes disabled. Original `Tradepro` is out of scope.

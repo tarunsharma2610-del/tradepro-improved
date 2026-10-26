@@ -94,7 +94,7 @@ def calculate_upstox_public_gst_estimate(
         effective_from=GST_EFFECTIVE_FROM,
         effective_to=None,
         taxable_components=tuple(sorted(expected)),
-        ipft_mode="COMBINED",
+        ipft_mode="COMBINED" if normalized_scope[0] == "NSE" else "NOT_APPLICABLE",
         source_url=UPSTOX_CHARGES_URL,
         source_retrieved_on=RETRIEVED_ON,
         source_sha256=SOURCE_SNAPSHOT_SHA256,

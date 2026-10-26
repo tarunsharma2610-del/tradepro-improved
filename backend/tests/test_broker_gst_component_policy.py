@@ -119,3 +119,102 @@ def test_taxable_component_set_must_match_exactly():
         calculate_gst_estimate(
             policy(), components={"brokerage": "20.00", "exchange_charges": "1.00", "ipft": "0.01"}
         )
+
+
+
+def test_scoped_estimate_normalizes_combined_transaction_ipft_exactly_once():
+    from app.services.broker_gst_component_policy import calculate_scoped_gst_estimate
+
+    rule = policy()
+    selected, base, gst = calculate_scoped_gst_estimate(
+        [rule],
+        broker="ExampleBroker",
+        exchange="NSE",
+        segment="FO",
+        product="OPTIONS",
+        trade_date=date(2026, 10, 26),
+        components={"brokerage": "20.00", "transaction_charges": "307.00"},
+    )
+    assert selected is rule
+    assert base == Decimal("327.00")
+    assert gst == Decimal("58.86")
+
+
+def test_combined_policy_rejects_separate_ipft_and_duplicate_exchange_representation():
+    from app.services.broker_gst_component_policy import resolve_gst_policy_components
+
+    rule = policy()
+    with pytest.raises(ValueError, match="must not include a separate IPFT"):
+        resolve_gst_policy_components(
+            rule,
+            components={"brokerage": "20.00", "transaction_charges": "307.00", "ipft": "0.01"},
+        )
+    with pytest.raises(ValueError, match="cannot both be supplied"):
+        resolve_gst_policy_components(
+            rule,
+            components={"brokerage": "20.00", "exchange_charges": "307.00", "transaction_charges": "307.00"},
+        )
+
+
+def test_separate_policy_requires_transaction_and_ipft_without_combined_total():
+    from app.services.broker_gst_component_policy import resolve_gst_policy_components
+
+    rule = policy(
+        ipft_mode="SEPARATE",
+        taxable_components=("brokerage", "transaction_charges", "ipft"),
+    )
+    resolved = resolve_gst_policy_components(
+        rule,
+        components={"brokerage": "20.00", "transaction_charges": "306.99", "ipft": "0.01"},
+    )
+    assert resolved == {"brokerage": "20.00", "transaction_charges": "306.99", "ipft": "0.01"}
+    with pytest.raises(ValueError, match="cannot include combined"):
+        resolve_gst_policy_components(
+            rule,
+            components={"brokerage": "20.00", "exchange_charges": "307.00"},
+        )
+
+
+def test_not_applicable_policy_normalizes_transaction_row_but_rejects_ipft():
+    from app.services.broker_gst_component_policy import resolve_gst_policy_components
+
+    rule = policy(
+        exchange="BSE",
+        ipft_mode="NOT_APPLICABLE",
+        taxable_components=("brokerage", "exchange_charges"),
+    )
+    assert resolve_gst_policy_components(
+        rule,
+        components={"brokerage": "20.00", "transaction_charges": "2.00"},
+    ) == {"brokerage": "20.00", "exchange_charges": "2.00"}
+    with pytest.raises(ValueError, match="must not include an IPFT"):
+        resolve_gst_policy_components(
+            rule,
+            components={"brokerage": "20.00", "transaction_charges": "2.00", "ipft": "0.01"},
+        )
+
+
+def test_scoped_estimate_does_not_reuse_policy_for_wrong_exchange_or_date():
+    from app.services.broker_gst_component_policy import calculate_scoped_gst_estimate
+
+    rule = policy()
+    with pytest.raises(ValueError, match="No approved"):
+        calculate_scoped_gst_estimate(
+            [rule],
+            broker="ExampleBroker",
+            exchange="BSE",
+            segment="FO",
+            product="OPTIONS",
+            trade_date=date(2026, 10, 26),
+            components={"brokerage": "20.00", "transaction_charges": "2.00"},
+        )
+    with pytest.raises(ValueError, match="No approved"):
+        calculate_scoped_gst_estimate(
+            [rule],
+            broker="ExampleBroker",
+            exchange="NSE",
+            segment="FO",
+            product="OPTIONS",
+            trade_date=date(2026, 2, 28),
+            components={"brokerage": "20.00", "transaction_charges": "2.00"},
+        )

@@ -116,3 +116,84 @@ def calculate_gst_estimate(
     base = sum(parsed.values(), Decimal("0.00")).quantize(PAISE, rounding=ROUND_HALF_UP)
     gst = (base * GST_RATE / Decimal("100")).quantize(PAISE, rounding=ROUND_HALF_UP)
     return base, gst
+
+
+
+def resolve_gst_policy_components(
+    policy: GstComponentPolicy,
+    *,
+    components: Mapping[str, Decimal | str | int | float],
+) -> dict[str, Decimal | str | int | float]:
+    """Normalize a reviewed source representation to the policy's exact component set.
+
+    The effective-dated policy is the source of the COMBINED / SEPARATE /
+    NOT_APPLICABLE decision. A source row named transaction_charges may be
+    normalized to exchange_charges only for COMBINED or NOT_APPLICABLE policy
+    and only when the policy explicitly expects exchange_charges. This function
+    never adds a second IPFT amount or guesses the representation from a rate.
+    """
+    if not isinstance(policy, GstComponentPolicy) or policy.review_status != "APPROVED":
+        raise ValueError("Only an approved GST component policy can resolve charge representation.")
+    if not isinstance(components, dict) or not components:
+        raise ValueError("A non-empty source component mapping is required.")
+
+    normalized = dict(components)
+    has_exchange = "exchange_charges" in normalized
+    has_transaction = "transaction_charges" in normalized
+    has_ipft = "ipft" in normalized
+
+    if policy.ipft_mode == "COMBINED":
+        if has_ipft:
+            raise ValueError("COMBINED IPFT representation must not include a separate IPFT amount.")
+        if has_exchange and has_transaction:
+            raise ValueError("Combined exchange charges and transaction charges cannot both be supplied.")
+        if has_transaction:
+            if "exchange_charges" not in policy.taxable_components:
+                raise ValueError("Combined transaction charges cannot satisfy this policy's component set.")
+            normalized["exchange_charges"] = normalized.pop("transaction_charges")
+    elif policy.ipft_mode == "SEPARATE":
+        if has_exchange:
+            raise ValueError("SEPARATE IPFT representation cannot include combined exchange_charges.")
+        if not has_transaction or not has_ipft:
+            raise ValueError("SEPARATE IPFT representation requires transaction_charges and ipft.")
+    elif policy.ipft_mode == "NOT_APPLICABLE":
+        if has_ipft:
+            raise ValueError("NOT_APPLICABLE IPFT representation must not include an IPFT amount.")
+        if has_exchange and has_transaction:
+            raise ValueError("Exchange charges and transaction charges cannot both be supplied.")
+        if has_transaction and "exchange_charges" in policy.taxable_components:
+            normalized["exchange_charges"] = normalized.pop("transaction_charges")
+    else:  # Defensive against malformed/deserialized objects.
+        raise ValueError("Unsupported IPFT representation mode.")
+
+    if set(normalized) != set(policy.taxable_components):
+        raise ValueError("Resolved source components must exactly match the policy's taxable component set.")
+    return normalized
+
+
+def calculate_scoped_gst_estimate(
+    policies: Iterable[GstComponentPolicy],
+    *,
+    broker: str,
+    exchange: str,
+    segment: str,
+    product: str,
+    trade_date: date,
+    components: Mapping[str, Decimal | str | int | float],
+) -> tuple[GstComponentPolicy, Decimal, Decimal]:
+    """Select the exact effective-dated policy, resolve IPFT representation, and estimate GST.
+
+    Returns (selected policy, taxable base, GST). This is a public-schedule
+    estimate path only; it does not reconcile invoices or approve actual charges.
+    """
+    policy = select_gst_component_policy(
+        policies,
+        broker=broker,
+        exchange=exchange,
+        segment=segment,
+        product=product,
+        trade_date=trade_date,
+    )
+    resolved = resolve_gst_policy_components(policy, components=components)
+    base, gst = calculate_gst_estimate(policy, components=resolved)
+    return policy, base, gst

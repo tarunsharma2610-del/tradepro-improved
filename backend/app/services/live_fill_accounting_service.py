@@ -521,7 +521,6 @@ class LiveFillAccountingService:
             self.db.query(BrokerChargeAllocation)
             .filter(
                 BrokerChargeAllocation.evidence_id == evidence_id,
-                BrokerChargeAllocation.broker_connection_id == broker_connection_id,
                 BrokerChargeAllocation.broker_trade_record_id == broker_trade_record_id,
             )
             .order_by(BrokerChargeAllocation.charge_component, BrokerChargeAllocation.id)
@@ -538,6 +537,7 @@ class LiveFillAccountingService:
             if (
                 snapshot is None
                 or row.canonical_component_id != snapshot.id
+                or row.broker_connection_id != broker_connection_id
                 or row.status != "RECONCILED"
                 or row.currency != "INR"
                 or not row.reconciliation_reference

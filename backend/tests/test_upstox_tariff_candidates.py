@@ -219,4 +219,4 @@ def test_gst_candidate_remains_draft_when_historical_note_conflicts_with_current
     assert "IPFT" in evidence
     assert "conflicts with the current Upstox public pricing page" in evidence
     assert "cannot be authenticated" in evidence
-    assert "does not establish current treatment" in evidence
+    assert "not the correct current 2026 rule" in evidence

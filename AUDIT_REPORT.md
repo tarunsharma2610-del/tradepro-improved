@@ -2128,3 +2128,14 @@ Historical entries remain historical records; they must not override this curren
 - Invariants: count combined transaction/IPFT once; never add legacy IPFT on top of combined tariff; never tax trade notional; missing/null is unknown, not zero; do not treat aggregate charges or estimates as actual per-fill GST evidence.
 - Next: continue Phase 3 evidence reconciliation and targeted tests only where supported by evidence. Do not repeat canonical live-fill integration. Defer AI/open-source integration including Algory.app until Phase 3 acceptance.
 - Safety: PAPER mode mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; PR #6 stays draft/unmerged absent explicit user approval.
+
+
+## GST/IPFT reconciliation checkpoint — 26 October 2026
+
+- Official Upstox schedule https://upstox.com/brokerage-charges/ says GST is 18% on brokerage + transaction charges + IPFT, and includes DP/demat for equity delivery. From 1-Mar-2026, published NSE combined transaction/IPFT totals are cash ₹307/crore, equity futures ₹183/crore and equity options ₹3,553/crore on premium. Never add IPFT twice. NSE circular: https://nsearchives.nseindia.com/content/circulars/FA73061.pdf (NSE/FA/73061, 27-Feb-2026).
+- Open discrepancy: official Upstox Brokerage Details API example https://upstox.com/developer/api-documentation/get-brokerage/ shows transaction ₹5.68 + IPFT ₹0.17 but GST ₹1.02, matching 18% of ₹5.68 rather than ₹5.85 (approx ₹1.05). Treat as docs-example mismatch, not proven live production defect.
+- Upstox Trades Charges API https://upstox.com/developer/api-documentation/get-trade-charges/ is aggregate by segment/date range and may return IPFT null; null is unknown, not zero, and aggregate output is not per-fill proof.
+- Public third-party contract-note copies from 2024/2025 are historical, unauthenticated, pre-current-tariff and show differing taxable bases. They support historical layout/schema checks only.
+- Estimate may follow current schedule with effective-date/product/exchange handling and combined transaction/IPFT counted once. Actual per-fill GST candidates for delivery, intraday, futures and options remain DRAFT pending current public invoice evidence or written Upstox clarification. No actual-charge logic promoted.
+- Previous exact-head CI passed on 996b126ff678b97441f0214ea817451ee1592203: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40341429226 (tests, broker-write boundary, SQLite/PostgreSQL migration round-trips, synthetic restore and evidence retention). The next docs commit must pass its own exact-head CI.
+- Scope: repository tarunsharma2610-del/tradepro-improved only; original Tradepro untouched. PAPER mandatory; live order writes and automatic live-fill promotion/scheduling disabled; PR #6 draft/unmerged; do not ask user for a personal contract note; defer AI/Algory until Phase 3 acceptance.

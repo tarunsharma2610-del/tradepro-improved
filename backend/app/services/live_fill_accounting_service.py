@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_charge_allocation import BrokerChargeAllocation
+from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
 from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_order import BrokerOrder
@@ -34,7 +35,7 @@ from app.services.broker_charge_component_set_contract import (
     LIVE_FILL_COMPONENT_SET_VERSION,
     validate_live_fill_component_set,
 )
-from app.services.broker_charge_source_reconciliation_service import verify_component_allocation_ledger
+from app.services.broker_charge_canonical_allocation_reconciliation_service import verify_canonical_component_allocation_ledger
 from app.services.position_math import apply_fill
 from app.services.transaction_costs import Side
 
@@ -242,6 +243,7 @@ class LiveFillAccountingService:
                 broker_connection_id=connection.id,
                 broker_report_reference=charges.reference,
                 reviewer_user_id=charges.reviewer_user_id,
+                lock=False,
             )
 
             staged_child_quantity = (
@@ -433,139 +435,85 @@ class LiveFillAccountingService:
         reviewer_user_id: UUID,
         supplied_fees: dict[str, Decimal],
     ) -> dict[str, Decimal]:
-        """Fail closed unless a complete source-reviewed ledger backs this fill."""
+        """Load actual fees only from six verified canonical snapshots.
+
+        Lock order is canonical snapshots (sorted by component) -> evidence ->
+        source rows -> allocation rows -> reviewer/trade rows. All six snapshots
+        are locked before any verifier locks the shared evidence row, preventing
+        cross-component verification deadlocks. Legacy raw-component allocations
+        are not an accounting fallback.
+        """
         names = LIVE_FILL_ACCOUNTING_COMPONENTS
-        evidence = (
-            self.db.query(BrokerChargeEvidence)
-            .filter(
-                BrokerChargeEvidence.id == evidence_id,
-                BrokerChargeEvidence.broker_connection_id == broker_connection_id,
-                BrokerChargeEvidence.source_kind == "CONTRACT_NOTE",
-                BrokerChargeEvidence.status == "REVIEWED",
-            )
+        snapshots = (
+            self.db.query(BrokerChargeCanonicalComponent)
+            .filter(BrokerChargeCanonicalComponent.evidence_id == evidence_id)
+            .order_by(BrokerChargeCanonicalComponent.canonical_component)
             .with_for_update()
-            .one_or_none()
-        )
-        if evidence is None or not evidence.storage_key:
-            raise ValueError("Reviewed original contract-note evidence is required for reconciled accounting.")
-        # Evidence is already locked. Intake/review must lock this parent row
-        # before mutating components, so the set check remains stable through
-        # promotion without reversing the child lock order.
-        source_components = (
-            self.db.query(BrokerChargeSourceComponent)
-            .filter(
-                BrokerChargeSourceComponent.evidence_id == evidence_id,
-                BrokerChargeSourceComponent.status != "REJECTED",
-            )
-            .order_by(BrokerChargeSourceComponent.component_name, BrokerChargeSourceComponent.revision)
-            .all()
-        )
-        validate_live_fill_component_set(
-            component_names=[row.component_name for row in source_components],
-            component_set_versions=[row.component_set_version for row in source_components],
-            component_statuses=[row.status for row in source_components],
-        )
-        # Read the target fill's allocations without locking them yet. The
-        # source verifier acquires each component lock before its allocation rows;
-        # locking target allocations here first would invert that order and can
-        # deadlock with concurrent verification/promotion.
-        fill_rows = (
-            self.db.query(BrokerChargeAllocation)
-            .filter(
-                BrokerChargeAllocation.evidence_id == evidence_id,
-                BrokerChargeAllocation.broker_connection_id == broker_connection_id,
-                BrokerChargeAllocation.broker_trade_record_id == broker_trade_record_id,
-            )
             .populate_existing()
             .all()
         )
-        if {row.charge_component for row in fill_rows} != set(names) or len(fill_rows) != len(names):
-            raise ValueError("Live accounting requires exactly six reconciled per-fill charge allocations.")
-        if any(row.status != "RECONCILED" or row.currency != "INR" or not row.reconciliation_reference for row in fill_rows):
-            raise ValueError("Pending, rejected, or unreferenced charge allocations cannot enter live accounting.")
-        derived = {row.charge_component: Decimal(str(row.allocated_amount)).quantize(CENT) for row in fill_rows}
+        by_name = {row.canonical_component: row for row in snapshots}
+        if (
+            len(snapshots) != len(names)
+            or len(by_name) != len(names)
+            or set(by_name) != set(names)
+        ):
+            raise ValueError(
+                "Live accounting requires exactly six independently verified canonical charge snapshots."
+            )
+        if any(
+            snapshot.status != "VERIFIED"
+            or snapshot.reviewed_by_user_id is None
+            or snapshot.reviewed_at is None
+            or snapshot.component_set_version != LIVE_FILL_COMPONENT_SET_VERSION
+            for snapshot in snapshots
+        ):
+            raise ValueError("Every canonical charge snapshot must be independently verified.")
 
+        # The complete snapshot set is locked first. The verifier rechecks source
+        # bytes, source links, representation mapping, snapshot fingerprint,
+        # exact fill manifest, explicit weights, deterministic amounts and
+        # durable reconciliation references inside this transaction.
+        verifications: dict[str, dict[str, object]] = {}
         for name in names:
-            # Discover the candidate component without taking its row lock.
-            # The verifier must acquire locks in evidence -> component ->
-            # allocations -> trade-record order; locking the component first
-            # here would invert that order and could deadlock with verification.
-            component = (
-                self.db.query(BrokerChargeSourceComponent)
-                .filter(
-                    BrokerChargeSourceComponent.evidence_id == evidence_id,
-                    BrokerChargeSourceComponent.component_name == name,
-                )
-                .order_by(BrokerChargeSourceComponent.revision.desc())
-                .first()
+            snapshot = by_name[name]
+            verification = verify_canonical_component_allocation_ledger(
+                self.db, snapshot_id=snapshot.id
             )
-            if component is None:
-                raise ValueError("Every live-fill charge component must have a currently verified source component.")
-            # Re-read and fingerprint-check the original document before accounting;
-            # the verifier refreshes and locks evidence/component in canonical order.
-            verification = verify_component_allocation_ledger(
-                self.db, evidence_id=evidence_id, source_component_id=component.id
-            )
-            if verification.get("status") != "ALREADY_RECONCILED" or verification.get("component_name") != name:
-                raise ValueError("Charge component is not fully verified and reconciled for accounting.")
-            # The verifier now owns this component lock; refresh the ORM instance
-            # before consulting mutable reviewer/source fields below.
-            component = (
-                self.db.query(BrokerChargeSourceComponent)
-                .filter(BrokerChargeSourceComponent.id == component.id)
-                .with_for_update()
-                .populate_existing()
-                .one_or_none()
-            )
-            if component is None or component.status != "VERIFIED" or component.reviewed_by_user_id is None or component.reviewed_at is None:
-                raise ValueError("Every live-fill charge component must have a currently verified source component.")
-            if component.component_set_version != LIVE_FILL_COMPONENT_SET_VERSION:
-                raise ValueError("Verified source component is missing the supported live-accounting component-set version.")
-            if component.source_sha256 != evidence.source_sha256 or component.currency != "INR":
-                raise ValueError("Verified source component fingerprint or currency conflicts with contract-note evidence.")
-            if not component.rounding_policy or not component.allocation_basis:
-                raise ValueError("Verified source component is missing its approved allocation method or basis.")
-            try:
-                manifest_ids = json.loads(component.eligible_fill_ids_json or "")
-            except (TypeError, ValueError):
-                raise ValueError("Verified source component has no valid eligible-fill manifest.") from None
-            if not isinstance(manifest_ids, list) or not manifest_ids or any(not isinstance(value, str) for value in manifest_ids):
-                raise ValueError("Verified source component has no valid eligible-fill manifest.")
-            canonical = json.dumps(sorted(manifest_ids), separators=(",", ":"))
-            manifest_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-            if manifest_ids != sorted(set(manifest_ids)) or component.eligible_fill_ids_json != canonical or component.eligible_fill_set_sha256 != manifest_hash or str(broker_trade_record_id) not in manifest_ids:
-                raise ValueError("Verified source component fill manifest is invalid or excludes this broker trade.")
-            component_rows = (
-                self.db.query(BrokerChargeAllocation)
-                .filter(
-                    BrokerChargeAllocation.evidence_id == evidence_id,
-                    BrokerChargeAllocation.charge_component == name,
-                )
-                .order_by(BrokerChargeAllocation.broker_trade_record_id, BrokerChargeAllocation.id)
-                .with_for_update()
-                .all()
-            )
-            if {str(row.broker_trade_record_id) for row in component_rows} != set(manifest_ids):
-                raise ValueError("Reconciled allocation fill set does not match the verified source manifest.")
-            source_total = Decimal(str(component.source_amount)).quantize(CENT)
-            if any(
-                row.status != "RECONCILED" or row.broker_connection_id != broker_connection_id
-                or row.currency != component.currency
-                or Decimal(str(row.source_component_total)).quantize(CENT) != source_total
-                or row.method_version != component.rounding_policy
-                or row.allocation_basis != component.allocation_basis
-                or row.reconciliation_reference != (
-                    f"charge-component:{component.id}:sha256:{evidence.source_sha256}:fills:{manifest_hash}"
-                )
-                for row in component_rows
+            if (
+                verification.get("status") != "ALREADY_RECONCILED"
+                or verification.get("canonical_component") != name
+                or verification.get("evidence_id") != str(evidence_id)
             ):
-                raise ValueError("Reconciled allocations conflict with their verified source component.")
-            allocated_total = sum((Decimal(str(row.allocated_amount)) for row in component_rows), Decimal("0")).quantize(CENT)
-            if allocated_total != source_total:
-                raise ValueError("Reconciled allocations do not equal the verified source component total.")
+                raise ValueError(
+                    "Every canonical charge component must be fully verified and reconciled before accounting."
+                )
+            verifications[name] = verification
 
-        # Refresh and lock the target fill only after source components and
-        # their allocation rows have been locked and verified.
+        # The canonical verifier has locked and refreshed the evidence row.
+        evidence = (
+            self.db.query(BrokerChargeEvidence)
+            .filter(BrokerChargeEvidence.id == evidence_id)
+            .with_for_update()
+            .populate_existing()
+            .one_or_none()
+        )
+        if (
+            evidence is None
+            or evidence.broker_connection_id != broker_connection_id
+            or evidence.source_kind != "CONTRACT_NOTE"
+            or evidence.status != "REVIEWED"
+            or evidence.reviewed_by_user_id is None
+            or evidence.reviewed_by_user_id != reviewer_user_id
+            or not evidence.broker_report_reference
+        ):
+            raise ValueError("Canonical charge evidence no longer matches the reviewed broker connection.")
+        # Reference comparison is repeated after the evidence row is locked.
+        if evidence.broker_report_reference.strip() == "":
+            raise ValueError("Reviewed broker contract-note reference is required.")
+
+        # Include every allocation row for this fill, not only canonical-linked
+        # rows, so an extra legacy/IPFT/unmapped row cannot be silently ignored.
         fill_rows = (
             self.db.query(BrokerChargeAllocation)
             .filter(
@@ -578,21 +526,45 @@ class LiveFillAccountingService:
             .populate_existing()
             .all()
         )
-        if {row.charge_component for row in fill_rows} != set(names) or len(fill_rows) != len(names):
-            raise ValueError("Live accounting allocation ledger changed during verification.")
-        if any(row.status != "RECONCILED" or row.currency != "INR" or not row.reconciliation_reference for row in fill_rows):
-            raise ValueError("Live accounting allocation ledger changed during verification.")
-        derived = {row.charge_component: Decimal(str(row.allocated_amount)).quantize(CENT) for row in fill_rows}
+        if len(fill_rows) != len(names) or {row.charge_component for row in fill_rows} != set(names):
+            raise ValueError(
+                "Live accounting requires exactly six canonical per-fill charge allocations; extra or unmapped rows block promotion."
+            )
+        for row in fill_rows:
+            snapshot = by_name.get(row.charge_component)
+            if (
+                snapshot is None
+                or row.canonical_component_id != snapshot.id
+                or row.status != "RECONCILED"
+                or row.currency != "INR"
+                or not row.reconciliation_reference
+            ):
+                raise ValueError(
+                    "Every per-fill charge allocation must link to its verified canonical snapshot and durable reconciliation."
+                )
+
+        derived = {
+            row.charge_component: Decimal(str(row.allocated_amount)).quantize(CENT)
+            for row in fill_rows
+        }
+        for name in names:
+            verification = verifications[name]
+            if not verification.get("allocation_ids"):
+                raise ValueError("Canonical component verifier returned no reconciled allocation IDs.")
+            if not any(
+                str(row.id) in set(verification["allocation_ids"])
+                and row.charge_component == name
+                and row.canonical_component_id == by_name[name].id
+                for row in fill_rows
+            ):
+                raise ValueError("Per-fill allocation does not match the verified canonical allocation ledger.")
 
         if any(supplied_fees[name] != derived[name] for name in names):
-            raise ValueError("Caller-supplied charge amounts differ from the reconciled per-fill allocation ledger.")
+            raise ValueError("Caller-supplied charge amounts differ from the reconciled canonical per-fill allocation ledger.")
         total = sum((derived[name] for name in names), Decimal("0")).quantize(CENT)
         if supplied_fees["total_charges"] != total:
-            raise ValueError("Total charges do not equal the reconciled per-fill allocation ledger.")
+            raise ValueError("Total charges do not equal the reconciled canonical per-fill allocation ledger.")
 
-        # Match the allocation-promotion policy: the recorded reviewer must still
-        # be an active platform administrator at promotion time. Acquire this lock
-        # after evidence/component/allocation locks to preserve the canonical order.
         reviewer = (
             self.db.query(User)
             .filter(User.id == reviewer_user_id)

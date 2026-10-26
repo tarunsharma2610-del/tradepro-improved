@@ -244,3 +244,14 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - CI status: **not yet verified** for the new PR/head; do not mark green until a workflow run reports success on the exact final head.
 - Remaining: wire policy into Upstox estimate helper, add source-backed cross-broker policy candidates/tests, resolve canonical DP/demat persistence and migration gap, then synchronize documentation to exact passing CI commit.
 - This is an incremental foundation, not the full GST/IPFT resolution. Tariff candidates remain DRAFT; actual invoice acceptance remains evidence-gated. PR #6 stays Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro untouched.
+
+
+## GST/IPFT latest checkpoint update — 26 October 2026 (CI fix pending verification)
+
+- Previous exact-head CI run #40358027077: **failed** at `59bdfd2cc66768eff882cdc1ffd00a9dade9c015` with 1,023 passed / 1 failed. Failure was an incorrect expected error-message regex in the new test, not a calculation assertion.
+- Fixed the expected message and wired the existing Upstox public GST estimate through the shared GST component policy module.
+- IPFT mode is scoped: NSE uses COMBINED (one canonical exchange_charges input); BSE options uses NOT_APPLICABLE and must not inherit NSE IPFT.
+- Implementation head after fixes: `393804cc5c21ba70a579b32a6736f6561569413b`.
+- Exact-head CI: **pending / not yet reported**. This is not a passing checkpoint. Check workflow run and fix any remaining failures before checkpointing green.
+- Remaining gates: source-backed cross-broker tariff policies/tests, DP/demat canonical persistence and migration, synchronized final commit and successful exact-head CI.
+- Safety: PR #6 Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro untouched; no personal contract note requested.

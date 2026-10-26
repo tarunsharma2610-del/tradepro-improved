@@ -73,3 +73,22 @@ Validation rules:
 3. Add a broker-specific IPFT representation resolver so combined vs separate schedules cannot double count.
 4. Verify exact-head CI on implementation and documentation commits.
 5. Keep PR #6 Draft/unmerged, PAPER mandatory and all live broker writes disabled. Do not modify the original tarunsharma2610-del/Tradepro repository.
+
+
+## Review of user-supplied Upstox parsing/GST notes — 2026-10-26
+
+The supplied notes are useful as **parser test scenarios and schema-design prompts**, but are not authoritative tax evidence. Some statements conflict with Upstox's currently published charge page and must not be imported as approved rules.
+
+Verified against Upstox's public pricing page (retrieved 2026-10-26):
+- The published GST description is 18% on brokerage + transaction charges + IPFT, with demat charges additionally included for equity delivery. The page does **not** list SEBI turnover fees in that stated GST base. Therefore, the supplied claim that Upstox retail GST must include SEBI turnover fees is not accepted by this implementation; actual invoice evidence or authoritative clarification would be needed to override the published wording.
+- From 2026-03-01, Upstox says IPFT is combined with transaction charges. The parser must preserve an explicit IPFT row if it appears in an actual source, but policy resolution must prevent double counting when the transaction line is already combined. Do not assume that every PDF layout is the same.
+- Upstox currently publishes DP charges of ₹20 per scrip per day on delivery sells, and its GST formula says demat charges are included for delivery. The supplied ₹18.50 base/₹21.83 total is not adopted as the current public estimate rule. DP charges must remain a distinct canonical component for actual accounting.
+- The supplied examples for Zerodha, Groww, Angel One, MCX, NSE-CD and Orbis are not sufficient to approve their component/tax rules. They remain unverified examples until checked against each broker's current dated public tariff and applicable exchange/regulatory sources. No institutional clearing profile should be inferred for a retail Upstox account.
+
+A conservative text extractor was added at `backend/app/services/upstox_contract_note_text_extractor.py` with regression tests. It recognizes common labels and segment tags, retains original lines and line numbers, flags duplicate components, and surfaces charge-like unmapped lines. It deliberately does **not** infer a GST base, sum duplicate rows, map unknown labels silently, or approve accounting. Regexes are extraction aids only; PDF layout, page/source locator, original bytes and SHA-256 must be retained by the caller for evidence review.
+
+Open implementation gate: the existing canonical accounting model still supports only six components and explicitly blocks `demat_transaction_charges`. Do not accept actual delivery accounting until canonical DP/demat persistence, total-charge recomputation, migration, idempotency, and delivery/non-delivery regression tests are implemented and pass. The Upstox public estimate helper was also changed so it no longer creates an `APPROVED` accounting policy internally; estimate source status remains separate from accounting approval.
+
+Sources: [Upstox brokerage charges](https://upstox.com/brokerage-charges/) (public component formula, post-2026-03-01 combined IPFT wording and ₹20 DP charge); [Upstox trades charges API](https://upstox.com/developer/api-documentation/get-trade-charges/) (returns transaction, clearing, IPFT, SEBI turnover and demat transaction fields but is not by itself per-fill invoice proof); [NSE circular effective 2026-03-01](https://nsearchives.nseindia.com/content/circulars/FA73061.pdf); [CBIC sectoral FAQ](https://cbic-gst.gov.in/sectoral-faq.html).
+
+CI status for these new extractor/approval-boundary changes: pending exact-head verification until the relevant workflow run completes.

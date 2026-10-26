@@ -631,6 +631,34 @@ def test_upstox_nse_combined_and_split_ipft_representations_reconcile_before_gst
 
     assert combined_exchange_outflow == split_exchange_outflow
 
+def test_gst_arithmetic_is_invariant_for_combined_vs_split_ipft_representation():
+    from app.services.broker_tariff_rules import calculate_gst_on_explicit_components
+
+    # Synthetic arithmetic only: equivalent ₹307.00 exchange outflow should
+    # yield the same 18% GST amount whether represented as combined or split.
+    # This does not approve either component set for actual taxable-base use.
+    rule = make_rule(
+        component="gst",
+        calculation_basis="GST_TAXABLE_COMPONENT_SUM",
+        rate=Decimal("18"),
+        rate_unit="PERCENT",
+        review_status="APPROVED",
+    )
+    combined_base, combined_gst = calculate_gst_on_explicit_components(
+        rule,
+        taxable_components={"exchange_charges": "307.00"},
+        approved_taxable_component_names=("exchange_charges",),
+    )
+    split_base, split_gst = calculate_gst_on_explicit_components(
+        rule,
+        taxable_components={"transaction_charges": "306.99", "ipft": "0.01"},
+        approved_taxable_component_names=("transaction_charges", "ipft"),
+    )
+
+    assert combined_base == split_base == Decimal("307.00")
+    assert combined_gst == split_gst == Decimal("55.26")
+
+
 
 def test_upstox_nse_exchange_candidates_do_not_leak_into_bse_or_mcx():
     from app.services.upstox_tariff_candidates import upstox_tariff_candidate_rules

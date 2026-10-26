@@ -1971,3 +1971,10 @@ Active continuation: Draft PR #7, `phase3/cross-broker-gst-ipft-resolution`. Res
 ## GST/IPFT verification update — 26 October 2026
 
 The new shared GST component policy is now connected to the Upstox public-schedule estimate helper. The prior CI run failed due to one incorrect test-message assertion; the assertion is corrected, and the helper distinguishes NSE combined IPFT from BSE options where NSE IPFT does not apply. Exact-head CI after the fix is still pending and must be verified. Remaining Phase 3 gates: source-backed cross-broker policies/tests, DP/demat canonical persistence/migration, exact-head passing CI and final synchronized checkpoint. Do not advance to Phase 4 before these gates pass.
+
+
+## Phase 3 GST/IPFT follow-up — 2026-10-26
+
+Parser work is now in scope as an evidence-extraction layer: conservative Upstox contract-note line extraction, segment tagging, duplicate detection and unmapped-line review. It must not decide GST inclusion or accounting approval. User-supplied broker examples are hypotheses, not approved tariff rules. Current Upstox public pricing wording lists GST on brokerage + transaction + IPFT, adding demat for equity delivery, and DP ₹20 per scrip/day on delivery sells; supplied assertions about including SEBI and DP ₹18.50 base conflict with that source and are not adopted.
+
+Before Phase 3 closure: verify exact-head CI; add canonical DP/demat component persistence/migration/total calculations/idempotency tests; verify date-effective GST/IPFT rules for MCX and NSE-CD against official sources; keep unverified tariff rows DRAFT; preserve PAPER-only/live-write-disabled safeguards.

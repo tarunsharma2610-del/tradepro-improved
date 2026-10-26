@@ -1,3 +1,14 @@
+# Latest authoritative Phase 3 checkpoint — 26 October 2026
+
+- **Latest verified code commit:** `13e201661d26b04c9bf75bb7e3aaf567ad1e69c4`.
+- **Exact-head CI:** [Backend CI #40378072884 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40378072884), **1,056 passed, 1 warning**.
+- **Verified safeguards:** broker-write boundary guard; SQLite migration round-trip; PostgreSQL 16 migration round-trip; synthetic PostgreSQL/document-volume restore drill and retained evidence.
+- **New implementation:** scope/effective-date-selected GST policy resolution for COMBINED, SEPARATE and NOT_APPLICABLE IPFT representations; rejects double counting, wrong exchange/scope, missing/extra components and unapproved/out-of-window policies.
+- **Next Phase 3 step:** canonical DP/demat persistence and migration, total-charge recomputation, then reviewed-policy integration with statutory GST valuation. Actual per-fill invoice acceptance remains evidence-gated; no personal contract note is required.
+- **Status:** Phase 3 remains in progress. PR #6/#7 remain Draft/unmerged; PAPER mandatory; live broker writes and automatic live-fill promotion/scheduling disabled; original Tradepro repo untouched.
+
+---
+
 # Phase 3 Latest CI Checkpoint — authoritative update (26 October 2026)
 
 ## Latest verified green head before this checkpoint-document refresh

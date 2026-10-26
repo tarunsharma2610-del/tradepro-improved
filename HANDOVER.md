@@ -2157,3 +2157,12 @@ Historical entries remain historical records; they must not override this curren
 - This CI result verifies the existing code/tests at `0ff70ee399a1b8fd3d7d3998dcc1c93cd89da7a3`; it does not certify a new docs-only commit until CI runs against that exact new head. Keep this note historical after the follow-up docs commit; check that commit's CI before calling the documentation checkpoint green.
 - GST/IPFT decision unchanged: public-schedule estimate may count combined transaction/IPFT once; no legacy IPFT double-counting; actual per-fill GST component candidates remain `DRAFT` pending source/invoice or written broker clarification. Never request personal contract notes from the user; continue using public sources and clearly label unresolved points.
 - Safety and scope unchanged: target `tarunsharma2610-del/tradepro-improved` only; original `Tradepro` untouched; PAPER mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; PR #6 remains draft/unmerged; AI/Algory work deferred until Phase 3 acceptance.
+
+
+## GST/IPFT public evidence update — 26 October 2026
+
+- See `GST_IPFT_PUBLIC_EVIDENCE_ADDENDUM.md` for the public-source findings, links and explicit decision gate.
+- Current Upstox tariff wording supports estimates that count the combined transaction/IPFT amount once from 1 March 2026; do not double-count IPFT.
+- The published Brokerage Details API sample (GST ₹1.02 vs transaction ₹5.68 and IPFT ₹0.17) remains inconsistent with that tariff wording. Public Upstox contract notes found for 21 May 2024 and 12 March 2025 are historical and do not resolve the post-March-2026 discrepancy.
+- No actual GST component candidate promoted; delivery, intraday, futures and options remain DRAFT pending current public invoice evidence or written broker clarification. User's own contract note is not required.
+- Branch: `phase3/durable-per-fill-charge-allocation`; repository: `tarunsharma2610-del/tradepro-improved` only. PAPER mandatory; live order writes and automatic live-fill promotion/scheduling disabled; PR #6 remains draft/unmerged. AI/Algory remains deferred until Phase 3 acceptance.

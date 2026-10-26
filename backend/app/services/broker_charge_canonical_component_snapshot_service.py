@@ -16,6 +16,7 @@ from app.models.broker_charge_evidence import BrokerChargeEvidence
 from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.user import User
 from app.services.broker_charge_allocation_service import METHOD_VERSION
+from app.services.broker_charge_source_canonicalization import CANONICAL_COMPONENTS
 from app.services.broker_charge_canonical_allocation_plan import SUPPORTED_CANONICAL_COMPONENTS
 from app.services.broker_charge_component_set_contract import LIVE_FILL_COMPONENT_SET_VERSION
 from app.services.broker_charge_document_storage_service import read_verified_document
@@ -151,7 +152,7 @@ def materialize_canonical_charge_component_snapshots(
         expected_source_sha256=evidence.source_sha256,
     )
     mapping = canonical["source_components_by_canonical"]
-    if set(mapping) != SUPPORTED_CANONICAL_COMPONENTS:
+    if set(mapping) != set(CANONICAL_COMPONENTS):
         raise ValueError("Canonical source mapping must produce exactly the approved six-component set.")
     if canonical.get("optional_source_components_by_canonical", {}).get("demat_transaction_charges"):
         raise ValueError(

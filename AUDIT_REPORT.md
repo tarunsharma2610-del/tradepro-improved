@@ -2193,3 +2193,12 @@ A fail-closed generic policy primitive and tests have been added on Draft PR #7.
 The first CI run on the new policy branch failed 1 test (1,023 passed); the failure was a test regex mismatch against the implementation's explicit validation message. The assertion has been corrected. The Upstox public GST estimate is now wired through the shared explicit-component policy calculator. NSE combined IPFT representation and BSE options not-applicable treatment are distinguished.
 
 This is not yet a passing CI checkpoint: exact-head workflow result after these fixes remains pending. Cross-broker policy/test coverage and canonical DP/demat persistence/migration remain open. Do not activate tariff candidates or declare GST/IPFT fully closed until those gates and CI pass.
+
+
+## GST/IPFT audit delta — 2026-10-26
+
+New parser-level coverage is in `backend/app/services/upstox_contract_note_text_extractor.py` and `backend/tests/test_upstox_contract_note_text_extractor.py`. It extracts line items conservatively, preserves raw lines and line numbers, reports duplicate components and unmapped charge-like lines, and does not make tax/legal classifications. This is not a PDF-layout certification; production use must retain original document bytes/hash and source locators and require reviewer confirmation.
+
+The Upstox estimate helper no longer constructs a `GstComponentPolicy(review_status="APPROVED")` internally. Public tariff estimates and approved actual accounting are now separate concepts in this path. The user-supplied Upstox claim including SEBI in the taxable base and DP ₹18.50 base is not accepted as an authoritative rule because it conflicts with Upstox's public pricing page (GST formula: brokerage + transaction + IPFT, plus demat for equity delivery; DP ₹20 per scrip/day on delivery sell). The actual invoice/tax treatment remains evidence-gated.
+
+Known blocker remains: source canonicalization explicitly rejects `demat_transaction_charges`, and Execution persists six charge components. Actual delivery accounting must remain fail-closed until DP/demat has an explicit canonical component, database migration, total-charge handling, idempotency and regression coverage. MCX and NSE-CD policy rows must not be guessed from the supplied examples. Latest exact-head CI is pending verification.

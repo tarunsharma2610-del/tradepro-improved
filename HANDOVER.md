@@ -2240,3 +2240,12 @@ The previous CI run #40358027077 failed on one test assertion message mismatch (
 Implementation head before the next documentation sync: `393804cc5c21ba70a579b32a6736f6561569413b`. Check exact-head CI after documentation commits; no passing status has been confirmed for this head yet.
 
 Continue with cross-broker published policy tests and canonical DP/demat persistence/migration. Keep broker candidates DRAFT, PR #6 Draft/unmerged, PAPER only, live writes disabled, and original Tradepro untouched. No personal contract note needed for public-rule implementation.
+
+
+## Current GST/IPFT handover — 2026-10-26
+
+The user supplied AI-generated sample contract-note structures for Zerodha, Groww, Angel One, Upstox retail, MCX, NSE-CD and an institutional clearer. Use them as candidate test shapes only, not as authoritative tariff/tax rules. The supplied Upstox assertions that SEBI must be included in the GST base and that DP is ₹18.50 base conflict with Upstox's currently published pricing page, which states GST on brokerage + transaction + IPFT and adds demat for equity delivery, and lists DP at ₹20 per scrip/day on delivery sells. Keep this mismatch explicitly documented.
+
+New code: `backend/app/services/upstox_contract_note_text_extractor.py` plus `backend/tests/test_upstox_contract_note_text_extractor.py`. The extractor retains raw line text/line number and amount, flags duplicate component labels, identifies segment tags, and surfaces unmapped charge-like lines. It does not determine taxable base or approve accounting. `upstox_public_gst_estimate.py` no longer marks an internal policy APPROVED to calculate an estimate.
+
+Next: confirm exact-head CI; then update the authoritative checkpoint to the successful exact commit/run. Continue the canonical DP/demat persistence + migration audit. Keep tariff candidates DRAFT, don't require personal contract notes, don't enable live writes, and don't merge PR #6 or #7.

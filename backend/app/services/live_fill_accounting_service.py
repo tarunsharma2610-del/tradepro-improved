@@ -20,7 +20,6 @@ from app.models.broker_connection import BrokerConnection
 from app.models.broker_charge_allocation import BrokerChargeAllocation
 from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent
 from app.models.broker_charge_evidence import BrokerChargeEvidence
-from app.models.broker_charge_source_component import BrokerChargeSourceComponent
 from app.models.broker_order import BrokerOrder
 from app.models.broker_trade_record import BrokerTradeRecord
 from app.models.execution import Execution
@@ -133,10 +132,10 @@ class LiveFillAccountingService:
             ):
                 raise ValueError("Broker child-order mapping changed while acquiring accounting locks.")
 
-            # Do not lock the trade row yet. Charge verification locks evidence,
-            # source components, allocations, then trade records. Taking the trade
-            # lock first here would invert that order and can deadlock against a
-            # concurrent verification/promotion transaction.
+            # Do not lock the trade row yet. Canonical charge verification locks
+            # all canonical snapshots first, then evidence, source rows, allocations,
+            # and finally the trade record. Taking the trade lock first would invert
+            # that order and can deadlock against verification/promotion.
             record = (
                 self.db.query(BrokerTradeRecord)
                 .filter(

@@ -117,7 +117,14 @@ def build_verified_component_allocation_plan(
     if canonical_weights != weights_json:
         raise ValueError("Explicit reviewed weights are not in canonical JSON representation.")
 
-    total = Decimal(canonical["canonical_components"][canonical_component])
+    canonical_amounts = canonical["canonical_components"]
+    optional_amounts = canonical.get("optional_canonical_components", {})
+    raw_total = canonical_amounts.get(canonical_component)
+    if raw_total is None:
+        raw_total = optional_amounts.get(canonical_component)
+    if raw_total is None:
+        raise ValueError("Verified source rows do not provide the requested canonical component total.")
+    total = Decimal(raw_total)
     allocations = allocate_component_total(
         total,
         weights,

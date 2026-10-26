@@ -2255,3 +2255,7 @@ Next: confirm exact-head CI; then update the authoritative checkpoint to the suc
 Source canonicalization now accepts an explicitly reviewed `demat_transaction_charges` row as a separate optional canonical component; it is never invented as zero when absent. Per-fill allocation planning also supports the separate component with a regression test, while preserving `accounting_approved=False` and `persisted=False`.
 
 This does not yet make DP/demat persistable on an Execution. Next work must inspect the Alembic migration chain, add a nullable/backward-compatible field and migration, update total-charge recomputation and any serializer/repository/promotion code, and add idempotency plus delivery/non-delivery regression tests. Do not accept actual delivery accounting before those checks and exact-head CI pass.
+
+## DP/demat CI failure and correction — 26 October 2026
+
+Backend run #40362669264 failed (45 failed, 989 passed) because the first mapping change widened the source-component mapping consumed by the existing six-component live snapshot service. The correction keeps the approved six-component mapping contract intact and exposes optional DP/demat rows in a separate mapping. Allocation planning reads the optional mapping, while the live snapshot service fails closed if DP/demat is present because the Execution schema still cannot persist it. Verify CI on the latest PR head before checkpointing it as green.

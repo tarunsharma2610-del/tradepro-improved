@@ -18,7 +18,7 @@ from app.services.broker_charge_verified_component_canonicalization import (
 )
 
 SUPPORTED_CANONICAL_COMPONENTS = frozenset({
-    "brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"
+    "brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst", "demat_transaction_charges"
 })
 
 

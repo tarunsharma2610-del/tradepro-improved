@@ -2217,3 +2217,17 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Public GST estimate rule resolved: 18% on brokerage + combined transaction/IPFT exchange_charges, with explicit demat_charges additionally for equity delivery. Never double-count IPFT; do not add STT, stamp duty or SEBI to this published estimate base. API example mismatch is a documentation-example discrepancy; it does not override the published Upstox schedule.
 - Actual account invoice/per-fill GST is still evidence-gated; actual candidate records remain DRAFT. User is not required to supply a personal contract note. This does not block public-schedule estimate implementation.
 - Scope/safety unchanged: only tarunsharma2610-del/tradepro-improved; original Tradepro untouched; PAPER mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; PR #6 remains open/draft/unmerged; AI/Algory deferred until Phase 3 acceptance.
+
+
+## Resume point — cross-broker GST/IPFT work (26 October 2026)
+
+Continue on branch `phase3/cross-broker-gst-ipft-resolution`, Draft PR #7: https://github.com/tarunsharma2610-del/tradepro-improved/pull/7. This is the active continuation; do not restart from an older checkpoint or work in the original Tradepro repo.
+
+Research file: `docs/CROSS_BROKER_GST_IPFT_POLICY_RESEARCH_2026-10-26.md`. New policy primitive: `backend/app/services/broker_gst_component_policy.py`; tests: `backend/tests/test_broker_gst_component_policy.py`. The policy requires explicit broker/exchange/segment/product/effective date, source provenance, approved status and exact component set. IPFT modes distinguish combined transaction/IPFT from separate rows and reject duplicate representations.
+
+Next steps in order:
+1. Check workflow runs/checks for current PR head and fix any failures.
+2. Integrate the generic policy into the existing Upstox public estimate helper without changing its estimate-only status; add cross-broker tests based on each broker's published component policy.
+3. Implement/verify canonical DP/demat component persistence, total-charge reconciliation and migration tests, or keep delivery actual accounting explicitly blocked.
+4. Update maintained docs/checkpoint to the exact final head and passing CI only.
+5. Keep PR #6 Draft/unmerged, PAPER mandatory, live broker writes disabled, and original Tradepro untouched. No personal contract note is required for implementation of public rules; actual invoice acceptance remains evidence-gated.

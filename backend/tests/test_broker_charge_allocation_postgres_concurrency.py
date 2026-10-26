@@ -361,6 +361,8 @@ def test_concurrent_source_verification_and_promotion_serialize_on_evidence(
     finally:
         with Session.begin() as db:
             db.execute(text("DELETE FROM broker_charge_allocations WHERE evidence_id = :id"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_charge_canonical_source_links WHERE canonical_component_id IN (SELECT id FROM broker_charge_canonical_components WHERE evidence_id = :id)"), {"id": str(evidence_id)})
+            db.execute(text("DELETE FROM broker_charge_canonical_components WHERE evidence_id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_charge_source_components WHERE evidence_id = :id"), {"id": str(evidence_id)})
             db.execute(text("DELETE FROM broker_trade_records WHERE broker_connection_id = :id"), {"id": str(connection_id)})
             db.execute(text("DELETE FROM broker_orders WHERE broker_connection_id = :id"), {"id": str(connection_id)})
@@ -382,6 +384,7 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
     Session = sessionmaker(bind=engine, expire_on_commit=False)
     suffix = uuid4().hex[:10]
     owner_id, reviewer_id, extractor_id = uuid4(), uuid4(), uuid4()
+    snapshot_creator_id, canonical_reviewer_id = uuid4(), uuid4()
     connection_id, evidence_id = uuid4(), uuid4()
     portfolio_id, instrument_id, order_id = uuid4(), uuid4(), uuid4()
     broker_order_id, trade_id = uuid4(), uuid4()
@@ -409,6 +412,10 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
                      password_hash="test-hash", full_name="Race Reviewer", is_admin=True),
                 User(id=extractor_id, email=f"extractor-{suffix}@example.invalid",
                      password_hash="test-hash", full_name="Race Extractor", is_admin=False),
+                User(id=snapshot_creator_id, email=f"snapshot-creator-{suffix}@example.invalid",
+                     password_hash="test-hash", full_name="Snapshot Creator", is_admin=True),
+                User(id=canonical_reviewer_id, email=f"canonical-reviewer-{suffix}@example.invalid",
+                     password_hash="test-hash", full_name="Canonical Reviewer", is_admin=True),
             ])
             db.flush()
             db.add(Portfolio(
@@ -457,14 +464,18 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
 
         manifest = json.dumps([str(trade_id)], separators=(",", ":"))
         manifest_hash = hashlib.sha256(manifest.encode()).hexdigest()
-        brokerage_component_id = None
         with Session.begin() as db:
             for component_name, amount in amounts.items():
-                component = BrokerChargeSourceComponent(
-                    evidence_id=evidence_id, source_sha256=digest,
-                    component_name=component_name, revision=1, source_amount=amount,
+                db.add(BrokerChargeSourceComponent(
+                    evidence_id=evidence_id,
+                    source_sha256=digest,
+                    component_name=component_name,
+                    source_label=component_name,
+                    revision=1,
+                    source_amount=amount,
                     component_set_version=LIVE_FILL_COMPONENT_SET_VERSION,
-                    currency="INR", extraction_method="MANUAL_TRANSCRIPTION",
+                    currency="INR",
+                    extraction_method="MANUAL_TRANSCRIPTION",
                     parser_version="manual-transcription-v1",
                     source_locator=f"synthetic note / {component_name}",
                     eligible_fill_ids_json=manifest,
@@ -475,25 +486,59 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
                     ),
                     rounding_policy="largest-remainder-v1",
                     allocation_basis="EXPLICIT_REVIEWED",
-                    extracted_by_user_id=extractor_id, status="VERIFIED",
-                    reviewed_by_user_id=reviewer_id, reviewed_at=datetime.now(timezone.utc),
+                    extracted_by_user_id=extractor_id,
+                    status="VERIFIED",
+                    reviewed_by_user_id=reviewer_id,
+                    reviewed_at=datetime.now(timezone.utc),
                     review_note="Independent synthetic review",
-                )
-                db.add(component)
-                db.flush()
-                if component_name == "brokerage":
-                    brokerage_component_id = component.id
-                is_pending = component_name == "brokerage"
-                db.add(BrokerChargeAllocation(
-                    evidence_id=evidence_id, broker_connection_id=connection_id,
-                    broker_trade_record_id=trade_id, charge_component=component_name,
-                    source_component_total=amount, allocated_amount=amount, currency="INR",
-                    allocation_basis="EXPLICIT_REVIEWED", method_version="largest-remainder-v1",
-                    status="PENDING_RECONCILIATION" if is_pending else "RECONCILED",
-                    reconciliation_reference=None if is_pending else (
-                        f"charge-component:{component.id}:sha256:{digest}:fills:{manifest_hash}"
-                    ),
                 ))
+
+        from app.services.broker_charge_canonical_component_snapshot_service import (
+            materialize_canonical_charge_component_snapshots,
+        )
+        with Session.begin() as db:
+            snapshots = materialize_canonical_charge_component_snapshots(
+                db, evidence_id=evidence_id, requested_by_user_id=snapshot_creator_id
+            )
+            snapshot_ids = {row.canonical_component: row.id for row in snapshots}
+        assert set(snapshot_ids) == set(amounts)
+
+        from app.services.broker_charge_canonical_component_review_service import (
+            review_canonical_charge_component_snapshot,
+        )
+        for snapshot_id in snapshot_ids.values():
+            with Session.begin() as db:
+                review_canonical_charge_component_snapshot(
+                    db,
+                    snapshot_id=snapshot_id,
+                    reviewer_user_id=canonical_reviewer_id,
+                    decision="VERIFIED",
+                    review_note="Independent canonical snapshot review",
+                )
+
+        from app.services.broker_charge_canonical_allocation_persistence_service import (
+            allocate_and_persist_canonical_snapshot,
+        )
+        for snapshot_id in snapshot_ids.values():
+            with Session.begin() as db:
+                allocate_and_persist_canonical_snapshot(
+                    db,
+                    snapshot_id=snapshot_id,
+                    broker_connection_id=connection_id,
+                    broker_report_reference=report_ref,
+                )
+
+        from app.services.broker_charge_canonical_allocation_reconciliation_service import (
+            promote_verified_canonical_component_allocations,
+        )
+        brokerage_snapshot_id = snapshot_ids["brokerage"]
+        for component_name, snapshot_id in snapshot_ids.items():
+            if component_name == "brokerage":
+                continue
+            with Session.begin() as db:
+                promote_verified_canonical_component_allocations(
+                    db, snapshot_id=snapshot_id, reviewer_user_id=canonical_reviewer_id
+                )
 
         barrier = threading.Barrier(2)
         outcomes = []
@@ -508,10 +553,9 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
             with Session() as db:
                 barrier.wait(timeout=10)
                 try:
-                    rows = promote_verified_component_allocations(
-                        db, evidence_id=evidence_id,
-                        source_component_id=brokerage_component_id,
-                        reviewer_user_id=reviewer_id,
+                    rows = promote_verified_canonical_component_allocations(
+                        db, snapshot_id=brokerage_snapshot_id,
+                        reviewer_user_id=canonical_reviewer_id,
                     )
                     db.commit()
                     outcome = ("ledger_promotion", "ok", len(rows))
@@ -553,8 +597,10 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
         assert len(fill_results) == 1, outcomes
         if fill_results[0][1] == "blocked":
             assert fill_results[0][2] == "ValueError", outcomes
-            assert "six reconciled per-fill charge allocations" in fill_results[0][3] or (
-                "Pending, rejected, or unreferenced charge allocations" in fill_results[0][3]
+            assert (
+                "Canonical allocation rows do not match" in fill_results[0][3]
+                or "exactly six canonical per-fill charge allocations" in fill_results[0][3]
+                or "Canonical component must be fully verified" in fill_results[0][3]
             ), outcomes
             with Session() as db:
                 assert db.query(Execution).filter_by(

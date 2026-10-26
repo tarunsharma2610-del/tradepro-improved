@@ -1,3 +1,15 @@
+## CURRENT AUTHORITATIVE CHECKPOINT — 26 October 2026 (GST per-fill allocation test CI passed)
+
+- Repository: `tarunsharma2610-del/tradepro-improved`; branch: `phase3/durable-per-fill-charge-allocation`; PR #6 remains open/draft.
+- Implementation/test commit: `162e804c448cafa332e3c9a18f72ca4213d238ea`; exact-head Backend CI [#40298202486 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40298202486).
+- Added `test_gst_allocation_plan_uses_only_reviewed_invoice_component_total` in `backend/tests/test_broker_charge_canonical_allocation_plan.py`. Synthetic reviewed GST source total ₹58.91 allocates ₹19.64 and ₹39.27 across two explicitly reviewed fill weights, reconciling exactly. This proves deterministic allocation only; it does not verify an actual invoice, approve GST treatment, persist accounting, or promote the plan.
+- This checkpoint supersedes older checkpoint statements for current status; historical entries are retained for audit history only.
+- Next gate: product/segment-specific charge-component acceptance and GST source reconciliation. Add only tests justified by source-backed mapping and invoice/contract-note evidence. Unknown/null values remain unknown; do not tax trade notional or double-count IPFT already included in combined exchange charges. All tariff candidates remain `DRAFT`.
+- On every implementation change, verify exact-head CI. After this documentation checkpoint commit, verify CI again on that exact documentation commit.
+- Safety: PAPER mandatory; live broker order writes and automatic live-fill promotion disabled; PR #6 stays draft/unmerged absent explicit authorization; original `tarunsharma2610-del/Tradepro` untouched. Phase 3 remains IN PROGRESS.
+
+---
+
 ## Authoritative Phase 3 checkpoint — 26 October 2026 (latest verified CI)
 
 - Target repository only: `tarunsharma2610-del/tradepro-improved`; branch `phase3/durable-per-fill-charge-allocation`; implementation/test head `44830ec48b50b4f470ec9ca95dd2d3f4339dd3df`. Do not modify original `Tradepro`.

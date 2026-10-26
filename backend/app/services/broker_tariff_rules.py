@@ -9,7 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Iterable
+from typing import Iterable, Mapping
+
+
+from app.services.broker_charge_allocation_service import allocate_component_total
 
 
 RATE_UNITS = frozenset({"PERCENT", "INR_PER_CRORE", "INR_FIXED"})
@@ -404,3 +407,30 @@ def calculate_stamp_duty_for_trade(
         raise ValueError("Only an approved tariff rule can be calculated.")
     return _calculate_rate_amount(rule, calculation_base)
 
+
+
+def calculate_order_brokerage_allocation(
+    rule: TariffRule,
+    *,
+    order_notional: Decimal | str | int | float,
+    reviewed_fill_weights: Mapping[str, Decimal | str | int | float],
+) -> dict[str, Decimal]:
+    """Propose a deterministic split of one order-level brokerage estimate.
+
+    The brokerage rate and minimum/maximum cap are applied once to the whole
+    order, then the resulting paise-exact amount is distributed using caller-
+    supplied, independently reviewed fill weights. This is estimate/allocation
+    math only: it does not prove broker-booked amounts, choose the legally
+    correct weights, persist evidence, or authorize live accounting promotion.
+    """
+    if not isinstance(reviewed_fill_weights, Mapping) or not reviewed_fill_weights:
+        raise ValueError("A nonempty independently reviewed fill-weight mapping is required.")
+    total = calculate_order_brokerage(rule, order_notional=order_notional)
+    allocations = allocate_component_total(
+        total,
+        reviewed_fill_weights,
+        allocation_basis="EXPLICIT_REVIEWED",
+    )
+    if sum(allocations.values(), Decimal("0")) != total:
+        raise RuntimeError("Per-fill brokerage estimate does not reconcile to the capped order total.")
+    return allocations

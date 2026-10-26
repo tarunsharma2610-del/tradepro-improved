@@ -717,3 +717,66 @@ def test_stt_specialized_calculator_rejects_wrong_side_product_or_unreviewed_rul
             ),
             product="FUTURES", transaction_side="SELL", calculation_base="100000",
         )
+
+
+@pytest.mark.parametrize(
+    ("notional", "cap", "weights", "expected"),
+    [
+        (
+            "1000000", "20.00", {"fill-a": "1", "fill-b": "1"},
+            {"fill-a": Decimal("10.00"), "fill-b": Decimal("10.00")},
+        ),
+        (
+            "100000", "25.00", {"fill-a": "1", "fill-b": "3"},
+            {"fill-a": Decimal("12.50"), "fill-b": Decimal("37.50")},
+        ),
+    ],
+)
+def test_multi_fill_brokerage_cap_is_applied_once_before_reviewed_allocation(
+    notional, cap, weights, expected
+):
+    from app.services.broker_tariff_rules import calculate_order_brokerage_allocation
+
+    rule = make_rule(rate=Decimal("0.1"), maximum_inr=Decimal(cap))
+    allocations = calculate_order_brokerage_allocation(
+        rule, order_notional=notional, reviewed_fill_weights=weights
+    )
+    assert allocations == expected
+    assert sum(allocations.values(), Decimal("0")) == Decimal(cap)
+
+
+def test_multi_fill_brokerage_allocation_is_paise_exact_and_stable_for_ties():
+    from app.services.broker_tariff_rules import calculate_order_brokerage_allocation
+
+    rule = make_rule(calculation_basis="ORDER_FIXED", rate=Decimal("0.05"), rate_unit="INR_FIXED")
+    weights = {"fill-b": "1", "fill-a": "1", "fill-c": "1"}
+    first = calculate_order_brokerage_allocation(
+        rule, order_notional="100000", reviewed_fill_weights=weights
+    )
+    second = calculate_order_brokerage_allocation(
+        rule, order_notional="100000", reviewed_fill_weights=dict(reversed(list(weights.items())))
+    )
+    assert first == second
+    assert first == {"fill-a": Decimal("0.02"), "fill-b": Decimal("0.02"), "fill-c": Decimal("0.01")}
+    assert sum(first.values(), Decimal("0")) == Decimal("0.05")
+
+
+@pytest.mark.parametrize("weights", [{}, {"fill-a": "0", "fill-b": "0"}, {"fill-a": "-1"}])
+def test_multi_fill_brokerage_allocation_rejects_empty_or_invalid_weights(weights):
+    from app.services.broker_tariff_rules import calculate_order_brokerage_allocation
+
+    with pytest.raises(ValueError):
+        calculate_order_brokerage_allocation(
+            make_rule(), order_notional="100000", reviewed_fill_weights=weights
+        )
+
+
+def test_multi_fill_brokerage_allocation_rejects_unapproved_tariff():
+    from app.services.broker_tariff_rules import calculate_order_brokerage_allocation
+
+    with pytest.raises(ValueError, match="Only an approved tariff rule"):
+        calculate_order_brokerage_allocation(
+            make_rule(review_status="DRAFT"),
+            order_notional="100000",
+            reviewed_fill_weights={"fill-a": "1", "fill-b": "1"},
+        )

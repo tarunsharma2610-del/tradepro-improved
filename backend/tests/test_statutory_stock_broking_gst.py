@@ -36,7 +36,7 @@ def test_section_15_includes_third_party_recovery_without_complete_rule_33_proof
         recipient_state_code_in_supplier_records="27",
     )
     assert result.taxable_base == Decimal("25.85")
-    assert result.total_gst == Decimal("4.65")
+    assert result.total_gst == Decimal("4.66")
     assert result.tax_type == "CGST_SGST"
     assert result.cgst == Decimal("2.33")
     assert result.sgst == Decimal("2.33")
@@ -118,4 +118,7 @@ def test_half_up_rounding_and_zero_are_explicit():
         recipient_state_code_in_supplier_records="27",
     )
     assert result.taxable_base == Decimal("0.03")
-    assert result.total_gst == Decimal("0.01")
+    # Each 9% intra-state tax head rounds independently to paise.
+    assert result.cgst == Decimal("0.00")
+    assert result.sgst == Decimal("0.00")
+    assert result.total_gst == Decimal("0.00")

@@ -728,7 +728,7 @@ def test_stt_specialized_calculator_rejects_wrong_side_product_or_unreviewed_rul
         ),
         (
             "100000", "25.00", {"fill-a": "1", "fill-b": "3"},
-            {"fill-a": Decimal("12.50"), "fill-b": Decimal("37.50")},
+            {"fill-a": Decimal("6.25"), "fill-b": Decimal("18.75")},
         ),
     ],
 )

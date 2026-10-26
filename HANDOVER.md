@@ -2231,3 +2231,12 @@ Next steps in order:
 3. Implement/verify canonical DP/demat component persistence, total-charge reconciliation and migration tests, or keep delivery actual accounting explicitly blocked.
 4. Update maintained docs/checkpoint to the exact final head and passing CI only.
 5. Keep PR #6 Draft/unmerged, PAPER mandatory, live broker writes disabled, and original Tradepro untouched. No personal contract note is required for implementation of public rules; actual invoice acceptance remains evidence-gated.
+
+
+## GST/IPFT latest continuation — 26 October 2026
+
+The previous CI run #40358027077 failed on one test assertion message mismatch (1,023 passed, 1 failed). The test assertion has been corrected. The Upstox public GST estimate now calls the shared `GstComponentPolicy` calculator; NSE uses COMBINED IPFT representation, while BSE options uses NOT_APPLICABLE so it does not inherit NSE IPFT.
+
+Implementation head before the next documentation sync: `393804cc5c21ba70a579b32a6736f6561569413b`. Check exact-head CI after documentation commits; no passing status has been confirmed for this head yet.
+
+Continue with cross-broker published policy tests and canonical DP/demat persistence/migration. Keep broker candidates DRAFT, PR #6 Draft/unmerged, PAPER only, live writes disabled, and original Tradepro untouched. No personal contract note needed for public-rule implementation.

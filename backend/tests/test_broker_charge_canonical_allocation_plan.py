@@ -29,7 +29,7 @@ WEIGHTS = json.dumps([
 ], separators=(",", ":"))
 
 
-def source_rows(*, split_exchange=False):
+def source_rows(*, split_exchange=False, include_demat=False):
     values = [
         ("brokerage", "20.00", "Brokerage", None, None),
         ("stt", "0.20", "STT", None, None),
@@ -44,6 +44,8 @@ def source_rows(*, split_exchange=False):
         ])
     else:
         values.append(("exchange_charges", "307.00", "Exchange Charges", None, None))
+    if include_demat:
+        values.append(("demat_transaction_charges", "20.00", "DP Charges", None, None))
     return [
         SimpleNamespace(
             id=UUID(f"66666666-6666-4666-8666-{index:012d}"),
@@ -87,6 +89,27 @@ def test_direct_source_rows_produce_exact_non_persisted_plan():
     assert result["accounting_approved"] is False
     assert result["persisted"] is False
 
+
+
+
+def test_reviewed_dp_demat_component_allocates_separately_without_approval():
+    rows = source_rows(include_demat=True)
+    result = build_verified_component_allocation_plan(
+        rows,
+        evidence_id=EVIDENCE,
+        source_sha256=SOURCE_HASH,
+        canonical_component="demat_transaction_charges",
+    )
+    assert result["canonical_source_total"] == "20.00"
+    assert result["allocations"] == {
+        FILL_IDS[0]: "6.67",
+        FILL_IDS[1]: "13.33",
+    }
+    assert {row["component_name"] for row in result["source_record_provenance"]} == {
+        "demat_transaction_charges"
+    }
+    assert result["accounting_approved"] is False
+    assert result["persisted"] is False
 
 
 def test_gst_allocation_plan_uses_only_reviewed_invoice_component_total():

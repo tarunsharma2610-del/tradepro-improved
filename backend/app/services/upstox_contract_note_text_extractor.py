@@ -100,7 +100,7 @@ def extract_upstox_contract_note_text(text: str) -> ContractNoteExtraction:
                 counts[component] = counts.get(component, 0) + 1
                 matched = True
                 break
-        if not matched and re.search(r"\b(?:charge|charges|GST|CGST|SGST|IGST|IPFT|SEBI|brokerage|demat|clearing|stamp duty|STT)\b", line, re.IGNORECASE):
+        if not matched and re.search(r"\b(?:charge|charges|GST|CGST|SGST|IGST|IPFT|SEBI|brokerage|demat|clearing|stamp duty|STT|investor protection|contribution)\b", line, re.IGNORECASE):
             unmapped.append((line_number, raw_line))
 
     ambiguous = tuple(sorted(component for component, count in counts.items() if count > 1))

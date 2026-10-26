@@ -928,3 +928,11 @@ Safety remains unchanged: PAPER mode mandatory; live broker order writes disable
 - **Next action when resuming:** continue Phase 3 from this exact commit and checkpoint. Next gate is component-specific GST acceptance cases for equity delivery, intraday, futures and options, then implementation review and exact-head CI; do not restart from earlier saved checkpoints.
 - **Safety / PR:** PAPER mode mandatory; live broker `place_order`/`modify_order`/`cancel_order` and automatic live-fill promotion remain disabled. PR #6 remains open, draft and unmerged. Original `tarunsharma2610-del/Tradepro` is not the work target and must remain untouched.
 - This checkpoint supersedes older statements in this document about CI being in progress or requiring verification for the pre-`d287da7` head. Historical notes remain history; this is the canonical resume point.
+
+
+## Session checkpoint sync — 26 October 2026
+
+- Exact-head Backend CI [#40368554399 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40368554399) passed on code head `9d3f255480da9a71980a9d3819fbb69a34835753`. New documentation-sync commits require their own final exact-head CI check.
+- Statutory GST research: CBIC stock-broking FAQ and CGST Act section 15 / CGST Rules Rule 33 and Rule 27 govern valuation; pure-agent exclusion is conditional on evidence, not automatic. IGST Act section 12(12) governs stock-broking place of supply; supplier/place-of-supply state comparison determines IGST vs CGST+SGST. Sources: https://cbic-gst.gov.in/sectoral-faq.html ; https://cbic-gst.gov.in/valuation-rules.html
+- GST public-schedule helper/tests remain estimate-only. Statutory GST valuation service and tests are not implemented yet; GST/IPFT acceptance remains open. Next: implement Section 15 inclusion, Rule 33 evidence gates, tax-state split, Decimal/paise rounding and fail-closed handling. IPFT combined/separate and DP/demat persistence/reconciliation remain open.
+- No personal contract note available or required. Safety: only `tarunsharma2610-del/tradepro-improved`; PR #6/#7 Draft/unmerged; PAPER-only; live broker order writes disabled; original Tradepro repository out of scope.

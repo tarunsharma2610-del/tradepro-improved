@@ -9,7 +9,7 @@
 - **Upstox controls:** no unused SDK runtime dependency; Agent Skill remains development/static-review-only; brokerage calculator is estimate-only; aggregate charge endpoints are not per-fill actual evidence.
 - **Safety invariants:** PAPER mode mandatory; live broker order writes, automatic live-fill promotion, and automatic scheduling remain disabled. Keep PR #6 unmerged until explicit approval.
 - **Next step:** resume at the remaining Phase 3 tariff/component evidence gates. Do not repeat canonical snapshot integration. Do not begin the separate AI/open-source adaptations until Phase 3 acceptance is complete.
-- **Documentation-sync note:** this multi-document commit must pass its own exact-head CI before the next implementation change.
+- **Documentation-sync note:** the 25-file checkpoint sync commit `c3166b05a132fe2339cebc7940e5cb1aa71152cf` passed exact-head Backend CI [#40286698642](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286698642). This follow-up roadmap/status edit must pass its own exact-head CI before implementation resumes.
 
 ---
 
@@ -79,12 +79,12 @@ NSE circular NSE/FA/73061 (27 February 2026; effective 1 March 2026) gives combi
 **Accept when:** the pure mapping tests cover combined/split equivalence, missing/mixed/conflicting representation, exact paise amounts and unsupported extras. Those unit tests passed in [CI #40191589060](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40191589060); end-to-end ledger integration and no-double-count tests remain open.
 
 ### Gate 1C — Integrate canonicalization with source review and durable allocation
-**Status: partially implemented; end-to-end live-fill accounting integration remains open.** The canonicalization adapter is used by canonical snapshot materialization/review, and snapshot allocation/reconciliation services exist. However, `live_fill_accounting_service` still validates raw source-component rows through the legacy six-row ledger; the canonical snapshot ledger is not yet consumed end-to-end by live-fill accounting.
-- Invoke the mapping contract only after every relevant source row has independent review and persisted mode/version agreement.
-- Preserve each raw row and its provenance; store a derived canonical component with links/digests to its contributing source rows, rather than rewriting or deleting source rows.
-- Persist allocations against the canonical component, reconcile exact source totals in paise, and make replay/conflict behavior deterministic.
-- Prove combined and split IPFT produce the same canonical exchange-charge and GST-base inputs without counting IPFT twice. Extra clearing/demat/other rows remain blocked until separately mapped and tax treatment is evidenced.
-**Accept when:** API + persistence + verifier + live-fill promotion use the same mapping version; end-to-end combined/split, replay, conflict, rollback and exact-total tests pass.
+**Status: implemented; exact-head CI verified on 26 October 2026.** Backend CI [#40286205714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286205714) passed on implementation head `255fc208eed4bc8b922977717209d27912055377` (962 passed, 1 warning).
+- `live_fill_accounting_service` now locks all six canonical snapshots in deterministic component order before evidence locking, validates each through `verify_canonical_component_allocation_ledger`, and derives actual fees only from six reconciled allocations linked to their matching canonical snapshots.
+- Revalidation covers source-byte digest and links, mapping/representation versions, exact reviewed fill manifest and weights, INR source totals, durable reconciliation references, reviewer authority, and the contract-note reference under lock.
+- There is no raw-only legacy allocation fallback. Extra, unmapped, unlinked, or foreign-connection per-fill allocation rows fail closed.
+- End-to-end tests cover direct and combined/split transaction/IPFT source representations mapping to one exchange-charge component, exact replay, missing/unreconciled/extra allocations, and the PostgreSQL live-fill-versus-ledger promotion race.
+**Acceptance result:** canonicalization, source review, allocation persistence, reconciliation and live-fill consumption use the same canonical mapping. Tariff applicability and invoice/tax acceptance remain separate open gates below.
 
 ### Gate 2 — Complete evidence-backed component and tariff-rule selection
 **Status: open.**
@@ -95,8 +95,8 @@ NSE circular NSE/FA/73061 (27 February 2026; effective 1 March 2026) gives combi
 **Accept when:** approved rules are scoped and versioned, overlapping/expired rules fail closed, and no unsupported component is silently dropped or guessed.
 
 ### Gate 3 — Wire approved rules into per-fill allocation
-**Status: open.**
-- Connect validated source-component intake, reviewed representation, approved tariff/component rules, exact eligible-fill manifest, approved weights, deterministic paise allocation and durable ledger.
+**Status: partially implemented; source-specific rule approval remains open.**
+- Canonical source-component intake, reviewed representation, exact eligible-fill manifest, independently reviewed explicit weights, deterministic paise allocation and durable canonical ledger are now wired end-to-end. Approved tariff/component-rule selection is still open.
 - Support largest-remainder rounding and exact source-total reconciliation without losing source provenance.
 - Test combined/split IPFT equivalence and prove IPFT/GST base are not counted twice end-to-end.
 - Preserve separation between estimates, aggregate broker reconciliation, actual source evidence and per-fill ledger entries.
@@ -111,10 +111,11 @@ NSE circular NSE/FA/73061 (27 February 2026; effective 1 March 2026) gives combi
 **Accept when:** component rules and invoice reconciliation are reviewed and tests cover both ordinary and boundary cases.
 
 ### Gate 5 — Prove live-fill accounting integration, concurrency and rollback
-**Status: open acceptance gate.**
-- Add/verify a PostgreSQL integration test that races the real `LiveFillAccountingService.promote_trade` / `_load_reconciled_allocation_fees` path against allocation-ledger verification/promotion; do not substitute a test stub for this acceptance.
-- Cover two distinct fills plus concurrent duplicate replay; conflicting fill sets; pending/unreconciled evidence; reviewer authority; verification/source changes during promotion; transaction rollback; no partial execution/position writes; exact replay vs conflicting replay.
-- Confirm PostgreSQL-only tests actually execute in CI, not pass via skip.
+**Status: partially verified; broader adversarial acceptance remains open.**
+- PostgreSQL test `test_live_fill_promotion_races_with_component_ledger_verification` now races the real `LiveFillAccountingService.promote_trade` path against `promote_verified_canonical_component_allocations` using canonical snapshots and actual reconciled allocation rows; it is not a stubbed loader.
+- The test permits a fail-closed first attempt while brokerage allocation is pending, then verifies retry/replay, one execution/position, and a complete reconciled six-component ledger. It passed as part of exact-head CI [#40286205714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286205714).
+- Existing tests cover exact replay, conflicting payloads, reviewer revocation, staged-row/flush/commit rollback, and source/allocation mismatch rejection.
+- Remaining: broaden concurrent duplicate replay across multiple fills, conflicting fill-set races, source/review mutation during promotion, and fault-injection coverage beyond the existing targeted boundaries. Do not call this exhaustive.
 **Accept when:** no interleaving permits unverified or conflicting allocations to be promoted, replay is exactly-once, and failures leave no partial accounting writes.
 
 ### Gate 6 — Adversarial review, migration and restore evidence

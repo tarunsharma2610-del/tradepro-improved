@@ -9,7 +9,7 @@
 - **Upstox controls:** no unused SDK runtime dependency; Agent Skill remains development/static-review-only; brokerage calculator is estimate-only; aggregate charge endpoints are not per-fill actual evidence.
 - **Safety invariants:** PAPER mode mandatory; live broker order writes, automatic live-fill promotion, and automatic scheduling remain disabled. Keep PR #6 unmerged until explicit approval.
 - **Next step:** resume at the remaining Phase 3 tariff/component evidence gates. Do not repeat canonical snapshot integration. Do not begin the separate AI/open-source adaptations until Phase 3 acceptance is complete.
-- **Documentation-sync note:** this multi-document commit must pass its own exact-head CI before the next implementation change.
+- **Documentation-sync note:** the 25-file checkpoint sync commit `c3166b05a132fe2339cebc7940e5cb1aa71152cf` passed exact-head Backend CI [#40286698642](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286698642). This follow-up roadmap/status edit must pass its own exact-head CI before implementation resumes.
 
 ---
 
@@ -28,11 +28,11 @@
 
 ## Current checkpoint — exact-head status
 
-- Latest verified code/test HEAD: `50802e96e06756b57a9f930e0c54c680777922d4`; exact-head Backend CI [#40209741299](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40209741299) passed.
-- The run passed backend pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, and the synthetic PostgreSQL/document-volume restore drill.
-- The PostgreSQL concurrency test now includes two simultaneous promotions of one reviewed component alongside a verifier. Both promotions must return the complete allocation set and the final rows must share one durable reconciliation reference.
-- Canonical snapshot materialization/review/allocation/reconciliation services exist, but live-fill accounting still verifies raw source-component rows. End-to-end canonical ledger consumption remains open.
-- PAPER mode is mandatory; live broker writes, automatic live-fill promotion and scheduling remain disabled; PR #6 remains draft/unmerged; the original Tradepro repository is untouched.
+- Latest verified implementation head: `255fc208eed4bc8b922977717209d27912055377`; exact-head Backend CI [#40286205714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286205714) passed: **962 passed, 1 warning**.
+- CI passed backend pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade, synthetic PostgreSQL/document-volume restore, and evidence-artifact retention. Synthetic restore does not prove actual Oracle Cloud recovery.
+- Canonical live-fill integration is now implemented and CI-verified: six canonical snapshots are required; every component's source, mapping, reviewed fill set/weights, allocation ledger and durable reconciliation reference is revalidated; fees are read from the canonical per-fill rows only. Raw-only legacy allocations are not a fallback.
+- End-to-end coverage includes direct and combined/split transaction/IPFT representation, exact replay, missing/unreconciled/extra allocation rejection, and a PostgreSQL race between actual live-fill accounting and canonical allocation promotion.
+- PR #6 remains open/draft/unmerged; PAPER mode remains mandatory; live broker order writes, automatic live-fill promotion, and automatic scheduling remain disabled; original `Tradepro` remains out of scope.
 
 ## Status vocabulary
 
@@ -49,30 +49,30 @@ Do not infer completion percentages from test count or number of documentation u
 |---|---|---|
 | Durable allocation ledger, deterministic paise allocation, source-total reconciliation, replay/conflict controls and review/promotion safeguards | **Implemented; prior CI verified** | Current known exact-head run #40187635881 passed on SHA `97843aec1d9b0acc4d55d0fc4529b4ea5b81fd50`. Reconfirm relevant tests remain enabled in final CI. |
 | Source evidence intake and representation validation | **Implemented; source approval pending** | Versioned combined/split IPFT representation, raw-label retention and missing/ambiguous/conflicting input rejection exist. Explicit source-label → normalized-component association and missing-label rejection are implemented and CI-verified on the cited source-label guard commit; authentic transcription still requires independent review against the original note. |
-| IPFT combined/split arithmetic | **Policy settled; end-to-end accounting acceptance pending** | NSE circular NSE/FA/73061: cash ₹307.00/crore, futures ₹183.00/crore, options ₹3,553.00/crore combined; split equivalent is ₹306.99+₹0.01, ₹182.99+₹0.01, ₹3,552.99+₹0.01. Do not add IPFT twice. |
+| IPFT combined/split arithmetic | **Canonical mapping and end-to-end equivalence tested; tax approval pending** | NSE circular NSE/FA/73061: cash ₹307.00/crore, futures ₹183.00/crore, options ₹3,553.00/crore combined; split equivalent is ₹306.99+₹0.01, ₹182.99+₹0.01, ₹3,552.99+₹0.01. Canonical live-fill tests prove the exchange-charge total is counted once; GST/tariff applicability remains open. |
 | GST taxable composition and invoice reconciliation | **Evidence/review pending** | Working 18% canonical taxable-base policy is documented; authentic invoice/tax-base validation by product, segment and effective date remains open. |
-| Effective-dated component tariff rules and actual API/contract-note mapping | **Open** | Tariff candidates remain DRAFT. Verify authentic Upstox field semantics and source provenance. Calculator is estimate-only; Get Trade Charges is aggregate reconciliation evidence, not per-fill actual evidence. |
-| Approved component rules wired to durable per-fill allocation | **Open** | Need end-to-end allocation with exact fill manifest, approved component-specific basis, exact source-total reconciliation, no dropped component and no IPFT/GST double count. Generic QUANTITY/NOTIONAL allocation remains disabled unless component-specific rules approve it. |
-| Real live-fill service vs allocation verification/promotion concurrency | **Open acceptance gate** | Must test the real `LiveFillAccountingService.promote_trade` and `_load_reconciled_allocation_fees` path against concurrent ledger verification/promotion; a stubbed loader is not enough. Include replay, conflicting fill sets, rollback and no partial execution/position writes. |
+| Effective-dated component tariff rules and actual API/contract-note mapping | **Open** | Tariff candidates remain DRAFT. Verify exact effective dates, product/segment/side scope, official source provenance and account-plan limitations. Calculator is estimate-only; Get Trade Charges is aggregate reconciliation evidence, not per-fill actual evidence. |
+| Canonical per-fill allocation wired to live-fill accounting | **Implemented; exact-head CI verified** | Live accounting requires six independently verified canonical snapshots and reconciled allocations, exact fill manifest/weights and source totals; combined/split IPFT canonicalizes once. **Approved tariff/component-specific rule selection remains open.** Generic QUANTITY/NOTIONAL allocation remains disabled unless component-specific rules approve it. |
+| Real live-fill service vs canonical allocation verification/promotion concurrency | **Partially verified; broader gate open** | PostgreSQL exact-head CI now exercises the real `LiveFillAccountingService.promote_trade` path against canonical allocation promotion. Pending fail-closed/retry, exact replay and no-partial-write behavior are covered. Remaining: broader multi-fill duplicate replay, conflicting fill-set/source-change races and additional fault injection. |
 | Migrations, adversarial review and restore | **Prior synthetic CI checks passed; final review open** | Recheck SQLite and PostgreSQL 16 upgrade/downgrade/re-upgrade, broker-write boundary, evidence retention and synthetic restore on final HEAD. Actual retained Oracle backup restore is a separate operational check. |
 | Dedicated Phase 3 roadmap/instructions/progress reporting | **Created; latest-doc CI pending** | `PHASE3_ROADMAP.md`, `PHASE3_INSTRUCTIONS.md` and this report define gates, safety constraints and update rules. Verify exact current HEAD before marking documentation checkpoint green. |
 | Phase 3 sign-off / PR merge | **Not complete** | All acceptance gates and evidence gaps must be reconciled; PR #6 remains draft/unmerged until explicit user approval. No live-trading enablement is included in Phase 3 closure. |
 
 ## Next actions — in order
 
-1. **Verify exact latest documentation HEAD and CI.** If any required job fails, diagnose and fix the cause without weakening safeguards; rerun on the resulting HEAD.
-2. **Wire the source-to-canonical mapping into review and allocation persistence.** Keep raw rows immutable; derive one canonical exchange-charge amount only after explicit combined/split review, then reconcile it exactly to per-fill allocations.
-3. **Approve evidence-backed, effective-dated component rules and API mappings.** Keep unsupported rules DRAFT and fail closed.
-4. **Wire the reviewed rules into per-fill allocation and test combined/split IPFT equivalence and GST no-double-count behavior end-to-end.**
-5. **Close GST/invoice reconciliation and component-specific edge cases** (multi-fill brokerage caps, STT/CTT side/product, stamp duty, demat/other charges and effective-date boundaries).
-6. **Close the real-service PostgreSQL concurrency/rollback gate** using the actual live-fill accounting path, not test-only stubs.
-7. **Run final adversarial review and exact-head CI;** synchronize the progress report, shared checkpoint docs and acceptance matrix after the verified result.
-8. **Request explicit user acceptance before any merge.** Do not enable live order writes or automatic promotion.
+1. **Verify the current documentation/status commit's exact-head CI** before further implementation.
+2. **Close Gate 2:** review the dated official Upstox/NSE source snapshot against exact product, segment, side, basis and effective dates. Keep candidates DRAFT where the public source does not prove account-specific scope; do not use the brokerage calculator as actual-charge evidence.
+3. **Close Gates 3–4:** approve only supported component-specific allocation/tax rules; reconcile GST bases, brokerage caps, STT/CTT, stamp duty, demat/other charges and invoice totals. Preserve actual-vs-estimate separation and fail closed where evidence is missing.
+4. **Finish Gate 5 adversarial coverage:** concurrent multi-fill replay/conflicting fill sets, source/reviewer mutation, and any demonstrated rollback gaps. Do not duplicate already passing tests.
+5. **Run final adversarial review, migrations, broker-write guard and restore checks** on the exact final head. Synthetic restore is not an actual Oracle Cloud recovery.
+6. **Synchronize checkpoint docs and verify exact-head CI**; then request explicit user acceptance before any merge. PR #6 stays draft/unmerged; no live-order writes or automatic promotion are enabled.
 
 ## Verified step log
 
 | Date | Commit / workflow | Result |
-|---|---|---|
+|---|---|
+| 2026-10-26 | `255fc208eed4bc8b922977717209d27912055377`; [CI #40286205714](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286205714) | **Passed:** 962 passed, 1 warning, 0 failures; broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore and evidence retention passed. Canonical live-fill integration and combined/split IPFT tests are included. |
+| 2026-10-26 | `c3166b05a132fe2339cebc7940e5cb1aa71152cf`; [CI #40286698642](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40286698642) | **Passed:** 25 maintained checkpoint documents synchronized and exact-head Backend CI succeeded. This follow-up status edit requires its own exact-head CI. |---|
 | 2026-10-25 | `97843aec1d9b0acc4d55d0fc4529b4ea5b81fd50`; [CI #40187635881](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40187635881) | **Passed:** 907 passed, 1 warning, 0 failures. This result applies to that SHA only. |
 | 2026-10-25 | New Phase 3 roadmap and instruction documents | Committed after the verified implementation SHA; exact-head CI is pending and must be recorded here only after it succeeds. |
 

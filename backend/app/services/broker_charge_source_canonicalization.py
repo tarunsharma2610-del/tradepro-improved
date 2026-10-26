@@ -136,7 +136,12 @@ def canonicalize_reviewed_source_components(rows: Iterable[SourceChargeRow]) -> 
         "representation_contract_version": CONTRACT_VERSION if has_transaction else None,
         "canonical_components": {
             name: format(amounts[name].quantize(Decimal("0.01")), "f")
-            for name in amounts
+            for name in CANONICAL_COMPONENTS
+        },
+        "optional_canonical_components": {
+            name: format(amounts[name].quantize(Decimal("0.01")), "f")
+            for name in OPTIONAL_CANONICAL_COMPONENTS
+            if name in amounts
         },
         "source_components_by_canonical": {
             name: source_names_by_canonical[name]

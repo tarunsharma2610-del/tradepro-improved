@@ -92,3 +92,9 @@ Open implementation gate: the existing canonical accounting model still supports
 Sources: [Upstox brokerage charges](https://upstox.com/brokerage-charges/) (public component formula, post-2026-03-01 combined IPFT wording and ₹20 DP charge); [Upstox trades charges API](https://upstox.com/developer/api-documentation/get-trade-charges/) (returns transaction, clearing, IPFT, SEBI turnover and demat transaction fields but is not by itself per-fill invoice proof); [NSE circular effective 2026-03-01](https://nsearchives.nseindia.com/content/circulars/FA73061.pdf); [CBIC sectoral FAQ](https://cbic-gst.gov.in/sectoral-faq.html).
 
 CI status for these new extractor/approval-boundary changes: pending exact-head verification until the relevant workflow run completes.
+
+## DP/demat canonicalization implementation delta — 26 October 2026
+
+The source-to-canonical mapping now supports `demat_transaction_charges` as an **optional, distinct canonical component** when an explicit reviewed source row exists. It is not fabricated as zero when absent. The deterministic allocation-plan builder now permits a separate plan for this component, and tests cover paise-exact allocation without accounting approval.
+
+This is a mapping/planning improvement only. `Execution` still has no dedicated DP/demat column, persistence migration and total-charge recomputation are not implemented, and existing paper charge calculation does not yet include product-specific DP charges. Do not treat actual equity-delivery accounting as supported until the persistence/model migration, locked promotion/revalidation, total-charge math, idempotency, and delivery/non-delivery regression tests are completed. Latest exact-head CI is pending for the mapping/allocation change and this documentation sync.

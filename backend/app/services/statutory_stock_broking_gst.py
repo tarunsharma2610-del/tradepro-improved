@@ -162,8 +162,10 @@ def calculate_statutory_stock_broking_gst(
         sgst = (taxable_base * HALF_RATE_PERCENT / Decimal("100")).quantize(
             PAISE, rounding=ROUND_HALF_UP
         )
-        # The displayed split is independently rounded; preserve the statutory
-        # total GST as the authoritative total if a half-paise edge differs.
+        # Each tax head is rounded independently to paise. At half-paise
+        # boundaries, CGST+SGST may differ by ₹0.01 from rounding the combined
+        # 18% rate once; preserve the component-wise invoice arithmetic.
+        total_gst = cgst + sgst
         return StatutoryGstResult(
             taxable_base, GST_RATE_PERCENT, total_gst, "CGST_SGST",
             Decimal("0.00"), cgst, sgst, supplier_state, place_state,

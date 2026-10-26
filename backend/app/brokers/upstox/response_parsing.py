@@ -147,7 +147,7 @@ def _optional_charge(payload: dict[str, Any], key: str, field: str) -> Decimal:
     if key not in payload:
         raise ValueError(f"{field} is missing.")
     if payload[key] is None:
-        return Decimal("0.00")
+        raise ValueError(f"{field} is null; charge amount is unknown and cannot be treated as zero.")
     return _decimal(payload[key], field, allow_zero=True)
 
 

@@ -1,10 +1,12 @@
 ## Authoritative Phase 3 checkpoint — 26 October 2026
 
-- Repository `tarunsharma2610-del/tradepro-improved`; branch `phase3/durable-per-fill-charge-allocation`; implementation head `eeea33a11303d03bee508be2f5af887dd5ee26e0`; exact-head Backend CI [#40290116323 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40290116323).
-- Latest implementation: order-level brokerage cap applied once before deterministic paise-exact allocation using explicitly reviewed fill weights. Tests cover cap behavior, unequal weights, deterministic ties, invalid weights and rejection of DRAFT tariffs.
-- Phase 3 remains IN PROGRESS. Next gates: independently reviewed effective-dated tariff applicability; component-specific allocation acceptance; invoice/source-backed GST/IPFT and product/segment evidence; adversarial/migration/recovery review; final exact-head sign-off.
-- Public tariff estimates are not actual booked charge evidence. Do not infer production acceptance of GST taxable base, stamp duty, or unsupported exchange/segment mappings. Canonical live-fill integration is already verified and should not be repeated.
-- Safety unchanged: PAPER mandatory; live broker order writes, automatic live-fill promotion and automatic scheduling disabled; PR #6 open/draft/unmerged unless user approves; AI/open-source work waits until Phase 3 acceptance. This documentation commit requires its own CI.
+- Repository: `tarunsharma2610-del/tradepro-improved` only; branch `phase3/durable-per-fill-charge-allocation`; implementation head `a3f3473eb8f57b4fb6b83c95ddb18d8b3bd22e90`. Original `Tradepro` remains out of scope.
+- Exact-head Backend CI: [run #40292395932 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40292395932). Backend tests, broker-write boundary, SQLite/PostgreSQL migration round-trips, and synthetic restore drill passed; synthetic restore is not proof of actual Oracle recovery.
+- GST validation: supported Indian brokerage/market-charge estimate helper now accepts only 18% GST; tests reject 0%, 5%, 100%, and 100.01%. Taxable component names still require explicit approval/evidence. This does not determine the legal taxable base or make estimates actual booked charges.
+- Brokerage order-level cap is applied once before deterministic paise-exact allocation by reviewed fill weights.
+- Phase 3 remains IN PROGRESS: effective-dated tariff review; component-specific per-fill allocation acceptance; invoice/source-backed GST/IPFT and product/segment evidence; adversarial/migration/recovery review; final exact-head sign-off. Do not redo canonical live-fill integration.
+- Public tariff data and calculator/aggregate APIs are estimate/research evidence, not account-specific actual per-fill evidence. Do not infer approval of GST base composition, stamp duty, unsupported mappings, or missing IPFT values.
+- PAPER mandatory; live broker order writes, automatic live-fill promotion and automatic scheduling disabled. PR #6 remains open/draft/unmerged unless explicitly approved. Defer AI/open-source adaptations until Phase 3 acceptance. This documentation commit needs its own CI.
 
 ---
 

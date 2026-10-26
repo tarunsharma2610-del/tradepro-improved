@@ -217,6 +217,6 @@ def test_gst_candidate_remains_draft_when_historical_note_conflicts_with_current
     assert "₹77.56" in evidence
     assert "₹13.96" in evidence
     assert "IPFT" in evidence
-    assert "conflicts with the current Upstox public pricing page" in evidence
+    assert "materially different from Upstox's current public pricing page" in evidence
     assert "cannot be authenticated" in evidence
     assert "not the correct current 2026 rule" in evidence

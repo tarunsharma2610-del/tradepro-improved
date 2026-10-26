@@ -2208,3 +2208,7 @@ Known blocker remains: source canonicalization explicitly rejects `demat_transac
 The source-to-canonical mapper now treats `demat_transaction_charges` as an optional separate canonical component only when an explicit reviewed source row exists. Allocation-plan support is added and remains non-persisting/non-approving. Regression tests cover absence as absent rather than fabricated zero, and separate deterministic allocation.
 
 Persistence remains unsupported: `Execution` lacks a DP/demat field and the Alembic migration, total-charge calculations, promotion/locking, idempotency and product-side regression coverage are still open. The change is not a Phase 3 acceptance gate by itself. Exact-head CI is pending for this code and document sync.
+
+## DP/demat boundary CI finding — 26 October 2026
+
+Exact-head run #40362669264 failed with 45 tests failing because optional DP/demat was initially included in the established six-component mapping consumed by live accounting. Fixed by keeping core mapping output at six components and exposing optional DP/demat separately. Non-persisted allocation plans can consume the optional component, but canonical snapshot creation explicitly refuses to proceed when DP/demat evidence is present. This is a deliberate fail-closed gate until schema persistence exists. Latest fix still needs exact-head CI.

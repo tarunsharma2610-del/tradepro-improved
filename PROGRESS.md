@@ -3037,3 +3037,14 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Routed `calculate_upstox_public_gst_estimate` through the shared `GstComponentPolicy` / `calculate_gst_estimate` policy module. IPFT mode is now `COMBINED` for NSE and `NOT_APPLICABLE` for the supported BSE options scope, avoiding an incorrect NSE-IPFT assumption for BSE.
 - New implementation head: `393804cc5c21ba70a579b32a6736f6561569413b`. Exact-head CI result has not yet been returned; do not mark passing until checked.
 - Still open: source-backed candidate/test coverage for other brokers, canonical DP/demat persistence/migration, and final exact-head passing CI. No tariff candidates activated. PR #6 remains Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro untouched.
+
+
+## Phase 3 GST/IPFT update — user-supplied Upstox scenarios (2026-10-26)
+
+- Added conservative Upstox contract-note text extraction and tests for NSE-EQ, NSE-F&O, NSE-CD and MCX tags; brokerage, transaction/exchange, SEBI, IPFT, DP/demat, clearing, STT, stamp duty and CGST/SGST/IGST labels; duplicate detection; and unmapped charge-like lines.
+- Extracted line items are evidence only. No GST base is inferred, no duplicate line is silently overwritten, and no unknown component is silently dropped.
+- Removed the implicit accounting-approval flaw in the Upstox public GST estimate helper: public schedule estimates no longer instantiate an accounting policy with `review_status="APPROVED"`.
+- User-provided examples are not treated as approved tax law. Upstox's published GST formula states brokerage + transaction + IPFT, adding demat for equity delivery; it does not list SEBI in that formula. Its current public DP charge is ₹20 per scrip/day on delivery sells. The pasted ₹18.50 DP base and SEBI-in-GST-base claim remain unaccepted pending stronger evidence.
+- Still blocked: canonical DP/demat accounting persistence/migration/allocation; verified dated MCX and NSE-CD tax-component matrix; independent tariff approval; actual per-fill invoice evidence. User is not required to provide a personal contract note.
+- Exact-head CI for the latest implementation is pending; do not mark the change green until Actions confirms success.
+- Safety unchanged: target repository only is `tarunsharma2610-del/tradepro-improved`; PR #6 and PR #7 stay Draft/unmerged; PAPER mode mandatory; live broker writes disabled; original `Tradepro` repository untouched.

@@ -28,18 +28,17 @@ def upgrade() -> None:
         "UPDATE executions SET demat_charge_status = 'KNOWN' "
         "WHERE demat_transaction_charges IS NOT NULL"
     ))
-    op.create_check_constraint(
-        "ck_execution_demat_charge_status",
-        "executions",
-        "demat_charge_status IN ('UNKNOWN', 'NOT_APPLICABLE', 'KNOWN')",
-    )
-    op.create_check_constraint(
-        "ck_execution_demat_charge_state_amount",
-        "executions",
-        "((demat_charge_status = 'KNOWN' AND demat_transaction_charges IS NOT NULL) "
-        "OR (demat_charge_status IN ('UNKNOWN', 'NOT_APPLICABLE') "
-        "AND demat_transaction_charges IS NULL))",
-    )
+    with op.batch_alter_table("executions") as batch_op:
+        batch_op.create_check_constraint(
+            "ck_execution_demat_charge_status",
+            "demat_charge_status IN ('UNKNOWN', 'NOT_APPLICABLE', 'KNOWN')",
+        )
+        batch_op.create_check_constraint(
+            "ck_execution_demat_charge_state_amount",
+            "((demat_charge_status = 'KNOWN' AND demat_transaction_charges IS NOT NULL) "
+            "OR (demat_charge_status IN ('UNKNOWN', 'NOT_APPLICABLE') "
+            "AND demat_transaction_charges IS NULL))",
+        )
 
 
 def downgrade() -> None:
@@ -50,6 +49,7 @@ def downgrade() -> None:
         raise RuntimeError(
             "Cannot downgrade while known execution DP/demat charge states are persisted."
         )
-    op.drop_constraint("ck_execution_demat_charge_state_amount", "executions", type_="check")
-    op.drop_constraint("ck_execution_demat_charge_status", "executions", type_="check")
-    op.drop_column("executions", "demat_charge_status")
+    with op.batch_alter_table("executions") as batch_op:
+        batch_op.drop_constraint("ck_execution_demat_charge_state_amount", type_="check")
+        batch_op.drop_constraint("ck_execution_demat_charge_status", type_="check")
+        batch_op.drop_column("demat_charge_status")

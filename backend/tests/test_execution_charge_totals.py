@@ -147,3 +147,17 @@ def test_execution_model_completeness_property_tracks_demat_status():
     assert row.total_charges_complete is False
     row.demat_charge_status = "NOT_APPLICABLE"
     assert row.total_charges_complete is True
+
+
+@pytest.mark.parametrize(
+    "status,demat_amount",
+    [
+        ("INVALID", None),
+        ("UNKNOWN", Decimal("0.00")),
+        ("KNOWN", None),
+        ("NOT_APPLICABLE", Decimal("1.00")),
+    ],
+)
+def test_inconsistent_or_invalid_demat_state_is_not_complete(status, demat_amount):
+    row = execution(demat_charge_status=status, demat_transaction_charges=demat_amount)
+    assert not execution_charge_total_is_complete(row)

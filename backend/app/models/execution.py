@@ -81,5 +81,10 @@ class Execution(BaseModel):
 
     @property
     def total_charges_complete(self) -> bool:
-        """False when DP/demat applicability or amount remains unresolved."""
-        return self.demat_charge_status != "UNKNOWN"
+        """True only when DP applicability and amount are internally consistent."""
+        if self.demat_charge_status == "KNOWN":
+            return self.demat_transaction_charges is not None
+        if self.demat_charge_status == "NOT_APPLICABLE":
+            return self.demat_transaction_charges is None
+        # Unknown, missing, or invalid statuses fail closed; a subtotal is not final.
+        return False

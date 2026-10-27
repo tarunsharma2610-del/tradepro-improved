@@ -2464,3 +2464,9 @@ Backend CI #40477899628 passed on code/test commit `91212a0224f3bf4a01bff06c1476
 ## Latest GST test increment — 27 October 2026
 
 Commit `c010b7d010351465b87f8e6d844fc9171dfc5dad` adds paise-rounding and exact broker/exchange/segment/product policy-scope regression tests. Verify CI on this exact head before marking green. Prior green is `91212a0224f3bf4a01bff06c14764a404c1cbc67` / Backend CI #40477899628. Continue with uncovered accounting component-applicability and rollback boundaries; do not duplicate existing fill-set/digest/replay checks.
+
+
+
+## Verified checkpoint — GST scope and rounding tests — 27 October 2026
+
+Commit `c010b7d010351465b87f8e6d844fc9171dfc5dad` is green on Backend CI #40478376361. Pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore evidence all succeeded. Documentation CI #40478395488 was still running on `334a078...`; verify latest documentation heads. Next inspect accounting component applicability and rollback gaps, then continue authoritative GST/IPFT source validation. Keep PAPER mandatory, live writes disabled, PR #6/#7 Draft/unmerged, and original `Tradepro` untouched.

@@ -303,3 +303,8 @@ See [`docs/UPSTOX_SDK_API_REPOSITORY_AUDIT.md`](docs/UPSTOX_SDK_API_REPOSITORY_A
 ## 27 October 2026 — Phase 3 API-to-accounting continuation
 
 The user has explicitly asked that the existing charge APIs be integrated now rather than reopening GST/IPFT research. Existing read-only client methods are present in `backend/app/brokers/upstox/reconciliation_client.py`: brokerage calculator (`/v2/charges/brokerage`) is estimate-only; trade-charges (`/v2/trade/profit-loss/charges`) is aggregate-only. The remaining work is to trace actual call sites and wire responses into a typed, provenance-preserving orchestration/reconciliation path. Require exact approved endpoint/schema/scope/date mappings; do not fabricate approved mappings. Aggregate data cannot become per-fill actuals. Preserve missing/null/invalid/zero distinctions, prevent transaction/IPFT double count, and fail closed before live accounting when actual per-fill evidence is absent. This is Phase 3 work, not permission to enable live order writes. Exact-head CI must run after implementation and document sync.
+
+
+### Implementation update — 27 October 2026
+
+Added `app/services/upstox_charge_api_orchestration_service.py` plus focused tests. The service wraps the existing read-only client, preserves scope/status/payload and makes endpoint semantics explicit: brokerage calculator = estimate only; trade charges = aggregate reconciliation only; neither is per-fill actual evidence. This is a safe first integration seam, not completion of UI/API route or accounting-ledger wiring. Next, connect the service to the existing read-only reconciliation path and persist aggregate context without promoting it to per-fill charges. Confirm exact-head CI before marking this increment green.

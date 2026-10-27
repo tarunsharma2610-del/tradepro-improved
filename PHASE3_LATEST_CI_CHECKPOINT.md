@@ -226,3 +226,12 @@ The practical route is API-first, not another loop of public research and not wa
 - Exact-head CI for the upcoming integration change: **not run yet**.
 - Actual contract-note and production Oracle restore acceptance: deferred until genuine evidence/backups exist; synthetic tests continue.
 - Safety unchanged: repository `tarunsharma2610-del/tradepro-improved` only; PR #6/#7 Draft/unmerged; PAPER mandatory; live order writes disabled.
+
+
+## API orchestration implementation increment — 27 October 2026
+
+- Added `backend/app/services/upstox_charge_api_orchestration_service.py`. It wraps the existing read-only client and returns a typed envelope preserving broker, endpoint, evidence kind, usable/error state, request scope and payload. Brokerage calculator output is explicitly `ESTIMATE_ONLY`; post-trade charges output is `AGGREGATE_RECONCILIATION_ONLY`. Both are hard-coded `per_fill_actual=False`.
+- Added `backend/tests/test_upstox_charge_api_orchestration_service.py` covering scope/provenance classification, aggregate-vs-estimate distinction, API error fail-closed behavior, null IPFT preservation, and explicit trade-date validation.
+- Commits for this increment: orchestration service `33750bcd748c2a59c77024df4fad61c865a2e9ef`; tests `f98ed9e7f4b092c6d8e284d7461ee4aba46b72e4`. Documentation updates are being applied after these code/test commits.
+- **Honest scope limit:** this is the first safe API orchestration boundary, not yet proof that a UI endpoint or per-fill accounting workflow invokes it in production. It deliberately cannot promote either response into live-fill accounting. Next implementation step is to wire this service into the appropriate read-only API/reconciliation route and persist aggregate results as reconciliation context only, after confirming existing route and evidence-ledger contracts. Actual per-fill promotion still requires approved field mappings and reviewed canonical evidence.
+- CI for the new code/test head has not been verified by the GitHub status/workflow tools yet; their response was empty. Do not mark this head green until the actual workflow result is confirmed. Run backend tests and the broker-write, migration and synthetic restore gates; fix any failures before creating a green checkpoint.

@@ -164,3 +164,35 @@ def test_execution_model_completeness_property_tracks_demat_status():
 def test_inconsistent_or_invalid_demat_state_is_not_complete(status, demat_amount):
     row = execution(demat_charge_status=status, demat_transaction_charges=demat_amount)
     assert not execution_charge_total_is_complete(row)
+
+def test_execution_api_uses_model_completeness_for_invalid_demat_status():
+    from datetime import datetime, timezone
+    from app.models.execution import Execution
+
+    row = Execution(
+        demat_charge_status="INVALID",
+        demat_transaction_charges=None,
+    )
+    row.id = uuid4()
+    row.order_id = uuid4()
+    row.instrument = SimpleNamespace(
+        id=uuid4(), trading_symbol="TEST", exchange="NSE"
+    )
+    row.side = "SELL"
+    row.quantity = 1
+    row.price = Decimal("100.00")
+    row.gross_value = Decimal("100.00")
+    row.brokerage = Decimal("20.00")
+    row.stt = Decimal("0.20")
+    row.exchange_charges = Decimal("3.07")
+    row.sebi_charges = Decimal("0.10")
+    row.stamp_duty = Decimal("0.15")
+    row.gst = Decimal("4.23")
+    row.total_charges = Decimal("27.75")
+    row.realized_pnl = Decimal("0.00")
+    row.executed_at = datetime.now(timezone.utc)
+
+    payload = ExecutionOut.model_validate(row)
+    assert payload.demat_charge_status == "INVALID"
+    assert payload.demat_transaction_charges is None
+    assert payload.total_charges_complete is False

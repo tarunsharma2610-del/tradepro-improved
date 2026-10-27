@@ -289,3 +289,34 @@ def test_effective_end_date_is_inclusive_and_expired_rule_is_not_selected():
             product="OPTIONS",
             trade_date=date(2026, 10, 27),
         )
+
+
+def test_gst_rounds_once_to_paise_with_half_up_rule():
+    rule = policy()
+    base, gst = calculate_gst_estimate(
+        rule,
+        components={"brokerage": "0.03", "exchange_charges": "0.00"},
+    )
+    assert base == Decimal("0.03")
+    # 18% of ₹0.03 is ₹0.0054; paise rounding yields ₹0.01.
+    assert gst == Decimal("0.01")
+
+
+def test_gst_policy_selection_does_not_fall_back_to_wrong_scope():
+    approved = policy()
+    for scope in (
+        {"broker": "OtherBroker"},
+        {"exchange": "BSE"},
+        {"segment": "CM"},
+        {"product": "FUTURES_INTRADAY"},
+    ):
+        query = {
+            "broker": "ExampleBroker",
+            "exchange": "NSE",
+            "segment": "FO",
+            "product": "OPTIONS",
+            "trade_date": date(2026, 10, 27),
+        }
+        query.update(scope)
+        with pytest.raises(ValueError, match="No approved"):
+            select_gst_component_policy([approved], **query)

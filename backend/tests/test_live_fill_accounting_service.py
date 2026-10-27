@@ -527,6 +527,8 @@ def test_naive_exchange_timestamp_blocks_live_promotion(accounting_context):
 
 def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position(accounting_context):
     db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
+    # This test exercises generic sell-side position math, not delivery DP.
+    order.segment = "EQUITY_INTRADAY"
     order.side = "SELL"
     child.requested_quantity = 1
     child.filled_quantity = 1

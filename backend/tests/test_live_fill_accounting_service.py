@@ -44,7 +44,7 @@ def _charges(**overrides):
     return LiveFillChargeBreakdown(**values)
 
 
-def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001", trade_record_id=None, representation="DIRECT"):
+def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001", trade_record_id=None, representation="DIRECT", with_demat=False):
     db, user, _portfolio, _instrument, connection, *_rest = accounting_context
     if trade_record_id is not None:
         reference = f"{reference}-{str(trade_record_id)[:8]}"
@@ -131,6 +131,14 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
                     ])
                 else:
                     raise ValueError(f"Unsupported test source representation: {representation}")
+            if with_demat:
+                raw_rows.append({
+                    "component_name": "demat_transaction_charges",
+                    "source_amount": Decimal("20.00"),
+                    "source_label": "Demat Transaction Charges",
+                    "representation_mode": None,
+                    "representation_contract_version": None,
+                })
             for raw in raw_rows:
                 db.add(BrokerChargeSourceComponent(
                     evidence_id=evidence.id,
@@ -204,6 +212,11 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
             )
             db.commit()
 
+    if with_demat:
+        return _charges(
+            reference=reference, evidence_id=evidence.id, reviewer_user_id=reviewer.id,
+            demat_transaction_charges=Decimal("20.00"), total_charges=Decimal("43.86"),
+        )
     return _charges(reference=reference, evidence_id=evidence.id, reviewer_user_id=reviewer.id)
 
 
@@ -303,6 +316,28 @@ def test_equity_delivery_sell_rejects_missing_dp_snapshot(accounting_context):
 
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
+
+def test_equity_delivery_sell_promotes_only_with_reconciled_demat_allocation(accounting_context):
+    db, user, _portfolio, _instrument, _connection, order, _child, record, paper_position = accounting_context
+    order.segment = "EQUITY_DELIVERY"
+    order.side = "SELL"
+    record.side = "SELL"
+    db.commit()
+    charges = _reviewed_charges(
+        accounting_context, reference="delivery-dp-note-2026-10-18-001", with_demat=True
+    )
+
+    result = LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+    execution = db.query(Execution).filter_by(broker_trade_id=record.broker_trade_id).one()
+    assert result.inserted is True
+    assert execution.demat_charge_status == "KNOWN"
+    assert execution.demat_transaction_charges == Decimal("20.00")
+    assert execution.total_charges == Decimal("43.86")
+    assert execution.total_charges_complete is True
     db.refresh(paper_position)
     assert paper_position.quantity == 7
 

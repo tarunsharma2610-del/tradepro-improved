@@ -14,7 +14,7 @@ class BrokerApiReconciliationRecord(BaseModel):
         CheckConstraint("length(idempotency_key) = 64", name="ck_broker_api_reconciliation_key_sha256"),
         CheckConstraint("length(response_sha256) = 64", name="ck_broker_api_reconciliation_response_sha256"),
         CheckConstraint("evidence_kind = 'AGGREGATE_RECONCILIATION_ONLY'", name="ck_broker_api_reconciliation_kind"),
-        CheckConstraint("per_fill_actual = 0", name="ck_broker_api_reconciliation_not_per_fill_actual"),
+        CheckConstraint("per_fill_actual = false", name="ck_broker_api_reconciliation_not_per_fill_actual"),
     )
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

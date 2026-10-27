@@ -107,3 +107,16 @@ The repository already contains exact approved API field mapping and value resol
 - Historical NSE IPFT: boundary tests before/after 1 March 2026, with the published transaction/IPFT split and unchanged combined rate.
 - Scope guards: NSE rules never satisfy BSE/MCX; estimate and aggregate responses cannot be promoted to per-fill actuals.
 - Existing broker-write boundary, migration and restore checks remain mandatory; PAPER mode remains mandatory.
+
+
+## Implementation increment: broker GST estimate comparison
+
+Added `backend/app/services/broker_gst_reconciliation.py` and `backend/tests/test_broker_gst_reconciliation.py`. The comparison takes a broker GST field as estimate evidence and independently computes the statutory GST estimate from explicit Section 15 / Rule 33 valuation lines and supplier/place-of-supply state inputs. It returns separate API GST, engine GST, taxable base, tax type, variance and review status.
+
+- Exact match is reported as `MATCH_EXACT`.
+- Any non-zero variance is retained and requires review (`ROUNDING_VARIANCE_REQUIRES_REVIEW` for within-tolerance differences; `VARIANCE_REQUIRES_REVIEW` otherwise). Tolerance never auto-approves a difference.
+- Missing, null and invalid API values remain unavailable/reviewable; numeric zero is preserved and compared as zero, never converted to missing or a fabricated charge.
+- Sub-paise GST values are invalid for INR currency comparison.
+- This service is estimate comparison only. It does not mark API data as booked actuals or promote any per-fill accounting allocation.
+
+Existing historical NSE IPFT tests already exercise the 31 March/1 April 2023 and 28 February/1 March 2026 boundaries and ensure the new rate is not applied retroactively. The next CI result must be checked on the latest code and documentation head before claiming this increment is green.

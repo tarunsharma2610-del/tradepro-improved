@@ -41,8 +41,13 @@ def calculate_execution_total_charges(
     stamp_duty: Any,
     gst: Any,
     demat_transaction_charges: Any = None,
+    demat_charge_status: str | None = None,
 ) -> Decimal:
-    """Sum six core components plus DP/demat only when its amount is explicit."""
+    """Sum components while keeping unknown DP applicability explicit.
+
+    The returned numeric value is a subtotal when status is UNKNOWN; callers
+    must check execution_charge_total_is_complete before presenting it as final.
+    """
     values = {
         "brokerage": brokerage,
         "stt": stt,
@@ -53,10 +58,22 @@ def calculate_execution_total_charges(
     }
     parsed = [_amount(name, value) for name, value in values.items()]
     demat = _amount("demat_transaction_charges", demat_transaction_charges, optional=True)
+    status = demat_charge_status or ("KNOWN" if demat is not None else "UNKNOWN")
+    if status not in {"UNKNOWN", "NOT_APPLICABLE", "KNOWN"}:
+        raise ValueError("Execution demat_charge_status must be UNKNOWN, NOT_APPLICABLE, or KNOWN.")
+    if status == "KNOWN" and demat is None:
+        raise ValueError("Known demat charge status requires an explicit demat_transaction_charges amount.")
+    if status in {"UNKNOWN", "NOT_APPLICABLE"} and demat is not None:
+        raise ValueError(f"{status} demat charge status must not carry a demat_transaction_charges amount.")
     total = sum((value for value in parsed if value is not None), Decimal("0.00"))
-    if demat is not None:
+    if status == "KNOWN" and demat is not None:
         total += demat
     return total.quantize(PAISE, rounding=ROUND_HALF_UP)
+
+
+def execution_charge_total_is_complete(execution: Any) -> bool:
+    """Whether every applicable charge component is known for this execution."""
+    return getattr(execution, "demat_charge_status", "UNKNOWN") != "UNKNOWN"
 
 
 def recompute_execution_total_charges(execution: Any) -> Decimal:
@@ -69,6 +86,7 @@ def recompute_execution_total_charges(execution: Any) -> Decimal:
         stamp_duty=execution.stamp_duty,
         gst=execution.gst,
         demat_transaction_charges=execution.demat_transaction_charges,
+        demat_charge_status=getattr(execution, "demat_charge_status", None),
     )
     execution.total_charges = total
     return total

@@ -2533,3 +2533,11 @@ Do not relax the six-component reconciliation contract, treat estimates as actua
 - GST/IPFT API resolution work remains in place; legal/tariff approval and actual broker evidence reconciliation are distinct gates. Synthetic restore is not production Oracle restore acceptance; real Oracle backup/restore can be accepted after deployment/backups exist; genuine personal contract note is not required for code-level work but actual broker reconciliation requires suitable real evidence.
 - Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope and must not be modified; PR #6/#7 remain Draft/unmerged; PAPER mode mandatory; live broker order writes remain disabled.
 - Documentation changes in this entry themselves require CI on the resulting exact head before this documentation checkpoint is considered green.
+
+
+## Resume update — 27 October 2026
+
+- Verified code/test head before this documentation sync: `a0586b27e8ccda9446f01fd109e8986875c536b3`; Backend CI [#40484960486](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40484960486) completed successfully, including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore/evidence retention.
+- New checkpoint documentation commit: `e5e8270cbcee54e85a002a05f32156c356dd5e96`. CI for this documentation head must be checked before declaring docs green.
+- Continue with supported instrument/segment/side/product applicability and fail-closed completeness/replay/rollback audit. Avoid duplicating existing regression tests. GST/IPFT policy and statutory valuation code are present; source-backed tariff approval and actual invoice/per-fill acceptance remain separate gates.
+- PR #6/#7 remain Draft/unmerged; PAPER mode mandatory; live broker order writes disabled; only `tarunsharma2610-del/tradepro-improved` is in scope; original `Tradepro` must not be modified.

@@ -30,7 +30,7 @@ class BrokerApiReconciliationRecord(BaseModel):
     http_status_code: Mapped[int | None] = mapped_column(nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     evidence_kind: Mapped[str] = mapped_column(String(40), nullable=False, default="AGGREGATE_RECONCILIATION_ONLY", server_default="AGGREGATE_RECONCILIATION_ONLY")
-    per_fill_actual: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="0")
+    per_fill_actual: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
     response_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     response_json: Mapped[str] = mapped_column(Text, nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)

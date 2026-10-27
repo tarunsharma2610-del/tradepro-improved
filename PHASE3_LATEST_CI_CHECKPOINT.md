@@ -342,3 +342,13 @@ The practical route is API-first, not another loop of public research and not wa
 - Added tests at code/test commit `c010b7d010351465b87f8e6d844fc9171dfc5dad` for GST half-up paise rounding (18% of ₹0.03 rounds from ₹0.0054 to ₹0.01) and fail-closed policy selection when broker, exchange, segment or product differs.
 - Exact-head Backend CI has not yet been verified. Previous green code/test commit remains `91212a0224f3bf4a01bff06c14764a404c1cbc67` / CI #40477899628. Do not treat the added tests as green until the new exact-head workflow passes pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore.
 - Existing variance service already covers source-fill-set identity, quantity/date mismatch, response digest and conflicting replay; next work should focus on any untested component-applicability or rollback boundary rather than duplicating those tests.
+
+
+
+## Confirmed green — GST scope and rounding regression tests — 27 October 2026
+
+- Code/test commit `c010b7d010351465b87f8e6d844fc9171dfc5dad` passed Backend CI [#40478376361](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40478376361). All workflow steps succeeded: backend pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore and retained restore evidence.
+- Newly verified tests cover GST half-up paise rounding and fail-closed selection on broker/exchange/segment/product scope mismatch, in addition to the earlier zero-vs-missing, invalid monetary value and effective-date edge cases.
+- Documentation commit `334a078449408beef42e1d761f264d6bb17def19` has Backend CI #40478395488 in progress at refresh; do not claim documentation CI green until it completes. More recent doc commits must likewise be checked on their exact heads.
+- Next: continue with uncovered accounting component applicability and rollback boundaries; preserve existing variance service coverage for fill-set identity, quantity/date mismatch, response digest and conflicting replay. GST/IPFT candidate approval remains gated on authoritative effective-dated source resolution and independent review. Phase 3 is not complete.
+- Safety unchanged: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.

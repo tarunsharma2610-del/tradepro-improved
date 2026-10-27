@@ -2576,3 +2576,8 @@ The five January 2023 Upstox contract-note examples have been added as daily agg
 - The guarded estimator is for estimate calculation only and requires an approved effective-dated tariff rule and explicit scope. It does not activate a production tariff or prove historical booked IPFT.
 - Next Phase 3 work should proceed to the remaining accounting acceptance gates (fill identity, replay/idempotency, atomic rollback and component applicability), while using these GST tests as regression coverage. Only revisit IPFT when an applicable source-backed tariff or actual source field requires it.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+## Current continuation point — 27 October 2026
+
+Continue from branch `phase3/cross-broker-gst-ipft-resolution` in `tarunsharma2610-del/tradepro-improved` only. The GST comparison helper now supports nested JSON paths (e.g. `data.charges.gst`) and tests preserve missing/null/zero distinctions. Commits: `ff2d69546e5aad37c519c6622f51018bf7706ad5` and `a6f88dc85dcb25d903e610aaf30ce395ec12d650`. Do not claim the new head green until CI on the final current head succeeds. Next: check/fix exact-head CI; integrate comparison only where reviewed valuation lines and supplier/place-of-supply inputs are available; continue per-fill accounting acceptance and verified tariff coverage. Keep PR #7 Draft, PAPER mode mandatory, live writes disabled, and original `Tradepro` repo untouched.

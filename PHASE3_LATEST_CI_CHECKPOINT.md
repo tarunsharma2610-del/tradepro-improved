@@ -121,3 +121,12 @@ Existing maintained Phase 3 documents were synchronized after the green code res
 - **Next implementation step:** audit existing policy resolver/candidate structures before changing code; implement explicit effective-dated broker/exchange/segment policy provenance and conflict handling only where missing. Preserve separate estimate and actual modes; included/excluded component identities must be reviewed; combined/separate transaction/IPFT must map exactly once; missing facts or conflicting sources fail closed. Add only uncovered regressions, then run exact-head CI.
 - CI status for the newer documentation commits is **not yet verified** in this checkpoint; do not treat them as green until a run on the final head succeeds. Actual per-fill GST acceptance and production Oracle restore remain evidence-gated. No personal contract note required.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+## GST policy resolver hardening — 27 October 2026
+
+- Audited existing `backend/app/services/broker_gst_component_policy.py` before changing it. It already provides effective-dated broker/exchange/segment/product selection, source URL/retrieval date/SHA-256 provenance, explicit combined/separate/not-applicable IPFT representation, exact component-set checking and an estimate-only calculation path. Avoid creating a parallel resolver.
+- New code commit `eef5eebc1e1abfc37c92b4e50d5c35e9afddcbb4`: policy state `CONFLICT` now exists and any effective conflict for the exact scope/date blocks selection even if an approved policy also matches. This prevents silently preferring one of contradictory public sources.
+- New test commit `761637aab1d5f36ed5bfc02ffb66ce8b31ab7820`: regression tests for a conflicting source blocking an approved candidate and for rejecting sub-paise component inputs rather than silently rounding them.
+- The policy remains estimate-only. This does not approve any broker component set, does not integrate the statutory Rule 33 engine into actual accounting, and does not reconcile invoice-level GST. No broker policies are promoted to APPROVED by this change.
+- Validation status: exact-head CI for these commits is not yet verified. Do not mark this increment green until the branch/PR workflow runs on the exact resulting head and all jobs pass. Next: inspect any CI result, fix failures, then synchronize maintained documents/checkpoint to the latest green head.

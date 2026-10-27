@@ -3218,3 +3218,12 @@ Added authenticated read-only endpoints `GET /api/v1/upstox/charges/brokerage-es
 ## 27 October 2026 — route tests and CI
 
 Added route-level tests for the authenticated Upstox charge API endpoints: estimate/aggregate semantics, null IPFT preservation, and validation. Prior CI run #40473895336 passed on `24b7b9ee728049f26b200cbee54571ae3c22b7bf`; new test commit `ffb87c9af7c87d921eadf0198b7ba8704be65e76` still needs exact-head CI. Next: check the workflow, fix failures, then review the existing reconciliation/evidence model before any aggregate-only persistence. Keep aggregate results out of per-fill actual accounting.
+
+
+## 27 October 2026 — verified API route CI and next persistence design
+
+- Route-test commit `ffb87c9af7c87d921eadf0198b7ba8704be65e76` passed Backend CI [#40474374635](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40474374635).
+- Documentation commit `10d105a344b08a21dfe50593f8683453a5d44bfc` passed Backend CI [#40474444724](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40474444724). Later documentation commits are not covered by those runs unless CI confirms them separately.
+- Existing charge-evidence models are specifically for integrity-checked source documents and independently reviewed source components. Do not store aggregate API replies as fake contract-note evidence.
+- Next: implement a dedicated owner-scoped aggregate API reconciliation record/migration with endpoint/version, request scope, fetched-at/status, response provenance/hash and sanitized payload; preserve missing/null/invalid/zero states; test authorization, idempotency, privacy and SQLite/PostgreSQL migration round-trips. This record remains reconciliation-only and must not create per-fill allocations or approve actual accounting.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.

@@ -486,6 +486,25 @@ def test_non_reconciled_charge_allocations_block_live_accounting(accounting_cont
     assert paper_position.quantity == 7
 
 
+def test_tampered_per_fill_allocation_amount_blocks_live_accounting(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, paper_position = accounting_context
+    charges = _reviewed_charges(accounting_context)
+    allocation = db.query(BrokerChargeAllocation).filter_by(
+        evidence_id=charges.evidence_id, broker_trade_record_id=record.id,
+        charge_component="brokerage",
+    ).one()
+    allocation.allocated_amount = Decimal(str(allocation.allocated_amount)) + Decimal("0.01")
+    db.commit()
+
+    with pytest.raises(ValueError, match="Canonical allocation rows do not match|Caller-supplied charge amounts differ"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
 def test_missing_component_allocation_blocks_live_accounting(accounting_context):
     db, user, _portfolio, _instrument, _connection, _order, _child, record, paper_position = accounting_context
     charges = _reviewed_charges(accounting_context)

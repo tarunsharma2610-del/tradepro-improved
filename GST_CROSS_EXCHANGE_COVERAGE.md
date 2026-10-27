@@ -120,3 +120,8 @@ Added `backend/app/services/broker_gst_reconciliation.py` and `backend/tests/tes
 - This service is estimate comparison only. It does not mark API data as booked actuals or promote any per-fill accounting allocation.
 
 Existing historical NSE IPFT tests already exercise the 31 March/1 April 2023 and 28 February/1 March 2026 boundaries and ensure the new rate is not applied retroactively. The next CI result must be checked on the latest code and documentation head before claiming this increment is green.
+
+
+## Nested broker response field support — 27 October 2026
+
+The GST estimate comparison now accepts an exact dotted JSON field path, including the documented nested Upstox response shape such as `data.charges.gst`, rather than assuming GST is a top-level key. Intermediate missing/non-object paths fail closed as `MISSING`; explicit null stays `NULL`; numeric zero remains `ZERO`. Regression tests cover nested value, missing, null and malformed field paths. This remains an estimate comparison only and does not promote calculator output to booked per-fill accounting.

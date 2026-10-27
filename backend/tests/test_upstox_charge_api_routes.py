@@ -172,8 +172,8 @@ def test_estimate_route_rejects_invalid_quantity_before_api_call(db_session, mak
 def test_aggregate_route_rejects_connection_owned_by_another_user(db_session, make_user, monkeypatch):
     from app.api.v1 import upstox_charges
 
-    owner = make_user()
-    other_user = make_user()
+    owner = make_user(email="owner@example.com")
+    other_user = make_user(email="other-owner@example.com")
     connection = BrokerConnection(
         id=uuid.uuid4(),
         user_id=owner.id,

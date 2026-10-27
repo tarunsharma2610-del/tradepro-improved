@@ -918,3 +918,151 @@ def test_aggregate_gst_invoice_components_rejects_ambiguous_or_invalid_lines(kwa
     with pytest.raises(ValueError):
         aggregate_gst_invoice_components(**kwargs)
 
+def make_ipft_rule(*, effective_from, effective_to, rate, source_url):
+    return make_rule(
+        component="ipft",
+        exchange="NSE",
+        segment="FO",
+        product="OPTIONS",
+        transaction_side="BUY",
+        calculation_basis="PREMIUM",
+        rate=Decimal(rate),
+        rate_unit="INR_PER_CRORE",
+        effective_from=effective_from,
+        effective_to=effective_to,
+        source_url=source_url,
+        source_retrieved_on=date(2026, 10, 27),
+    )
+
+
+def test_ipft_estimate_selects_historical_rate_for_january_2023_options():
+    from app.services.broker_tariff_rules import calculate_ipft_estimate_for_scope
+
+    pre_april_2023 = make_ipft_rule(
+        effective_from=date(2022, 1, 1),
+        effective_to=date(2023, 3, 31),
+        rate="0.01",
+        source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
+    )
+    revised_2023 = make_ipft_rule(
+        effective_from=date(2023, 4, 1),
+        effective_to=date(2026, 2, 28),
+        rate="50",
+        source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
+    )
+    rollback_2026 = make_ipft_rule(
+        effective_from=date(2026, 3, 1),
+        effective_to=None,
+        rate="0.01",
+        source_url="https://nsearchives.nseindia.com/content/circulars/FA73061.pdf",
+    )
+    selected, amount = calculate_ipft_estimate_for_scope(
+        [pre_april_2023, revised_2023, rollback_2026],
+        broker="Upstox",
+        exchange="NSE",
+        segment="FO",
+        product="OPTIONS",
+        transaction_side="BUY",
+        trade_date=date(2023, 1, 23),
+        premium_value_base="100000000",
+    )
+    assert selected is pre_april_2023
+    assert amount == Decimal("0.10")
+
+
+@pytest.mark.parametrize(
+    ("trade_date", "expected_rate", "expected_amount"),
+    [
+        (date(2023, 3, 31), Decimal("0.01"), Decimal("0.10")),
+        (date(2023, 4, 1), Decimal("50"), Decimal("500.00")),
+        (date(2026, 2, 28), Decimal("50"), Decimal("500.00")),
+        (date(2026, 3, 1), Decimal("0.01"), Decimal("0.10")),
+    ],
+)
+def test_ipft_effective_date_boundaries_do_not_apply_current_rate_retroactively(
+    trade_date, expected_rate, expected_amount
+):
+    from app.services.broker_tariff_rules import calculate_ipft_estimate_for_scope
+
+    rules = [
+        make_ipft_rule(
+            effective_from=date(2022, 1, 1),
+            effective_to=date(2023, 3, 31),
+            rate="0.01",
+            source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
+        ),
+        make_ipft_rule(
+            effective_from=date(2023, 4, 1),
+            effective_to=date(2026, 2, 28),
+            rate="50",
+            source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
+        ),
+        make_ipft_rule(
+            effective_from=date(2026, 3, 1),
+            effective_to=None,
+            rate="0.01",
+            source_url="https://nsearchives.nseindia.com/content/circulars/FA73061.pdf",
+        ),
+    ]
+    selected, amount = calculate_ipft_estimate_for_scope(
+        rules,
+        broker="Upstox",
+        exchange="NSE",
+        segment="FO",
+        product="OPTIONS",
+        transaction_side="BUY",
+        trade_date=trade_date,
+        premium_value_base="100000000",
+    )
+    assert selected.rate == expected_rate
+    assert amount == expected_amount
+
+
+def test_ipft_estimate_fails_closed_for_wrong_product_or_unapproved_rule():
+    from app.services.broker_tariff_rules import calculate_ipft_estimate_for_scope
+
+    rule = make_ipft_rule(
+        effective_from=date(2022, 1, 1),
+        effective_to=None,
+        rate="0.01",
+        source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
+    )
+    args = {
+        "broker": "Upstox",
+        "exchange": "NSE",
+        "segment": "FO",
+        "product": "OPTIONS",
+        "transaction_side": "BUY",
+        "trade_date": date(2023, 1, 23),
+        "premium_value_base": "100000000",
+    }
+    with pytest.raises(ValueError, match="only NSE equity options"):
+        calculate_ipft_estimate_for_scope([rule], **{**args, "product": "FUTURES"})
+    with pytest.raises(ValueError, match="No approved tariff rule"):
+        calculate_ipft_estimate_for_scope(
+            [make_ipft_rule(
+                effective_from=date(2022, 1, 1),
+                effective_to=None,
+                rate="0.01",
+                source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
+            ) if False else make_ipft_rule(
+                effective_from=date(2022, 1, 1),
+                effective_to=None,
+                rate="0.01",
+                source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
+            )],
+            **args,
+        )
+
+
+def test_generic_tariff_calculator_cannot_bypass_ipft_guard():
+    from app.services.broker_tariff_rules import calculate_tariff_amount
+
+    rule = make_ipft_rule(
+        effective_from=date(2022, 1, 1),
+        effective_to=None,
+        rate="0.01",
+        source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
+    )
+    with pytest.raises(ValueError, match="Unsupported tariff calculation shape"):
+        calculate_tariff_amount(rule, calculation_base="100000000")

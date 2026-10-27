@@ -88,6 +88,8 @@ def _amount(value: Decimal | str | int, *, label: str) -> Decimal:
         raise ValueError(f"{label} must be a finite nonnegative amount.") from exc
     if not parsed.is_finite() or parsed < 0:
         raise ValueError(f"{label} must be a finite nonnegative amount.")
+    if parsed != parsed.quantize(PAISE):
+        raise ValueError(f"{label} must be expressed to paise precision.")
     return parsed.quantize(PAISE, rounding=ROUND_HALF_UP)
 
 

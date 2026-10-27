@@ -1,5 +1,7 @@
 """Immutable, owner-scoped aggregate broker API reconciliation snapshots."""
-from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstraint, event
+import uuid
+from datetime import datetime
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint, Uuid, event
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -17,13 +19,13 @@ class BrokerApiReconciliationRecord(BaseModel):
         CheckConstraint("per_fill_actual = false", name="ck_broker_api_reconciliation_not_per_fill_actual"),
     )
 
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    broker_connection_id: Mapped[str] = mapped_column(ForeignKey("broker_connections.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    broker_connection_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("broker_connections.id", ondelete="CASCADE"), nullable=False, index=True)
     broker: Mapped[str] = mapped_column(String(32), nullable=False)
     endpoint: Mapped[str] = mapped_column(String(200), nullable=False)
     api_version: Mapped[str] = mapped_column(String(32), nullable=False, default="v2", server_default="v2")
     request_scope_json: Mapped[str] = mapped_column(Text, nullable=False)
-    fetched_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     fetch_status: Mapped[str] = mapped_column(String(32), nullable=False)
     http_status_code: Mapped[int | None] = mapped_column(nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)

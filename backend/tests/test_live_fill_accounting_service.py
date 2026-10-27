@@ -522,7 +522,7 @@ def test_demat_charge_cannot_be_negative_or_fractional_paise():
         )
     with pytest.raises(ValueError, match="finite, non-negative and paise-exact"):
         LiveFillAccountingService._validate_charges(
-            _charges(demat_transaction_charges=Decimal("1.501"), total_charges=Decimal("25.361"))
+            _charges(demat_transaction_charges=Decimal("1.501"), total_charges=Decimal("25.36"))
         )
 
 

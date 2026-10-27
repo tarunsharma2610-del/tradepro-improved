@@ -93,3 +93,11 @@ Existing maintained Phase 3 documents were synchronized after the green code res
 - Next: review statutory GST basis and effective-dated source registry/provenance, then IPFT inclusion/mapping by exchange/segment/date and instrument-side applicability. Estimates remain distinct from actual source-backed reconciliation; fail closed where approved rules/evidence are missing.
 - Real contract-note acceptance and production Oracle backup/restore remain deferred until genuine evidence exists. No personal contract note required for synthetic regression work.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+## Latest checkpoint — 27 October 2026 (GST line normalization + official-source review)
+
+- GST helper code `57730a21da77fa583fe19c12740bd03eb779fed6` passed Backend CI [#40462246316](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40462246316). Test commit `4290b46e55275e4a005b3661da327adc1b216028` passed [#40462263615](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40462263615).
+- Invoice GST normalizer accepts either IGST or CGST+SGST pair; rejects mixed tax modes, incomplete pairs, missing lines, negative/non-finite and sub-paise amounts. It is not a statutory rate/jurisdiction/tax-base determination.
+- Official-source review recorded in `GST_IPFT_ACCEPTANCE_MATRIX.md` and `GST_IPFT_PUBLIC_EVIDENCE_ADDENDUM.md`: CBIC Section 15/Rule 33, NSE circular NSE/FA/73061 effective 1 March 2026, and broker-specific Zerodha IPFT explanation. NSE member tariff data and one broker's presentation are evidence inputs, not universal client-invoice rules.
+- Remaining: effective-dated reviewed GST rate/tax-base policy; exchange/segment/date-specific IPFT mapping and duplicate prevention; independently approved tariff evidence; full tests on final docs head. Actual invoice reconciliation remains evidence-gated.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.

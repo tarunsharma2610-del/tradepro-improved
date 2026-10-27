@@ -882,3 +882,39 @@ def test_stamp_duty_rejects_out_of_range_percentage(rate):
         calculate_stamp_duty_for_trade(
             rule, transaction_side="BUY", product="OPTIONS", calculation_base="100.00",
         )
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected_mode", "expected_total"),
+    [
+        ({"igst": "18.00"}, "IGST", Decimal("18.00")),
+        ({"cgst": "9.00", "sgst": "9.00"}, "CGST_SGST", Decimal("18.00")),
+        ({"cgst": "9.01", "sgst": "8.99"}, "CGST_SGST", Decimal("18.00")),
+    ],
+)
+def test_aggregate_gst_invoice_components_accepts_one_valid_tax_mode(
+    kwargs, expected_mode, expected_total
+):
+    from app.services.broker_tariff_rules import aggregate_gst_invoice_components
+
+    assert aggregate_gst_invoice_components(**kwargs) == (expected_mode, expected_total)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"cgst": "9.00"},
+        {"sgst": "9.00"},
+        {"igst": "18.00", "cgst": "9.00", "sgst": "9.00"},
+        {"igst": "18.00", "cgst": "0.00"},
+        {"igst": "-0.01"},
+        {"igst": "NaN"},
+        {"cgst": "1.001", "sgst": "1.00"},
+    ],
+)
+def test_aggregate_gst_invoice_components_rejects_ambiguous_or_invalid_lines(kwargs):
+    from app.services.broker_tariff_rules import aggregate_gst_invoice_components
+
+    with pytest.raises(ValueError):
+        aggregate_gst_invoice_components(**kwargs)
+

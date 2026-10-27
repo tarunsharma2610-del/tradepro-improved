@@ -918,7 +918,7 @@ def test_aggregate_gst_invoice_components_rejects_ambiguous_or_invalid_lines(kwa
     with pytest.raises(ValueError):
         aggregate_gst_invoice_components(**kwargs)
 
-def make_ipft_rule(*, effective_from, effective_to, rate, source_url):
+def make_ipft_rule(*, effective_from, effective_to, rate, source_url, review_status="APPROVED"):
     return make_rule(
         component="ipft",
         exchange="NSE",
@@ -932,6 +932,7 @@ def make_ipft_rule(*, effective_from, effective_to, rate, source_url):
         effective_to=effective_to,
         source_url=source_url,
         source_retrieved_on=date(2026, 10, 27),
+        review_status=review_status,
     )
 
 
@@ -1045,11 +1046,7 @@ def test_ipft_estimate_fails_closed_for_wrong_product_or_unapproved_rule():
                 effective_to=None,
                 rate="0.01",
                 source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
-            ) if False else make_ipft_rule(
-                effective_from=date(2022, 1, 1),
-                effective_to=None,
-                rate="0.01",
-                source_url="https://nsearchives.nseindia.com/content/circulars/FA56129.pdf",
+                review_status="DRAFT",
             )],
             **args,
         )

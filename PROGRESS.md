@@ -3233,3 +3233,8 @@ Added route-level tests for the authenticated Upstox charge API endpoints: estim
 ## 27 October 2026 — aggregate API reconciliation persistence implemented; CI pending
 
 Added an immutable owner-scoped aggregate API evidence model and migration `202610270030`, wired into the authenticated Upstox aggregate charges endpoint. Persists endpoint/scope/fetch status, response hash, sanitized payload and idempotency key. The route returns a record ID; no per-fill actual allocation or accounting promotion is possible from this evidence. Route tests assert ownership linkage, token stripping and duplicate-fetch idempotency. Code/test commit: `77bb07c0b6ee075e5e1eaa61ab0a5d138475953b`. Backend CI #40475498978 and #40475479511 were running at last check; exact-head CI and migration/safety/restore gates remain unverified until they complete. Continue with CI inspection/fixes, owner-isolation and immutability coverage, then sync docs to the confirmed green head.
+
+
+## 27 October 2026 — owner-isolation and immutability tests added
+
+Added cross-owner isolation and immutable-snapshot regression tests in commit `688cb70e2d64b866fbb9b6f19c7675ab764a0ecf`. Prior implementation head `77bb07c...` passed Backend CI #40475498978 (pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore); the new tests still require CI on the exact new head. Do not count the new coverage as verified until that run completes.

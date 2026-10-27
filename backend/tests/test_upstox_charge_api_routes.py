@@ -167,3 +167,85 @@ def test_estimate_route_rejects_invalid_quantity_before_api_call(db_session, mak
         assert response.status_code == 422
     finally:
         _clear_overrides()
+
+
+def test_aggregate_route_rejects_connection_owned_by_another_user(db_session, make_user, monkeypatch):
+    from app.api.v1 import upstox_charges
+
+    owner = make_user()
+    other_user = make_user()
+    connection = BrokerConnection(
+        id=uuid.uuid4(),
+        user_id=owner.id,
+        broker="upstox",
+        api_key_encrypted="test-encrypted-key",
+        api_secret_encrypted="test-encrypted-secret",
+        redirect_uri="http://localhost/callback",
+        is_connected=True,
+        access_token_encrypted="test-encrypted-token",
+    )
+    db_session.add(connection)
+    db_session.commit()
+    _overrides(db_session, other_user)
+    monkeypatch.setattr(upstox_charges, "_connected_token", lambda db, user_id: "server-side-token")
+
+    class UnexpectedService:
+        async def get_aggregate_trade_charges(self, token, **kwargs):
+            raise AssertionError("API must not be called for another user's connection")
+
+    monkeypatch.setattr(upstox_charges, "UpstoxChargeApiOrchestrationService", UnexpectedService)
+    try:
+        response = TestClient(app).get(
+            "/api/v1/upstox/charges/aggregate",
+            params={"segment": "FO", "financial_year": "2627"},
+        )
+        assert response.status_code == 404
+        assert db_session.query(BrokerApiReconciliationRecord).count() == 0
+    finally:
+        _clear_overrides()
+
+
+def test_aggregate_snapshot_rejects_mutation(db_session, make_user):
+    from datetime import datetime, timezone
+
+    user = make_user()
+    connection = BrokerConnection(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        broker="upstox",
+        api_key_encrypted="test-encrypted-key",
+        api_secret_encrypted="test-encrypted-secret",
+        redirect_uri="http://localhost/callback",
+        is_connected=True,
+        access_token_encrypted="test-encrypted-token",
+    )
+    db_session.add(connection)
+    db_session.commit()
+    record = BrokerApiReconciliationRecord(
+        user_id=user.id,
+        broker_connection_id=connection.id,
+        broker="upstox",
+        endpoint="/v2/trade/profit-loss/charges",
+        api_version="v2",
+        request_scope_json='{"segment":"FO"}',
+        fetched_at=datetime.now(timezone.utc),
+        fetch_status="SUCCESS",
+        http_status_code=200,
+        error_code=None,
+        evidence_kind="AGGREGATE_RECONCILIATION_ONLY",
+        per_fill_actual=False,
+        response_sha256="a" * 64,
+        response_json='{"payload":{"total_charges":20.15}}',
+        idempotency_key="b" * 64,
+    )
+    db_session.add(record)
+    db_session.commit()
+    record.fetch_status = "CHANGED"
+    try:
+        db_session.commit()
+    except ValueError as exc:
+        assert "immutable" in str(exc)
+    else:
+        raise AssertionError("Aggregate evidence mutation must be rejected")
+    db_session.rollback()
+    assert db_session.query(BrokerApiReconciliationRecord).filter_by(id=record.id).one().fetch_status == "SUCCESS"

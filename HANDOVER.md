@@ -2414,3 +2414,12 @@ Added `backend/app/api/v1/upstox_charges.py`, registered in `backend/app/api/v1/
 ### Route-level tests added — 27 October 2026
 
 Added `backend/tests/test_upstox_charge_api_routes.py`: validates estimate-only route response and null IPFT preservation, aggregate-only response classification, and invalid quantity rejection. Previous CI passed on `24b7b9ee728049f26b200cbee54571ae3c22b7bf` (run #40473895336). New test commit `ffb87c9af7c87d921eadf0198b7ba8704be65e76` is awaiting its own CI. Continue by checking that run, fixing any failures, then inspect the existing evidence/reconciliation schema to determine a safe aggregate-only persistence path; do not promote aggregate data to per-fill actual accounting.
+
+
+## Resume handover — 27 October 2026 (Upstox aggregate API persistence)
+
+Last confirmed relevant green results: route-test commit `ffb87c9af7c87d921eadf0198b7ba8704be65e76` / Backend CI #40474374635; documentation commit `10d105a344b08a21dfe50593f8683453a5d44bfc` / Backend CI #40474444724. These are not proof that subsequent docs commits are green.
+
+Continue with a dedicated durable aggregate API reconciliation record, not the source-document evidence models. Record owner/connection, endpoint and API version, requested scope/window, fetched timestamp/status, response hash/provenance and sanitized payload. Enforce tenant ownership; never persist access tokens or secrets; distinguish estimate from aggregate response and preserve missing/null/invalid/zero semantics. No per-fill allocation or actual accounting promotion from aggregate API data. Add ownership, provenance, replay/idempotency and SQLite/PostgreSQL 16 migration round-trip tests, run the full safety/migration/restore CI suite, then update maintained docs and checkpoint with the exact green head.
+
+Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mode mandatory; live broker order writes disabled.

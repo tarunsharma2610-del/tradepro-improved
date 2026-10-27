@@ -112,7 +112,7 @@ def test_execution_api_exposes_unknown_demat_and_incomplete_total():
     row.realized_pnl = Decimal("0.00")
     from datetime import datetime, timezone
     row.executed_at = datetime.now(timezone.utc)
-    row.total_charges_complete = row.demat_charge_status != "UNKNOWN"
+    row.total_charges = Decimal("27.75")
 
     payload = ExecutionOut.model_validate(row)
     assert payload.demat_transaction_charges is None
@@ -132,7 +132,7 @@ def test_execution_api_exposes_confirmed_not_applicable_as_complete():
     row.realized_pnl = Decimal("0.00")
     from datetime import datetime, timezone
     row.executed_at = datetime.now(timezone.utc)
-    row.total_charges_complete = row.demat_charge_status != "UNKNOWN"
+    row.total_charges = Decimal("27.75")
 
     payload = ExecutionOut.model_validate(row)
     assert payload.demat_transaction_charges is None
@@ -140,13 +140,36 @@ def test_execution_api_exposes_confirmed_not_applicable_as_complete():
     assert payload.total_charges_complete is True
 
 
-def test_execution_model_completeness_property_tracks_demat_status():
+def test_execution_model_completeness_property_requires_reconciled_total():
     from app.models.execution import Execution
 
-    row = Execution(demat_charge_status="UNKNOWN")
+    row = Execution(
+        brokerage=Decimal("20.00"),
+        stt=Decimal("0.20"),
+        exchange_charges=Decimal("3.07"),
+        sebi_charges=Decimal("0.10"),
+        stamp_duty=Decimal("0.15"),
+        gst=Decimal("4.23"),
+        total_charges=Decimal("27.75"),
+        demat_charge_status="UNKNOWN",
+    )
     assert row.total_charges_complete is False
     row.demat_charge_status = "NOT_APPLICABLE"
     assert row.total_charges_complete is True
+    row.total_charges = Decimal("27.74")
+    assert row.total_charges_complete is False
+
+
+def test_stale_or_tampered_total_cannot_be_marked_complete():
+    row = execution(
+        demat_charge_status="NOT_APPLICABLE",
+        total_charges=Decimal("27.74"),
+    )
+    assert not execution_charge_total_is_complete(row)
+    row.total_charges = Decimal("27.75")
+    assert execution_charge_total_is_complete(row)
+    row.gst = Decimal("4.24")
+    assert not execution_charge_total_is_complete(row)
 
 
 @pytest.mark.parametrize(

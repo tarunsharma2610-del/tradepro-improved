@@ -322,10 +322,17 @@ def test_equity_delivery_sell_rejects_missing_dp_snapshot(accounting_context):
 
 
 def test_equity_delivery_sell_promotes_only_with_reconciled_demat_allocation(accounting_context):
-    db, user, _portfolio, _instrument, _connection, order, _child, record, paper_position = accounting_context
+    db, user, _portfolio, instrument, connection, order, _child, record, paper_position = accounting_context
     order.segment = "EQUITY_DELIVERY"
     order.side = "SELL"
     record.side = "SELL"
+    db.add(LivePosition(
+        broker_connection_id=connection.id,
+        instrument_id=instrument.id,
+        quantity=3,
+        avg_price=Decimal("90.00"),
+        realized_pnl=Decimal("0.00"),
+    ))
     db.commit()
     charges = _reviewed_charges(
         accounting_context, reference="delivery-dp-note-2026-10-18-001", with_demat=True

@@ -3290,3 +3290,9 @@ Backend CI #40479126107 (commit `432a3d37...`) and #40479142058 (commit `3f29c70
 ## 27 October 2026 — source-to-canonical mapping review
 
 Documentation CI #40479568869, #40479578088 and #40479585940 passed. Review of the canonical planner and verified source canonicalizer confirms checks for unique source IDs, evidence/hash binding, VERIFIED status, independent reviewer, INR currency, source locator, shared fill manifest/fingerprint and explicit reviewed weights; allocation plans reconcile to source totals but remain unapproved and unpersisted. Split transaction/IPFT persistence is intentionally blocked because the current six-component schema cannot durably link multiple source rows to one canonical component. Next assess a migration-backed canonical-source link; do not bypass the guard. Statutory GST/IPFT approval remains separate.
+
+
+
+## 27 October 2026 — correction: normalized canonical source-link schema already exists
+
+The durable source-link table is already implemented as `BrokerChargeCanonicalSourceLink` with migration `202610250025_normalize_canonical_source_links.py`; do not add a duplicate migration. The actual gap is workflow integration: `broker_charge_verified_allocation_persistence_service.py` still requires the six-component legacy set and rejects multi-source canonical plans. Next inspect snapshot creation/review to verify link persistence and revalidation; keep split mapping blocked unless its invariants can be proved. Prior documentation CI runs #40479568869, #40479578088 and #40479585940 passed; latest docs update requires its own CI.

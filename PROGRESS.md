@@ -3278,3 +3278,9 @@ Code/test commit `c010b7d010351465b87f8e6d844fc9171dfc5dad` passed Backend CI #4
 ## 27 October 2026 — latest docs-triggered CI runs verified green
 
 The GST scope/rounding code-test head `c010b7d010351465b87f8e6d844fc9171dfc5dad` passed Backend CI #40478376361. Documentation-triggered runs #40478676089, #40478683982 and #40478691999 are now also fully successful, including pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and retained evidence. This update triggers new documentation CI which must be checked on its exact commits. Next inspect IPFT representation/component applicability and atomic rollback; statutory GST/IPFT candidate approval remains separately gated.
+
+
+
+## 27 October 2026 — documentation CI reconciled; rollback coverage audited
+
+Backend CI #40479126107 (commit `432a3d37...`) and #40479142058 (commit `3f29c70b...`) both passed all steps, including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore. Commit `85ddf857...` had no workflow result in the current lookup. Review of live-fill tests found existing coverage for staged-row rollback, commit/flush failures, safe exact replay after post-commit refresh failure, IPFT canonicalization once, DP completeness and fill/replay identity. Next inspect source-to-canonical component mapping completeness for a concrete gap; avoid duplicate tests. Statutory GST/IPFT approval remains separately gated.

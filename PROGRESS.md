@@ -3378,3 +3378,8 @@ Added regression coverage for five user-provided Upstox daily contract notes dat
 - The guarded estimator is for estimate calculation only and requires an approved effective-dated tariff rule and explicit scope. It does not activate a production tariff or prove historical booked IPFT.
 - Next Phase 3 work should proceed to the remaining accounting acceptance gates (fill identity, replay/idempotency, atomic rollback and component applicability), while using these GST tests as regression coverage. Only revisit IPFT when an applicable source-backed tariff or actual source field requires it.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+### 27 October 2026 — GST API comparison continuation
+
+Added nested JSON field-path support to the GST estimate comparison service for the Upstox response shape (`data.charges.gst`) and regression coverage for exact match, missing path, explicit null, and malformed path. The service still distinguishes API estimate from actual booked accounting and never auto-approves a non-zero variance. Implementation/test commits: `ff2d69546e5aad37c519c6622f51018bf7706ad5`, `a6f88dc85dcb25d903e610aaf30ce395ec12d650`. Exact-head CI is pending; previous green CI is only for earlier commit `0b5902ea35621d613589f7c8762b4d6658df9104`. Remaining: caller integration with verified tax inputs, component applicability/accounting acceptance, BSE/MCX source tariff validation, and maintained-doc sync after green CI.

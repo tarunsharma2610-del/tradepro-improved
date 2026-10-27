@@ -2581,3 +2581,8 @@ The five January 2023 Upstox contract-note examples have been added as daily agg
 ## Current continuation point — 27 October 2026
 
 Continue from branch `phase3/cross-broker-gst-ipft-resolution` in `tarunsharma2610-del/tradepro-improved` only. The GST comparison helper now supports nested JSON paths (e.g. `data.charges.gst`) and tests preserve missing/null/zero distinctions. Commits: `ff2d69546e5aad37c519c6622f51018bf7706ad5` and `a6f88dc85dcb25d903e610aaf30ce395ec12d650`. Do not claim the new head green until CI on the final current head succeeds. Next: check/fix exact-head CI; integrate comparison only where reviewed valuation lines and supplier/place-of-supply inputs are available; continue per-fill accounting acceptance and verified tariff coverage. Keep PR #7 Draft, PAPER mode mandatory, live writes disabled, and original `Tradepro` repo untouched.
+
+
+### Latest code increment — exact API field-path resolution (27 October 2026)
+
+`resolve_charge_api_value` now reads only the exact approved dotted payload path; it cannot substitute a top-level field merely because its leaf name matches. Regression fixtures now exercise nested response data and missing-path behavior. Implementation/test commits: `aba4ffba23f96d976dad05a2dd6c46fefe188875`, `5ccaad1fcc464ee305746a380f889d7ee283d7c4`. Confirm CI on the newest commit before marking green. Continue with caller integration and component-by-component accounting acceptance; do not promote API estimates/aggregate summaries to per-fill actuals.

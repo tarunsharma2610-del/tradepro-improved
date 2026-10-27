@@ -122,6 +122,7 @@ def test_aggregate_route_never_labels_response_as_per_fill_actual(db_session, ma
         assert body["per_fill_actual"] is False
         assert body["trade_date"] is None
         assert body["payload"]["data"]["total_charges"] == 20.15
+        assert "access_token" not in body["payload"]["data"]
         record_id = body["reconciliation_record_id"]
         assert record_id
         record = db_session.query(BrokerApiReconciliationRecord).filter_by(id=uuid.UUID(record_id)).one()

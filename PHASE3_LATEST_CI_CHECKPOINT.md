@@ -542,3 +542,15 @@ Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; PR #6/#7
 - Commits: implementation `aba4ffba23f96d976dad05a2dd6c46fefe188875`; tests `5ccaad1fcc464ee305746a380f889d7ee283d7c4`. GST comparison nested-path work: `ff2d69546e5aad37c519c6622f51018bf7706ad5`; tests `a6f88dc85dcb25d903e610aaf30ce395ec12d650`.
 - Exact-head CI is pending for the new code/tests and documentation. Prior green CI [#40549308036](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40549308036) covers only earlier head `0b5902ea35621d613589f7c8762b4d6658df9104`.
 - This closes a concrete API mapping correctness gap, but not all GST/IPFT acceptance: caller integration still requires verified valuation lines and supplier/place-of-supply inputs; unsupported BSE/MCX tariffs remain fail-closed; per-fill accounting acceptance gates remain in scope.
+
+## Exact-head CI checkpoint — 27 October 2026 (API value resolver test fix)
+
+- Verified repository: `tarunsharma2610-del/tradepro-improved`; branch: `phase3/cross-broker-gst-ipft-resolution`; PR #7 remains Draft and unmerged.
+- Exact head: `f3ba3a6378b15037929c0b48a1948950215ba607` — “Fix misplaced parametrization in API resolver tests”.
+- Backend CI run [#40552306037 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40552306037). Job: Backend pytest. Test suite: **1,189 passed, 1 warning**.
+- Verified in the same run: broker-write boundary guard; SQLite Alembic upgrade/downgrade/re-upgrade; PostgreSQL 16 migration round-trip; isolated synthetic PostgreSQL + document-volume restore; restore-drill evidence retention.
+- This clears the immediate test-collection roadblock from run #40551126594. It does **not** by itself close all Phase 3 acceptance gates.
+- Correction to earlier stale notes: the user has supplied genuine Upstox/RKSV contract-note evidence for 23, 24, 25, 27 and 30 January 2023, including brokerage, taxable values, IGST on brokerage and IGST on charges. Do not state that no personal contract-note evidence is available. Production Oracle backup/restore acceptance remains deferred until deployment backups exist.
+- Next technical gate: inspect and complete the caller-level integration of the broker GST API-vs-statutory-engine comparison using authoritative charge lines and supplier/place-of-supply inputs; prove per-fill actual-vs-estimate separation, then run component-by-component accounting acceptance. Unsupported tariff scopes must remain fail-closed.
+- This checkpoint applies to the exact head above. Subsequent code or documentation commits require their own exact-head CI verification.
+- Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #6/#7 remain Draft/unmerged; PAPER mode mandatory; live broker order writes remain disabled.

@@ -690,3 +690,11 @@ Code now includes a generic public-schedule estimate function for source-backed 
 - Backend CI #40459846143 succeeded on code/test commit `9400bc9aa221e2cf3b735e49a8e9a6d351237f02`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40459846143. Backend pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic PostgreSQL/document-volume restore checks passed.
 - DP completeness regression now checks invalid status serialization through `ExecutionOut`; status/amount inconsistencies and ineligible DP manifests remain fail-closed. Next gate: per-fill mapping, replay conflict/idempotency, rollback atomicity, and component applicability.
 - Real contract-note and production Oracle backup/restore acceptance deferred until genuine evidence exists. Safety unchanged: target `tradepro-improved` only; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled.
+
+## Latest verified checkpoint — 27 October 2026 (per-fill allocation tamper rejection)
+
+- Code/test commit `45b0fdc1622881fa0ed361bae6c28af64b59a5f1` passed exact-head Backend CI [#40460914796](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40460914796).
+- Regression `test_tampered_per_fill_allocation_amount_blocks_live_accounting` changes a reviewed brokerage allocation by ₹0.01 and asserts promotion is rejected with execution/live-position unchanged and paper quantity preserved.
+- Canonical verifier validates exact manifest fill-set, status, connection, INR currency, allocation basis/method, source total and deterministic paise amount. Existing tests cover missing components, non-reconciled rows, replay conflicts/idempotency and post-commit retry.
+- Next: explicitly verify fill-set mismatch and rollback assertions, then component applicability. Statutory GST/IPFT acceptance remains separate from estimates. Real contract-note and Oracle production restore remain evidence-gated.
+- Safety: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled.

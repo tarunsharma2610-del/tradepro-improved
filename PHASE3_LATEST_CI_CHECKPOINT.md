@@ -130,3 +130,11 @@ Existing maintained Phase 3 documents were synchronized after the green code res
 - New test commit `761637aab1d5f36ed5bfc02ffb66ce8b31ab7820`: regression tests for a conflicting source blocking an approved candidate and for rejecting sub-paise component inputs rather than silently rounding them.
 - The policy remains estimate-only. This does not approve any broker component set, does not integrate the statutory Rule 33 engine into actual accounting, and does not reconcile invoice-level GST. No broker policies are promoted to APPROVED by this change.
 - Validation status: exact-head CI for these commits is not yet verified. Do not mark this increment green until the branch/PR workflow runs on the exact resulting head and all jobs pass. Next: inspect any CI result, fix failures, then synchronize maintained documents/checkpoint to the latest green head.
+
+
+## Follow-up CI result — GST policy conflict and paise validation (27 October 2026)
+
+- Regression-test commit `761637aab1d5f36ed5bfc02ffb66ce8b31ab7820` passed Backend CI [#40463464076 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40463464076). The run completed successfully for the new tests covering conflict-policy blocking and sub-paise rejection.
+- The service hardening commit `eef5eebc1e1abfc37c92b4e50d5c35e9afddcbb4` also passed Backend CI [#40463452758 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40463452758).
+- Documentation-head workflow [#40463512765](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40463512765) was still in progress at the time of this checkpoint update. Do not call the current docs head green until this exact-head run finishes successfully.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #6 and #7 remain open Draft/unmerged; PAPER mandatory; live broker writes disabled; original `tarunsharma2610-del/Tradepro` out of scope.

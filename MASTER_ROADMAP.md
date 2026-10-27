@@ -2044,3 +2044,11 @@ Code now includes a generic public-schedule estimate function for source-backed 
 - Added API regression: invalid DP status through `ExecutionOut` cannot be represented as a complete charge total. DP status/amount consistency and delivery-SELL manifest eligibility remain fail-closed.
 - Next gate: per-fill source-to-canonical mapping, identical/conflicting replay, rollback atomicity, and component applicability; then exact-head CI and synchronized checkpoint. Real contract-note and production Oracle backup/restore acceptance remain deferred until genuine evidence exists.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+## Latest verified checkpoint — 27 October 2026 (per-fill allocation tamper rejection)
+
+- Code/test commit `45b0fdc1622881fa0ed361bae6c28af64b59a5f1` passed exact-head Backend CI [#40460914796](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40460914796).
+- Regression `test_tampered_per_fill_allocation_amount_blocks_live_accounting` changes a reviewed brokerage allocation by ₹0.01 and asserts promotion is rejected with execution/live-position unchanged and paper quantity preserved.
+- Canonical verifier validates exact manifest fill-set, status, connection, INR currency, allocation basis/method, source total and deterministic paise amount. Existing tests cover missing components, non-reconciled rows, replay conflicts/idempotency and post-commit retry.
+- Next: explicitly verify fill-set mismatch and rollback assertions, then component applicability. Statutory GST/IPFT acceptance remains separate from estimates. Real contract-note and Oracle production restore remain evidence-gated.
+- Safety: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled.

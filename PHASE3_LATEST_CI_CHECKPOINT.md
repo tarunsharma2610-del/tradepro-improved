@@ -58,3 +58,12 @@ Existing maintained Phase 3 documents were synchronized after the green code res
 - Next gate: inspect acceptance coverage for per-fill source-to-canonical mapping, identical/conflicting replay, transaction rollback, and component applicability. After the next code change, rerun exact-head CI and synchronize maintained docs/checkpoints.
 - Actual contract-note reconciliation and production Oracle backup/restore acceptance remain deferred until genuine evidence exists. Synthetic testing continues without a personal contract note.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope. PR #6/#7 remain Draft/unmerged; PAPER mode mandatory; live broker order writes disabled.
+
+## Latest verified checkpoint — 27 October 2026 (per-fill allocation tamper rejection)
+
+- Code/test commit `45b0fdc1622881fa0ed361bae6c28af64b59a5f1` passed exact-head Backend CI [#40460914796](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40460914796) (completed, success).
+- Added `test_tampered_per_fill_allocation_amount_blocks_live_accounting`: changing a reviewed brokerage allocation by ₹0.01 must be rejected before execution/live-position promotion; paper-position quantity remains unchanged.
+- Verifier audit confirms the allocation fill-set must match the reviewed manifest; allocation status, connection, currency, basis, method, source total and deterministic paise amount are validated. Existing tests cover missing component allocations, non-reconciled rows, exact replay, conflicting fill/evidence replay, and post-commit retry safety.
+- Next gate: explicit fill-set mismatch and atomic rollback assertions as needed, then component applicability. Keep statutory/effective-dated GST/IPFT tariff acceptance distinct from estimates.
+- Production contract-note reconciliation and real Oracle backup/restore remain deferred until genuine evidence exists. No personal contract note is required for current synthetic tests.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled.

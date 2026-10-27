@@ -307,3 +307,12 @@ The practical route is API-first, not another loop of public research and not wa
 - Regression-test CI failed on commits `5f3a68a...` / `93a7984...`: **1 failed, 1128 passed**. Failure was in the new cross-owner test because fixture `make_user()` defaults to the same email (`tester@example.com`), so creating a second user violated the unique email constraint before exercising ownership logic.
 - Corrected test to create `owner@example.com` and `other-owner@example.com` in commit `977ad6b7e6eeae1346b28c03c2d83bb62ec93910`. This is a test-fixture correction, not an application/accounting change. Exact-head CI is pending and must pass before accepting this coverage.
 - The other failure was not observed; the job summary shows 1 failure and 1128 passes. Migration/safety/restore steps were skipped because pytest failed. Do not claim the new head green until the entire workflow succeeds.
+
+
+## Confirmed green — owner isolation and immutable aggregate API evidence — 27 October 2026
+
+- Corrected code/test head `977ad6b7e6eeae1346b28c03c2d83bb62ec93910` passed Backend CI [#40476768203](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40476768203). All workflow steps succeeded: pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore, and retained restore evidence.
+- Documentation CI [#40476805191](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40476805191) also passed.
+- The failure was limited to the ownership test fixture using the same default email twice; the correction uses distinct emails. The owner-isolation and immutable-snapshot tests are now covered by the green backend run.
+- Next: continue Phase 3 accounting acceptance with targeted component applicability, exact fill identity and paise totals, replay/rollback and tariff/GST/IPFT rules. Aggregate API snapshots remain reconciliation-only, not per-fill actuals. Phase 3 remains incomplete until remaining acceptance gates pass.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.

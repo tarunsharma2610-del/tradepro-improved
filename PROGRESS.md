@@ -3248,3 +3248,9 @@ CI on the new ownership/immutability regression coverage failed with 1 failed an
 ## 27 October 2026 — owner-isolation regression fix verified green
 
 Corrected the cross-owner regression test to use distinct emails in commit `977ad6b7e6eeae1346b28c03c2d83bb62ec93910`. Backend CI #40476768203 passed all gates: pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and retained evidence. Documentation CI #40476805191 also passed. Resume Phase 3 acceptance with component applicability, fill identity/paise totals, replay/rollback and effective-dated tariff/GST/IPFT checks; this does not mark Phase 3 complete.
+
+
+
+## 27 October 2026 — GST policy edge-case tests added; CI pending
+
+Added tests at `91212a0224f3bf4a01bff06c14764a404c1cbc67` for explicit zero versus missing taxable component, invalid/nonfinite/negative values and effective-date end boundaries. Existing coverage already checks IPFT representation modes, scoped policy selection, conflicts and paise precision. Upstox candidates remain DRAFT pending resolution of conflicting source evidence. Exact-head CI is not yet verified; previous green remains `977ad6b7...` (Backend CI #40476768203; documentation CI #40476805191).

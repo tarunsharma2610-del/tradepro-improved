@@ -112,6 +112,7 @@ def test_execution_api_exposes_unknown_demat_and_incomplete_total():
     row.realized_pnl = Decimal("0.00")
     from datetime import datetime, timezone
     row.executed_at = datetime.now(timezone.utc)
+    row.total_charges_complete = row.demat_charge_status != "UNKNOWN"
 
     payload = ExecutionOut.model_validate(row)
     assert payload.demat_transaction_charges is None
@@ -131,8 +132,18 @@ def test_execution_api_exposes_confirmed_not_applicable_as_complete():
     row.realized_pnl = Decimal("0.00")
     from datetime import datetime, timezone
     row.executed_at = datetime.now(timezone.utc)
+    row.total_charges_complete = row.demat_charge_status != "UNKNOWN"
 
     payload = ExecutionOut.model_validate(row)
     assert payload.demat_transaction_charges is None
     assert payload.demat_charge_status == "NOT_APPLICABLE"
     assert payload.total_charges_complete is True
+
+
+def test_execution_model_completeness_property_tracks_demat_status():
+    from app.models.execution import Execution
+
+    row = Execution(demat_charge_status="UNKNOWN")
+    assert row.total_charges_complete is False
+    row.demat_charge_status = "NOT_APPLICABLE"
+    assert row.total_charges_complete is True

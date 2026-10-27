@@ -3383,3 +3383,8 @@ Added regression coverage for five user-provided Upstox daily contract notes dat
 ### 27 October 2026 — GST API comparison continuation
 
 Added nested JSON field-path support to the GST estimate comparison service for the Upstox response shape (`data.charges.gst`) and regression coverage for exact match, missing path, explicit null, and malformed path. The service still distinguishes API estimate from actual booked accounting and never auto-approves a non-zero variance. Implementation/test commits: `ff2d69546e5aad37c519c6622f51018bf7706ad5`, `a6f88dc85dcb25d903e610aaf30ce395ec12d650`. Exact-head CI is pending; previous green CI is only for earlier commit `0b5902ea35621d613589f7c8762b4d6658df9104`. Remaining: caller integration with verified tax inputs, component applicability/accounting acceptance, BSE/MCX source tariff validation, and maintained-doc sync after green CI.
+
+
+### 27 October 2026 — Exact API mapping path fix
+
+Fixed API charge value resolution so a mapping such as `data.charges.ipft` reads that exact nested path instead of reading any top-level `ipft` field. This prevents a similarly named field outside the approved path from being treated as the mapped value. Tests now cover nested payloads and missing exact paths. Commits: `aba4ffba23f96d976dad05a2dd6c46fefe188875`, `5ccaad1fcc464ee305746a380f889d7ee283d7c4`. Latest CI must be verified on the updated final head.

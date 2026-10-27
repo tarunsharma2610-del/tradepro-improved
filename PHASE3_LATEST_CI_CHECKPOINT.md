@@ -352,3 +352,13 @@ The practical route is API-first, not another loop of public research and not wa
 - Documentation commit `334a078449408beef42e1d761f264d6bb17def19` has Backend CI #40478395488 in progress at refresh; do not claim documentation CI green until it completes. More recent doc commits must likewise be checked on their exact heads.
 - Next: continue with uncovered accounting component applicability and rollback boundaries; preserve existing variance service coverage for fill-set identity, quantity/date mismatch, response digest and conflicting replay. GST/IPFT candidate approval remains gated on authoritative effective-dated source resolution and independent review. Phase 3 is not complete.
 - Safety unchanged: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+
+## Confirmed green — latest GST policy test and documentation CI — 27 October 2026
+
+- The code/test head containing GST scope and half-up paise rounding tests remains `c010b7d010351465b87f8e6d844fc9171dfc5dad`; Backend CI [#40478376361](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40478376361) passed.
+- Documentation-triggered Backend CI runs [#40478676089](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40478676089), [#40478683982](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40478683982), and [#40478691999](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40478691999) are now confirmed complete with success for every step: pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore, and retained restore evidence.
+- Current maintained docs were fetched from the target branch and reflect the latest work. This new checkpoint update itself creates new documentation commits and those exact heads need CI verification; do not assume this update is green until those runs finish.
+- Next: review IPFT representation mode/component applicability and atomic rollback behavior, add only missing regression tests, then verify exact-head CI. Existing variance replay protection is already covered. GST/IPFT statutory candidates remain unapproved until authoritative effective-dated sources and independent review resolve conflicts; green tests alone do not confer statutory approval.
+- Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.

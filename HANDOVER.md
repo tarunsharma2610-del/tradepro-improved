@@ -2552,3 +2552,7 @@ Do not relax the six-component reconciliation contract, treat estimates as actua
 - This is an evidence-scope clarification, not a change to GST/IPFT policy or a declaration that the broker billed incorrectly. No personal identifiers or account-specific figures are copied into this repository note.
 - Latest code/test head remains `9eb278588b78d2a966cc196c15d7a4d9a6ae8868`; Backend CI [#40505176395 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40505176395). This documentation sync creates a new head and requires its own exact-head CI before it is marked green.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft and unmerged; PAPER mandatory; live broker order writes disabled.
+
+## Resume point — historical GST invoice regression
+
+The five January 2023 Upstox contract-note examples have been added as daily aggregate regression fixtures in `backend/tests/test_historical_upstox_contract_note_gst.py`. They validate the disclosed brokerage/transaction/SEBI taxable base and split GST totals. No distinct IPFT amount is shown in the supplied transcription, so the test does not convert absence into zero or create a per-fill IPFT amount. Use the historical effective tariff for the trade date; current API calculator results are estimates, not booked historical charges. Commits: `98f14aef1b3b541c2a6e07beb227b6f3f0471a42`, `547917868d28d3f46f1f549a8daa50d57fc4542d`. Exact-head CI remains to be verified.

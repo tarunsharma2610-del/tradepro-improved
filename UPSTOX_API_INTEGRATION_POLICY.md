@@ -313,3 +313,8 @@ Added `app/services/upstox_charge_api_orchestration_service.py` plus focused tes
 ### Authenticated route wiring — 27 October 2026
 
 Added authenticated read-only routes `GET /api/v1/upstox/charges/brokerage-estimate` and `GET /api/v1/upstox/charges/aggregate`, registered in the API router. The handlers scope broker connection lookup to the authenticated user, decrypt the token server-side, and use the fixed GET-only client. Response classification remains estimate-only versus aggregate reconciliation only; neither endpoint returns per-fill-actual eligibility. No order-write method was added. Route-level tests and latest-head CI remain pending; this is not yet persistence into the charge evidence ledger or accounting promotion.
+
+
+### Route tests and CI — 27 October 2026
+
+Added route tests for estimate-vs-aggregate response classification, preservation of null IPFT, and invalid-quantity validation. Prior CI run #40473895336 passed on doc head `24b7b9ee728049f26b200cbee54571ae3c22b7bf`; the new test commit `ffb87c9af7c87d921eadf0198b7ba8704be65e76` still requires exact-head CI. Next inspect the evidence/reconciliation model before any persistence; aggregate API output must remain reconciliation-only and must never be spread across fills.

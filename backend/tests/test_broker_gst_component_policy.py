@@ -218,3 +218,25 @@ def test_scoped_estimate_does_not_reuse_policy_for_wrong_exchange_or_date():
             trade_date=date(2026, 2, 28),
             components={"brokerage": "20.00", "transaction_charges": "2.00"},
         )
+
+
+def test_conflicting_source_policy_blocks_approved_candidate_until_reviewed():
+    approved = policy()
+    conflict = policy(review_status="CONFLICT")
+    with pytest.raises(ValueError, match="Conflicting GST source policy"):
+        select_gst_component_policy(
+            [approved, conflict],
+            broker="ExampleBroker",
+            exchange="NSE",
+            segment="FO",
+            product="OPTIONS",
+            trade_date=date(2026, 10, 26),
+        )
+
+
+def test_sub_paise_component_amount_is_rejected_instead_of_silently_rounded():
+    with pytest.raises(ValueError, match="paise precision"):
+        calculate_gst_estimate(
+            policy(),
+            components={"brokerage": "20.001", "exchange_charges": "1.00"},
+        )

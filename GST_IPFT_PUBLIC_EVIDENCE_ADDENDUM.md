@@ -125,3 +125,23 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Sources: CBIC FAQ https://cbic-gst.gov.in/sectoral-faq.html (Levy Q7); Zerodha https://zerodha.com/charges/; Upstox https://upstox.com/brokerage-charges/ . The Upstox public schedule also lists GST/IPFT composition, while its charge API schema exposes separate GST, STT, stamp duty, transaction, IPFT, SEBI turnover and demat fields: https://upstox.com/developer/api-documentation/get-trade-charges/ . The API schema describes fields but is not proof that a particular endpoint supplies final per-fill actual values.
 - Existing `upstox_gst_component_set_candidates()` remains DRAFT and currently lists brokerage + exchange charges (plus demat for equity delivery), not SEBI turnover charges. Do NOT approve or silently broaden this candidate based on inference. Legal interpretation of Section 15/Rule 33, actual broker invoice treatment and the source schedule discrepancy require independent review and a documented effective-dated decision.
 - Safe implementation rule: retain source-backed estimates as broker-specific; do not assume the Upstox public schedule or Zerodha's GST base is universal. Until the discrepancy is resolved by reviewed policy, actual accounting must use reviewed source invoice/tax totals and fail closed for automated tax-base reconstruction when the needed evidence is absent.
+
+
+## Cross-broker source comparison — 27 October 2026 (public-source findings)
+
+Fresh public-page comparison reinforces that GST taxable-base membership is broker-specific in published schedules and must not be generalized:
+
+- **CBIC:** stock-broking FAQ Q77 says STT, stamp duty and other central/state tax recoveries are outside GST value only while Rule 33 pure-agent conditions are satisfied; otherwise valuation follows Section 15 read with Rule 27. https://cbic-gst.gov.in/sectoral-faq.html
+- **Zerodha:** current charges page explicitly states 18% GST on brokerage + SEBI charges + transaction charges; IPFT is described separately by segment. https://zerodha.com/charges/
+- **Dhan:** current pricing page states 18% GST on brokerage + transaction charges + SEBI turnover + IPFT/other tax. https://dhan.co/pricing/
+- **FYERS:** current charges page states brokerage + exchange transaction charges + clearing charges + SEBI turnover fee + NSE IPFT, while a separate FYERS support article describes GST on brokerage and transaction charges and says it is not applied to SEBI fees, STT/CTT or stamp duty. These are conflicting public descriptions and must be versioned/reviewed rather than silently reconciled. https://fyers.in/charges-list ; https://support.fyers.in/portal/en/kb/articles/what-are-the-statutory-charges-on-trades-at-fyers-stt-gst-sebi-turnover-fee-ipft-etc
+- **Upstox:** pricing page describes brokerage + transaction charges + IPFT, with DP/demat additionally for equity delivery; the Brokerage Details API example remains arithmetically inconsistent with that wording. https://upstox.com/brokerage-charges/ ; https://upstox.com/developer/api-documentation/get-brokerage/
+- **Angel One:** its public table lists transaction charges, IPFT, GST, SEBI and stamp duty, but the table alone does not specify enough detail to infer every taxable-base member. https://www.angelone.in/exchange-transaction-charges
+
+### Engineering conclusion
+
+1. Do not hard-code one universal GST base across brokers. Store broker, exchange, segment/product, effective interval, source URL/version, reviewer, and explicit included/excluded component identities.
+2. Track charge identity separately from how the source presents it. Combined transaction/IPFT and separate transaction/IPFT representations must normalize to one canonical economic charge exactly once, using effective-dated exchange and broker evidence.
+3. Rule 33 is a conditional evidence-based exclusion, not a label-based rule. If pure-agent conditions cannot be established, do not automatically exclude statutory recoveries from the taxable base.
+4. Conflicting sources (demonstrated by FYERS public pages) require explicit source-precedence review and an unresolved status until adjudicated. Never choose the lower GST result merely because it matches a sample or estimate.
+5. This research supports implementation of a reviewed policy resolver and regression tests; it does **not** approve any actual per-fill GST component candidate or prove a broker's account-specific invoice. Keep estimates clearly labelled and actual accounting fail-closed until the relevant source-backed policy/evidence is reviewed.

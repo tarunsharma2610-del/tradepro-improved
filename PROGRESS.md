@@ -3354,3 +3354,7 @@ The API wiring audit found a concrete safety gap in `backend/app/api/v1/upstox_c
 - This is an evidence-scope clarification, not a change to GST/IPFT policy or a declaration that the broker billed incorrectly. No personal identifiers or account-specific figures are copied into this repository note.
 - Latest code/test head remains `9eb278588b78d2a966cc196c15d7a4d9a6ae8868`; Backend CI [#40505176395 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40505176395). This documentation sync creates a new head and requires its own exact-head CI before it is marked green.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft and unmerged; PAPER mandatory; live broker order writes disabled.
+
+## 27 October 2026 — historical contract-note GST fixtures
+
+Added regression coverage for five user-provided Upstox daily contract notes dated 23, 24, 25, 27 and 30 January 2023. Tests verify the disclosed taxable value (brokerage + transaction charges + SEBI fees), split GST arithmetic and the statutory GST primitive's total against the invoice. These are daily aggregates, not per-fill charges. The source text does not separately identify IPFT, so missing IPFT is not recorded as zero. Test commits: `98f14aef1b3b541c2a6e07beb227b6f3f0471a42` and `547917868d28d3f46f1f549a8daa50d57fc4542d`. Exact-head CI is pending verification; do not report this increment as green until verified.

@@ -244,3 +244,11 @@ The practical route is API-first, not another loop of public research and not wa
 - Route commit: `0d47e997547dbe537e43d231e9f99d4f0c902252`; router registration commit: `9cacf82d16bffa21cadf6d4bf05291f46963260b`.
 - CI #40473482706 passed on prior doc head `6021815de9bfa1213320daafb4eda866c93f3ec9`. New route CI runs #40473791107 and #40473806635 are in progress/queued on route commits; these do not yet certify the latest head. Next update checkpoint only after latest-head CI is complete.
 - Still not end-to-end ledger persistence or per-fill actual accounting: aggregate results are exposed as read-only reconciliation context only; no automatic canonical allocation or accounting promotion occurs. Next steps: add route-level tests for ownership/token failure and endpoint classification; run exact-head backend/safety/migration/restore CI; then evaluate whether an explicitly reviewed aggregate reconciliation record should be persisted under existing ledger contracts. Never promote aggregate totals to fills.
+
+
+## CI result and route-test continuation — 27 October 2026
+
+- Confirmed successful Backend pytest workflow on documentation head `24b7b9ee728049f26b200cbee54571ae3c22b7bf`: [run #40473895336](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40473895336). The earlier API route/router commit workflows also completed successfully: #40473791107, #40473806635, #40473856715, #40473866947, #40473874400 and #40473885583.
+- Added `backend/tests/test_upstox_charge_api_routes.py` in commit `ffb87c9af7c87d921eadf0198b7ba8704be65e76`. Coverage: estimate route response semantics and null-IPFT preservation, aggregate route never labelled per-fill actual, and invalid quantity rejected before any API call.
+- **New test commit CI is pending** and must pass before the checkpoint is called green for this increment. The previous green CI result does not certify this later test commit.
+- Current next steps: inspect the new test run; fix any failures and rerun; then examine the existing reconciliation/evidence model before deciding whether to persist aggregate API output as a reconciliation-only record. Do not persist into per-fill allocations or promote to actual accounting. Continue to keep docs/checkpoint synced after the final code head.

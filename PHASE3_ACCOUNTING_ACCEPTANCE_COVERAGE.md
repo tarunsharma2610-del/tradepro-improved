@@ -224,3 +224,11 @@ Finish the source-approved tariff/GST applicability review and decide whether ta
 - Regression verifies invalid DP status remains incomplete through API serialization. DP state consistency: `KNOWN` needs a valid paise-exact amount; `NOT_APPLICABLE` requires no amount; unknown/invalid/inconsistent states are incomplete. Eligible delivery SELL requires reviewed DP evidence and exact allocation.
 - Next review gate: source-to-canonical per-fill identity, deterministic paise allocation, identical/conflicting replay, atomic rollback and component applicability. Actual invoice-level GST/tariff acceptance remains separate from estimates and requires reviewed source evidence.
 - Safety: PAPER mandatory, live broker writes disabled, PR #6/#7 Draft/unmerged; original `Tradepro` repo untouched/out of scope.
+
+## Latest verified checkpoint — 27 October 2026 (per-fill allocation tamper rejection)
+
+- Code/test commit `45b0fdc1622881fa0ed361bae6c28af64b59a5f1` passed exact-head Backend CI [#40460914796](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40460914796).
+- Regression `test_tampered_per_fill_allocation_amount_blocks_live_accounting` changes a reviewed brokerage allocation by ₹0.01 and asserts promotion is rejected with execution/live-position unchanged and paper quantity preserved.
+- Canonical verifier validates exact manifest fill-set, status, connection, INR currency, allocation basis/method, source total and deterministic paise amount. Existing tests cover missing components, non-reconciled rows, replay conflicts/idempotency and post-commit retry.
+- Next: explicitly verify fill-set mismatch and rollback assertions, then component applicability. Statutory GST/IPFT acceptance remains separate from estimates. Real contract-note and Oracle production restore remain evidence-gated.
+- Safety: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled.

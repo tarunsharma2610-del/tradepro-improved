@@ -1,8 +1,10 @@
 from decimal import Decimal
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
+from app.schemas.order import ExecutionOut
 from app.services.execution_charge_totals import (
     calculate_execution_total_charges,
     execution_charge_total_is_complete,
@@ -95,3 +97,42 @@ def test_unknown_is_not_interpreted_as_zero_or_complete():
     subtotal = recompute_execution_total_charges(row)
     assert subtotal == Decimal("27.75")
     assert not execution_charge_total_is_complete(row)
+
+
+
+def test_execution_api_exposes_unknown_demat_and_incomplete_total():
+    row = execution()
+    row.id = uuid4()
+    row.order_id = uuid4()
+    row.instrument = SimpleNamespace(id=uuid4(), trading_symbol="TEST", exchange="NSE")
+    row.side = "SELL"
+    row.quantity = 1
+    row.price = Decimal("100.00")
+    row.gross_value = Decimal("100.00")
+    row.realized_pnl = Decimal("0.00")
+    from datetime import datetime, timezone
+    row.executed_at = datetime.now(timezone.utc)
+
+    payload = ExecutionOut.model_validate(row)
+    assert payload.demat_transaction_charges is None
+    assert payload.demat_charge_status == "UNKNOWN"
+    assert payload.total_charges_complete is False
+
+
+def test_execution_api_exposes_confirmed_not_applicable_as_complete():
+    row = execution(demat_charge_status="NOT_APPLICABLE")
+    row.id = uuid4()
+    row.order_id = uuid4()
+    row.instrument = SimpleNamespace(id=uuid4(), trading_symbol="TEST", exchange="NSE")
+    row.side = "BUY"
+    row.quantity = 1
+    row.price = Decimal("100.00")
+    row.gross_value = Decimal("100.00")
+    row.realized_pnl = Decimal("0.00")
+    from datetime import datetime, timezone
+    row.executed_at = datetime.now(timezone.utc)
+
+    payload = ExecutionOut.model_validate(row)
+    assert payload.demat_transaction_charges is None
+    assert payload.demat_charge_status == "NOT_APPLICABLE"
+    assert payload.total_charges_complete is True

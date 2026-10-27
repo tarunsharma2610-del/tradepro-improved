@@ -2470,3 +2470,9 @@ Commit `c010b7d010351465b87f8e6d844fc9171dfc5dad` adds paise-rounding and exact 
 ## Verified checkpoint — GST scope and rounding tests — 27 October 2026
 
 Commit `c010b7d010351465b87f8e6d844fc9171dfc5dad` is green on Backend CI #40478376361. Pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore evidence all succeeded. Documentation CI #40478395488 was still running on `334a078...`; verify latest documentation heads. Next inspect accounting component applicability and rollback gaps, then continue authoritative GST/IPFT source validation. Keep PAPER mandatory, live writes disabled, PR #6/#7 Draft/unmerged, and original `Tradepro` untouched.
+
+
+
+## Latest CI reconciliation — 27 October 2026
+
+Verified green: GST scope/rounding tests at `c010b7d010351465b87f8e6d844fc9171dfc5dad` / Backend CI #40478376361; documentation-triggered runs #40478676089, #40478683982 and #40478691999 all completed successfully across tests, broker-write safety, SQLite/PostgreSQL 16 migration round-trips and synthetic restore. This new documentation update requires its own exact-head CI check. Continue by reviewing IPFT mode/component applicability and atomic rollback, then add only missing tests. Keep candidate statutory approval gated on authoritative evidence; PAPER mode mandatory and live writes disabled.

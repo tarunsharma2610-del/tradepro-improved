@@ -5,6 +5,7 @@ import pytest
 
 from app.services.execution_charge_totals import (
     calculate_execution_total_charges,
+    execution_charge_total_is_complete,
     recompute_execution_total_charges,
 )
 
@@ -18,6 +19,7 @@ def execution(**overrides):
         "stamp_duty": Decimal("0.15"),
         "gst": Decimal("4.23"),
         "demat_transaction_charges": None,
+        "demat_charge_status": "UNKNOWN",
         "total_charges": Decimal("0.00"),
     }
     values.update(overrides)
@@ -29,12 +31,16 @@ def test_null_demat_remains_unknown_and_does_not_change_legacy_core_total():
     assert recompute_execution_total_charges(row) == Decimal("27.75")
     assert row.total_charges == Decimal("27.75")
     assert row.demat_transaction_charges is None
+    assert not execution_charge_total_is_complete(row)
 
 
 def test_explicit_demat_is_added_exactly_once_to_total():
-    row = execution(demat_transaction_charges=Decimal("20.00"))
+    row = execution(
+        demat_transaction_charges=Decimal("20.00"), demat_charge_status="KNOWN"
+    )
     assert recompute_execution_total_charges(row) == Decimal("47.75")
     assert row.total_charges == Decimal("47.75")
+    assert execution_charge_total_is_complete(row)
 
 
 @pytest.mark.parametrize("value", ["NaN", "Infinity", "-0.01", "0.001", "not-money"])
@@ -57,3 +63,35 @@ def test_core_components_are_required_finite_nonnegative_paise():
             brokerage=None, stt="0.20", exchange_charges="3.07",
             sebi_charges="0.10", stamp_duty="0.15", gst="4.23",
         )
+
+
+def test_not_applicable_is_complete_without_fabricating_a_zero_amount():
+    row = execution(demat_charge_status="NOT_APPLICABLE")
+    assert recompute_execution_total_charges(row) == Decimal("27.75")
+    assert row.demat_transaction_charges is None
+    assert execution_charge_total_is_complete(row)
+
+
+def test_known_status_without_amount_fails_closed():
+    with pytest.raises(ValueError, match="requires an explicit"):
+        calculate_execution_total_charges(
+            brokerage="20.00", stt="0.20", exchange_charges="3.07",
+            sebi_charges="0.10", stamp_duty="0.15", gst="4.23",
+            demat_transaction_charges=None, demat_charge_status="KNOWN",
+        )
+
+
+def test_unknown_status_with_amount_fails_closed():
+    with pytest.raises(ValueError, match="must not carry"):
+        calculate_execution_total_charges(
+            brokerage="20.00", stt="0.20", exchange_charges="3.07",
+            sebi_charges="0.10", stamp_duty="0.15", gst="4.23",
+            demat_transaction_charges="20.00", demat_charge_status="UNKNOWN",
+        )
+
+
+def test_unknown_is_not_interpreted_as_zero_or_complete():
+    row = execution(demat_charge_status="UNKNOWN", demat_transaction_charges=None)
+    subtotal = recompute_execution_total_charges(row)
+    assert subtotal == Decimal("27.75")
+    assert not execution_charge_total_is_complete(row)

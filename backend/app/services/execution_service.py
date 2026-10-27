@@ -359,6 +359,11 @@ class ExecutionService:
             stamp_duty=costs.stamp_duty,
             gst=costs.gst,
             demat_transaction_charges=None,
+            demat_charge_status=(
+                "UNKNOWN"
+                if req.segment == Segment.EQUITY_DELIVERY and req.side == Side.SELL
+                else "NOT_APPLICABLE"
+            ),
             total_charges=costs.total_charges,
             realized_pnl=update.realized_pnl,
             executed_at=now,

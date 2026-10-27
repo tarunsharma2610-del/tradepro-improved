@@ -684,3 +684,9 @@ Code now includes a generic public-schedule estimate function for source-backed 
 - Optional `demat_transaction_charges` can now be represented as a distinct pending canonical snapshot and allocated into the durable per-fill allocation ledger when source rows are independently reviewed. Migration expands the canonical snapshot vocabulary. It does **not** authorize final accounting: DP/demat reconciliation promotion deliberately fails closed until Execution persistence and total-charge recomputation are implemented.
 - Next Phase 3 gate: add dedicated optional Execution DP/demat persistence and a single verified total-charge recomputation path, with migration/idempotency/rollback and delivery-vs-non-delivery tests. Keep actual invoice/per-fill acceptance evidence-gated; no personal contract note is required.
 - Safety unchanged: PR #6/#7 Draft and unmerged; PAPER mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; original `tarunsharma2610-del/Tradepro` untouched and out of scope.
+
+## Verified checkpoint — 27 October 2026 (DP/demat completeness)
+
+- Backend CI #40459846143 succeeded on code/test commit `9400bc9aa221e2cf3b735e49a8e9a6d351237f02`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40459846143. Backend pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic PostgreSQL/document-volume restore checks passed.
+- DP completeness regression now checks invalid status serialization through `ExecutionOut`; status/amount inconsistencies and ineligible DP manifests remain fail-closed. Next gate: per-fill mapping, replay conflict/idempotency, rollback atomicity, and component applicability.
+- Real contract-note and production Oracle backup/restore acceptance deferred until genuine evidence exists. Safety unchanged: target `tradepro-improved` only; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled.

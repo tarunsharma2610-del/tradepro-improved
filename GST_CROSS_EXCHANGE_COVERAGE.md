@@ -125,3 +125,8 @@ Existing historical NSE IPFT tests already exercise the 31 March/1 April 2023 an
 ## Nested broker response field support — 27 October 2026
 
 The GST estimate comparison now accepts an exact dotted JSON field path, including the documented nested Upstox response shape such as `data.charges.gst`, rather than assuming GST is a top-level key. Intermediate missing/non-object paths fail closed as `MISSING`; explicit null stays `NULL`; numeric zero remains `ZERO`. Regression tests cover nested value, missing, null and malformed field paths. This remains an estimate comparison only and does not promote calculator output to booked per-fill accounting.
+
+
+## Exact nested API mapping hardening — 27 October 2026
+
+`resolve_charge_api_value` now extracts a value only from the exact approved dotted `field_path`. It no longer reads a top-level leaf-name value when the approved nested path is missing. This matters for Upstox responses such as `data.charges.gst`/`data.charges.ipft`: a similarly named field elsewhere in the payload cannot silently substitute. Tests cover nested extraction and the missing-path/no-leaf-fallback case. Mapping provenance and missing/null/invalid/zero distinctions remain intact.

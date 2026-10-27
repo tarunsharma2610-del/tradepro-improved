@@ -3296,3 +3296,9 @@ Documentation CI #40479568869, #40479578088 and #40479585940 passed. Review of t
 ## 27 October 2026 — correction: normalized canonical source-link schema already exists
 
 The durable source-link table is already implemented as `BrokerChargeCanonicalSourceLink` with migration `202610250025_normalize_canonical_source_links.py`; do not add a duplicate migration. The actual gap is workflow integration: `broker_charge_verified_allocation_persistence_service.py` still requires the six-component legacy set and rejects multi-source canonical plans. Next inspect snapshot creation/review to verify link persistence and revalidation; keep split mapping blocked unless its invariants can be proved. Prior documentation CI runs #40479568869, #40479578088 and #40479585940 passed; latest docs update requires its own CI.
+
+
+
+## 27 October 2026 — split-source canonical snapshot coverage clarified
+
+Docs commits `0ccfe419...`, `d8b62051...`, and `0468eb1c...` passed CI #40480367450, #40480378523 and #40480401549. Test review confirms the canonical snapshot workflow already supports split transaction/IPFT through snapshot creation, independent review, canonical allocation persistence and reconciliation; missing source-link rejection is tested. The older direct allocation adapter still rejects multi-source plans. Next inspect API/service callers to determine whether that legacy path is reachable and confirm routes use the reviewed snapshot path. Keep fail-closed behavior until wiring is verified.

@@ -887,3 +887,10 @@ Added a public-schedule GST estimate function for source-backed DRAFT/REVIEWED p
 - Optional `demat_transaction_charges` can now be represented as a distinct pending canonical snapshot and allocated into the durable per-fill allocation ledger when source rows are independently reviewed. Migration expands the canonical snapshot vocabulary. It does **not** authorize final accounting: DP/demat reconciliation promotion deliberately fails closed until Execution persistence and total-charge recomputation are implemented.
 - Next Phase 3 gate: add dedicated optional Execution DP/demat persistence and a single verified total-charge recomputation path, with migration/idempotency/rollback and delivery-vs-non-delivery tests. Keep actual invoice/per-fill acceptance evidence-gated; no personal contract note is required.
 - Safety unchanged: PR #6/#7 Draft and unmerged; PAPER mandatory; live broker order writes and automatic live-fill promotion/scheduling disabled; original `tarunsharma2610-del/Tradepro` untouched and out of scope.
+
+## Verified checkpoint — 27 October 2026 (DP/demat completeness)
+
+- Exact-head Backend CI #40459846143 passed on `9400bc9aa221e2cf3b735e49a8e9a6d351237f02`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40459846143. Backend pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic PostgreSQL/document-volume restore passed.
+- Regression verifies invalid DP status remains incomplete through API serialization. DP state consistency: `KNOWN` needs a valid paise-exact amount; `NOT_APPLICABLE` requires no amount; unknown/invalid/inconsistent states are incomplete. Eligible delivery SELL requires reviewed DP evidence and exact allocation.
+- Next review gate: source-to-canonical per-fill identity, deterministic paise allocation, identical/conflicting replay, atomic rollback and component applicability. Actual invoice-level GST/tariff acceptance remains separate from estimates and requires reviewed source evidence.
+- Safety: PAPER mandatory, live broker writes disabled, PR #6/#7 Draft/unmerged; original `Tradepro` repo untouched/out of scope.

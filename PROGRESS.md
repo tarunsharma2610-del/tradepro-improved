@@ -3227,3 +3227,9 @@ Added route-level tests for the authenticated Upstox charge API endpoints: estim
 - Existing charge-evidence models are specifically for integrity-checked source documents and independently reviewed source components. Do not store aggregate API replies as fake contract-note evidence.
 - Next: implement a dedicated owner-scoped aggregate API reconciliation record/migration with endpoint/version, request scope, fetched-at/status, response provenance/hash and sanitized payload; preserve missing/null/invalid/zero states; test authorization, idempotency, privacy and SQLite/PostgreSQL migration round-trips. This record remains reconciliation-only and must not create per-fill allocations or approve actual accounting.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+
+## 27 October 2026 — aggregate API reconciliation persistence implemented; CI pending
+
+Added an immutable owner-scoped aggregate API evidence model and migration `202610270030`, wired into the authenticated Upstox aggregate charges endpoint. Persists endpoint/scope/fetch status, response hash, sanitized payload and idempotency key. The route returns a record ID; no per-fill actual allocation or accounting promotion is possible from this evidence. Route tests assert ownership linkage, token stripping and duplicate-fetch idempotency. Code/test commit: `77bb07c0b6ee075e5e1eaa61ab0a5d138475953b`. Backend CI #40475498978 and #40475479511 were running at last check; exact-head CI and migration/safety/restore gates remain unverified until they complete. Continue with CI inspection/fixes, owner-isolation and immutability coverage, then sync docs to the confirmed green head.

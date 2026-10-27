@@ -72,8 +72,15 @@ def calculate_execution_total_charges(
 
 
 def execution_charge_total_is_complete(execution: Any) -> bool:
-    """Whether every applicable charge component is known for this execution."""
-    return getattr(execution, "demat_charge_status", "UNKNOWN") != "UNKNOWN"
+    """Whether DP applicability and amount are internally consistent and resolved."""
+    status = getattr(execution, "demat_charge_status", "UNKNOWN")
+    amount = getattr(execution, "demat_transaction_charges", None)
+    if status == "KNOWN":
+        return amount is not None
+    if status == "NOT_APPLICABLE":
+        return amount is None
+    # UNKNOWN, absent, or any invalid status must never make a subtotal look final.
+    return False
 
 
 def recompute_execution_total_charges(execution: Any) -> Decimal:

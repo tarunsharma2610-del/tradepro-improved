@@ -511,3 +511,16 @@ The API wiring audit found a concrete safety gap in `backend/app/api/v1/upstox_c
 - Next implementation gate: add/verify explicit API-to-engine comparison tests and source-backed historical IPFT boundary fixtures; preserve fail-closed behavior for unsupported BSE/MCX tariff scopes. Do not claim every exchange/product tariff is fully verified until those source scopes are implemented and tested.
 
 Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; PR #6/#7 remain Draft/unmerged; PAPER mode mandatory; live broker writes disabled.
+
+
+## GST/IPFT closure work — API comparison implementation, 27 October 2026
+
+- Added `backend/app/services/broker_gst_reconciliation.py` and `backend/tests/test_broker_gst_reconciliation.py` on this branch. The new service keeps broker-reported GST estimate separate from the independent statutory engine estimate and reports taxable base, tax type, variance and status.
+- Any non-zero API-vs-engine variance remains reviewable, including a 1-paise rounding difference; tolerance does not auto-approve. Missing, null and invalid API fields remain unavailable; explicit numeric zero is preserved and checked as a real value. Sub-paise INR GST is rejected.
+- Existing IPFT boundary tests already cover 31 Mar / 1 Apr 2023 and 28 Feb / 1 Mar 2026, including the old ₹50/crore period and the post-1 March 2026 ₹0.01/crore period. These are estimates for the guarded NSE equity-options scope only.
+- Latest implementation commits before documentation synchronization: service `729b8b19499173d70b2c9efaf682403f521acbcf`, tests initially `fea1b12fa84391307e66994f10cfbec8dcbcbec9`, variance-review hardening `527861ed8ca6b6ad3604d8bc2ab4e61981a1294d`, and test expectation `2a069fef64958e6f5d7bd4a9abb33d7c944f314b`.
+- Earlier baseline code/test head `64115efbcfd866fad68d67bd5abef4a0bc1b977f` passed Backend CI [#40547529549](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40547529549). CI for the new implementation and its documentation is pending; do not mark the newest head green until exact-head CI completes successfully.
+- Coverage document updated in `GST_CROSS_EXCHANGE_COVERAGE.md`; documentation commit `5721f5d351379ced73a10b3572cd6d783ab55881`. Check CI on the final checkpoint commit after this update.
+- Still outstanding for full Phase 3 acceptance: wire the comparison into the applicable API/data flow (without turning estimate values into actual accounting), prove the exact live Upstox response schema and mapping for the active API version, source/verify supported BSE/MCX tariff scopes, synchronize the maintained documents, and run exact-head CI. No live API request was made because authenticated user credentials are not available in this task context.
+
+Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; PR #6/#7 Draft/unmerged; PAPER mode mandatory; live broker order writes disabled.

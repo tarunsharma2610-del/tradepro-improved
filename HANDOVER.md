@@ -2494,3 +2494,9 @@ CI runs #40479568869, #40479578088 and #40479585940 passed for the latest docume
 ## Refined next step — source-link schema exists; workflow integration remains — 27 October 2026
 
 The normalized link model and migration already exist (`BrokerChargeCanonicalSourceLink`, `202610250025_normalize_canonical_source_links.py`). Do not duplicate the schema. The verified-allocation persistence service still validates the six-component set and rejects multi-source canonical plans, so the gap is safely integrating and revalidating source links through snapshot creation/review and allocation. Inspect those services/tests next; retain fail-closed behavior until atomic linkage, reviewer validation and paise reconciliation are proven. Prior CI #40479568869/#40479578088/#40479585940 passed; latest docs commits require their own CI. PAPER mandatory; live writes disabled; PR #6/#7 Draft/unmerged; original `Tradepro` untouched.
+
+
+
+## Split-source path handover — 27 October 2026
+
+CI #40480367450/#40480378523/#40480401549 passed on the prior documentation commits. Existing canonical snapshot tests already cover split transaction/IPFT, independent review, allocation persistence and missing source-link rejection. The legacy direct allocation adapter still blocks multi-source plans, so the next task is route/caller wiring audit—not duplicate schema or snapshot work. Verify all exposed APIs use the reviewed canonical snapshot path, retain fail-closed behavior, then check this documentation update's exact-head CI. PAPER mandatory; live writes disabled; PR #6/#7 Draft/unmerged; original `Tradepro` untouched.

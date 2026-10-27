@@ -37,6 +37,23 @@ def _endpoint_guard_identity(broker: str, endpoint: str) -> tuple[str, str]:
     return broker.casefold(), path
 
 
+def _normalize_mapped_field_path(payload: dict[str, Any], field_path: str) -> dict[str, Any]:
+    """Read only the exact approved dotted path; never fall back to a leaf-name match."""
+    if not isinstance(payload, dict):
+        raise ValueError("Charge API payload must be a JSON object.")
+    parts = field_path.split(".")
+    if not parts or any(not part for part in parts):
+        raise ValueError("Approved API field path must contain non-empty path segments.")
+    current: Any = payload
+    for part in parts[:-1]:
+        if not isinstance(current, dict) or part not in current:
+            return normalize_charge_api_field({}, parts[-1])
+        current = current[part]
+    if not isinstance(current, dict):
+        return normalize_charge_api_field({}, parts[-1])
+    return normalize_charge_api_field(current, parts[-1])
+
+
 def resolve_charge_api_value(
     payload: dict[str, Any],
     field: str,
@@ -58,7 +75,6 @@ def resolve_charge_api_value(
     including missing, null, and invalid values. This function does not promote
     an accounting allocation.
     """
-    normalized = normalize_charge_api_field(payload, field)
     mapping = select_charge_api_field_mapping(
         mappings,
         broker=broker,
@@ -70,6 +86,7 @@ def resolve_charge_api_value(
     )
     if field != mapping.field_path.rsplit(".", 1)[-1]:
         raise ValueError("Payload field does not match the approved mapping field path.")
+    normalized = _normalize_mapped_field_path(payload, mapping.field_path)
     if intended_use not in {"ESTIMATE", "AGGREGATE_SUMMARY", "PER_FILL_ACTUAL"}:
         raise ValueError("Unsupported intended use.")
     if intended_use == "PER_FILL_ACTUAL" and mapping.semantic != "PER_FILL_ACTUAL":

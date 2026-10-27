@@ -2513,3 +2513,12 @@ The API wiring audit found a concrete safety gap in `backend/app/api/v1/upstox_c
 - The aggregate Upstox charge API now applies `_sanitize_api_value` to the HTTP response payload as well as the persisted evidence. Route regression coverage asserts that `access_token` is not returned. Aggregate responses remain explicitly `per_fill_actual=False`; this is evidence capture/reconciliation, not per-fill accounting promotion.
 - Route-wiring audit continues: confirm exposed charge APIs cannot bypass independently reviewed canonical snapshots for split transaction/IPFT evidence. Existing fail-closed direct adapter remains unchanged.
 - The latest documentation commits triggered by this note need their own CI verification. Do not call this documentation revision green until those exact-head runs pass. Safety unchanged: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+## Handover — DP instrument applicability regression verified — 27 October 2026
+
+The DP/demat manifest eligibility query now requires `Instrument.instrument_type == "EQUITY"` independently of the order's segment label. This closes a case where a derivatives instrument could pass the DP-specific gate if order metadata incorrectly claimed equity delivery. Test `test_demat_manifest_rejects_non_equity_instrument_even_if_order_segment_says_delivery` covers that case.
+
+Implementation CI #40482878220 passed on `447e9703f4bcf43dc6392d0d3741caee7709ce95`; regression CI #40482895888 passed on `e62c9518df2edd9c80473b55f3a63a632a30121a`. Both include backend tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore verification. Continue by auditing the component applicability matrix for supported instrument/segment/product/side combinations; update the checkpoint and maintained docs after each green head. This documentation commit needs its own exact-head CI.
+
+Do not relax the six-component reconciliation contract, treat estimates as actuals, or bypass canonical source review. Production Oracle restore and genuine contract-note acceptance remain evidence-gated. PAPER mandatory; live broker writes disabled; PR #6/#7 Draft/unmerged; original `Tradepro` untouched/out of scope.

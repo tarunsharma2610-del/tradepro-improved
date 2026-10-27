@@ -14,7 +14,7 @@ from typing import Iterable, Mapping
 PAISE = Decimal("0.01")
 GST_RATE = Decimal("18.00")
 IPFT_MODES = frozenset({"COMBINED", "SEPARATE", "NOT_APPLICABLE"})
-REVIEW_STATES = frozenset({"DRAFT", "REVIEWED", "APPROVED", "REJECTED"})
+REVIEW_STATES = frozenset({"DRAFT", "REVIEWED", "APPROVED", "CONFLICT", "REJECTED"})
 
 
 @dataclass(frozen=True)
@@ -80,13 +80,18 @@ def select_gst_component_policy(
     trade_date: date,
 ) -> GstComponentPolicy:
     key = (broker, exchange, segment, product)
-    matches = [
+    scoped = [
         policy for policy in policies
         if (policy.broker, policy.exchange, policy.segment, policy.product) == key
-        and policy.review_status == "APPROVED"
         and policy.effective_from <= trade_date
         and (policy.effective_to is None or trade_date <= policy.effective_to)
+        and policy.review_status != "REJECTED"
     ]
+    # A conflicting source for this exact effective scope blocks selection even
+    # when an older approved record also matches. Review must resolve precedence.
+    if any(policy.review_status == "CONFLICT" for policy in scoped):
+        raise ValueError("Conflicting GST source policy is unresolved for the complete scope and date.")
+    matches = [policy for policy in scoped if policy.review_status == "APPROVED"]
     if not matches:
         raise ValueError("No approved GST component policy matches the complete scope and date.")
     if len(matches) != 1:
@@ -112,6 +117,8 @@ def calculate_gst_estimate(
             raise ValueError(f"GST component {name} must be a finite nonnegative amount.") from exc
         if not amount.is_finite() or amount < 0:
             raise ValueError(f"GST component {name} must be a finite nonnegative amount.")
+        if amount != amount.quantize(PAISE):
+            raise ValueError(f"GST component {name} must be expressed to paise precision.")
         parsed[name] = amount
     base = sum(parsed.values(), Decimal("0.00")).quantize(PAISE, rounding=ROUND_HALF_UP)
     gst = (base * GST_RATE / Decimal("100")).quantize(PAISE, rounding=ROUND_HALF_UP)

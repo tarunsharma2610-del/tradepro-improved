@@ -291,14 +291,14 @@ def accounting_context(db_session, make_user, monkeypatch):
     return db_session, user, portfolio, instrument, connection, order, child, record, paper_position
 
 
-def test_equity_delivery_sell_is_blocked_until_dp_is_reconciled(accounting_context):
+def test_equity_delivery_sell_rejects_missing_dp_snapshot(accounting_context):
     db, user, _portfolio, _instrument, _connection, order, _child, record, paper_position = accounting_context
     order.side = "SELL"
     record.side = "SELL"
     db.commit()
     charges = _reviewed_charges(accounting_context)
 
-    with pytest.raises(ValueError, match="DP/demat is independently reconciled per fill"):
+    with pytest.raises(ValueError, match="reviewed DP snapshot"):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
 
     assert db.query(Execution).count() == 0
@@ -409,7 +409,7 @@ def test_replay_with_same_trade_id_but_changed_fill_details_is_rejected(accounti
         (_charges(source=" BROKER_REPORTED"), "broker-reported charges"),
         (_charges(reference=" "), "audit reference"),
         (_charges(reference="x" * 201), "at most 200 characters"),
-        (_charges(total_charges=Decimal("99.00")), "sum of its six components"),
+        (_charges(total_charges=Decimal("99.00")), "sum of the six core components"),
         (_charges(brokerage=Decimal("-1.00"), total_charges=Decimal("2.86")), "non-negative"),
         (_charges(stt=Decimal("0.201"), total_charges=Decimal("23.861")), "paise precision"),
     ],
@@ -502,6 +502,28 @@ def test_caller_charge_amounts_must_match_reconciled_ledger(accounting_context):
     assert db.query(LivePosition).count() == 0
     db.refresh(paper_position)
     assert paper_position.quantity == 7
+
+
+
+def test_demat_charge_is_included_in_total_and_requires_paise_precision():
+    values = _charges(
+        demat_transaction_charges=Decimal("1.50"),
+        total_charges=Decimal("25.36"),
+    )
+    validated = LiveFillAccountingService._validate_charges(values)
+    assert validated["demat_transaction_charges"] == Decimal("1.50")
+    assert validated["total_charges"] == Decimal("25.36")
+
+
+def test_demat_charge_cannot_be_negative_or_fractional_paise():
+    with pytest.raises(ValueError, match="finite, non-negative and paise-exact"):
+        LiveFillAccountingService._validate_charges(
+            _charges(demat_transaction_charges=Decimal("-0.01"), total_charges=Decimal("23.85"))
+        )
+    with pytest.raises(ValueError, match="finite, non-negative and paise-exact"):
+        LiveFillAccountingService._validate_charges(
+            _charges(demat_transaction_charges=Decimal("1.501"), total_charges=Decimal("25.361"))
+        )
 
 
 def test_live_fill_promotion_requires_persisted_reviewed_evidence(accounting_context):

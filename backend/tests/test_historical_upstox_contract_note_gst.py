@@ -61,9 +61,10 @@ def test_historical_upstox_contract_note_gst_reconciles(
     assert brokerage_igst + charges_igst == total_igst
 
     # Independent statutory valuation primitive must reproduce the same total
-    # tax for this cross-state invoice when supplied the explicitly disclosed
-    # taxable components. GSTIN in the supplied note identifies Maharashtra
-    # supplier state (27); invoice shows IGST, hence recipient place differs.
+    # tax when supplied the explicitly disclosed taxable components. The
+    # supplied invoice shows IGST and identifies a Maharashtra supplier (27).
+    # Recipient state 29 here is a synthetic cross-state test input, not a
+    # claim that the transcribed invoice disclosed the recipient's state.
     result = calculate_statutory_stock_broking_gst(
         [
             GstValuationLine("brokerage", brokerage),

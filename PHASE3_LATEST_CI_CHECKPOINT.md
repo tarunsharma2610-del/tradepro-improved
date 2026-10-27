@@ -300,3 +300,10 @@ The practical route is API-first, not another loop of public research and not wa
 
 - Added tests at commit `688cb70e2d64b866fbb9b6f19c7675ab764a0ecf` for cross-owner connection isolation (the aggregate API must not be called for a connection owned by another user) and immutable snapshot behavior (updates must fail and original evidence remain unchanged after rollback).
 - The prior implementation head `77bb07c...` has confirmed green Backend CI #40475498978, including pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore. The new test commit does not inherit that CI result. No CI run was visible for `688cb70...` at checkpoint refresh; verify the run on this exact head before marking the new regression coverage green.
+
+
+## CI failure and corrective test fix — 27 October 2026
+
+- Regression-test CI failed on commits `5f3a68a...` / `93a7984...`: **1 failed, 1128 passed**. Failure was in the new cross-owner test because fixture `make_user()` defaults to the same email (`tester@example.com`), so creating a second user violated the unique email constraint before exercising ownership logic.
+- Corrected test to create `owner@example.com` and `other-owner@example.com` in commit `977ad6b7e6eeae1346b28c03c2d83bb62ec93910`. This is a test-fixture correction, not an application/accounting change. Exact-head CI is pending and must pass before accepting this coverage.
+- The other failure was not observed; the job summary shows 1 failure and 1128 passes. Migration/safety/restore steps were skipped because pytest failed. Do not claim the new head green until the entire workflow succeeds.

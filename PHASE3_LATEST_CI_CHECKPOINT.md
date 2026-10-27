@@ -4,25 +4,25 @@
 
 - **Repository:** `tarunsharma2610-del/tradepro-improved`
 - **Branch / PR:** `phase3/cross-broker-gst-ipft-resolution` / PR #7 (Draft, unmerged)
-- **Code/test head:** `b0d6262f77da1b803bc3e95a178d46a5ff8f2d44`
-- **Backend CI:** [#40458015093 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40458015093)
-- **Test result:** 1,091 passed, 1 warning.
+- **Code/test head:** `8feeb0cbb0c35e1e37012302c9075d43f1f33eb1`
+- **Backend CI:** [#40458822529 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40458822529)
+- **Test result:** 1,097 passed, 1 warning.
 - **Verified gates:** broker-write boundary; SQLite migration upgrade/downgrade/re-upgrade; PostgreSQL 16 migration upgrade/downgrade/re-upgrade; synthetic PostgreSQL + document-volume restore; restore evidence retention.
 
 ## Documentation synchronization
 
-Existing maintained project documents were synchronized after the green code result, including handover, progress, master roadmap, project instructions, audit, architecture, requirements, changelog, roadmap, security, GST/IPFT acceptance/research/source registers, README, safeguards, Upstox evidence, Bhav audit, and the Algory AI-integration plan.
+Existing maintained Phase 3 documents were synchronized after the green code result, including handover, progress, master roadmap, project instructions, audit, architecture, requirements, changelog, roadmap, security, GST/IPFT acceptance/research/source registers, README, safeguards, Upstox evidence, Bhav audit, and the Algory AI-integration plan.
 
-- Last multi-document synchronization commit: `5bec10c28a51cbe56def43fd606c086335532732`
-- This checkpoint refresh is the final documentation commit for the current increment. Exact-head CI must pass on this final checkpoint commit before the documentation head is marked green.
-- PR #7 description has been updated to reflect DP integration and the latest code CI; PR remains Draft/unmerged.
+- Last multi-document synchronization commit: `00f919af6635f40ddfcf3ac6f8b8dcd20441671d`
+- This checkpoint refresh is the final documentation commit for this increment. Exact-head CI must pass on this final checkpoint commit before the documentation head is marked green.
+- PR #7 description has been updated to reflect DP integration and latest verified code CI; PR remains Draft/unmerged.
 - Three candidate root paths (`TARIFF_RULE_SOURCE_REGISTER.md`, `SECURITY_AUDIT.md`, `PHASE3_ACCOUNTING_ACCEPTANCE.md`) were not present and were not created.
 
-## Latest increment: DP status and manifest eligibility
+## Latest increment: DP amount validity and manifest eligibility
 
-- `Execution.total_charges_complete` and `execution_charge_total_is_complete` now return complete only for a consistent `KNOWN` state with an explicit amount, or `NOT_APPLICABLE` with no amount. Unknown, invalid or inconsistent states fail closed.
-- DP canonical manifests are validated against the persisted broker trade → child order → local order mapping. Every manifest fill must belong to the reviewed broker connection, and both trade and local order must be SELL with the order segment `EQUITY_DELIVERY`.
-- Added regressions for invalid/inconsistent DP status/amount pairs, plus DP manifest rejection for BUY trades, intraday orders and mismatched order/trade sides, and acceptance of a correctly mapped delivery SELL.
+- `Execution.total_charges_complete` and `execution_charge_total_is_complete` return complete only for a consistent `KNOWN` state with an explicit finite, nonnegative, paise-exact amount, or `NOT_APPLICABLE` with no amount. Unknown, invalid or inconsistent states fail closed.
+- DP canonical manifests are checked against persisted broker trade → child order → local order mappings. Every manifest fill must belong to the reviewed broker connection, and both trade and local order must be SELL with local order segment `EQUITY_DELIVERY`.
+- Added regressions for invalid/inconsistent status/amount pairs (including NaN, negative and fractional-paise amounts), plus DP manifest rejection for BUY trades, intraday orders and mismatched order/trade sides, and acceptance of a correctly mapped delivery SELL.
 
 ## DP/demat accounting already implemented
 

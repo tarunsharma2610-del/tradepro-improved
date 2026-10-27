@@ -3315,3 +3315,12 @@ The API wiring audit found a concrete safety gap in `backend/app/api/v1/upstox_c
 - The aggregate Upstox charge API now applies `_sanitize_api_value` to the HTTP response payload as well as the persisted evidence. Route regression coverage asserts that `access_token` is not returned. Aggregate responses remain explicitly `per_fill_actual=False`; this is evidence capture/reconciliation, not per-fill accounting promotion.
 - Route-wiring audit continues: confirm exposed charge APIs cannot bypass independently reviewed canonical snapshots for split transaction/IPFT evidence. Existing fail-closed direct adapter remains unchanged.
 - The latest documentation commits triggered by this note need their own CI verification. Do not call this documentation revision green until those exact-head runs pass. Safety unchanged: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+## 27 October 2026 — DP instrument eligibility hardened and CI verified
+
+- Found and fixed a distinct applicability gap: DP/demat manifest eligibility now independently requires the underlying instrument classification to be `EQUITY`, in addition to delivery segment, SELL side, exact instrument-token mapping, connection mapping and ownership.
+- Regression test rejects an OPTIONS instrument mislabeled by its order segment as an equity-delivery SELL.
+- Implementation commit `447e9703f4bcf43dc6392d0d3741caee7709ce95` passed CI #40482878220; test commit `e62c9518df2edd9c80473b55f3a63a632a30121a` passed exact-head CI #40482895888. Both workflows succeeded, including backend tests, broker-write safety, SQLite/PostgreSQL 16 migration checks and synthetic restore verification.
+- Next: finish applicability audit across supported instrument/segment/product/side combinations, then update all maintained Phase 3 documents and verify the resulting documentation head. This doc update needs its own CI.
+- Production Oracle restore and genuine contract-note acceptance remain deferred until evidence exists. GST/IPFT tariff approval remains separate. PAPER mandatory, live writes disabled, PR #6/#7 Draft/unmerged, original Tradepro out of scope.

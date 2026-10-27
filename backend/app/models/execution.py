@@ -41,8 +41,12 @@ class Execution(BaseModel):
     sebi_charges: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     stamp_duty: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     gst: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
-    # Nullable so historical/non-delivery rows do not fabricate a DP/demat amount.
+    # A missing amount is not enough to distinguish unknown from not applicable.
+    # Status is explicit so delivery-sell DP charges cannot be silently treated as zero.
     demat_transaction_charges: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    demat_charge_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="UNKNOWN", server_default="UNKNOWN"
+    )
     total_charges: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
 
     # Paper fills default to estimated charges; live promotion requires audited broker-reported charges.

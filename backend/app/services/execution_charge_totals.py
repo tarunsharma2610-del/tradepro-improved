@@ -72,21 +72,30 @@ def calculate_execution_total_charges(
 
 
 def execution_charge_total_is_complete(execution: Any) -> bool:
-    """Whether DP applicability and amount are internally consistent and resolved."""
+    """Whether all persisted charge components, total, and DP state reconcile."""
     status = getattr(execution, "demat_charge_status", "UNKNOWN")
     amount = getattr(execution, "demat_transaction_charges", None)
-    if status == "KNOWN":
-        if amount is None:
-            return False
-        try:
-            _amount("demat_transaction_charges", amount)
-        except ValueError:
-            return False
-        return True
-    if status == "NOT_APPLICABLE":
-        return amount is None
-    # UNKNOWN, absent, or any invalid status must never make a subtotal look final.
-    return False
+    if status not in {"KNOWN", "NOT_APPLICABLE"}:
+        return False
+    if status == "KNOWN" and amount is None:
+        return False
+    if status == "NOT_APPLICABLE" and amount is not None:
+        return False
+    try:
+        expected = calculate_execution_total_charges(
+            brokerage=getattr(execution, "brokerage", None),
+            stt=getattr(execution, "stt", None),
+            exchange_charges=getattr(execution, "exchange_charges", None),
+            sebi_charges=getattr(execution, "sebi_charges", None),
+            stamp_duty=getattr(execution, "stamp_duty", None),
+            gst=getattr(execution, "gst", None),
+            demat_transaction_charges=amount,
+            demat_charge_status=status,
+        )
+        stored_total = _amount("total_charges", getattr(execution, "total_charges", None))
+    except (ValueError, TypeError):
+        return False
+    return stored_total == expected
 
 
 def recompute_execution_total_charges(execution: Any) -> Decimal:

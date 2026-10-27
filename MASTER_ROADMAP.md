@@ -2052,3 +2052,11 @@ Code now includes a generic public-schedule estimate function for source-backed 
 - Canonical verifier validates exact manifest fill-set, status, connection, INR currency, allocation basis/method, source total and deterministic paise amount. Existing tests cover missing components, non-reconciled rows, replay conflicts/idempotency and post-commit retry.
 - Next: explicitly verify fill-set mismatch and rollback assertions, then component applicability. Statutory GST/IPFT acceptance remains separate from estimates. Real contract-note and Oracle production restore remain evidence-gated.
 - Safety: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled.
+
+
+## Phase 3 checkpoint — DP/demat instrument applicability — 27 October 2026
+
+- DP/demat eligibility now checks the underlying instrument is classified as `EQUITY`, not just that the order segment says `EQUITY_DELIVERY` and side is SELL. Regression coverage rejects an OPTIONS instrument with misleading delivery-order metadata.
+- Backend CI #40482878220 passed on implementation commit `447e9703f4bcf43dc6392d0d3741caee7709ce95`; exact-head CI #40482895888 passed on test commit `e62c9518df2edd9c80473b55f3a63a632a30121a`. Migration round-trips, broker-write safety and synthetic restore checks passed in both workflows.
+- Next Phase 3 gate: complete component-applicability audit across supported instrument/segment/product/side combinations; retain fail-closed handling for missing or inapplicable charges. GST/IPFT statutory/source approval and real-evidence acceptance remain separate gates.
+- Safety unchanged: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled. This roadmap edit needs exact-head CI.

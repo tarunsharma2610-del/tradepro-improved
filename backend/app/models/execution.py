@@ -78,3 +78,8 @@ class Execution(BaseModel):
     realized_pnl: Mapped[float] = mapped_column(Numeric(18, 2), default=0, nullable=False)
 
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    @property
+    def total_charges_complete(self) -> bool:
+        """False when DP/demat applicability or amount remains unresolved."""
+        return self.demat_charge_status != "UNKNOWN"

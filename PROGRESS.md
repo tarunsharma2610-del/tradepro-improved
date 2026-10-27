@@ -3260,3 +3260,9 @@ Added tests at `91212a0224f3bf4a01bff06c14764a404c1cbc67` for explicit zero vers
 ## 27 October 2026 — GST policy edge tests verified green
 
 Commit `91212a0224f3bf4a01bff06c14764a404c1cbc67` passed Backend CI #40477899628, including pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and retained evidence. Documentation-triggered Backend CI runs #40477921259 and #40477930671 also completed successfully. The tests cover explicit zero vs missing components, invalid/nonfinite/negative amounts and effective-date boundaries. Upstox candidate approval and Phase 3 completion remain gated; continue targeted review of variance/replay/rollback and component applicability.
+
+
+
+## 27 October 2026 — GST scope and rounding tests added; CI pending
+
+Added tests in `c010b7d010351465b87f8e6d844fc9171dfc5dad` for paise-level GST half-up rounding and rejection of policy scope mismatches across broker/exchange/segment/product. Exact-head CI is pending; prior green remains `91212a0224f3bf4a01bff06c14764a404c1cbc67` with Backend CI #40477899628. Existing variance coverage already exercises fill-set identity, quantity/date mismatch, response digest and conflicting replay.

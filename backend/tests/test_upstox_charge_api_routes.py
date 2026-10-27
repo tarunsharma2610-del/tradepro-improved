@@ -1,9 +1,13 @@
 from datetime import date
+import json
+import uuid
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
 
 from app.core.deps import get_current_user, get_db
+from app.models.broker_connection import BrokerConnection
+from app.models.broker_api_reconciliation_record import BrokerApiReconciliationRecord
 from app.main import app
 from app.services.upstox_charge_api_orchestration_service import ChargeApiEnvelope
 
@@ -75,6 +79,18 @@ def test_aggregate_route_never_labels_response_as_per_fill_actual(db_session, ma
     from app.api.v1 import upstox_charges
 
     user = make_user()
+    connection = BrokerConnection(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        broker="upstox",
+        api_key_encrypted="test-encrypted-key",
+        api_secret_encrypted="test-encrypted-secret",
+        redirect_uri="http://localhost/callback",
+        is_connected=True,
+        access_token_encrypted="test-encrypted-token",
+    )
+    db_session.add(connection)
+    db_session.commit()
     _overrides(db_session, user)
     monkeypatch.setattr(upstox_charges, "_connected_token", lambda db, user_id: "server-side-token")
 
@@ -89,7 +105,7 @@ def test_aggregate_route_never_labels_response_as_per_fill_actual(db_session, ma
                 per_fill_actual=False,
                 trade_date=None,
                 scope={"segment": "FO", "financial_year": "2627"},
-                payload={"data": {"total_charges": 20.15}},
+                payload={"data": {"total_charges": 20.15, "access_token": "must-not-persist"}},
                 status_code=200,
             )
 
@@ -106,6 +122,26 @@ def test_aggregate_route_never_labels_response_as_per_fill_actual(db_session, ma
         assert body["per_fill_actual"] is False
         assert body["trade_date"] is None
         assert body["payload"]["data"]["total_charges"] == 20.15
+        record_id = body["reconciliation_record_id"]
+        assert record_id
+        record = db_session.query(BrokerApiReconciliationRecord).filter_by(id=uuid.UUID(record_id)).one()
+        assert record.user_id == user.id
+        assert record.broker_connection_id == connection.id
+        assert record.evidence_kind == "AGGREGATE_RECONCILIATION_ONLY"
+        assert record.per_fill_actual is False
+        assert record.response_sha256
+        assert "must-not-persist" not in record.response_json
+        assert "access_token" not in record.response_json
+        assert json.loads(record.response_json)["payload"]["data"]["total_charges"] == 20.15
+
+        # Same owner, connection, scope and response are idempotent.
+        second = client.get(
+            "/api/v1/upstox/charges/aggregate",
+            params={"segment": "FO", "financial_year": "2627"},
+        )
+        assert second.status_code == 200, second.text
+        assert second.json()["reconciliation_record_id"] == record_id
+        assert db_session.query(BrokerApiReconciliationRecord).count() == 1
     finally:
         _clear_overrides()
 

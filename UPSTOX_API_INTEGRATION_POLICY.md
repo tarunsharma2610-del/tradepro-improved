@@ -308,3 +308,8 @@ The user has explicitly asked that the existing charge APIs be integrated now ra
 ### Implementation update — 27 October 2026
 
 Added `app/services/upstox_charge_api_orchestration_service.py` plus focused tests. The service wraps the existing read-only client, preserves scope/status/payload and makes endpoint semantics explicit: brokerage calculator = estimate only; trade charges = aggregate reconciliation only; neither is per-fill actual evidence. This is a safe first integration seam, not completion of UI/API route or accounting-ledger wiring. Next, connect the service to the existing read-only reconciliation path and persist aggregate context without promoting it to per-fill charges. Confirm exact-head CI before marking this increment green.
+
+
+### Authenticated route wiring — 27 October 2026
+
+Added authenticated read-only routes `GET /api/v1/upstox/charges/brokerage-estimate` and `GET /api/v1/upstox/charges/aggregate`, registered in the API router. The handlers scope broker connection lookup to the authenticated user, decrypt the token server-side, and use the fixed GET-only client. Response classification remains estimate-only versus aggregate reconciliation only; neither endpoint returns per-fill-actual eligibility. No order-write method was added. Route-level tests and latest-head CI remain pending; this is not yet persistence into the charge evidence ledger or accounting promotion.

@@ -2035,3 +2035,10 @@ Continue the Phase 3 component-applicability audit without duplicating existing 
 - This clarifies evidence scope; it does not change GST/IPFT policy or establish that the broker billed incorrectly. Personal identifiers and account-specific figures are intentionally not copied into this repository note.
 - Latest code/test head before documentation sync: `9eb278588b78d2a966cc196c15d7a4d9a6ae8868`; Backend CI [#40505176395 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40505176395). This documentation update requires exact-head CI before it is marked green.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+## Historical contract-note GST handling — 27 October 2026
+
+- Use the five January 2023 Upstox contract-note fixtures in `backend/tests/test_historical_upstox_contract_note_gst.py` as daily aggregate regression evidence.
+- Do not apply current IPFT rates retroactively; select policy by trade date. The provided note transcription does not separately disclose IPFT, which is not evidence of a zero amount.
+- Keep invoice actuals, aggregate API summaries and current brokerage-calculator estimates semantically separate. Do not convert daily totals to per-fill values without reviewed source-row mapping and allocation evidence.
+- New fixture commits: `98f14aef1b3b541c2a6e07beb227b6f3f0471a42`, `547917868d28d3f46f1f549a8daa50d57fc4542d`. Verify exact-head CI before marking this increment green.

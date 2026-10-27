@@ -2488,3 +2488,9 @@ Backend CI #40479126107 on `432a3d37...` and #40479142058 on `3f29c70b...` passe
 ## Source-to-canonical mapping checkpoint — 27 October 2026
 
 CI runs #40479568869, #40479578088 and #40479585940 passed for the latest documentation commits. Canonical planning validates source provenance, independent review, shared fill manifest/fingerprint and explicit weights; plans are not accounting-approved. Split transaction/IPFT rows cannot be persisted in the six-component accounting model until a durable canonical-source relationship is added. Next design/review that migration and its SQLite/PostgreSQL tests before enabling split-row persistence. Preserve fail-closed behavior and statutory approval gates. PAPER mandatory, live writes disabled, PR #6/#7 Draft/unmerged, original `Tradepro` untouched.
+
+
+
+## Refined next step — source-link schema exists; workflow integration remains — 27 October 2026
+
+The normalized link model and migration already exist (`BrokerChargeCanonicalSourceLink`, `202610250025_normalize_canonical_source_links.py`). Do not duplicate the schema. The verified-allocation persistence service still validates the six-component set and rejects multi-source canonical plans, so the gap is safely integrating and revalidating source links through snapshot creation/review and allocation. Inspect those services/tests next; retain fail-closed behavior until atomic linkage, reviewer validation and paise reconciliation are proven. Prior CI #40479568869/#40479578088/#40479585940 passed; latest docs commits require their own CI. PAPER mandatory; live writes disabled; PR #6/#7 Draft/unmerged; original `Tradepro` untouched.

@@ -1,3 +1,5 @@
+<!-- Resume update 27 Oct 2026: DP charge-status hardening added at code head 06681ea5e1df3888cce790ff06cf981292e726f1. Exact-head Backend CI #40454082765 was in progress; do not call green yet. Unknown DP is now distinct from NOT_APPLICABLE/KNOWN; total completeness helper and migration 202610270029 added. Resume by checking CI, then continue DP API completeness + durable per-fill allocation/reconciliation audit. GST/IPFT not restarted. PR #6/#7 Draft/unmerged; PAPER only; live writes disabled; original Tradepro out of scope. -->
+
 <!-- Phase 3 continuation sync: 27 October 2026. Latest verified code/test head: 31ce2a10bcc789c223608c6566082b24aea7358c; Backend CI #40383076131 SUCCESS. Latest checkpoint-document commit: 61f23e5ce714c37a97f996f5f75c1963cc1136e6; docs-head CI #40383798007 must be checked for final conclusion. DP/demat Execution persistence and central charge-total recomputation are implemented; next gate is focused accounting audit. GST/IPFT implementation is not being restarted. PR #6/#7 stay Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. -->
 
 

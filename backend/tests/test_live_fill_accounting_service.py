@@ -523,7 +523,7 @@ def test_separately_reported_ipft_component_blocks_six_component_live_promotion(
     ))
     db.commit()
 
-    with pytest.raises(ValueError, match="exactly six canonical per-fill charge allocations"):
+    with pytest.raises(ValueError, match="exactly the applicable canonical per-fill allocations"):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0

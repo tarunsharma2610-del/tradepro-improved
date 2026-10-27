@@ -636,6 +636,7 @@ class LiveFillAccountingService:
                 Order.segment,
                 Order.side,
                 Instrument.instrument_key,
+                Instrument.instrument_type,
                 BrokerConnection.broker,
                 BrokerConnection.user_id,
                 Portfolio.user_id,
@@ -655,6 +656,7 @@ class LiveFillAccountingService:
             or segment != "EQUITY_DELIVERY"
             or order_side != "SELL"
             or trade_instrument_token != local_instrument_key
+            or instrument_type != "EQUITY"
             or child_broker_name != connection_broker
             or portfolio_user_id != connection_user_id
             for (
@@ -667,6 +669,7 @@ class LiveFillAccountingService:
                 segment,
                 order_side,
                 local_instrument_key,
+                instrument_type,
                 connection_broker,
                 connection_user_id,
                 portfolio_user_id,

@@ -159,6 +159,9 @@ CONDITIONAL_COMPONENTS = frozenset({
     "dp_charges",
     "demat_transaction_charge",
     "depository_participant_charge",
+    # IPFT is product-, exchange-, basis- and effective-date-specific. It must
+    # use the guarded helper below, never a generic rate × arbitrary base.
+    "ipft",
 })
 
 
@@ -218,6 +221,46 @@ def calculate_stt_for_trade(
     if rule.rate_unit != "PERCENT":
         raise ValueError("STT requires a percentage-based approved rule.")
     return _calculate_rate_amount(rule, calculation_base)
+
+
+def calculate_ipft_estimate_for_scope(
+    rules: Iterable[TariffRule],
+    *,
+    broker: str,
+    exchange: str,
+    segment: str,
+    product: str,
+    transaction_side: str,
+    trade_date: date,
+    premium_value_base: Decimal | str | int | float,
+) -> tuple[TariffRule, Decimal]:
+    """Estimate NSE equity-options IPFT using one explicit premium-value scope.
+
+    The caller must supply a premium-value base whose aggregation scope matches
+    the selected source rule (for example, a documented side/period scope).
+    This helper does not decide aggregation, allocate aggregate amounts to fills,
+    or establish actual booked charges. It deliberately supports only NSE equity
+    options and a rupees-per-crore premium-value rule.
+    """
+    if exchange != "NSE" or segment != "FO" or product != "OPTIONS":
+        raise ValueError("IPFT estimate supports only NSE equity options in FO.")
+    if transaction_side not in {"BUY", "SELL"}:
+        raise ValueError("IPFT estimate requires an explicit BUY or SELL side.")
+    rule = select_tariff_rule(
+        rules,
+        component="ipft",
+        broker=broker,
+        exchange=exchange,
+        segment=segment,
+        product=product,
+        transaction_side=transaction_side,
+        calculation_basis="PREMIUM",
+        trade_date=trade_date,
+    )
+    if rule.rate_unit != "INR_PER_CRORE":
+        raise ValueError("NSE equity-options IPFT requires INR_PER_CRORE.")
+    amount = _calculate_rate_amount(rule, premium_value_base)
+    return rule, amount
 
 
 def calculate_tariff_amount(

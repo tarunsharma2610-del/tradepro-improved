@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from app.schemas.instrument import InstrumentBrief
 
@@ -70,6 +70,13 @@ class ExecutionOut(BaseModel):
     demat_transaction_charges: Decimal | None
     demat_charge_status: str
     total_charges: Decimal
-    total_charges_complete: bool
     realized_pnl: Decimal
     executed_at: datetime
+
+    @computed_field
+    @property
+    def total_charges_complete(self) -> bool:
+        """Derive completeness from validated persisted charge values."""
+        from app.services.execution_charge_totals import execution_charge_total_is_complete
+
+        return execution_charge_total_is_complete(self)

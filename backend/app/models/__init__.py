@@ -9,6 +9,7 @@ from app.models.broker_charge_source_component import BrokerChargeSourceComponen
 from app.models.broker_charge_canonical_component import BrokerChargeCanonicalComponent  # noqa: F401
 from app.models.broker_charge_canonical_source_link import BrokerChargeCanonicalSourceLink  # noqa: F401
 from app.models.tariff_estimate_snapshot_record import TariffEstimateSnapshotRecord  # noqa: F401
+from app.models.broker_api_reconciliation_record import BrokerApiReconciliationRecord  # noqa: F401
 from app.models.tariff_estimate_variance_record import TariffEstimateVarianceRecord  # noqa: F401
 from app.models.live_position import LivePosition  # noqa: F401
 from app.models.platform_setting import PlatformSetting  # noqa: F401
@@ -36,6 +37,7 @@ __all__ = [
     "BrokerChargeAllocation",
     "BrokerChargeSourceComponent",
     "TariffEstimateSnapshotRecord",
+    "BrokerApiReconciliationRecord",
     "TariffEstimateVarianceRecord",
     "LivePosition",
     "PlatformSetting",

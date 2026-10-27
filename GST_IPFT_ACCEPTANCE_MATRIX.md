@@ -240,3 +240,11 @@ Added `backend/tests/test_upstox_charge_api_routes.py` for authenticated estimat
 - This is an evidence-scope clarification, not a change to GST/IPFT policy or a declaration that the broker billed incorrectly. No personal identifiers or account-specific figures are copied into this repository note.
 - Latest code/test head remains `9eb278588b78d2a966cc196c15d7a4d9a6ae8868`; Backend CI [#40505176395 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40505176395). This documentation sync creates a new head and requires its own exact-head CI before it is marked green.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft and unmerged; PAPER mandatory; live broker order writes disabled.
+
+## Historical Upstox invoice evidence — 27 October 2026
+
+- User-provided text for five January 2023 daily contract notes explicitly gives taxable value as brokerage + transaction charges + SEBI fees. The disclosed brokerage GST and GST on charges reproduce at 18%, rounded to paise, for all five dates.
+- Regression fixture: `backend/tests/test_historical_upstox_contract_note_gst.py`; commits `98f14aef1b3b541c2a6e07beb227b6f3f0471a42` and `547917868d28d3f46f1f549a8daa50d57fc4542d`.
+- The transcribed daily notes do not separately label IPFT. This does not prove zero IPFT and does not establish whether it was bundled within the transaction/other-charge figure. Keep this unknown distinct from zero; don't force a per-fill allocation from a daily aggregate.
+- The annual statement's displayed GST-on-charges differs by ₹0.02 from recomputing 18% solely from its rounded displayed transaction charges + SEBI fees. Treat this as an aggregate reconciliation variance, not evidence of broker error; don't insert an arbitrary two-paise adjustment. Daily invoice cases reconcile.
+- Effective-dated IPFT tariff and GST policy must remain distinct from the current Upstox calculator estimate. Exact-head CI for the fixture and documentation refresh is pending verification.

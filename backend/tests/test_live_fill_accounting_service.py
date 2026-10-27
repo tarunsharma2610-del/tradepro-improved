@@ -291,6 +291,22 @@ def accounting_context(db_session, make_user, monkeypatch):
     return db_session, user, portfolio, instrument, connection, order, child, record, paper_position
 
 
+def test_equity_delivery_sell_is_blocked_until_dp_is_reconciled(accounting_context):
+    db, user, _portfolio, _instrument, _connection, order, _child, record, paper_position = accounting_context
+    order.side = "SELL"
+    record.side = "SELL"
+    db.commit()
+    charges = _reviewed_charges(accounting_context)
+
+    with pytest.raises(ValueError, match="DP/demat is independently reconciled per fill"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
 def test_promote_live_trade_atomically_updates_live_position_and_execution_only(accounting_context):
     db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
     cash_before = Decimal(str(portfolio.cash_balance))

@@ -283,3 +283,14 @@ The practical route is API-first, not another loop of public research and not wa
 - Code/test commit `77bb07c0b6ee075e5e1eaa61ab0a5d138475953b`; Backend CI [#40475498978](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40475498978) was in progress at checkpoint refresh. An earlier model/migration commit is also under CI [#40475479511](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40475479511). **Do not mark this increment green until exact-head CI finishes successfully**, including SQLite/PostgreSQL migration round-trips, broker-write boundary and synthetic restore.
 - Remaining validation: inspect CI results; fix any failures; add/finalize tests for owner isolation and immutable-record behavior if gaps remain; update maintained docs/checkpoint to the exact green head. Production Oracle restore and genuine contract-note acceptance remain deferred until evidence exists.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 remain Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+
+## Confirmed green checkpoint — aggregate API reconciliation persistence — 27 October 2026
+
+- **Verified green code/test head:** `77bb07c0b6ee075e5e1eaa61ab0a5d138475953b` — [Backend CI #40475498978 SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40475498978).
+- Confirmed job steps all succeeded: backend pytest, broker-write boundary, SQLite Alembic upgrade/downgrade/re-upgrade, PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, isolated synthetic PostgreSQL + document-volume restore, and retained synthetic restore evidence.
+- The green result applies to code/test head `77bb07c...`; subsequent documentation commits have separate CI runs and are not implied green by this result.
+- Implementation in this checkpoint: dedicated `BrokerApiReconciliationRecord`, migration `202610270030`, authenticated Upstox aggregate route persistence, sanitized response payload, response SHA-256, owner/connection linkage, idempotency and route regression assertions. Aggregate records remain reconciliation-only; no per-fill allocation or actual accounting promotion.
+- Next: finish explicit cross-owner isolation and immutable-record regression coverage; check latest documentation CI separately. Then proceed to next Phase 3 accounting acceptance gaps (component applicability, per-fill identity/paise totals, replay/rollback, effective-dated tariff and statutory GST/IPFT rule verification). Do not claim Phase 3 complete until all acceptance gates pass.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.

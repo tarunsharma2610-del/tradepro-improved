@@ -145,3 +145,12 @@ Fresh public-page comparison reinforces that GST taxable-base membership is brok
 3. Rule 33 is a conditional evidence-based exclusion, not a label-based rule. If pure-agent conditions cannot be established, do not automatically exclude statutory recoveries from the taxable base.
 4. Conflicting sources (demonstrated by FYERS public pages) require explicit source-precedence review and an unresolved status until adjudicated. Never choose the lower GST result merely because it matches a sample or estimate.
 5. This research supports implementation of a reviewed policy resolver and regression tests; it does **not** approve any actual per-fill GST component candidate or prove a broker's account-specific invoice. Keep estimates clearly labelled and actual accounting fail-closed until the relevant source-backed policy/evidence is reviewed.
+
+
+## GST policy resolver hardening — 27 October 2026
+
+- Audited existing `backend/app/services/broker_gst_component_policy.py` before changing it. It already provides effective-dated broker/exchange/segment/product selection, source URL/retrieval date/SHA-256 provenance, explicit combined/separate/not-applicable IPFT representation, exact component-set checking and an estimate-only calculation path. Avoid creating a parallel resolver.
+- New code commit `eef5eebc1e1abfc37c92b4e50d5c35e9afddcbb4`: policy state `CONFLICT` now exists and any effective conflict for the exact scope/date blocks selection even if an approved policy also matches. This prevents silently preferring one of contradictory public sources.
+- New test commit `761637aab1d5f36ed5bfc02ffb66ce8b31ab7820`: regression tests for a conflicting source blocking an approved candidate and for rejecting sub-paise component inputs rather than silently rounding them.
+- The policy remains estimate-only. This does not approve any broker component set, does not integrate the statutory Rule 33 engine into actual accounting, and does not reconcile invoice-level GST. No broker policies are promoted to APPROVED by this change.
+- Validation status: exact-head CI for these commits is not yet verified. Do not mark this increment green until the branch/PR workflow runs on the exact resulting head and all jobs pass. Next: inspect any CI result, fix failures, then synchronize maintained documents/checkpoint to the latest green head.

@@ -294,3 +294,9 @@ The practical route is API-first, not another loop of public research and not wa
 - Implementation in this checkpoint: dedicated `BrokerApiReconciliationRecord`, migration `202610270030`, authenticated Upstox aggregate route persistence, sanitized response payload, response SHA-256, owner/connection linkage, idempotency and route regression assertions. Aggregate records remain reconciliation-only; no per-fill allocation or actual accounting promotion.
 - Next: finish explicit cross-owner isolation and immutable-record regression coverage; check latest documentation CI separately. Then proceed to next Phase 3 accounting acceptance gaps (component applicability, per-fill identity/paise totals, replay/rollback, effective-dated tariff and statutory GST/IPFT rule verification). Do not claim Phase 3 complete until all acceptance gates pass.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+## Follow-up regression coverage — 27 October 2026
+
+- Added tests at commit `688cb70e2d64b866fbb9b6f19c7675ab764a0ecf` for cross-owner connection isolation (the aggregate API must not be called for a connection owned by another user) and immutable snapshot behavior (updates must fail and original evidence remain unchanged after rollback).
+- The prior implementation head `77bb07c...` has confirmed green Backend CI #40475498978, including pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore. The new test commit does not inherit that CI result. No CI run was visible for `688cb70...` at checkpoint refresh; verify the run on this exact head before marking the new regression coverage green.

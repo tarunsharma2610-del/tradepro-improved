@@ -497,3 +497,17 @@ The API wiring audit found a concrete safety gap in `backend/app/api/v1/upstox_c
 - The guarded estimator is for estimate calculation only and requires an approved effective-dated tariff rule and explicit scope. It does not activate a production tariff or prove historical booked IPFT.
 - Next Phase 3 work should proceed to the remaining accounting acceptance gates (fill identity, replay/idempotency, atomic rollback and component applicability), while using these GST tests as regression coverage. Only revisit IPFT when an applicable source-backed tariff or actual source field requires it.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+## Verified API-first GST/IPFT research checkpoint — 27 October 2026
+
+- Latest verified code/test head before this documentation refresh: `64115efbcfd866fad68d67bd5abef4a0bc1b977f`.
+- Exact-head Backend CI [#40547529549 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40547529549). Backend pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore and evidence retention all passed.
+- Research-confirmed Upstox sources: [Brokerage calculator](https://upstox.com/developer/api-documentation/get-brokerage/) is estimate-only and returns component breakdown including GST/IPFT; [post-trade charges](https://upstox.com/developer/api-documentation/get-trade-charges/) is segment/period aggregate evidence, not per-fill actual. Preserve null/missing/invalid/zero distinctions.
+- Historical NSE finding: official circular FA73061 (27 Feb 2026) changes the transaction/IPFT split from 1 Mar 2026 while preserving the combined per-crore outflow: cash Rs 307/crore (306.99 transaction + 0.01 IPFT), equity futures Rs 183/crore (182.99 + 0.01), equity-options premium Rs 3,553/crore (3,552 + 0.01). Source: https://nsearchives.nseindia.com/content/circulars/FA73061.pdf. Do not reuse these rates for BSE/MCX or retroactively apply them.
+- GST decision: retain API-reported GST as estimate evidence and independently calculate a transparent Section 15 / Rule 33 cross-check. Pure-agent exclusion requires all Rule 33 evidence conditions; charge labels alone are insufficient. Store API GST, engine GST, taxable bases and variance separately; never silently overwrite or auto-approve a mismatch. Official CBIC FAQ: https://cbic-gst.gov.in/sectoral-faq.html.
+- Existing `broker_charge_api_mapping.py` and `broker_charge_api_value_resolution.py` already enforce exact endpoint/schema/scope/date semantics and block Upstox estimate/aggregate endpoints from per-fill actual use. Existing null-vs-zero and endpoint-guard tests remain essential.
+- Documentation update commit `72900a8fa1b3770f878c843bcb649d263de7259d` adds the API-first decision to `GST_CROSS_EXCHANGE_COVERAGE.md`. CI on the documentation-updated head must be checked before that head is called green.
+- Next implementation gate: add/verify explicit API-to-engine comparison tests and source-backed historical IPFT boundary fixtures; preserve fail-closed behavior for unsupported BSE/MCX tariff scopes. Do not claim every exchange/product tariff is fully verified until those source scopes are implemented and tested.
+
+Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; PR #6/#7 remain Draft/unmerged; PAPER mode mandatory; live broker writes disabled.

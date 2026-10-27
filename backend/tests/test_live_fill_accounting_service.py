@@ -1101,3 +1101,24 @@ def test_flush_failure_after_accounting_rows_are_staged_rolls_back_everything(ac
     ).count() == 0
     db.refresh(paper_position)
     assert paper_position.quantity == 7
+
+
+@pytest.mark.parametrize(
+    "status,demat_amount,expected",
+    [
+        ("INVALID", None, False),
+        ("UNKNOWN", Decimal("0.00"), False),
+        ("KNOWN", None, False),
+        ("NOT_APPLICABLE", Decimal("1.00"), False),
+        ("KNOWN", Decimal("0.00"), True),
+        ("NOT_APPLICABLE", None, True),
+    ],
+)
+def test_execution_completeness_property_fails_closed_on_inconsistent_demat_state(
+    status, demat_amount, expected
+):
+    row = Execution(
+        demat_charge_status=status,
+        demat_transaction_charges=demat_amount,
+    )
+    assert row.total_charges_complete is expected

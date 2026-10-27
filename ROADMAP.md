@@ -1888,3 +1888,14 @@ Code now includes a generic public-schedule estimate function for source-backed 
 - Backend CI #40459846143 succeeded on code/test commit `9400bc9aa221e2cf3b735e49a8e9a6d351237f02`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40459846143. Backend pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic PostgreSQL/document-volume restore checks passed.
 - DP completeness regression now checks invalid status serialization through `ExecutionOut`; status/amount inconsistencies and ineligible DP manifests remain fail-closed. Next gate: per-fill mapping, replay conflict/idempotency, rollback atomicity, and component applicability.
 - Real contract-note and production Oracle backup/restore acceptance deferred until genuine evidence exists. Safety unchanged: target `tradepro-improved` only; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled.
+
+
+## Annual GST statement reconciliation finding — 27 October 2026
+
+- A user-provided Upstox/RKSV annual global transaction statement for FY 2022–23 is annual aggregate evidence, not an individual contract note. Its visible charge rows do not by themselves establish a unique taxable base for the reported aggregate GST at paise precision.
+- Preserve source-row labels exactly; do not relabel an STT rounding row as SEBI fees. Determine the base from underlying invoice/contract-note lines and the historical policy, not by selecting a charge merely to force arithmetic to match.
+- The reconciliation helper retains reported-vs-expected variance instead of inferring or rewriting the base. Annual variance may reflect invoice-level rounding/aggregation or a charge omitted from the summarized lines; the annual statement alone cannot distinguish these.
+- Do not use annual AGS totals to approve actual per-fill GST or promote canonical allocations. Next evidence gate: an itemized individual contract note or invoice-level breakdown. Keep FY 2022–23 evidence separate from the 2026 public-schedule estimate policy.
+- This clarifies evidence scope; it does not change GST/IPFT policy or establish that the broker billed incorrectly. Personal identifiers and account-specific figures are intentionally not copied into this repository note.
+- Latest code/test head before documentation sync: `9eb278588b78d2a966cc196c15d7a4d9a6ae8868`; Backend CI [#40505176395 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40505176395). This documentation update requires exact-head CI before it is marked green.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.

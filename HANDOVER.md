@@ -2441,3 +2441,8 @@ Regression tests now cover rejection of another user's Upstox connection and rej
 ## CI follow-up — 27 October 2026
 
 Regression CI failed because the ownership test called `make_user()` twice with the fixture's default unique email. Corrected to distinct email addresses in `977ad6b7e6eeae1346b28c03c2d83bb62ec93910`. The failed run had 1 failed / 1128 passed; later safety, migration and restore steps were skipped. Check CI on this exact head and fix any remaining failures before marking green.
+
+
+## Verified checkpoint — 27 October 2026
+
+The owner-isolation test fixture was corrected to use unique emails in `977ad6b7e6eeae1346b28c03c2d83bb62ec93910`. Backend CI #40476768203 and documentation CI #40476805191 passed. Backend workflow verified pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and retained evidence. Continue with the remaining Phase 3 accounting acceptance gates; aggregate API snapshots are not per-fill actuals. Keep PAPER mode mandatory, live order writes disabled, PR #6/#7 Draft/unmerged, and work only in `tradepro-improved`.

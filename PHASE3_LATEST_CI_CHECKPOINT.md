@@ -1,3 +1,17 @@
+# Latest Phase 3 continuation — 27 October 2026 (DP charge-status hardening; CI pending)
+
+- Target repository: `tarunsharma2610-del/tradepro-improved`, branch `phase3/cross-broker-gst-ipft-resolution` only. Original `tarunsharma2610-del/Tradepro` remains out of scope.
+- Baseline before this increment: code/test head `31ce2a10bcc789c223608c6566082b24aea7358c`, Backend CI [#40383076131 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40383076131). Prior maintained-doc head `7dcb7dded81a22598941aa2e86fa3894acdac48f`, docs CI [#40385543103 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40385543103).
+- DP/demat audit found that nullable amount alone could not distinguish unknown from confirmed not-applicable. Added `demat_charge_status` with `UNKNOWN`, `NOT_APPLICABLE`, and `KNOWN`; migration `202610270029` backfills existing non-null amounts as KNOWN and preserves NULL as UNKNOWN. DB checks enforce status/amount consistency.
+- Central total recomputation now rejects status/amount contradictions and exposes `execution_charge_total_is_complete`; UNKNOWN returns a subtotal but is explicitly incomplete. Paper equity-delivery sells are marked UNKNOWN until a sourced DP amount exists; other current paper segments are marked NOT_APPLICABLE rather than receiving a fabricated zero.
+- Added regression tests for unknown-vs-not-applicable, known amount requirements, inconsistent status/amount pairs, and completeness. SQLite migration compatibility was hardened with Alembic batch operations.
+- New latest code/test head: `06681ea5e1df3888cce790ff06cf981292e726f1`. Exact-head Backend CI [#40454082765](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40454082765) was IN PROGRESS at checkpoint update; do not mark green until it completes. Earlier per-commit runs #40454010389, #40454040373 and #40454051228 are not a substitute for the final head.
+- Next: verify exact-head CI; fix any failure; then audit/API-surface total completeness, delivery vs non-delivery semantics, DP integration with durable per-fill allocation/reconciliation, idempotency and rollback. Only after code CI passes, synchronize every maintained Phase 3/GST/IPFT/accounting document and verify the final docs-head CI.
+- GST/IPFT is not being restarted. Statutory GST primitive and effective-dated combined/separate/not-applicable IPFT representation remain implemented; independent tariff approval and actual invoice/per-fill acceptance remain separate gates. No personal contract note is required.
+- Safety: PR #6/#7 remain Draft/unmerged; PAPER mandatory; live broker order writes and automatic live-fill promotion/scheduling remain disabled.
+
+---
+
 ## Resume point for next session — saved 27 October 2026
 
 Resume from this exact point only; do not roll back to the 26 October checkpoint or restart GST/IPFT.

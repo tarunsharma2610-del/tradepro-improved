@@ -219,3 +219,8 @@ User direction: stop repeating GST/IPFT research; wire the existing Upstox APIs 
 ## 27 October 2026 — orchestration code increment
 
 Added a typed Upstox charge API orchestration service and focused tests. The brokerage calculator is labelled estimate-only; the post-trade charges API is labelled aggregate-reconciliation-only; both explicitly reject per-fill-actual interpretation. API failures do not produce usable evidence, and null IPFT remains null/unknown. This is the first orchestration boundary, not full UI/accounting integration. The next gate is wiring it to the read-only reconciliation endpoint/ledger, while retaining exact approved mappings and keeping aggregate evidence out of per-fill promotion. CI on the new code/test head remains unverified; no green status is claimed.
+
+
+## 27 October 2026 — authenticated API routes added
+
+Added authenticated, read-only routes for Upstox brokerage estimates and aggregate trade-charge responses. Routes require the signed-in user's own connected Upstox connection and decrypt the token server-side; no token is returned. Estimate endpoint stays estimate-only, aggregate endpoint stays reconciliation-only, and both explicitly report no per-fill-actual eligibility. CI passed on the previous documentation head but is still running on the route/router commits; exact latest-head green is not yet established. Route-level tests, evidence-ledger integration review and exact-head CI remain gates.

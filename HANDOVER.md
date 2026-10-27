@@ -2452,3 +2452,9 @@ The owner-isolation test fixture was corrected to use unique emails in `977ad6b7
 ## Next checkpoint — GST policy edge cases — 27 October 2026
 
 Commit `91212a0224f3bf4a01bff06c14764a404c1cbc67` adds regression coverage for zero vs missing components, invalid/nonfinite/negative amounts and inclusive/expired effective-date boundaries. Exact-head CI must pass all backend tests, broker-write safety, SQLite/PostgreSQL migration round-trips and synthetic restore before this is accepted. Upstox GST component candidates remain DRAFT until conflicting source evidence is independently resolved; no blanket approval.
+
+
+
+## Verified checkpoint — GST policy edge tests — 27 October 2026
+
+Backend CI #40477899628 passed on code/test commit `91212a0224f3bf4a01bff06c14764a404c1cbc67`, with pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore evidence all successful. Documentation-triggered runs #40477921259 and #40477930671 also passed. Next review charge-component applicability and estimate variance/replay/rollback tests; do not equate green tests with independent approval of the Upstox GST candidates. Maintain PAPER-only mode and disabled live broker writes; do not touch original `Tradepro` or merge PR #6/#7.

@@ -48,3 +48,13 @@ Existing maintained Phase 3 documents were synchronized after the green code res
 - Work only in `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository is out of scope.
 - No personal contract note is available or required to continue synthetic testing.
 - Do not restart GST/IPFT from zero; continue from the accounting acceptance audit.
+
+## Verified checkpoint — 27 October 2026 (DP/demat completeness)
+
+- Latest verified code/test commit: `9400bc9aa221e2cf3b735e49a8e9a6d351237f02` on `phase3/cross-broker-gst-ipft-resolution`.
+- Exact-head Backend CI [#40459846143 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40459846143). Backend pytest, broker-write boundary enforcement, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, and synthetic PostgreSQL/document-volume restore checks passed. Synthetic restore is not production Oracle restore acceptance.
+- Added API regression ensuring an invalid DP status serialized through `ExecutionOut` cannot report `total_charges_complete=true`. Existing status/amount consistency tests and DP manifest eligibility checks remain in place.
+- DP rules: `KNOWN` requires a valid paise-exact amount; `NOT_APPLICABLE` requires no amount; `UNKNOWN`, invalid or inconsistent states are incomplete. Delivery SELL promotion requires reviewed DP snapshot and exact per-fill allocation; non-applicable DP cannot be silently included.
+- Next gate: inspect acceptance coverage for per-fill source-to-canonical mapping, identical/conflicting replay, transaction rollback, and component applicability. After the next code change, rerun exact-head CI and synchronize maintained docs/checkpoints.
+- Actual contract-note reconciliation and production Oracle backup/restore acceptance remain deferred until genuine evidence exists. Synthetic testing continues without a personal contract note.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope. PR #6/#7 remain Draft/unmerged; PAPER mode mandatory; live broker order writes disabled.

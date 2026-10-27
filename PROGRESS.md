@@ -3302,3 +3302,8 @@ The durable source-link table is already implemented as `BrokerChargeCanonicalSo
 ## 27 October 2026 — split-source canonical snapshot coverage clarified
 
 Docs commits `0ccfe419...`, `d8b62051...`, and `0468eb1c...` passed CI #40480367450, #40480378523 and #40480401549. Test review confirms the canonical snapshot workflow already supports split transaction/IPFT through snapshot creation, independent review, canonical allocation persistence and reconciliation; missing source-link rejection is tested. The older direct allocation adapter still rejects multi-source plans. Next inspect API/service callers to determine whether that legacy path is reachable and confirm routes use the reviewed snapshot path. Keep fail-closed behavior until wiring is verified.
+
+
+## Route audit finding — aggregate response credential sanitization — 27 October 2026
+
+The API wiring audit found a concrete safety gap in `backend/app/api/v1/upstox_charges.py`: aggregate API response payloads were sanitized before durable persistence but the HTTP response returned the raw payload. A credential-like field such as `access_token` could therefore be exposed to the authenticated caller even though it was not stored. Fixed by applying `_sanitize_api_value` to the aggregate response payload and added a route regression assertion that the field is absent from the HTTP response. Code commit `203947ee25437e5b4637d25f365f0d1df7575fb1`; test commit `7e17376a91c8d835e1af42377be49c499d013bea`. Exact-head CI is pending; do not mark this fix green until CI passes. The brokerage-estimate route was not changed. Split-charge canonical snapshot safeguards remain in place. PAPER mandatory; live broker writes disabled; PR #6/#7 Draft/unmerged; original `Tradepro` out of scope.

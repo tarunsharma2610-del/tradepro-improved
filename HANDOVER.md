@@ -2446,3 +2446,9 @@ Regression CI failed because the ownership test called `make_user()` twice with 
 ## Verified checkpoint — 27 October 2026
 
 The owner-isolation test fixture was corrected to use unique emails in `977ad6b7e6eeae1346b28c03c2d83bb62ec93910`. Backend CI #40476768203 and documentation CI #40476805191 passed. Backend workflow verified pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and retained evidence. Continue with the remaining Phase 3 accounting acceptance gates; aggregate API snapshots are not per-fill actuals. Keep PAPER mode mandatory, live order writes disabled, PR #6/#7 Draft/unmerged, and work only in `tradepro-improved`.
+
+
+
+## Next checkpoint — GST policy edge cases — 27 October 2026
+
+Commit `91212a0224f3bf4a01bff06c14764a404c1cbc67` adds regression coverage for zero vs missing components, invalid/nonfinite/negative amounts and inclusive/expired effective-date boundaries. Exact-head CI must pass all backend tests, broker-write safety, SQLite/PostgreSQL migration round-trips and synthetic restore before this is accepted. Upstox GST component candidates remain DRAFT until conflicting source evidence is independently resolved; no blanket approval.

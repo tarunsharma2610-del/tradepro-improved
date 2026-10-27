@@ -138,3 +138,11 @@ Existing maintained Phase 3 documents were synchronized after the green code res
 - The service hardening commit `eef5eebc1e1abfc37c92b4e50d5c35e9afddcbb4` also passed Backend CI [#40463452758 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40463452758).
 - Documentation-head workflow [#40463512765](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40463512765) was still in progress at the time of this checkpoint update. Do not call the current docs head green until this exact-head run finishes successfully.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #6 and #7 remain open Draft/unmerged; PAPER mandatory; live broker writes disabled; original `tarunsharma2610-del/Tradepro` out of scope.
+
+
+## Statutory GST input precision follow-up — 27 October 2026
+
+- Focused audit found the statutory valuation helper rounded input valuation lines to paise silently, unlike the GST component estimate path which now rejects sub-paise source amounts. For invoice/charge-line integrity this could hide malformed source data.
+- Code commit `58c841cb00f7f0137aece7bcd7c83d5a63ae81f9` now rejects statutory valuation inputs that are not already paise precision. Test commit `c6e9dfb3e4cae6f93fd51a7f1f1facc86e7b804d` covers rejection and retains an explicit valid-paise rounding case for GST head arithmetic.
+- CI for these new commits and the resulting documentation head is pending/unverified. Do not mark green until exact-head Backend CI succeeds. This is input-integrity hardening, not a change to the 18% rate or an approval of a broker-specific taxable base.
+- Earlier hardening CI: service commit `eef5eebc1e1abfc37c92b4e50d5c35e9afddcbb4` passed [#40463452758](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40463452758); test commit `761637aab1d5f36ed5bfc02ffb66ce8b31ab7820` passed [#40463464076](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40463464076); docs head `d604be9982dc9c37d3a4985abd89c85635b59106` passed [#40463512765](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40463512765).

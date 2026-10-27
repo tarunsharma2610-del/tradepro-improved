@@ -468,3 +468,12 @@ The API wiring audit found a concrete safety gap in `backend/app/api/v1/upstox_c
 - Resume next session with the component-by-component accounting acceptance audit: supported instrument/segment/side/product matrix; required charges marked applicable or explicitly NOT_APPLICABLE; missing/unknown charges keep totals incomplete; audit paise-exact per-fill identities, replay/idempotency, tampered totals, atomic promotion and rollback tests. Do not duplicate existing tests without first inspecting coverage.
 - GST/IPFT work is not being restarted. Continue from this checkpoint and use an itemized individual contract note/invoice breakdown if available to resolve the annual-statement variance. Do not block unrelated accounting acceptance work on that external evidence.
 - Safety remains unchanged: modify only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope; PR #6/#7 stay Draft/unmerged; PAPER mode mandatory; live broker order writes disabled. No real personal broker note is required for synthetic engineering tests; real Oracle restore acceptance waits for deployment backups.
+
+## Historical Upstox contract-note GST regression — 27 October 2026
+
+- Transcribed the five user-provided daily contract notes (23, 24, 25, 27 and 30 January 2023) into regression fixtures in `backend/tests/test_historical_upstox_contract_note_gst.py`.
+- Test commits: fixture `98f14aef1b3b541c2a6e07beb227b6f3f0471a42`; place-of-supply comment clarification `547917868d28d3f46f1f549a8daa50d57fc4542d`.
+- Cases assert each disclosed taxable value equals brokerage + transaction charges + SEBI fees; each daily brokerage GST and charges GST rounds to the contract note's figures; and the statutory GST valuation primitive reproduces the daily total IGST for the disclosed base.
+- These are daily aggregate invoice fixtures, not per-fill charge evidence. The supplied text has no distinct IPFT line. Tests deliberately do not infer IPFT=0 or synthesize a separate amount. Historical IPFT tariff must be selected by trade date; a current API estimate is not historical booked-charge evidence.
+- CI for the new test commit and any subsequent documentation head is not yet verified in this checkpoint. Do not mark it green until exact-head Backend CI passes. No GST/IPFT tariff was newly approved by this test-only change.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.

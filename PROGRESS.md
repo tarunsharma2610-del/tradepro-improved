@@ -3254,3 +3254,9 @@ Corrected the cross-owner regression test to use distinct emails in commit `977a
 ## 27 October 2026 — GST policy edge-case tests added; CI pending
 
 Added tests at `91212a0224f3bf4a01bff06c14764a404c1cbc67` for explicit zero versus missing taxable component, invalid/nonfinite/negative values and effective-date end boundaries. Existing coverage already checks IPFT representation modes, scoped policy selection, conflicts and paise precision. Upstox candidates remain DRAFT pending resolution of conflicting source evidence. Exact-head CI is not yet verified; previous green remains `977ad6b7...` (Backend CI #40476768203; documentation CI #40476805191).
+
+
+
+## 27 October 2026 — GST policy edge tests verified green
+
+Commit `91212a0224f3bf4a01bff06c14764a404c1cbc67` passed Backend CI #40477899628, including pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and retained evidence. Documentation-triggered Backend CI runs #40477921259 and #40477930671 also completed successfully. The tests cover explicit zero vs missing components, invalid/nonfinite/negative amounts and effective-date boundaries. Upstox candidate approval and Phase 3 completion remain gated; continue targeted review of variance/replay/rollback and component applicability.

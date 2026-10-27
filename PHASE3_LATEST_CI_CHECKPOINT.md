@@ -325,3 +325,12 @@ The practical route is API-first, not another loop of public research and not wa
 - These tests supplement existing checks for exact scope, effective-dated policy selection, overlap/conflict rejection, COMBINED/SEPARATE/NOT_APPLICABLE IPFT representations, and paise precision. They do not approve the Upstox GST candidates; those remain DRAFT due unresolved conflicting historical source evidence.
 - **CI for commit `91212a0...` is pending/unverified at checkpoint creation.** Do not treat the new tests as green until the exact-head Backend CI completes all pytest, broker-write boundary, SQLite/PostgreSQL migration and synthetic restore gates. If it fails, inspect logs, fix and rerun before checkpointing green.
 - The previously verified head remains `977ad6b7...` with Backend CI #40476768203 and documentation CI #40476805191 green. The new commit does not inherit that status.
+
+
+
+## Confirmed green — GST policy edge-case tests — 27 October 2026
+
+- Code/test commit `91212a0224f3bf4a01bff06c14764a404c1cbc67` passed Backend CI [#40477899628](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40477899628). All steps succeeded: backend pytest, broker-write boundary, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 upgrade/downgrade/re-upgrade, synthetic PostgreSQL/document-volume restore and retained restore evidence.
+- The GST component policy regression additions cover explicit zero vs missing, unknown/nonfinite/negative/invalid amounts, and inclusive effective-end/expired policy behavior. Documentation commits also triggered Backend CI runs #40477921259 and #40477930671; all workflow steps are confirmed successful as well.
+- This verifies tests and safeguards, not independent statutory approval of the four Upstox GST candidates and not Phase 3 completion. Keep candidate tariff/rule approval gated on primary-source conflict resolution and independent review.
+- Next: examine tariff variance tests and charge component applicability/replay/rollback coverage; improve the most material uncovered gap, then verify exact-head CI and update checkpoint. Safety unchanged: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.

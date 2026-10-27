@@ -379,6 +379,44 @@ def calculate_gst_on_explicit_components(
     gst_amount = _calculate_rate_amount(rule, taxable_base)
     return taxable_base, gst_amount
 
+
+def aggregate_gst_invoice_components(
+    *,
+    igst: Decimal | str | int | float | None = None,
+    cgst: Decimal | str | int | float | None = None,
+    sgst: Decimal | str | int | float | None = None,
+) -> tuple[str, Decimal]:
+    """Normalize invoice GST tax lines without inferring taxability or tax rates.
+
+    Accept either an IGST line, or the paired CGST + SGST lines. Mixed
+    interstate/intrastate tax lines and incomplete CGST/SGST pairs fail closed.
+    The return value is (tax_mode, total_gst); the caller remains responsible
+    for invoice provenance, jurisdiction, taxable-base and statutory review.
+    """
+    def parse_line(name: str, value: Decimal | str | int | float) -> Decimal:
+        try:
+            amount = value if isinstance(value, Decimal) else Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError(f"{name} must be a finite nonnegative paise amount.") from exc
+        if not amount.is_finite() or amount < 0 or amount != amount.quantize(PAISE):
+            raise ValueError(f"{name} must be a finite nonnegative paise amount.")
+        return amount
+
+    has_igst = igst is not None
+    has_cgst = cgst is not None
+    has_sgst = sgst is not None
+    if has_igst and (has_cgst or has_sgst):
+        raise ValueError("Invoice GST cannot mix IGST with CGST/SGST lines.")
+    if has_igst:
+        return "IGST", parse_line("IGST", igst)
+    if has_cgst != has_sgst:
+        raise ValueError("Intrastate GST requires both CGST and SGST lines.")
+    if not has_cgst:
+        raise ValueError("At least an IGST line or a CGST/SGST pair is required.")
+    total = parse_line("CGST", cgst) + parse_line("SGST", sgst)
+    return "CGST_SGST", total.quantize(PAISE, rounding="ROUND_HALF_UP")
+
+
 def calculate_stamp_duty_for_trade(
     rule: TariffRule,
     *,

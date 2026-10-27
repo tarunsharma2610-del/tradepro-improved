@@ -111,9 +111,18 @@ def test_rejects_duplicate_component_names_and_invalid_state_codes():
         )
 
 
-def test_half_up_rounding_and_zero_are_explicit():
+def test_sub_paise_valuation_line_is_rejected_instead_of_silently_rounded():
+    with pytest.raises(ValueError, match="paise precision"):
+        calculate_statutory_stock_broking_gst(
+            [GstValuationLine("brokerage", "0.025")],
+            supplier_state_code="27",
+            recipient_state_code_in_supplier_records="27",
+        )
+
+
+def test_paise_precision_and_zero_are_explicit():
     result = calculate_statutory_stock_broking_gst(
-        [GstValuationLine("brokerage", "0.025")],
+        [GstValuationLine("brokerage", "0.03")],
         supplier_state_code="27",
         recipient_state_code_in_supplier_records="27",
     )

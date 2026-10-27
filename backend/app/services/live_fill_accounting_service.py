@@ -172,6 +172,13 @@ class LiveFillAccountingService:
                 raise ValueError("Broker trade instrument does not match the local order.")
             if record.side != order.side or record.side not in {"BUY", "SELL"}:
                 raise ValueError("Broker trade side does not match the local order.")
+            # DP/demat is a separate canonical component and is not part of the
+            # six-component live ledger yet. Never promote an equity-delivery
+            # sell with an incomplete total while that component is unresolved.
+            if order.segment == "EQUITY_DELIVERY" and record.side == "SELL":
+                raise ValueError(
+                    "Equity-delivery SELL promotion is blocked until DP/demat is independently reconciled per fill."
+                )
             if type(record.quantity) is not int or record.quantity <= 0:
                 raise ValueError("Broker trade quantity is invalid.")
             price = Decimal(str(record.price))
@@ -379,6 +386,8 @@ class LiveFillAccountingService:
                 stamp_duty=fee_values["stamp_duty"],
                 gst=fee_values["gst"],
                 total_charges=fee_values["total_charges"],
+                demat_transaction_charges=None,
+                demat_charge_status="NOT_APPLICABLE",
                 charge_source=charges.source,
                 charge_reference=charges.reference.strip(),
                 charge_evidence_id=charges.evidence_id,

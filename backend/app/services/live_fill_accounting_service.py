@@ -630,12 +630,21 @@ class LiveFillAccountingService:
                 BrokerTradeRecord.id,
                 BrokerTradeRecord.broker_connection_id,
                 BrokerTradeRecord.side,
+                BrokerTradeRecord.instrument_token,
                 BrokerOrder.broker_connection_id,
+                BrokerOrder.broker_name,
                 Order.segment,
                 Order.side,
+                Instrument.instrument_key,
+                BrokerConnection.broker,
+                BrokerConnection.user_id,
+                Portfolio.user_id,
             )
             .join(BrokerOrder, BrokerOrder.id == BrokerTradeRecord.broker_order_ref_id)
             .join(Order, Order.id == BrokerOrder.order_id)
+            .join(Instrument, Instrument.id == Order.instrument_id)
+            .join(BrokerConnection, BrokerConnection.id == BrokerOrder.broker_connection_id)
+            .join(Portfolio, Portfolio.id == Order.portfolio_id)
             .filter(BrokerTradeRecord.id.in_(fill_ids))
             .all()
         )
@@ -645,13 +654,22 @@ class LiveFillAccountingService:
             or trade_side != "SELL"
             or segment != "EQUITY_DELIVERY"
             or order_side != "SELL"
+            or trade_instrument_token != local_instrument_key
+            or child_broker_name != connection_broker
+            or portfolio_user_id != connection_user_id
             for (
                 _fill_id,
                 trade_connection_id,
                 trade_side,
+                trade_instrument_token,
                 child_connection_id,
+                child_broker_name,
                 segment,
                 order_side,
+                local_instrument_key,
+                connection_broker,
+                connection_user_id,
+                portfolio_user_id,
             ) in rows
         ):
             raise ValueError(

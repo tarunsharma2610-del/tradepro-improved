@@ -1140,6 +1140,18 @@ def test_execution_completeness_property_fails_closed_on_inconsistent_demat_stat
     status, demat_amount, expected
 ):
     row = Execution(
+        brokerage=Decimal("20.00"),
+        stt=Decimal("0.20"),
+        exchange_charges=Decimal("3.07"),
+        sebi_charges=Decimal("0.10"),
+        stamp_duty=Decimal("0.15"),
+        gst=Decimal("4.23"),
+        total_charges=Decimal("27.75") + (
+            demat_amount if status == "KNOWN" and demat_amount is not None
+            and demat_amount.is_finite() and demat_amount >= 0
+            and demat_amount.as_tuple().exponent >= -2
+            else Decimal("0.00")
+        ),
         demat_charge_status=status,
         demat_transaction_charges=demat_amount,
     )

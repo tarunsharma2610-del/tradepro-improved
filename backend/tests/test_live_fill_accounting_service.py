@@ -1122,3 +1122,44 @@ def test_execution_completeness_property_fails_closed_on_inconsistent_demat_stat
         demat_transaction_charges=demat_amount,
     )
     assert row.total_charges_complete is expected
+
+
+@pytest.mark.parametrize(
+    "trade_side,order_side,segment",
+    [
+        ("BUY", "BUY", "EQUITY_DELIVERY"),
+        ("SELL", "SELL", "EQUITY_INTRADAY"),
+        ("SELL", "BUY", "EQUITY_DELIVERY"),
+    ],
+)
+def test_demat_manifest_rejects_ineligible_fill_mapping(
+    accounting_context, trade_side, order_side, segment
+):
+    db, _user, _portfolio, _instrument, connection, order, _child, record, _paper_position = accounting_context
+    order.side = order_side
+    order.segment = segment
+    record.side = trade_side
+    db.commit()
+    snapshot = BrokerChargeCanonicalComponent(
+        eligible_fill_ids_json=json.dumps([str(record.id)])
+    )
+
+    with pytest.raises(ValueError, match="only mapped equity-delivery SELL fills"):
+        LiveFillAccountingService(db)._validate_demat_manifest_eligibility(
+            snapshot, broker_connection_id=connection.id
+        )
+
+
+def test_demat_manifest_accepts_only_a_mapped_equity_delivery_sell(accounting_context):
+    db, _user, _portfolio, _instrument, connection, order, _child, record, _paper_position = accounting_context
+    order.side = "SELL"
+    order.segment = "EQUITY_DELIVERY"
+    record.side = "SELL"
+    db.commit()
+    snapshot = BrokerChargeCanonicalComponent(
+        eligible_fill_ids_json=json.dumps([str(record.id)])
+    )
+
+    LiveFillAccountingService(db)._validate_demat_manifest_eligibility(
+        snapshot, broker_connection_id=connection.id
+    )

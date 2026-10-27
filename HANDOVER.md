@@ -2436,3 +2436,8 @@ Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradep
 ## Follow-up — 27 October 2026
 
 Regression tests now cover rejection of another user's Upstox connection and rejection of updates to an existing aggregate evidence snapshot. Commit `688cb70e2d64b866fbb9b6f19c7675ab764a0ecf`; verify exact-head CI. Previous implementation head `77bb07c...` is green on Backend CI #40475498978, including migration round-trips on SQLite and PostgreSQL 16, broker-write boundary and synthetic restore. The added tests are not green until their own CI completes.
+
+
+## CI follow-up — 27 October 2026
+
+Regression CI failed because the ownership test called `make_user()` twice with the fixture's default unique email. Corrected to distinct email addresses in `977ad6b7e6eeae1346b28c03c2d83bb62ec93910`. The failed run had 1 failed / 1128 passed; later safety, migration and restore steps were skipped. Check CI on this exact head and fix any remaining failures before marking green.

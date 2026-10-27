@@ -156,6 +156,9 @@ def test_execution_model_completeness_property_tracks_demat_status():
         ("UNKNOWN", Decimal("0.00")),
         ("KNOWN", None),
         ("NOT_APPLICABLE", Decimal("1.00")),
+        ("KNOWN", Decimal("NaN")),
+        ("KNOWN", Decimal("-0.01")),
+        ("KNOWN", Decimal("1.001")),
     ],
 )
 def test_inconsistent_or_invalid_demat_state_is_not_complete(status, demat_amount):

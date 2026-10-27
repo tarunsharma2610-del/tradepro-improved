@@ -224,3 +224,8 @@ Added a typed Upstox charge API orchestration service and focused tests. The bro
 ## 27 October 2026 — authenticated API routes added
 
 Added authenticated, read-only routes for Upstox brokerage estimates and aggregate trade-charge responses. Routes require the signed-in user's own connected Upstox connection and decrypt the token server-side; no token is returned. Estimate endpoint stays estimate-only, aggregate endpoint stays reconciliation-only, and both explicitly report no per-fill-actual eligibility. CI passed on the previous documentation head but is still running on the route/router commits; exact latest-head green is not yet established. Route-level tests, evidence-ledger integration review and exact-head CI remain gates.
+
+
+## Route-level test increment — 27 October 2026
+
+Added `backend/tests/test_upstox_charge_api_routes.py` for authenticated estimate/aggregate route semantics, null IPFT preservation, and request validation. Previous backend CI passed on doc head `24b7b9ee728049f26b200cbee54571ae3c22b7bf` (run #40473895336); the new test commit `ffb87c9af7c87d921eadf0198b7ba8704be65e76` requires its own CI result. Aggregate response remains reconciliation-only; no per-fill accounting promotion.

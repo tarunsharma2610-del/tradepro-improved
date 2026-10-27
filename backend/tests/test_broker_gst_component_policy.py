@@ -240,3 +240,52 @@ def test_sub_paise_component_amount_is_rejected_instead_of_silently_rounded():
             policy(),
             components={"brokerage": "20.001", "exchange_charges": "1.00"},
         )
+
+
+def test_zero_component_is_distinct_from_missing_component():
+    rule = policy()
+    base, gst = calculate_gst_estimate(
+        rule,
+        components={"brokerage": "20.00", "exchange_charges": "0.00"},
+    )
+    assert base == Decimal("20.00")
+    assert gst == Decimal("3.60")
+    with pytest.raises(ValueError, match="exactly"):
+        calculate_gst_estimate(rule, components={"brokerage": "20.00"})
+
+
+def test_unknown_component_and_nonfinite_amount_fail_closed():
+    rule = policy()
+    with pytest.raises(ValueError, match="exactly"):
+        calculate_gst_estimate(
+            rule,
+            components={"brokerage": "20.00", "exchange_charges": "1.00", "ipft": "0.01"},
+        )
+    for invalid in ("NaN", "Infinity", "-0.01", "not-money"):
+        with pytest.raises(ValueError):
+            calculate_gst_estimate(
+                rule,
+                components={"brokerage": invalid, "exchange_charges": "1.00"},
+            )
+
+
+def test_effective_end_date_is_inclusive_and_expired_rule_is_not_selected():
+    rule = policy(effective_to=date(2026, 10, 26))
+    selected = select_gst_component_policy(
+        [rule],
+        broker="ExampleBroker",
+        exchange="NSE",
+        segment="FO",
+        product="OPTIONS",
+        trade_date=date(2026, 10, 26),
+    )
+    assert selected is rule
+    with pytest.raises(ValueError, match="No approved"):
+        select_gst_component_policy(
+            [rule],
+            broker="ExampleBroker",
+            exchange="NSE",
+            segment="FO",
+            product="OPTIONS",
+            trade_date=date(2026, 10, 27),
+        )

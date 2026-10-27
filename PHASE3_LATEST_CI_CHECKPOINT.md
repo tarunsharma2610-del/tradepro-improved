@@ -189,3 +189,40 @@ Existing maintained Phase 3 documents were synchronized after the green code res
 - Research findings and citations are in `GST_IPFT_ACCEPTANCE_MATRIX.md` and `GST_IPFT_PUBLIC_EVIDENCE_ADDENDUM.md`. NSE combined transaction/IPFT rates are effective-dated and counted once; BSE/MCX have separate tariffs; Rule 33 exclusion requires evidence. Upstox API sample mismatch remains documented, not silently papered over.
 - This green run verifies regression handling and existing workflow checks; it does **not** certify the source's unexplained ₹0.02, identify the unlabeled IPFT amount, or approve actual per-fill GST promotion. Next work is to connect this helper to reviewer-facing reconciliation reporting and maintain actual/source estimate separation, then continue Phase 3 acceptance gates.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled; original `tarunsharma2610-del/Tradepro` out of scope.
+
+
+## Continuation checkpoint — 27 October 2026 (API integration is the next implementation task)
+
+### Latest discussion and correction
+
+The user reiterated that API integration was discussed yesterday and should be implemented instead of repeatedly reopening GST/IPFT research. Acknowledged gap: the repository has read-only Upstox API client methods and safety/semantics helpers, but the existence of those parts alone does **not** prove they are wired into the per-fill accounting flow. Do not claim integration complete until the service path and tests demonstrate it.
+
+### Existing API capabilities verified in source
+
+- `backend/app/brokers/upstox/reconciliation_client.py` has read-only `get_brokerage_estimate(...)` using `/v2/charges/brokerage`; it is estimate-only.
+- The same client has `get_trade_charges(...)` using `/v2/trade/profit-loss/charges`; this is aggregate segment/FY evidence, not per-fill evidence.
+- `broker_charge_api_value_resolution.py` enforces source-level endpoint guards, approved exact field mappings, provenance, and distinct MISSING/NULL/INVALID/ZERO states.
+- `upstox_public_gst_estimate.py` calculates public-schedule estimates only. It must not be promoted to actual invoice evidence.
+- `live_fill_accounting_service.py` requires reviewed actual charge evidence and canonical component snapshots; estimated or aggregate values must not bypass that gate.
+
+### Immediate implementation plan (continue from here; do not restart tax research)
+
+1. Trace the read-only API client call sites and the charge evidence/canonical snapshot services on this branch. Identify the supported response schema and current integration seam before changing contracts.
+2. Add a narrow API orchestration/normalization layer that invokes the calculator for estimates and the aggregate charges endpoint for reconciliation context. Keep the two response types distinct and preserve request scope, response provenance, timestamps, endpoint, schema/version and missing/null/invalid/zero states.
+3. Require exact approved field mappings before interpreting fields. Do not create APPROVED mappings merely to make tests pass; use official docs/schema evidence and leave unresolved fields unusable.
+4. Never treat aggregate endpoint output as per-fill actual, never distribute aggregate totals across fills as though broker-reported actuals, and never treat `ipft: null` as zero. Preserve combined transaction/IPFT exactly once according to the reviewed scope policy.
+5. Connect actual per-fill accounting only when genuine per-fill actual evidence and reviewed canonical allocations exist. For aggregate-only responses, create reconciliation context/variance only; do not promote accounting.
+6. Add focused tests for both endpoint classifications, malformed/missing/null/zero fields, no double-counting of combined transaction/IPFT, estimate-versus-actual separation, scope/date validation, and fail-closed accounting integration. Run backend tests and safety/migration/restore workflows.
+7. Synchronize the maintained checkpoint, GST/IPFT acceptance matrix, Upstox integration policy, progress and handover documents after code changes. Record CI only against the exact resulting commit; if CI fails, fix and rerun before checkpointing green.
+
+### GST/IPFT decision carried forward
+
+The practical route is API-first, not another loop of public research and not waiting for a personal contract note. The brokerage calculator is pre-trade estimate only; the post-trade charges API is aggregate evidence only unless official schema/contract proves a more granular scope. The historical ₹20.15 GST line remains source-reported with the visible-base ₹0.02 variance preserved; its cause is not established, and it is not a blocker to API wiring. Statutory GST valuation and the one-time transaction/IPFT treatment remain separate reviewed accounting rules; public schedule calculations remain estimates.
+
+### Status at this checkpoint
+
+- API client methods: **present**.
+- API-to-accounting orchestration: **not yet verified/complete**; this is the next code task.
+- Exact-head CI for the upcoming integration change: **not run yet**.
+- Actual contract-note and production Oracle restore acceptance: deferred until genuine evidence/backups exist; synthetic tests continue.
+- Safety unchanged: repository `tarunsharma2610-del/tradepro-improved` only; PR #6/#7 Draft/unmerged; PAPER mandatory; live order writes disabled.

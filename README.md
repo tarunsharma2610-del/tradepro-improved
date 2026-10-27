@@ -936,3 +936,10 @@ Safety remains unchanged: PAPER mode mandatory; live broker order writes disable
 - Statutory GST research: CBIC stock-broking FAQ and CGST Act section 15 / CGST Rules Rule 33 and Rule 27 govern valuation; pure-agent exclusion is conditional on evidence, not automatic. IGST Act section 12(12) governs stock-broking place of supply; supplier/place-of-supply state comparison determines IGST vs CGST+SGST. Sources: https://cbic-gst.gov.in/sectoral-faq.html ; https://cbic-gst.gov.in/valuation-rules.html
 - GST public-schedule helper/tests remain estimate-only. Statutory GST valuation service and tests are not implemented yet; GST/IPFT acceptance remains open. Next: implement Section 15 inclusion, Rule 33 evidence gates, tax-state split, Decimal/paise rounding and fail-closed handling. IPFT combined/separate and DP/demat persistence/reconciliation remain open.
 - No personal contract note available or required. Safety: only `tarunsharma2610-del/tradepro-improved`; PR #6/#7 Draft/unmerged; PAPER-only; live broker order writes disabled; original Tradepro repository out of scope.
+
+## Verified checkpoint — 27 October 2026 (DP/demat completeness)
+
+- Backend CI #40459846143 passed on `9400bc9aa221e2cf3b735e49a8e9a6d351237f02`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40459846143. Backend tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic PostgreSQL/document-volume restore checks passed.
+- DP completeness API regression added: invalid DP status must not expose a complete total. `KNOWN` requires a valid paise-exact amount; `NOT_APPLICABLE` requires no amount; unresolved states remain incomplete. Delivery SELL needs reviewed DP evidence and exact per-fill allocation.
+- Next gate: per-fill mapping, replay/idempotency, rollback atomicity and component applicability. Real invoice and production Oracle restore acceptance remain evidence-gated.
+- Safety: PAPER mandatory; live broker writes disabled; PR #6/#7 Draft/unmerged; original `Tradepro` repository out of scope.

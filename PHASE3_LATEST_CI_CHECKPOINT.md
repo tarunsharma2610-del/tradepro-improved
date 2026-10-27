@@ -524,3 +524,12 @@ Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; PR #6/#7
 - Still outstanding for full Phase 3 acceptance: wire the comparison into the applicable API/data flow (without turning estimate values into actual accounting), prove the exact live Upstox response schema and mapping for the active API version, source/verify supported BSE/MCX tariff scopes, synchronize the maintained documents, and run exact-head CI. No live API request was made because authenticated user credentials are not available in this task context.
 
 Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; PR #6/#7 Draft/unmerged; PAPER mode mandatory; live broker order writes disabled.
+
+
+## Next acceptance increment — nested Upstox GST response path
+
+- Added dotted JSON field-path support in `backend/app/services/broker_gst_reconciliation.py` so the comparison can read nested broker responses such as `data.charges.gst` without flattening assumptions.
+- Added regressions in `backend/tests/test_broker_gst_reconciliation.py` for nested GST exact match, missing intermediate path, explicit null and malformed field path.
+- Implementation commit: `ff2d69546e5aad37c519c6622f51018bf7706ad5`; test commit: `a6f88dc85dcb25d903e610aaf30ce395ec12d650`.
+- Previous exact-head CI [#40549308036 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40549308036) applies to earlier head `0b5902ea35621d613589f7c8762b4d6658df9104`, not this increment. CI must be confirmed on the final updated head before this increment is called green.
+- Still open: wire this comparison into a caller that has authoritative valuation lines and supplier/place-of-supply state inputs; preserve estimate-only semantics. Complete component-by-component accounting acceptance and source-verified BSE/MCX tariff scope, then synchronize remaining maintained documents on a verified green head.

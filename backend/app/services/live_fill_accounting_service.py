@@ -55,6 +55,7 @@ class LiveFillChargeBreakdown:
     reference: str
     evidence_id: UUID | None = None
     reviewer_user_id: UUID | None = None
+    demat_transaction_charges: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -172,13 +173,6 @@ class LiveFillAccountingService:
                 raise ValueError("Broker trade instrument does not match the local order.")
             if record.side != order.side or record.side not in {"BUY", "SELL"}:
                 raise ValueError("Broker trade side does not match the local order.")
-            # DP/demat is a separate canonical component and is not part of the
-            # six-component live ledger yet. Never promote an equity-delivery
-            # sell with an incomplete total while that component is unresolved.
-            if order.segment == "EQUITY_DELIVERY" and record.side == "SELL":
-                raise ValueError(
-                    "Equity-delivery SELL promotion is blocked until DP/demat is independently reconciled per fill."
-                )
             if type(record.quantity) is not int or record.quantity <= 0:
                 raise ValueError("Broker trade quantity is invalid.")
             price = Decimal(str(record.price))
@@ -305,6 +299,7 @@ class LiveFillAccountingService:
                 reviewer_user_id=charges.reviewer_user_id,
                 supplied_fees=fee_values,
                 broker_report_reference=charges.reference,
+                require_demat=(order.segment == "EQUITY_DELIVERY" and record.side == "SELL"),
             )
 
             # The verification path now owns the evidence -> component ->
@@ -386,8 +381,11 @@ class LiveFillAccountingService:
                 stamp_duty=fee_values["stamp_duty"],
                 gst=fee_values["gst"],
                 total_charges=fee_values["total_charges"],
-                demat_transaction_charges=None,
-                demat_charge_status="NOT_APPLICABLE",
+                demat_transaction_charges=fee_values.get("demat_transaction_charges"),
+                demat_charge_status=(
+                    "KNOWN" if fee_values.get("demat_transaction_charges") is not None
+                    else "NOT_APPLICABLE"
+                ),
                 charge_source=charges.source,
                 charge_reference=charges.reference.strip(),
                 charge_evidence_id=charges.evidence_id,
@@ -444,8 +442,9 @@ class LiveFillAccountingService:
         reviewer_user_id: UUID,
         supplied_fees: dict[str, Decimal],
         broker_report_reference: str,
+        require_demat: bool = False,
     ) -> dict[str, Decimal]:
-        """Load actual fees only from six verified canonical snapshots.
+        """Load actual fees from the six core snapshots and optional DP snapshot.
 
         Lock order is canonical snapshots (sorted by component) -> evidence ->
         source rows -> allocation rows -> reviewer/trade rows. All six snapshots
@@ -454,6 +453,7 @@ class LiveFillAccountingService:
         are not an accounting fallback.
         """
         names = LIVE_FILL_ACCOUNTING_COMPONENTS
+        demat_name = "demat_transaction_charges"
         snapshots = (
             self.db.query(BrokerChargeCanonicalComponent)
             .filter(BrokerChargeCanonicalComponent.evidence_id == evidence_id)
@@ -463,13 +463,15 @@ class LiveFillAccountingService:
             .all()
         )
         by_name = {row.canonical_component: row for row in snapshots}
+        allowed_names = set(names) | {demat_name}
+        required_names = set(names) | ({demat_name} if require_demat else set())
         if (
-            len(snapshots) != len(names)
-            or len(by_name) != len(names)
-            or set(by_name) != set(names)
+            len(snapshots) != len(by_name)
+            or not required_names.issubset(set(by_name))
+            or not set(by_name).issubset(allowed_names)
         ):
             raise ValueError(
-                "Live accounting requires exactly six independently verified canonical charge snapshots."
+                "Live accounting requires six core canonical snapshots and a reviewed DP snapshot for eligible delivery sells."
             )
         if any(
             snapshot.status != "VERIFIED"
@@ -485,7 +487,7 @@ class LiveFillAccountingService:
         # exact fill manifest, explicit weights, deterministic amounts and
         # durable reconciliation references inside this transaction.
         verifications: dict[str, dict[str, object]] = {}
-        for name in names:
+        for name in sorted(by_name):
             snapshot = by_name[name]
             verification = verify_canonical_component_allocation_ledger(
                 self.db, snapshot_id=snapshot.id
@@ -536,9 +538,10 @@ class LiveFillAccountingService:
             .populate_existing()
             .all()
         )
-        if len(fill_rows) != len(names) or {row.charge_component for row in fill_rows} != set(names):
+        required_fill_names = set(names) | ({demat_name} if require_demat else set())
+        if len(fill_rows) != len(required_fill_names) or {row.charge_component for row in fill_rows} != required_fill_names:
             raise ValueError(
-                "Live accounting requires exactly six canonical per-fill charge allocations; extra or unmapped rows block promotion."
+                "Live accounting requires exactly the applicable canonical per-fill allocations; missing DP or extra/unmapped rows block promotion."
             )
         for row in fill_rows:
             snapshot = by_name.get(row.charge_component)
@@ -558,7 +561,7 @@ class LiveFillAccountingService:
             row.charge_component: Decimal(str(row.allocated_amount)).quantize(CENT)
             for row in fill_rows
         }
-        for name in names:
+        for name in required_fill_names:
             verification = verifications[name]
             if not verification.get("allocation_ids"):
                 raise ValueError("Canonical component verifier returned no reconciled allocation IDs.")
@@ -572,7 +575,15 @@ class LiveFillAccountingService:
 
         if any(supplied_fees[name] != derived[name] for name in names):
             raise ValueError("Caller-supplied charge amounts differ from the reconciled canonical per-fill allocation ledger.")
-        total = sum((derived[name] for name in names), Decimal("0")).quantize(CENT)
+        if require_demat:
+            if supplied_fees.get(demat_name) is None or supplied_fees[demat_name] != derived.get(demat_name):
+                raise ValueError("Delivery-sell DP/demat amount differs from the reconciled canonical per-fill allocation ledger.")
+        elif supplied_fees.get(demat_name) is not None or demat_name in derived:
+            raise ValueError("DP/demat allocation is not applicable to this fill and cannot be silently included.")
+        total = sum((derived[name] for name in names), Decimal("0"))
+        if require_demat:
+            total += derived[demat_name]
+        total = total.quantize(CENT)
         if supplied_fees["total_charges"] != total:
             raise ValueError("Total charges do not equal the reconciled canonical per-fill allocation ledger.")
 
@@ -680,9 +691,22 @@ class LiveFillAccountingService:
             if amount != amount.quantize(CENT):
                 raise ValueError(f"Live-fill charge {name} must be expressed to paise precision.")
             values[name] = amount
+        raw_demat = charges.demat_transaction_charges
+        if raw_demat is not None:
+            try:
+                demat = Decimal(str(raw_demat))
+            except (InvalidOperation, TypeError, ValueError):
+                raise ValueError("Live-fill DP/demat charge is invalid.") from None
+            if not demat.is_finite() or demat < 0 or demat != demat.quantize(CENT):
+                raise ValueError("Live-fill DP/demat charge must be finite, non-negative and paise-exact.")
+            values["demat_transaction_charges"] = demat
+        else:
+            values["demat_transaction_charges"] = None
         component_sum = sum(values[name] for name in names[:-1])
+        if raw_demat is not None:
+            component_sum += values["demat_transaction_charges"]
         if values["total_charges"] != component_sum:
-            raise ValueError("Live-fill total_charges must equal the sum of its six components.")
+            raise ValueError("Live-fill total_charges must equal the sum of the six core components and any applicable DP/demat charge.")
         return values
 
     @staticmethod
@@ -742,6 +766,14 @@ class LiveFillAccountingService:
             and Decimal(str(execution.sebi_charges)) == fees["sebi_charges"]
             and Decimal(str(execution.stamp_duty)) == fees["stamp_duty"]
             and Decimal(str(execution.gst)) == fees["gst"]
+            and (
+                Decimal(str(execution.demat_transaction_charges)) == fees["demat_transaction_charges"]
+                if fees.get("demat_transaction_charges") is not None
+                else execution.demat_transaction_charges is None
+            )
+            and execution.demat_charge_status == (
+                "KNOWN" if fees.get("demat_transaction_charges") is not None else "NOT_APPLICABLE"
+            )
             and Decimal(str(execution.total_charges)) == fees["total_charges"]
         )
 

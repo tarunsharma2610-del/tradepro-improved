@@ -67,6 +67,9 @@ class ExecutionOut(BaseModel):
     sebi_charges: Decimal
     stamp_duty: Decimal
     gst: Decimal
+    demat_transaction_charges: Decimal | None
+    demat_charge_status: str
     total_charges: Decimal
+    total_charges_complete: bool
     realized_pnl: Decimal
     executed_at: datetime

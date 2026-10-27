@@ -18,6 +18,25 @@ from app.services.statutory_stock_broking_gst import (
 PAISE = Decimal("0.01")
 
 
+def _normalize_payload_path(payload: dict[str, Any], field_path: str) -> dict[str, Any]:
+    """Normalize a top-level field or dotted JSON path without losing null/zero state."""
+    if not isinstance(payload, dict):
+        raise ValueError("Broker GST API payload must be a JSON object.")
+    if not isinstance(field_path, str) or not field_path.strip():
+        raise ValueError("GST field path is required.")
+    parts = field_path.split(".")
+    if any(not part for part in parts):
+        raise ValueError("GST field path must contain non-empty path segments.")
+    current: Any = payload
+    for part in parts[:-1]:
+        if not isinstance(current, dict) or part not in current:
+            return normalize_charge_api_field({}, parts[-1])
+        current = current[part]
+    if not isinstance(current, dict):
+        return normalize_charge_api_field({}, parts[-1])
+    return normalize_charge_api_field(current, parts[-1])
+
+
 @dataclass(frozen=True)
 class GstEstimateComparison:
     api_state: str
@@ -45,7 +64,7 @@ def compare_broker_gst_estimate(
     Missing/null/invalid API fields remain unavailable; numeric zero remains a
     real reported value. A variance is surfaced, never silently reconciled.
     """
-    normalized = normalize_charge_api_field(payload, gst_field)
+    normalized = _normalize_payload_path(payload, gst_field)
     try:
         allowed_tolerance = tolerance if isinstance(tolerance, Decimal) else Decimal(str(tolerance))
     except (InvalidOperation, TypeError, ValueError) as exc:

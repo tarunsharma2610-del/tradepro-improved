@@ -169,3 +169,27 @@ This is a policy-evidence comparison, not approval of a universal component set 
 - Current implementation boundaries: statutory GST primitive applies Section 15 default inclusion and conditional Rule 33 pure-agent exclusion only when all modeled evidence flags are true; broker GST policy resolver remains an estimate-only source-specific path. Neither is yet a unified actual per-fill invoice acceptance path. No broker GST policy is approved here for actual accounting.
 - Next Phase 3 task: audit the accounting charge reconciliation/promotion boundary and define a single reviewed path that consumes source-backed invoice line identities, statutory valuation evidence and effective-dated broker policy without letting estimates become actual ledger charges. If source provenance, Rule 33 facts, component identity, or GST invoice lines are missing/conflicting, actual accounting must fail closed. Add tests before integration; do not promote estimates or change live-trading safeguards.
 - Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope; PR #6/#7 Draft/unmerged; PAPER mode mandatory; live broker order writes disabled.
+
+
+## Real-source statement reconciliation — 27 October 2026
+
+A user-provided two-page statement image for derivatives trades has been reviewed as real-source evidence. The visible summary reports brokerage ₹1,000.00; transaction charges ₹111.61; SEBI fees ₹0.22; GST on brokerage ₹180.00; GST on charges ₹20.15; stamp duty ₹3.00; STT lines ₹0.32 (RND buy), ₹1.21 (RND sell), and ₹51.89 (SQUP); and total net value ₹4,487.73. The statement footnote says GST applies to the listed charges and that GST on SEBI fees became applicable from 18 July 2022.
+
+### Reconciliation result
+
+- ₹180.00 equals 18% of the reported ₹1,000.00 brokerage.
+- The visible transaction + SEBI base is ₹111.61 + ₹0.22 = ₹111.83; 18% = ₹20.1294, rounded to ₹20.13, whereas the source reports ₹20.15. Preserve this ₹0.02 difference as a source variance; do not silently alter the actual tax line or infer a missing component.
+- This is an aggregate summary by security/statement, not proof of per-execution-fill GST allocation.
+- The visible statement does not identify IPFT as a separate line. Do not infer that IPFT is absent or included in transaction charges solely from this layout.
+- The source image appears to be an older 2023-period statement. It is useful as historical source evidence, not as proof of 2026 tariffs or current broker billing.
+
+### Implementation acceptance requirements from this evidence
+
+1. Preserve actual GST source lines and source labels independently from computed estimate GST.
+2. Reconcile GST-on-brokerage and GST-on-other-charges separately where the source does so.
+3. Report a ₹0.02 mismatch for the visible GST-on-charges calculation as a reviewable variance, not a rounding tolerance or silent correction.
+4. Do not promote aggregate statement totals as per-fill actuals without a reviewed source-to-fill allocation basis.
+5. Treat IPFT as UNKNOWN when not explicitly identifiable; a null/missing IPFT API field is not zero.
+6. Keep the current public estimate rule separate: Upstox publicly describes GST at 18% on brokerage + transaction + IPFT, plus DP/demat for equity delivery. The Upstox brokerage API sample exposes transaction ₹5.68, IPFT ₹0.17 and GST ₹1.02 (arithmetically matching 18% of transaction alone, not transaction+IPFT); its trade-charges API shows ipft:null. These API examples are documentation/API evidence, not actual invoice proof. See https://upstox.com/brokerage-charges/ ; https://upstox.com/developer/api-documentation/get-brokerage/ ; https://upstox.com/developer/api-documentation/get-trade-charges/ ; https://support.zerodha.com/category/account-opening/resident-individual/ri-charges/articles/ipft-charges ; https://cbic-gst.gov.in/sectoral-faq.html.
+
+Disposition: real-source review is now started using this statement. GST/IPFT estimate policy can be implemented separately, but actual per-fill tax acceptance remains blocked on a verified component/tax-base mapping and fill-level source relationship. Do not describe this historical statement alone as resolving IPFT or every broker's invoice treatment.

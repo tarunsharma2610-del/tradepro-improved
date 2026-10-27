@@ -2423,3 +2423,11 @@ Last confirmed relevant green results: route-test commit `ffb87c9af7c87d921eadf0
 Continue with a dedicated durable aggregate API reconciliation record, not the source-document evidence models. Record owner/connection, endpoint and API version, requested scope/window, fetched timestamp/status, response hash/provenance and sanitized payload. Enforce tenant ownership; never persist access tokens or secrets; distinguish estimate from aggregate response and preserve missing/null/invalid/zero semantics. No per-fill allocation or actual accounting promotion from aggregate API data. Add ownership, provenance, replay/idempotency and SQLite/PostgreSQL 16 migration round-trip tests, run the full safety/migration/restore CI suite, then update maintained docs and checkpoint with the exact green head.
 
 Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mode mandatory; live broker order writes disabled.
+
+
+
+## Latest work — 27 October 2026: aggregate API persistence
+
+Implemented `BrokerApiReconciliationRecord` and Alembic revision `202610270030`, then wired authenticated `GET /upstox/charges/aggregate` to persist a sanitized, immutable aggregate-only snapshot. Includes owner and broker-connection linkage, endpoint/API version, request scope, fetch timestamp/status, response hash and idempotency key; strips credential-like keys before persistence. No per-fill allocations or actual accounting promotion. Added route assertions for owner linkage, hash, sanitization and duplicate response idempotency. Code/test head `77bb07c0b6ee075e5e1eaa61ab0a5d138475953b`; CI #40475498978 was in progress, and #40475479511 was also running. Next: inspect exact-head CI and fix failures; verify SQLite/PostgreSQL migration round-trips, broker-write safety and synthetic restore; add owner-isolation/immutability tests as needed; only then mark green and resynchronize docs.
+
+Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mode mandatory; live broker order writes disabled.

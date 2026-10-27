@@ -2556,3 +2556,12 @@ Do not relax the six-component reconciliation contract, treat estimates as actua
 ## Resume point — historical GST invoice regression
 
 The five January 2023 Upstox contract-note examples have been added as daily aggregate regression fixtures in `backend/tests/test_historical_upstox_contract_note_gst.py`. They validate the disclosed brokerage/transaction/SEBI taxable base and split GST totals. No distinct IPFT amount is shown in the supplied transcription, so the test does not convert absence into zero or create a per-fill IPFT amount. Use the historical effective tariff for the trade date; current API calculator results are estimates, not booked historical charges. Commits: `98f14aef1b3b541c2a6e07beb227b6f3f0471a42`, `547917868d28d3f46f1f549a8daa50d57fc4542d`. Exact-head CI remains to be verified.
+
+## Effective-dated historical IPFT estimate gate — 27 October 2026
+
+- Added `calculate_ipft_estimate_for_scope()` in `backend/app/services/broker_tariff_rules.py`. It requires an approved exact-scope `TariffRule`, NSE/FO/OPTIONS, explicit BUY/SELL, PREMIUM basis and INR_PER_CRORE; generic tariff calculation now fails closed for IPFT. The caller must supply the correct source-defined premium aggregation scope. This helper does not allocate aggregate IPFT to fills or certify booked charges.
+- Added date-boundary tests for the official NSE schedule: ₹0.01/crore before 1 April 2023, ₹50/crore for equity options from 1 April 2023 through 28 February 2026, and rollback to ₹0.01/crore effective 1 March 2026. Sources: [NSE/FA/56129 (24 March 2023)](https://nsearchives.nseindia.com/content/circulars/FA56129.pdf) and [NSE/FA/73061 (27 February 2026)](https://nsearchives.nseindia.com/content/circulars/FA73061.pdf).
+- These tests validate date selection and guarded estimate arithmetic; they do not activate production tariff records. No production rule is automatically approved by the tests, and actual IPFT remains distinct from the current Upstox calculator estimate and the supplied daily contract-note aggregates.
+- The five historical GST invoice fixtures are in `backend/tests/test_historical_upstox_contract_note_gst.py`. The note transcription does not separately identify IPFT; missing is not zero. Exact-head CI for the latest code/test and documentation commits is pending verification.
+
+- Resume by checking Backend CI for latest branch head, fixing any failure, then update this checkpoint to the successful exact head. Keep PR #6/#7 Draft/unmerged, PAPER mandatory, live writes disabled, and do not modify original `Tradepro`.

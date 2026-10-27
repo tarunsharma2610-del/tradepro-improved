@@ -199,7 +199,7 @@ async def aggregate_trade_charges(
         per_fill_actual=False,
         trade_date=None,
         scope=result.scope,
-        payload=result.payload,
+        payload=_sanitize_api_value(result.payload),
         status_code=result.status_code,
         error_code=result.error_code,
         reconciliation_record_id=record_id,

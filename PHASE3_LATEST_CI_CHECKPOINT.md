@@ -334,3 +334,11 @@ The practical route is API-first, not another loop of public research and not wa
 - The GST component policy regression additions cover explicit zero vs missing, unknown/nonfinite/negative/invalid amounts, and inclusive effective-end/expired policy behavior. Documentation commits also triggered Backend CI runs #40477921259 and #40477930671; all workflow steps are confirmed successful as well.
 - This verifies tests and safeguards, not independent statutory approval of the four Upstox GST candidates and not Phase 3 completion. Keep candidate tariff/rule approval gated on primary-source conflict resolution and independent review.
 - Next: examine tariff variance tests and charge component applicability/replay/rollback coverage; improve the most material uncovered gap, then verify exact-head CI and update checkpoint. Safety unchanged: only `tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+
+## Further GST regression coverage — exact scope and paise rounding — 27 October 2026
+
+- Added tests at code/test commit `c010b7d010351465b87f8e6d844fc9171dfc5dad` for GST half-up paise rounding (18% of ₹0.03 rounds from ₹0.0054 to ₹0.01) and fail-closed policy selection when broker, exchange, segment or product differs.
+- Exact-head Backend CI has not yet been verified. Previous green code/test commit remains `91212a0224f3bf4a01bff06c14764a404c1cbc67` / CI #40477899628. Do not treat the added tests as green until the new exact-head workflow passes pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore.
+- Existing variance service already covers source-fill-set identity, quantity/date mismatch, response digest and conflicting replay; next work should focus on any untested component-applicability or rollback boundary rather than duplicating those tests.

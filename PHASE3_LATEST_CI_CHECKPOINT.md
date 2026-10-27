@@ -316,3 +316,12 @@ The practical route is API-first, not another loop of public research and not wa
 - The failure was limited to the ownership test fixture using the same default email twice; the correction uses distinct emails. The owner-isolation and immutable-snapshot tests are now covered by the green backend run.
 - Next: continue Phase 3 accounting acceptance with targeted component applicability, exact fill identity and paise totals, replay/rollback and tariff/GST/IPFT rules. Aggregate API snapshots remain reconciliation-only, not per-fill actuals. Phase 3 remains incomplete until remaining acceptance gates pass.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+
+## GST policy boundary regression tests added — 27 October 2026
+
+- Added three focused tests at code/test commit `91212a0224f3bf4a01bff06c14764a404c1cbc67`: a zero-valued taxable component is accepted as an explicit zero but omission is rejected; unknown extra components and nonfinite/negative/invalid monetary values fail closed; effective end dates are inclusive and expired policies are rejected.
+- These tests supplement existing checks for exact scope, effective-dated policy selection, overlap/conflict rejection, COMBINED/SEPARATE/NOT_APPLICABLE IPFT representations, and paise precision. They do not approve the Upstox GST candidates; those remain DRAFT due unresolved conflicting historical source evidence.
+- **CI for commit `91212a0...` is pending/unverified at checkpoint creation.** Do not treat the new tests as green until the exact-head Backend CI completes all pytest, broker-write boundary, SQLite/PostgreSQL migration and synthetic restore gates. If it fails, inspect logs, fix and rerun before checkpointing green.
+- The previously verified head remains `977ad6b7...` with Backend CI #40476768203 and documentation CI #40476805191 green. The new commit does not inherit that status.

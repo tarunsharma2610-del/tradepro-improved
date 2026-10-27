@@ -73,6 +73,70 @@ def canonical_source_snapshot_fingerprint(
     ).hexdigest()
 
 
+def _reviewed_fill_manifest(source_rows: list[BrokerChargeSourceComponent]) -> tuple[str, str, str]:
+    """Validate one canonical component's own reviewed eligible-fill population.
+
+    Different components may legitimately apply to different fills (for example,
+    DP/demat only to eligible delivery sells). Source rows combined into one
+    canonical component must still share the exact same manifest and weights.
+    """
+    manifests = {row.eligible_fill_ids_json for row in source_rows}
+    weights_json_values = {row.eligible_fill_weights_json for row in source_rows}
+    manifest_hashes = {row.eligible_fill_set_sha256 for row in source_rows}
+    rounding = {row.rounding_policy for row in source_rows}
+    bases = {row.allocation_basis for row in source_rows}
+    if (
+        len(manifests) != 1 or None in manifests or "" in manifests
+        or len(weights_json_values) != 1 or None in weights_json_values or "" in weights_json_values
+        or len(manifest_hashes) != 1 or None in manifest_hashes or "" in manifest_hashes
+        or len(rounding) != 1 or rounding != {METHOD_VERSION}
+        or len(bases) != 1 or bases != {"EXPLICIT_REVIEWED"}
+    ):
+        raise ValueError("Contributing source rows for one canonical component must share a reviewed fill manifest, explicit weights, basis, and method version.")
+
+    manifest_json = next(iter(manifests))
+    weights_json = next(iter(weights_json_values))
+    manifest_hash = next(iter(manifest_hashes))
+    try:
+        manifest_ids = json.loads(manifest_json)
+        weights = json.loads(weights_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Reviewed fill manifest or weight JSON is invalid.") from exc
+    if not isinstance(manifest_ids, list) or not manifest_ids or any(not isinstance(value, str) for value in manifest_ids):
+        raise ValueError("Reviewed fill manifest must be a non-empty list of UUID strings.")
+    try:
+        normalized_ids = [str(UUID(value)) for value in manifest_ids]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Reviewed fill manifest contains an invalid UUID.") from exc
+    canonical_manifest = json.dumps(sorted(normalized_ids), separators=(",", ":"))
+    if normalized_ids != sorted(normalized_ids) or len(set(normalized_ids)) != len(normalized_ids):
+        raise ValueError("Reviewed fill manifest must be unique and sorted.")
+    if hashlib.sha256(canonical_manifest.encode("utf-8")).hexdigest() != manifest_hash:
+        raise ValueError("Reviewed fill manifest fingerprint does not match.")
+    if not isinstance(weights, list):
+        raise ValueError("Reviewed explicit weights must be a JSON list.")
+    normalized_weight_ids: list[str] = []
+    for item in weights:
+        if not isinstance(item, dict) or set(item) != {"fill_record_id", "weight"}:
+            raise ValueError("Reviewed explicit weight entry is malformed.")
+        try:
+            normalized_weight_ids.append(str(UUID(item["fill_record_id"])))
+            weight = Decimal(str(item["weight"]))
+        except (TypeError, ValueError, ArithmeticError) as exc:
+            raise ValueError("Reviewed explicit weight entry is invalid.") from exc
+        if not weight.is_finite() or weight < 0:
+            raise ValueError("Reviewed explicit weights must be finite and nonnegative.")
+    if normalized_weight_ids != normalized_ids or len(set(normalized_weight_ids)) != len(normalized_weight_ids):
+        raise ValueError("Reviewed explicit weights must match the canonical fill manifest order.")
+    canonical_weights = json.dumps(
+        [{"fill_record_id": fill_id, "weight": str(item["weight"])} for fill_id, item in zip(normalized_ids, weights)],
+        separators=(",", ":"),
+    )
+    if canonical_weights != weights_json:
+        raise ValueError("Reviewed explicit weights are not in canonical JSON representation.")
+    return manifest_json, weights_json, manifest_hash
+
+
 def materialize_canonical_charge_component_snapshots(
     db: Session,
     *,
@@ -166,68 +230,14 @@ def materialize_canonical_charge_component_snapshots(
     if set(source_mapping) != set(amount_mapping):
         raise ValueError("Canonical source and amount mappings disagree.")
 
-    # All six components must describe the same reviewed fill population and
-    # allocation policy. For split exchange charges, both source rows must agree.
-    all_manifest_values = {row.eligible_fill_ids_json for row in records}
-    all_weight_values = {row.eligible_fill_weights_json for row in records}
-    all_manifest_hashes = {row.eligible_fill_set_sha256 for row in records}
-    all_rounding = {row.rounding_policy for row in records}
-    all_bases = {row.allocation_basis for row in records}
-    if (
-        len(all_manifest_values) != 1 or None in all_manifest_values or "" in all_manifest_values
-        or len(all_weight_values) != 1 or None in all_weight_values or "" in all_weight_values
-        or len(all_manifest_hashes) != 1 or None in all_manifest_hashes or "" in all_manifest_hashes
-        or len(all_rounding) != 1 or all_rounding != {METHOD_VERSION}
-        or len(all_bases) != 1 or all_bases != {"EXPLICIT_REVIEWED"}
-    ):
-        raise ValueError("All contributing source rows must share one reviewed fill manifest, explicit weights, basis, and method version.")
-
-    manifest_json = next(iter(all_manifest_values))
-    weights_json = next(iter(all_weight_values))
-    manifest_hash = next(iter(all_manifest_hashes))
-    try:
-        manifest_ids = json.loads(manifest_json)
-        weights = json.loads(weights_json)
-    except (TypeError, json.JSONDecodeError) as exc:
-        raise ValueError("Reviewed fill manifest or weight JSON is invalid.") from exc
-    if not isinstance(manifest_ids, list) or not manifest_ids or any(not isinstance(value, str) for value in manifest_ids):
-        raise ValueError("Reviewed fill manifest must be a non-empty list of UUID strings.")
-    try:
-        normalized_ids = [str(UUID(value)) for value in manifest_ids]
-    except (TypeError, ValueError) as exc:
-        raise ValueError("Reviewed fill manifest contains an invalid UUID.") from exc
-    canonical_manifest = json.dumps(sorted(normalized_ids), separators=(",", ":"))
-    if normalized_ids != sorted(normalized_ids) or len(set(normalized_ids)) != len(normalized_ids):
-        raise ValueError("Reviewed fill manifest must be unique and sorted.")
-    if hashlib.sha256(canonical_manifest.encode("utf-8")).hexdigest() != manifest_hash:
-        raise ValueError("Reviewed fill manifest fingerprint does not match.")
-    if not isinstance(weights, list):
-        raise ValueError("Reviewed explicit weights must be a JSON list.")
-    normalized_weight_ids: list[str] = []
-    for item in weights:
-        if not isinstance(item, dict) or set(item) != {"fill_record_id", "weight"}:
-            raise ValueError("Reviewed explicit weight entry is malformed.")
-        try:
-            normalized_weight_ids.append(str(UUID(item["fill_record_id"])))
-            weight = Decimal(str(item["weight"]))
-        except (TypeError, ValueError, ArithmeticError) as exc:
-            raise ValueError("Reviewed explicit weight entry is invalid.") from exc
-        if not weight.is_finite() or weight < 0:
-            raise ValueError("Reviewed explicit weights must be finite and nonnegative.")
-    if normalized_weight_ids != normalized_ids or len(set(normalized_weight_ids)) != len(normalized_weight_ids):
-        raise ValueError("Reviewed explicit weights must match the canonical fill manifest order.")
-    canonical_weights = json.dumps(
-        [{"fill_record_id": fill_id, "weight": str(item["weight"])} for fill_id, item in zip(normalized_ids, weights)],
-        separators=(",", ":"),
-    )
-    if canonical_weights != weights_json:
-        raise ValueError("Reviewed explicit weights are not in canonical JSON representation.")
-
     result: list[BrokerChargeCanonicalComponent] = []
     for canonical_name in sorted(source_mapping):
         source_names = set(source_mapping[canonical_name])
         source_rows = [row for row in records if row.component_name in source_names]
         source_rows.sort(key=lambda row: (row.component_name, row.revision, str(row.id)))
+        if not source_rows:
+            raise ValueError(f"Canonical component {canonical_name} has no source rows.")
+        manifest_json, weights_json, manifest_hash = _reviewed_fill_manifest(source_rows)
         source_ids = [str(row.id) for row in source_rows]
         source_ids_json = json.dumps(source_ids, separators=(",", ":"))
         fingerprint = canonical_source_snapshot_fingerprint(

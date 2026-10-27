@@ -533,3 +533,12 @@ Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; PR #6/#7
 - Implementation commit: `ff2d69546e5aad37c519c6622f51018bf7706ad5`; test commit: `a6f88dc85dcb25d903e610aaf30ce395ec12d650`.
 - Previous exact-head CI [#40549308036 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40549308036) applies to earlier head `0b5902ea35621d613589f7c8762b4d6658df9104`, not this increment. CI must be confirmed on the final updated head before this increment is called green.
 - Still open: wire this comparison into a caller that has authoritative valuation lines and supplier/place-of-supply state inputs; preserve estimate-only semantics. Complete component-by-component accounting acceptance and source-verified BSE/MCX tariff scope, then synchronize remaining maintained documents on a verified green head.
+
+
+## Exact approved API field-path fix — 27 October 2026
+
+- Fixed `backend/app/services/broker_charge_api_value_resolution.py` to extract values only from the exact approved dotted JSON path. It no longer normalizes the payload's top-level field by leaf name when the approved nested path is absent.
+- Updated `backend/tests/test_broker_charge_api_value_resolution.py` to use nested payload fixtures and added tests for exact nested path extraction and rejecting a same-named value outside the approved path.
+- Commits: implementation `aba4ffba23f96d976dad05a2dd6c46fefe188875`; tests `5ccaad1fcc464ee305746a380f889d7ee283d7c4`. GST comparison nested-path work: `ff2d69546e5aad37c519c6622f51018bf7706ad5`; tests `a6f88dc85dcb25d903e610aaf30ce395ec12d650`.
+- Exact-head CI is pending for the new code/tests and documentation. Prior green CI [#40549308036](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40549308036) covers only earlier head `0b5902ea35621d613589f7c8762b4d6658df9104`.
+- This closes a concrete API mapping correctness gap, but not all GST/IPFT acceptance: caller integration still requires verified valuation lines and supplier/place-of-supply inputs; unsupported BSE/MCX tariffs remain fail-closed; per-fill accounting acceptance gates remain in scope.

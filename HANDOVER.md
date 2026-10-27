@@ -2409,3 +2409,8 @@ Created `backend/app/services/upstox_charge_api_orchestration_service.py` and `b
 ### Authenticated API routes added — 27 October 2026
 
 Added `backend/app/api/v1/upstox_charges.py`, registered in `backend/app/api/v1/router.py`. Routes: `GET /api/v1/upstox/charges/brokerage-estimate` and `GET /api/v1/upstox/charges/aggregate`. Both require authentication and the current user's connected Upstox connection; access token is decrypted only server-side. The former is estimate-only; the latter aggregate reconciliation-only; neither is per-fill actual evidence. CI passed on prior head `6021815de9bfa1213320daafb4eda866c93f3ec9`, but CI for route/router commits is in progress/queued. Add route-level tests, check CI against final exact head, then assess safe persistence of aggregate reconciliation context. Do not split aggregate totals across fills or mark GST/IPFT approved without evidence.
+
+
+### Route-level tests added — 27 October 2026
+
+Added `backend/tests/test_upstox_charge_api_routes.py`: validates estimate-only route response and null IPFT preservation, aggregate-only response classification, and invalid quantity rejection. Previous CI passed on `24b7b9ee728049f26b200cbee54571ae3c22b7bf` (run #40473895336). New test commit `ffb87c9af7c87d921eadf0198b7ba8704be65e76` is awaiting its own CI. Continue by checking that run, fixing any failures, then inspect the existing evidence/reconciliation schema to determine a safe aggregate-only persistence path; do not promote aggregate data to per-fill actual accounting.

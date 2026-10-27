@@ -84,7 +84,7 @@ def compare_broker_gst_estimate(
             tax_type=engine.tax_type,
         )
     variance = (api_amount - engine.total_gst).quantize(PAISE, rounding=ROUND_HALF_UP)
-    status = "MATCH_WITHIN_TOLERANCE" if abs(variance) <= allowed_tolerance else "VARIANCE_REQUIRES_REVIEW"
+    status = ("MATCH_EXACT" if variance == Decimal("0.00") else "ROUNDING_VARIANCE_REQUIRES_REVIEW" if abs(variance) <= allowed_tolerance else "VARIANCE_REQUIRES_REVIEW")
     return GstEstimateComparison(
         api_state=state,
         api_reported_gst=api_amount,

@@ -3284,3 +3284,9 @@ The GST scope/rounding code-test head `c010b7d010351465b87f8e6d844fc9171dfc5dad`
 ## 27 October 2026 — documentation CI reconciled; rollback coverage audited
 
 Backend CI #40479126107 (commit `432a3d37...`) and #40479142058 (commit `3f29c70b...`) both passed all steps, including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore. Commit `85ddf857...` had no workflow result in the current lookup. Review of live-fill tests found existing coverage for staged-row rollback, commit/flush failures, safe exact replay after post-commit refresh failure, IPFT canonicalization once, DP completeness and fill/replay identity. Next inspect source-to-canonical component mapping completeness for a concrete gap; avoid duplicate tests. Statutory GST/IPFT approval remains separately gated.
+
+
+
+## 27 October 2026 — source-to-canonical mapping review
+
+Documentation CI #40479568869, #40479578088 and #40479585940 passed. Review of the canonical planner and verified source canonicalizer confirms checks for unique source IDs, evidence/hash binding, VERIFIED status, independent reviewer, INR currency, source locator, shared fill manifest/fingerprint and explicit reviewed weights; allocation plans reconcile to source totals but remain unapproved and unpersisted. Split transaction/IPFT persistence is intentionally blocked because the current six-component schema cannot durably link multiple source rows to one canonical component. Next assess a migration-backed canonical-source link; do not bypass the guard. Statutory GST/IPFT approval remains separate.

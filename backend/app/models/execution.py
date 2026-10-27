@@ -82,20 +82,7 @@ class Execution(BaseModel):
 
     @property
     def total_charges_complete(self) -> bool:
-        """True only when DP applicability and amount are internally consistent."""
-        if self.demat_charge_status == "KNOWN":
-            if self.demat_transaction_charges is None:
-                return False
-            try:
-                amount = Decimal(str(self.demat_transaction_charges))
-                return (
-                    amount.is_finite()
-                    and amount >= 0
-                    and amount == amount.quantize(Decimal("0.01"))
-                )
-            except (InvalidOperation, TypeError, ValueError):
-                return False
-        if self.demat_charge_status == "NOT_APPLICABLE":
-            return self.demat_transaction_charges is None
-        # Unknown, missing, or invalid statuses fail closed; a subtotal is not final.
-        return False
+        """True only when DP state and persisted component total reconcile."""
+        from app.services.execution_charge_totals import execution_charge_total_is_complete
+
+        return execution_charge_total_is_complete(self)

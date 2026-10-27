@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -83,7 +84,17 @@ class Execution(BaseModel):
     def total_charges_complete(self) -> bool:
         """True only when DP applicability and amount are internally consistent."""
         if self.demat_charge_status == "KNOWN":
-            return self.demat_transaction_charges is not None
+            if self.demat_transaction_charges is None:
+                return False
+            try:
+                amount = Decimal(str(self.demat_transaction_charges))
+                return (
+                    amount.is_finite()
+                    and amount >= 0
+                    and amount == amount.quantize(Decimal("0.01"))
+                )
+            except (InvalidOperation, TypeError, ValueError):
+                return False
         if self.demat_charge_status == "NOT_APPLICABLE":
             return self.demat_transaction_charges is None
         # Unknown, missing, or invalid statuses fail closed; a subtotal is not final.

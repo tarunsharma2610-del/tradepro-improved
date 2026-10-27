@@ -501,6 +501,10 @@ class LiveFillAccountingService:
                     "Every canonical charge component must be fully verified and reconciled before accounting."
                 )
             verifications[name] = verification
+            if name == demat_name:
+                self._validate_demat_manifest_eligibility(
+                    snapshot, broker_connection_id=broker_connection_id
+                )
 
         # The canonical verifier has locked and refreshed the evidence row.
         evidence = (
@@ -597,6 +601,62 @@ class LiveFillAccountingService:
         if reviewer is None or not reviewer.is_active or not reviewer.is_admin:
             raise ValueError("Only an active platform administrator may promote live-fill accounting.")
         return {**derived, "total_charges": total}
+
+
+    def _validate_demat_manifest_eligibility(
+        self,
+        snapshot: BrokerChargeCanonicalComponent,
+        *,
+        broker_connection_id: UUID,
+    ) -> None:
+        """Require every DP-manifest fill to be a mapped equity-delivery SELL.
+
+        A reviewer-provided manifest is not sufficient by itself: verify each
+        fill against the staged broker trade, child order and local order so DP
+        cannot be allocated to BUY or non-delivery executions.
+        """
+        try:
+            manifest = json.loads(snapshot.eligible_fill_ids_json or "")
+            if not isinstance(manifest, list) or not manifest:
+                raise ValueError
+            fill_ids = [UUID(value) for value in manifest]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            raise ValueError("DP/demat manifest must contain valid persisted fill IDs.") from None
+
+        if len(set(fill_ids)) != len(fill_ids):
+            raise ValueError("DP/demat manifest cannot contain duplicate fill IDs.")
+        rows = (
+            self.db.query(
+                BrokerTradeRecord.id,
+                BrokerTradeRecord.broker_connection_id,
+                BrokerTradeRecord.side,
+                BrokerOrder.broker_connection_id,
+                Order.segment,
+                Order.side,
+            )
+            .join(BrokerOrder, BrokerOrder.id == BrokerTradeRecord.broker_order_ref_id)
+            .join(Order, Order.id == BrokerOrder.order_id)
+            .filter(BrokerTradeRecord.id.in_(fill_ids))
+            .all()
+        )
+        if len(rows) != len(fill_ids) or any(
+            trade_connection_id != broker_connection_id
+            or child_connection_id != broker_connection_id
+            or trade_side != "SELL"
+            or segment != "EQUITY_DELIVERY"
+            or order_side != "SELL"
+            for (
+                _fill_id,
+                trade_connection_id,
+                trade_side,
+                child_connection_id,
+                segment,
+                order_side,
+            ) in rows
+        ):
+            raise ValueError(
+                "DP/demat manifest may include only mapped equity-delivery SELL fills for the reviewed broker connection."
+            )
 
     def _ensure_exchange_order(
         self,

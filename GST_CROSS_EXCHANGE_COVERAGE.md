@@ -66,3 +66,44 @@ is also tested independently of exchange.
 This change does not enable live orders or live broker writes. PAPER mode remains
 mandatory; PR #7 remains Draft/unmerged; only
 `tarunsharma2610-del/tradepro-improved` is in scope.
+
+
+## API-first GST/IPFT resolution decision — 27 October 2026
+
+### Decision
+
+Use Upstox's official APIs as the primary source for **current estimates**, and retain effective-dated exchange rules as an independent validation/fallback layer. Do not rebuild an unneeded parallel tariff engine when the broker calculator returns the breakdown. Do not treat any estimate API as proof of booked charges.
+
+- Official calculator: `GET /v2/charges/brokerage` — estimate for the supplied instrument, quantity, product, BUY/SELL side and price. The documented response includes total, brokerage, GST, STT, stamp duty, transaction, clearing, IPFT and SEBI turnover fields. Evidence class: `ESTIMATE`.
+- Official post-trade endpoint: `GET /v2/trade/profit-loss/charges` — period/segment financial-year charges breakdown, including GST, STT, stamp duty, transaction, clearing, IPFT, SEBI turnover and demat transaction fields. Evidence class: `AGGREGATE_SUMMARY`, never per-fill actual. Null/missing/invalid fields stay unresolved, not zero.
+- Contract note / per-fill broker evidence remains the acceptance source for booked charge reconciliation. API aggregate summaries can be used as a control total, not allocated to fills unless the source and deterministic allocation policy explicitly support that use.
+
+Official docs: https://upstox.com/developer/api-documentation/get-brokerage/ and https://upstox.com/developer/api-documentation/get-trade-charges/.
+
+### GST method
+
+1. Preserve the broker API's reported GST as a separately sourced estimate field; do not overwrite it with our own calculation.
+2. Independently compute a statutory cross-check using explicit valuation lines, supplier state and recipient state recorded by the broker. Standard rate is 18% on the applicable taxable value; round using paise-level policy.
+3. Apply the CBIC Section 15 default valuation. Exclude STT, stamp duty or another third-party recovery only when the complete CGST Rule 33 pure-agent conditions are supported by evidence. Charge labels alone do not prove pure-agent status.
+4. Store `api_reported_gst`, `engine_estimated_gst`, their bases, source/provenance, and any variance separately. Do not silently force equality. A variance becomes a review/reconciliation item.
+5. The post-trade aggregate endpoint may provide a GST control total but does not establish which individual fill carries the GST amount.
+
+Official tax reference: https://cbic-gst.gov.in/sectoral-faq.html (stock-broking FAQ 77–78) and https://cbic-gst.gov.in/valuation-rules.html.
+
+### IPFT historical/current method
+
+NSE circular FA73061 dated 27 February 2026 says that from 1 March 2026 the NSE IPFT contribution was rolled back to Rs 0.01 per crore per side for cash market and equity futures, and Rs 0.01 per crore of equity-options premium per side. The corresponding transaction-charge rates became Rs 306.99/crore cash, Rs 182.99/crore equity futures and Rs 3,552/crore options premium, keeping combined outflow at Rs 307, Rs 183 and Rs 3,553 respectively. Earlier dates must use the historical effective-dated rule; do not apply the March 2026 rates retroactively. Source: https://nsearchives.nseindia.com/content/circulars/FA73061.pdf.
+
+This NSE schedule must not be reused for BSE or MCX. For those exchanges, use the broker calculator's returned estimate for supported instruments and retain source-backed exchange schedules as independent validation. If the API omits/nulls IPFT, do not infer zero; leave it unresolved or use a verified, effective-dated rule for an explicitly supported scope.
+
+### Existing implementation safeguards
+
+The repository already contains exact approved API field mapping and value resolution services. They keep missing/null/invalid/zero distinct, preserve mapping provenance, reject stale/overlapping mappings, and prevent the Upstox brokerage calculator and aggregate post-trade endpoint from being relabelled as per-fill actual evidence. Keep these restrictions. The cross-exchange synthetic GST matrix validates shared tax-engine behavior only; it does not claim real tariff rates for every scope.
+
+### Acceptance tests to require
+
+- API calculator sample: retain all returned component values as estimate evidence, including null-vs-zero IPFT distinction.
+- GST cross-check: API-reported GST and independently calculated GST are separate values; variance is visible and not auto-approved.
+- Historical NSE IPFT: boundary tests before/after 1 March 2026, with the published transaction/IPFT split and unchanged combined rate.
+- Scope guards: NSE rules never satisfy BSE/MCX; estimate and aggregate responses cannot be promoted to per-fill actuals.
+- Existing broker-write boundary, migration and restore checks remain mandatory; PAPER mode remains mandatory.

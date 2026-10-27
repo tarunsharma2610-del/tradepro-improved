@@ -141,3 +141,12 @@ This is a policy-evidence comparison, not approval of a universal component set 
 - STT/stamp duty exclusion requires an evidence-backed Rule 33 pure-agent determination for the relevant recovery; otherwise apply the reviewed Section 15/Rule 27 treatment. Do not turn this general rule into a blanket “always include”/“always exclude” without facts about the supply and pure-agent conditions.
 - SEBI turnover, clearing, DP/demat and other line items must be explicitly included/excluded by reviewed broker-specific policy with provenance. Missing source field, conflicting public sources, unknown tax jurisdiction, or unresolved source precedence => unresolved/incomplete, not zero and not auto-approved.
 - No actual GST candidate is promoted by this comparison. Next code gate is policy resolver + tests for effective-date/source-version conflicts, broker-specific component membership, Rule 33 evidence flags, combined/separate IPFT exactly-once handling and fail-closed missing facts.
+
+
+## GST policy resolver hardening — 27 October 2026
+
+- Audited existing `backend/app/services/broker_gst_component_policy.py` before changing it. It already provides effective-dated broker/exchange/segment/product selection, source URL/retrieval date/SHA-256 provenance, explicit combined/separate/not-applicable IPFT representation, exact component-set checking and an estimate-only calculation path. Avoid creating a parallel resolver.
+- New code commit `eef5eebc1e1abfc37c92b4e50d5c35e9afddcbb4`: policy state `CONFLICT` now exists and any effective conflict for the exact scope/date blocks selection even if an approved policy also matches. This prevents silently preferring one of contradictory public sources.
+- New test commit `761637aab1d5f36ed5bfc02ffb66ce8b31ab7820`: regression tests for a conflicting source blocking an approved candidate and for rejecting sub-paise component inputs rather than silently rounding them.
+- The policy remains estimate-only. This does not approve any broker component set, does not integrate the statutory Rule 33 engine into actual accounting, and does not reconcile invoice-level GST. No broker policies are promoted to APPROVED by this change.
+- Validation status: exact-head CI for these commits is not yet verified. Do not mark this increment green until the branch/PR workflow runs on the exact resulting head and all jobs pass. Next: inspect any CI result, fix failures, then synchronize maintained documents/checkpoint to the latest green head.

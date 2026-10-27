@@ -3213,3 +3213,8 @@ Added a typed wrapper for the existing read-only Upstox brokerage calculator and
 ## 27 October 2026 — authenticated API route wiring
 
 Added authenticated read-only endpoints `GET /api/v1/upstox/charges/brokerage-estimate` and `GET /api/v1/upstox/charges/aggregate`, registered in the API router. The handlers fetch only the authenticated user's Upstox connection and decrypt the access token server-side. The estimate stays estimate-only; the post-trade charges response stays aggregate-reconciliation-only; neither can be used as per-fill actuals. Prior CI passed on `6021815de9bfa1213320daafb4eda866c93f3ec9`; route/router CI runs #40473791107 and #40473806635 were in progress/queued at last check, so latest-head CI is not yet green. Remaining immediate work: route-level auth/token/error tests, verify exact-head CI, then review whether aggregate reconciliation context can be safely persisted. No live order writes added.
+
+
+## 27 October 2026 — route tests and CI
+
+Added route-level tests for the authenticated Upstox charge API endpoints: estimate/aggregate semantics, null IPFT preservation, and validation. Prior CI run #40473895336 passed on `24b7b9ee728049f26b200cbee54571ae3c22b7bf`; new test commit `ffb87c9af7c87d921eadf0198b7ba8704be65e76` still needs exact-head CI. Next: check the workflow, fix failures, then review the existing reconciliation/evidence model before any aggregate-only persistence. Keep aggregate results out of per-fill actual accounting.

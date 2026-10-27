@@ -76,7 +76,13 @@ def execution_charge_total_is_complete(execution: Any) -> bool:
     status = getattr(execution, "demat_charge_status", "UNKNOWN")
     amount = getattr(execution, "demat_transaction_charges", None)
     if status == "KNOWN":
-        return amount is not None
+        if amount is None:
+            return False
+        try:
+            _amount("demat_transaction_charges", amount)
+        except ValueError:
+            return False
+        return True
     if status == "NOT_APPLICABLE":
         return amount is None
     # UNKNOWN, absent, or any invalid status must never make a subtotal look final.

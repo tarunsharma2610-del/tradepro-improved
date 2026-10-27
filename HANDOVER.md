@@ -2431,3 +2431,8 @@ Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-
 Implemented `BrokerApiReconciliationRecord` and Alembic revision `202610270030`, then wired authenticated `GET /upstox/charges/aggregate` to persist a sanitized, immutable aggregate-only snapshot. Includes owner and broker-connection linkage, endpoint/API version, request scope, fetch timestamp/status, response hash and idempotency key; strips credential-like keys before persistence. No per-fill allocations or actual accounting promotion. Added route assertions for owner linkage, hash, sanitization and duplicate response idempotency. Code/test head `77bb07c0b6ee075e5e1eaa61ab0a5d138475953b`; CI #40475498978 was in progress, and #40475479511 was also running. Next: inspect exact-head CI and fix failures; verify SQLite/PostgreSQL migration round-trips, broker-write safety and synthetic restore; add owner-isolation/immutability tests as needed; only then mark green and resynchronize docs.
 
 Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mode mandatory; live broker order writes disabled.
+
+
+## Follow-up — 27 October 2026
+
+Regression tests now cover rejection of another user's Upstox connection and rejection of updates to an existing aggregate evidence snapshot. Commit `688cb70e2d64b866fbb9b6f19c7675ab764a0ecf`; verify exact-head CI. Previous implementation head `77bb07c...` is green on Backend CI #40475498978, including migration round-trips on SQLite and PostgreSQL 16, broker-write boundary and synthetic restore. The added tests are not green until their own CI completes.

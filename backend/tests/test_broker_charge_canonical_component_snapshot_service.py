@@ -516,3 +516,40 @@ def test_optional_demat_snapshot_is_reviewable_and_allocatable_but_not_promotabl
             db_session, snapshot_id=demat.id, reviewer_user_id=independent_reviewer.id
         )
     db_session.rollback()
+
+
+def test_demat_snapshot_can_use_delivery_sell_subset_fill_manifest(db_session, make_user, monkeypatch, tmp_path):
+    """DP can apply to a subset of fills without forcing other charge manifests to match."""
+    _context.with_demat = True
+    try:
+        creator, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    finally:
+        _context.with_demat = False
+
+    fill_ids = sorted(str(row.id) for row in db_session.query(BrokerTradeRecord).filter(
+        BrokerTradeRecord.broker_connection_id == evidence.broker_connection_id
+    ).all())
+    assert len(fill_ids) == 2
+    eligible_ids = [fill_ids[0]]
+    manifest = json.dumps(eligible_ids, separators=(",", ":"))
+    manifest_hash = hashlib.sha256(manifest.encode()).hexdigest()
+    weights = json.dumps(
+        [{"fill_record_id": eligible_ids[0], "weight": "1"}],
+        separators=(",", ":"),
+    )
+    demat = db_session.query(BrokerChargeSourceComponent).filter_by(
+        evidence_id=evidence.id, component_name="demat_transaction_charges"
+    ).one()
+    demat.eligible_fill_ids_json = manifest
+    demat.eligible_fill_weights_json = weights
+    demat.eligible_fill_set_sha256 = manifest_hash
+    db_session.commit()
+
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=creator.id
+    )
+    assert len(snapshots) == 7
+    by_name = {row.canonical_component: row for row in snapshots}
+    assert set(json.loads(by_name["demat_transaction_charges"].eligible_fill_ids_json)) == set(eligible_ids)
+    for name in {"brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"}:
+        assert set(json.loads(by_name[name].eligible_fill_ids_json)) == set(fill_ids)

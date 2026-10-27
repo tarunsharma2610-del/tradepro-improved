@@ -66,18 +66,6 @@ def test_aggregate_estimate_or_component_mapping_cannot_be_used_as_per_fill_actu
         resolve({"ipft": "0.01"}, mapping(semantic=semantic))
 
 
-@pytest.mark.parametrize(
-    ("payload", "expected_state"),
-    [
-        ({}, "MISSING"),
-        ({"ipft": None}, "NULL"),
-        ({"ipft": "NaN"}, "INVALID"),
-        ({"ipft": -1}, "INVALID"),
-        ({"ipft": True}, "INVALID"),
-        ({"ipft": {"amount": "0.01"}}, "INVALID"),
-    ],
-)
-
 def test_nested_official_response_path_is_used_exactly():
     selected = replace(mapping(), field_path="data.charges.ipft")
     result = resolve_charge_api_value(
@@ -115,6 +103,17 @@ def test_leaf_name_elsewhere_does_not_substitute_for_missing_approved_path():
     assert result["usable"] is False
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected_state"),
+    [
+        ({}, "MISSING"),
+        ({"ipft": None}, "NULL"),
+        ({"ipft": "NaN"}, "INVALID"),
+        ({"ipft": -1}, "INVALID"),
+        ({"ipft": True}, "INVALID"),
+        ({"ipft": {"amount": "0.01"}}, "INVALID"),
+    ],
+)
 def test_unusable_values_keep_mapping_provenance_without_becoming_usable(payload, expected_state):
     result = resolve(payload, mapping())
     assert result["state"] == expected_state

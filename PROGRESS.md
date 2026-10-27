@@ -3238,3 +3238,8 @@ Added an immutable owner-scoped aggregate API evidence model and migration `2026
 ## 27 October 2026 — owner-isolation and immutability tests added
 
 Added cross-owner isolation and immutable-snapshot regression tests in commit `688cb70e2d64b866fbb9b6f19c7675ab764a0ecf`. Prior implementation head `77bb07c...` passed Backend CI #40475498978 (pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore); the new tests still require CI on the exact new head. Do not count the new coverage as verified until that run completes.
+
+
+## 27 October 2026 — CI failure diagnosed and test corrected
+
+CI on the new ownership/immutability regression coverage failed with 1 failed and 1128 passed. The cross-owner test created two users using the fixture's identical default email, triggering a unique-email constraint before the authorization check. Fixed with distinct emails in commit `977ad6b7e6eeae1346b28c03c2d83bb62ec93910`. Await exact-head CI; safety, migration and restore gates were skipped after pytest failed and must be verified on the passing run.

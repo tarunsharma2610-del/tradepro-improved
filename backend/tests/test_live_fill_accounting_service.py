@@ -1172,6 +1172,23 @@ def test_demat_manifest_rejects_ineligible_fill_mapping(
         )
 
 
+def test_demat_manifest_rejects_non_equity_instrument_even_if_order_segment_says_delivery(accounting_context):
+    db, _user, _portfolio, instrument, connection, order, _child, record, _paper_position = accounting_context
+    order.side = "SELL"
+    order.segment = "EQUITY_DELIVERY"
+    record.side = "SELL"
+    instrument.instrument_type = "OPTIONS"
+    db.commit()
+    snapshot = BrokerChargeCanonicalComponent(
+        eligible_fill_ids_json=json.dumps([str(record.id)])
+    )
+
+    with pytest.raises(ValueError, match="only mapped equity-delivery SELL fills"):
+        LiveFillAccountingService(db)._validate_demat_manifest_eligibility(
+            snapshot, broker_connection_id=connection.id
+        )
+
+
 def test_demat_manifest_accepts_only_a_mapped_equity_delivery_sell(accounting_context):
     db, _user, _portfolio, _instrument, connection, order, _child, record, _paper_position = accounting_context
     order.side = "SELL"

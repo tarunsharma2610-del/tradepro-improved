@@ -2482,3 +2482,9 @@ Verified green: GST scope/rounding tests at `c010b7d010351465b87f8e6d844fc9171df
 ## Latest verified CI and rollback audit — 27 October 2026
 
 Backend CI #40479126107 on `432a3d37...` and #40479142058 on `3f29c70b...` passed every step, including backend tests, broker-write safety, SQLite/PostgreSQL 16 migration round-trips and synthetic restore. `85ddf857...` had no workflow run in the current lookup, so no separate green claim is made for it. Existing live-fill tests already cover atomic rollback on staged rows, commit and flush failures; exact retry after post-commit refresh failure; canonical exchange/IPFT once; DP completeness; replay and quantity constraints. Next inspect source-to-canonical mapping completeness for any specific uncovered defect. Keep GST/IPFT candidates unapproved pending authoritative review, PAPER mandatory, live writes disabled, PR #6/#7 Draft/unmerged, and original `Tradepro` untouched.
+
+
+
+## Source-to-canonical mapping checkpoint — 27 October 2026
+
+CI runs #40479568869, #40479578088 and #40479585940 passed for the latest documentation commits. Canonical planning validates source provenance, independent review, shared fill manifest/fingerprint and explicit weights; plans are not accounting-approved. Split transaction/IPFT rows cannot be persisted in the six-component accounting model until a durable canonical-source relationship is added. Next design/review that migration and its SQLite/PostgreSQL tests before enabling split-row persistence. Preserve fail-closed behavior and statutory approval gates. PAPER mandatory, live writes disabled, PR #6/#7 Draft/unmerged, original `Tradepro` untouched.

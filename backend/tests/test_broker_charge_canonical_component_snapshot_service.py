@@ -470,7 +470,7 @@ def test_canonical_reconciliation_rejects_incomplete_allocation_fill_set(db_sess
 
 
 
-def test_optional_demat_snapshot_is_reviewable_and_allocatable_but_not_promotable(
+def test_optional_demat_snapshot_is_reviewable_allocatable_and_reconcilable(
     db_session, make_user, monkeypatch, tmp_path
 ):
     _context.with_demat = True
@@ -511,11 +511,14 @@ def test_optional_demat_snapshot_is_reviewable_and_allocatable_but_not_promotabl
     assert all(row.charge_component == "demat_transaction_charges" for row in allocations)
     assert all(row.status == "PENDING_RECONCILIATION" for row in allocations)
 
-    with pytest.raises(ValueError, match="DP/demat allocation promotion remains blocked"):
-        promote_verified_canonical_component_allocations(
-            db_session, snapshot_id=demat.id, reviewer_user_id=independent_reviewer.id
-        )
-    db_session.rollback()
+    reconciled = promote_verified_canonical_component_allocations(
+        db_session, snapshot_id=demat.id, reviewer_user_id=independent_reviewer.id
+    )
+    db_session.commit()
+    assert len(reconciled) == 2
+    assert all(row.status == "RECONCILED" for row in reconciled)
+    assert len({row.reconciliation_reference for row in reconciled}) == 1
+    assert all(row.reconciliation_reference for row in reconciled)
 
 
 def test_demat_snapshot_can_use_delivery_sell_subset_fill_manifest(db_session, make_user, monkeypatch, tmp_path):

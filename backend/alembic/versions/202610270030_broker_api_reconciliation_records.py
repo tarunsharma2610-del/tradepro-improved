@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("endpoint", sa.String(200), nullable=False),
         sa.Column("api_version", sa.String(32), server_default="v2", nullable=False),
         sa.Column("request_scope_json", sa.Text(), nullable=False),
-        sa.Column("fetched_at", sa.String(40), nullable=False),
+        sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("fetch_status", sa.String(32), nullable=False),
         sa.Column("http_status_code", sa.Integer(), nullable=True),
         sa.Column("error_code", sa.String(100), nullable=True),

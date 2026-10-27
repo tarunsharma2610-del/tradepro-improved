@@ -21,6 +21,37 @@ def compare(payload, **overrides):
     return compare_broker_gst_estimate(payload, **values)
 
 
+
+def test_documented_nested_upstox_response_path_is_compared_without_flattening_assumptions():
+    result = compare(
+        {"data": {"charges": {"gst": "4.65", "ipft": None}}},
+        gst_field="data.charges.gst",
+    )
+    assert result.api_state == "VALUE"
+    assert result.api_reported_gst == Decimal("4.65")
+    assert result.engine_estimated_gst == Decimal("4.65")
+    assert result.status == "MATCH_EXACT"
+
+
+@pytest.mark.parametrize(
+    ("payload", "field_path", "expected_state"),
+    [
+        ({"data": {"charges": {"gst": None}}}, "data.charges.gst", "NULL"),
+        ({"data": {"charges": {"ipft": None}}}, "data.charges.gst", "MISSING"),
+        ({"data": None}, "data.charges.gst", "MISSING"),
+    ],
+)
+def test_nested_response_path_preserves_null_and_missing(payload, field_path, expected_state):
+    result = compare(payload, gst_field=field_path)
+    assert result.api_state == expected_state
+    assert result.api_reported_gst is None
+    assert result.variance_api_minus_engine is None
+
+
+def test_empty_or_malformed_gst_field_path_is_rejected():
+    with pytest.raises(ValueError, match="field path"):
+        compare({"gst": "4.65"}, gst_field="data..charges.gst")
+
 def test_api_gst_estimate_matches_independent_section_15_engine():
     result = compare({"gst": "4.65"})
     assert result.api_state == "VALUE"

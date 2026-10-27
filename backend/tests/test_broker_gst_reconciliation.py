@@ -27,7 +27,7 @@ def test_api_gst_estimate_matches_independent_section_15_engine():
     assert result.api_reported_gst == Decimal("4.65")
     assert result.engine_estimated_gst == Decimal("4.65")
     assert result.variance_api_minus_engine == Decimal("0.00")
-    assert result.status == "MATCH_WITHIN_TOLERANCE"
+    assert result.status == "MATCH_EXACT"
     assert result.taxable_base == Decimal("25.85")
     assert result.tax_type == "IGST"
     assert result.evidence_class == "ESTIMATE_COMPARISON"
@@ -38,7 +38,7 @@ def test_api_gst_variance_is_visible_and_not_auto_approved():
     assert result.api_reported_gst == Decimal("4.64")
     assert result.engine_estimated_gst == Decimal("4.65")
     assert result.variance_api_minus_engine == Decimal("-0.01")
-    assert result.status == "MATCH_WITHIN_TOLERANCE"
+    assert result.status == "ROUNDING_VARIANCE_REQUIRES_REVIEW"
 
 
 def test_variance_over_tolerance_requires_review():

@@ -157,3 +157,29 @@ def test_oauth_state_nonce_can_only_be_consumed_once(db_session, make_user):
 
     with pytest.raises(ValueError, match="already used"):
         service._consume_oauth_nonce(conn, claims["nonce"])
+
+
+def test_expired_upstox_access_token_is_not_returned_to_api_callers(db_session, make_user):
+    """Expired daily tokens must fail closed; paper estimates can use local fallback."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.core.encryption import encrypt_value
+
+    user = make_user()
+    service = BrokerCredentialsService(db_session)
+    conn = service.save_credentials(
+        user.id,
+        BrokerConnectionCreate(
+            broker="upstox",
+            api_key="api-key",
+            api_secret="api-secret",
+            redirect_uri="https://example.com/cb",
+        ),
+    )
+    conn.is_connected = True
+    conn.access_token_encrypted = encrypt_value("expired-test-token")
+    conn.access_token_expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    db_session.add(conn)
+    db_session.commit()
+
+    assert service.get_access_token(user.id, "upstox") is None

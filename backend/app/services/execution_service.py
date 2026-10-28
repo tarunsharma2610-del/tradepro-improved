@@ -35,6 +35,8 @@ from app.services.position_math import apply_fill
 from app.services.portfolio_risk_service import check_portfolio_order
 from app.services.market_data_stream_manager import market_data_stream_manager
 from app.services.transaction_costs import Segment, Side, calculate_costs
+from app.services.paper_trade_charge_estimator import estimate_paper_trade_costs
+from app.core.config import settings
 from app.services.execution_charge_totals import recompute_execution_total_charges
 
 
@@ -130,7 +132,11 @@ class ExecutionService:
         if risk_reason:
             return self._reject(order, risk_reason)
 
-        costs = calculate_costs(req.segment, req.side, req.quantity, ltp)
+        estimate = await self._estimate_paper_costs(
+            access_token, instrument.instrument_key, req.segment, req.side, req.quantity, ltp
+        )
+        costs = estimate.costs
+        charge_source = "PAPER_UPSTOX_API_ESTIMATE" if estimate.source == "UPSTOX_API_ESTIMATE" else "PAPER_ESTIMATE"
 
         if req.side == Side.BUY:
             required_cash = costs.gross_value + costs.total_charges
@@ -145,7 +151,7 @@ class ExecutionService:
                     f"Insufficient holdings for a delivery sell: hold {position.quantity}, tried to sell {req.quantity}.",
                 )
 
-        return self._fill(order, portfolio, instrument, req, ltp, costs)
+        return self._fill(order, portfolio, instrument, req, ltp, costs, charge_source=charge_source)
 
     def cancel_order(self, user_id: UUID, portfolio_id: UUID, order_id: UUID) -> Order:
         """Cancel a user's pending paper order; filled/rejected orders are immutable."""
@@ -251,7 +257,11 @@ class ExecutionService:
                 self._reject(order, risk_reason)
                 continue
 
-            costs = calculate_costs(segment, side, order.quantity, fill_price)
+            estimate = await self._estimate_paper_costs(
+                access_token, order.instrument.instrument_key, segment, side, order.quantity, fill_price
+            )
+            costs = estimate.costs
+            charge_source = "PAPER_UPSTOX_API_ESTIMATE" if estimate.source == "UPSTOX_API_ESTIMATE" else "PAPER_ESTIMATE"
 
             if side == Side.BUY:
                 required_cash = costs.gross_value + costs.total_charges
@@ -284,10 +294,32 @@ class ExecutionService:
                 execution_reason=order.execution_reason,
                 strategy_id=order.strategy_id,
             )
-            self._fill(order, portfolio, order.instrument, req, fill_price, costs)
+            self._fill(order, portfolio, order.instrument, req, fill_price, costs, charge_source=charge_source)
             filled_count += 1
 
         return filled_count
+
+    async def _estimate_paper_costs(
+        self, access_token: str, instrument_key: str, segment: Segment, side: Side,
+        quantity: int, price: Decimal,
+    ):
+        """Use Upstox's pre-trade calculator when enabled; retain local rates as fallback."""
+        if not settings.UPSTOX_CHARGE_ESTIMATES_ENABLED:
+            from app.services.paper_trade_charge_estimator import PaperTradeChargeEstimate
+            return PaperTradeChargeEstimate(
+                calculate_costs(segment, side, quantity, price),
+                "HARDCODED_FALLBACK",
+                "api_estimates_disabled",
+            )
+        return await estimate_paper_trade_costs(
+            access_token,
+            instrument_token=instrument_key,
+            quantity=quantity,
+            segment=segment,
+            side=side,
+            price=price,
+            trade_date=datetime.now(timezone.utc).date(),
+        )
 
     async def _get_ltp(self, user_id: UUID, instrument_key: str, access_token: str) -> tuple[Decimal | None, str | None]:
         """Prefer a fresh subscribed WebSocket tick; fall back to authenticated REST LTP."""
@@ -322,7 +354,7 @@ class ExecutionService:
         order.rejection_reason = reason
         return self.orders.create(order)
 
-    def _fill(self, order: Order, portfolio: Portfolio, instrument: Instrument, req: PlaceOrderRequest, ltp: Decimal, costs) -> Order:
+    def _fill(self, order: Order, portfolio: Portfolio, instrument: Instrument, req: PlaceOrderRequest, ltp: Decimal, costs, *, charge_source: str = "PAPER_ESTIMATE") -> Order:
         now = datetime.now(timezone.utc)
         order.status = "FILLED"
         order.filled_at = now
@@ -365,6 +397,7 @@ class ExecutionService:
                 else "NOT_APPLICABLE"
             ),
             total_charges=costs.total_charges,
+            charge_source=charge_source,
             realized_pnl=update.realized_pnl,
             executed_at=now,
         )

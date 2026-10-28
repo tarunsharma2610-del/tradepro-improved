@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     # in the backend environment and restart the API/worker to block new entries.
     # Strategy exits remain enabled so existing positions can still be closed.
     AUTOMATED_ENTRIES_ENABLED: bool = True
+    # Use Upstox's pre-trade charge calculator for paper fills; deterministic local rates remain fallback.
+    UPSTOX_CHARGE_ESTIMATES_ENABLED: bool = True
 
     @property
     def is_live_trading_enabled(self) -> bool:

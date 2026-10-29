@@ -136,7 +136,7 @@ class ExecutionService:
             access_token, instrument.instrument_key, req.segment, req.side, req.quantity, ltp
         )
         costs = estimate.costs
-        charge_source = "PAPER_UPSTOX_API_ESTIMATE" if estimate.source == "UPSTOX_API_ESTIMATE" else "PAPER_ESTIMATE"
+        charge_source = f"PAPER_{estimate.source}"
 
         if req.side == Side.BUY:
             required_cash = costs.gross_value + costs.total_charges
@@ -261,7 +261,7 @@ class ExecutionService:
                 access_token, order.instrument.instrument_key, segment, side, order.quantity, fill_price
             )
             costs = estimate.costs
-            charge_source = "PAPER_UPSTOX_API_ESTIMATE" if estimate.source == "UPSTOX_API_ESTIMATE" else "PAPER_ESTIMATE"
+            charge_source = f"PAPER_{estimate.source}"
 
             if side == Side.BUY:
                 required_cash = costs.gross_value + costs.total_charges

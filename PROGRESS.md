@@ -3453,3 +3453,12 @@ Fixed API charge value resolution so a mapping such as `data.charges.ipft` reads
 - Standard disclaimer is now available in the paper estimate object and exposed through execution responses: “Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.”
 - Regression tests now expect the same fallback behavior for BSE/MCX and other instruments. The hardcoded estimate is explicitly an approximation, never actual booked-charge evidence.
 - Latest code changes: `3b3fe2aa981013cdb1d75b6014bd14c56361f5b2`, `5e803146c0992539da8fe93f3df6836e5232a276`, `134cc87386b0c19b6e1294b5c95ae9aac9d813d4`, `6f2a80b51266ec14cb8e89761c97caa675df1fe4`. Exact-head CI still required.
+
+
+## Resume update — 29 October 2026 (fallback regression repaired)
+
+- The previous backend runs #40877183503 and #40877198561 failed: tests exposed stale `instrument_token` keyword arguments on three fallback paths, plus the new execution-response `charge_source` field being required by legacy schema fixtures. Fixed the fallback call sites and restored the schema's backwards-compatible default `PAPER_ESTIMATE`.
+- Found and fixed a real response-display gap: the execution response disclaimer previously matched `PAPER_*` labels only, not the actual estimate sources `UPSTOX_API_ESTIMATE` and `HARDCODED_FALLBACK`. It now returns the standard disclaimer for all three estimate sources and does not label `BROKER_CONTRACT_NOTE` as an estimate. Regression tests cover both cases.
+- Code commits: `8e7aef511aa965b5f7b1619a4b1f2d6786880d72`, `b8ae6f0e33356aa05bd3e89a664e166eef9c3ae5`, `c8f2e900e203f9d66ebfde2f7ac6b18fa7d54387`, `83a8ae95ccfc8d0271bb07c67316a40eff6be509`.
+- Runs #40877183503 and #40877198561 are failed historical runs and must not be treated as current-head status. Run #40877487855 was in progress when this note was written and started before the final two repairs; verify CI on the resulting latest head before marking this increment green.
+- User-directed policy supersedes older wording: BSE/MCX fallback is not a blocker; use API first, hardcoded fallback on failure, and a common paper-only estimate disclaimer. No tariff certification detour.

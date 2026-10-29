@@ -2644,3 +2644,8 @@ Code/test head `217e5c74878048d276de20929b57a6a2b5aa668d` passed Backend CI #408
 ## Current resume point — 29 October 2026
 
 Follow the user's simplified policy: Upstox brokerage estimate API first; existing hardcoded calculator on API/token/invalid-response failure; paper trading continues. Do not treat exchange-by-exchange tariff certification as a Phase 3 blocker. Removed the BSE/MCX-specific fallback warning. Execution responses expose the standard disclaimer: “Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.” Latest code commits: `3b3fe2aa981013cdb1d75b6014bd14c56361f5b2`, `5e803146c0992539da8fe93f3df6836e5232a276`, `134cc87386b0c19b6e1294b5c95ae9aac9d813d4`, `6f2a80b51266ec14cb8e89761c97caa675df1fe4`. Verify exact-head CI before marking this increment green.
+
+
+## Current resume point — 29 October 2026 (latest fix set)
+
+The earlier CI failures were actionable: stale fallback-call arguments caused API-error handling to raise instead of falling back, and legacy ExecutionOut fixtures lacked the newly exposed charge-source field. These are fixed. The execution response disclaimer now recognizes `UPSTOX_API_ESTIMATE` and `HARDCODED_FALLBACK`; contract-note actuals are not labeled estimates. The response schema keeps a backwards-compatible `PAPER_ESTIMATE` default. Regression tests cover these behaviors. Latest code commit before docs refresh: `83a8ae95ccfc8d0271bb07c67316a40eff6be509`. Historical runs #40877183503 and #40877198561 failed before the repairs. Run #40877487855 was still in progress but predates the last two repairs; exact latest-head CI is required. Continue from this point. Do not reopen GST/IPFT research or treat BSE/MCX tariff certification as a blocker.

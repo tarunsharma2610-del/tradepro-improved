@@ -2160,3 +2160,15 @@ The documentation sync head `5bb6d06e764c00b1ab406409889a2cde9e74dacf` passed Ba
 - This verifies the 27-document refresh for the Upstox response-schema validation increment. The CI result confirms the backend workflow passed; no test count is asserted because the run summary did not expose one.
 - The latest code fix remains `404c1e11ef4f2557c791c720c8d9a3fbc4e93bc1`, passed Backend CI [#40883660756 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40883660756).
 - Current focus: response schema is endpoint-specific, null/missing IPFT remains distinct from zero, estimates and aggregate summaries cannot become per-fill actuals, and PAPER/live-write safeguards remain unchanged. PR #6/#7 remain Draft/unmerged; original `tarunsharma2610-del/Tradepro` remains out of scope.
+
+
+## Phase 4 resume pointer — 29 October 2026
+
+Authoritative Phase 4 planning records:
+- `PHASE4_ROADMAP.md`
+- `PHASE4_PROGRESS.md`
+- `PHASE4_LATEST_CI_CHECKPOINT.md`
+
+Phase 4 branch: `phase4/roadmap-progress-checkpoints`; created from Phase 3 checkpoint `9add7f98ccf89f0c146e4367b79cdd5877104ff3`. This is planning/checkpoint scaffolding only. The Phase 4 repository audit (P4-0) has not yet been completed, and no Phase 4 feature implementation is claimed. Exact-head CI for the new documentation commits is pending verification.
+
+Resume only after verifying the latest head and its own CI. Next task is P4-0 baseline audit and evidence-based gap matrix. Keep work exclusively in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope. Do not update `main` or merge PR #6/#7 without explicit user authorization. PAPER mode mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled. Upstox Brokerage Details is estimate-only; post-trade Trade Charges is aggregate reconciliation-only, never per-fill actual evidence. Real credentialed OAuth smoke test and production Oracle backup/restore remain deployment-gated.

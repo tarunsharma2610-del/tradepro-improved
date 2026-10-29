@@ -638,3 +638,8 @@ This entry supersedes any earlier “docs CI pending” note for the 29 October 
 - The regression suite includes rejection of an Upstox estimate response with non-success body status even when charge data looks complete, and explicit unverified-tariff markers for BSE equity/MCX futures local fallbacks.
 - **Documentation correction:** actual estimator source labels are `UPSTOX_API_ESTIMATE` and `HARDCODED_FALLBACK`; the docs were corrected to match the code. A new exact documentation-head CI is required after this sync.
 - This confirms CI success for the code head only. Do not claim that the newly synchronized documentation head has passed until its own run finishes.
+
+
+## Documentation sync final-head gate — 29 October 2026
+
+The maintained checkpoint, progress and handover documents have now been synchronized. The pre-checkpoint document commits include `3d3bae1cce4ec5579eea3c86303a5ee139d50a06` and `484c4cb3552da077bca8d500e4816a07c1ccbff6`. This checkpoint commit is intentionally made after those edits so the workflow can verify the final synchronized branch head. Check this commit's own Backend CI result before calling the documentation sync CI-verified.

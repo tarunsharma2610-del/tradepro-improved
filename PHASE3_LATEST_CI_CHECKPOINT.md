@@ -700,3 +700,8 @@ This checkpoint follows the caller-level execution source-label fix and the late
 - CI on the prior PR merge head reported **1,204 passed, 1 failed**. The sole failure showed that a transient ORM row may provide explicit `charge_source=None`, bypassing the schema field default.
 - Added a Pydantic before-validator to normalize a null legacy source to `PAPER_ESTIMATE`; the existing execution API completeness regression exercises this case.
 - Fix commit: `287dcc31807bc2b5677bc5128d2e65028c799017`. Exact latest-head Backend CI remains required.
+
+
+### Exact-head CI gate — latest legacy-source fix
+
+This checkpoint follows the null-source compatibility fix and final progress/handover synchronization. Verify Backend CI on the exact current PR head; earlier failing runs tested older merge refs and are not the verification result for this head.

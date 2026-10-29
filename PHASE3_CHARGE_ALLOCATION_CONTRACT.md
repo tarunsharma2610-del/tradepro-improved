@@ -993,3 +993,20 @@ The first wording-only assertion adjustment still failed because the exact phras
 - Implementation commits: `b90c09dc82a51181bc9eae422cb025eb79c65bcb`; default-enabled setting `UPSTOX_CHARGE_ESTIMATES_ENABLED`. CI disables network estimates only for the broad execution suite; mocked estimator tests cover API and fallback paths.
 - Backend CI [#40755234415](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40755234415) — **SUCCESS** on code/test head `778e76d3554a3baedc41f0396276c1cb3dafc38f`: **1,197 passed, 1 warning**; broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore/evidence retention passed. Documentation sync head `d57dd476ecd6acebd4dc9e169912b877811a8166` still needs exact-head CI verification before it is called green.
 - Next: continue the next uncovered Phase 3 accounting acceptance gate after CI recovery. Do not reopen GST/IPFT from zero or make minor estimate variance a paper-trading blocker. Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled; original `Tradepro` out of scope.
+
+
+## Authoritative Phase 3 engineering closure — 29 October 2026
+
+This section supersedes older status/next-step notes above; earlier entries remain as historical audit trail.
+
+**Status: Phase 3 engineering acceptance is complete for the agreed PAPER-mode scope.** Do not confuse this with live-money release approval or actual-charge promotion.
+
+Verified code checkpoint: `3a0c464afcb10261d1590607f8440affd21295a0`, Backend CI [#40878367369 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40878367369), **1,207 passed, 1 warning**. Backend tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore, and restore-evidence retention passed. The documentation-sync head must pass its own CI before this sync is considered green.
+
+Engineering closure covers deterministic paise-exact per-fill allocation; integrity-checked/reviewer-controlled evidence; canonical mapping; combined/split transaction/IPFT representation; replay/idempotency/conflict protection; locked total verification and rollback safeguards; explicit DP/demat persistence/completeness; statutory GST and GST/API diagnostic primitives; and Upstox API-first PAPER estimates with hardcoded fallback and standard disclaimer. The post-trade Upstox Trade Charges API remains aggregate-only and cannot be promoted to per-fill actual evidence.
+
+Paper estimate disclaimer: “Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.”
+
+Operational gates are separate: credentialed Upstox OAuth/API smoke test and real Oracle backup/restore require deployment; any tariff lacking independently approved broker/exchange/segment/product/date evidence remains estimate-only/fail-closed for actual accounting. Historical contract-note fixtures are regression coverage, not a reason to promote estimates to actuals. These gates do not block PAPER engineering closure.
+
+Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6/#7 remain Draft/unmerged; PAPER mandatory; live broker writes disabled. Phase 4 is the next separate increment after exact documentation-head CI passes.

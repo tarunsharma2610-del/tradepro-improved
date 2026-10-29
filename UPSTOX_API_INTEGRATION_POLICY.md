@@ -337,3 +337,20 @@ Added route tests for estimate-vs-aggregate response classification, preservatio
 - In paper trading, an expired/unavailable token must not block a fill: the charge estimator uses the hardcoded deterministic fallback and records the fallback source. The API-first estimate remains best-effort.
 - Live Upstox API calls have not been credential-tested in this CI environment. Do not label the real OAuth handshake or account-specific endpoint entitlements as end-to-end verified until a user-authorized integration test succeeds.
 - Official references: https://upstox.com/developer/api-documentation/get-token/ and https://upstox.com/developer/api-documentation/authentication/ .
+
+
+## Authoritative Phase 3 engineering closure — 29 October 2026
+
+This section supersedes older status/next-step notes above; earlier entries remain as historical audit trail.
+
+**Status: Phase 3 engineering acceptance is complete for the agreed PAPER-mode scope.** Do not confuse this with live-money release approval or actual-charge promotion.
+
+Verified code checkpoint: `3a0c464afcb10261d1590607f8440affd21295a0`, Backend CI [#40878367369 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40878367369), **1,207 passed, 1 warning**. Backend tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore, and restore-evidence retention passed. The documentation-sync head must pass its own CI before this sync is considered green.
+
+Engineering closure covers deterministic paise-exact per-fill allocation; integrity-checked/reviewer-controlled evidence; canonical mapping; combined/split transaction/IPFT representation; replay/idempotency/conflict protection; locked total verification and rollback safeguards; explicit DP/demat persistence/completeness; statutory GST and GST/API diagnostic primitives; and Upstox API-first PAPER estimates with hardcoded fallback and standard disclaimer. The post-trade Upstox Trade Charges API remains aggregate-only and cannot be promoted to per-fill actual evidence.
+
+Paper estimate disclaimer: “Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.”
+
+Operational gates are separate: credentialed Upstox OAuth/API smoke test and real Oracle backup/restore require deployment; any tariff lacking independently approved broker/exchange/segment/product/date evidence remains estimate-only/fail-closed for actual accounting. Historical contract-note fixtures are regression coverage, not a reason to promote estimates to actuals. These gates do not block PAPER engineering closure.
+
+Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6/#7 remain Draft/unmerged; PAPER mandatory; live broker writes disabled. Phase 4 is the next separate increment after exact documentation-head CI passes.

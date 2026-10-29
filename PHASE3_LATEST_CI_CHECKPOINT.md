@@ -643,3 +643,15 @@ This entry supersedes any earlier “docs CI pending” note for the 29 October 
 ## Documentation sync final-head gate — 29 October 2026
 
 The maintained checkpoint, progress and handover documents have now been synchronized. The pre-checkpoint document commits include `3d3bae1cce4ec5579eea3c86303a5ee139d50a06` and `484c4cb3552da077bca8d500e4816a07c1ccbff6`. This checkpoint commit is intentionally made after those edits so the workflow can verify the final synchronized branch head. Check this commit's own Backend CI result before calling the documentation sync CI-verified.
+
+
+## User-directed simplification — 29 October 2026
+
+This supersedes the earlier extra BSE/MCX-specific fallback warning. The fallback is **not a Phase 3 blocker** and no exchange-by-exchange tariff certification is required to continue paper trading.
+
+- Preferred estimate: Upstox Brokerage Details API when the response is successful, complete, and internally consistent.
+- Fallback: existing deterministic hardcoded calculator when the API/token is unavailable or invalid. It remains an approximation and must not block a paper trade.
+- Standard user-facing disclaimer is exposed on paper execution responses: **“Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.”**
+- Removed the special `exchange_specific_tariff_unverified:` fallback reason. BSE/MCX use the same fallback behavior and disclaimer as other paper instruments.
+- Code changes: `3b3fe2aa981013cdb1d75b6014bd14c56361f5b2` (simplified fallback + estimate disclaimer), `5e803146c0992539da8fe93f3df6836e5232a276` (regression tests), `134cc87386b0c19b6e1294b5c95ae9aac9d813d4` and `6f2a80b51266ec14cb8e89761c97caa675df1fe4` (expose disclaimer/source on execution API schema).
+- CI on the newest code head must pass before this increment is marked verified.

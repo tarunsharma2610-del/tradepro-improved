@@ -2634,3 +2634,8 @@ Continue from branch `phase3/cross-broker-gst-ipft-resolution` in `tarunsharma26
 ## Latest handover — 29 October 2026
 
 Resume from code/test head `217e5c74878048d276de20929b57a6a2b5aa668d`. The Upstox brokerage estimate parser now rejects response bodies whose status is not `success`; regression coverage is added. BSE/MCX local fallback remains available for paper trading but explicitly marks exchange-specific tariffs unverified; regression cases cover BSE equity and MCX futures. Exact-head Backend CI #40875989690 was still running when this handover was written. Verify its final result before marking this code increment complete. Earlier runs #40875565498, #40875627719 and #40875648924 passed on earlier heads.
+
+
+## Verified code checkpoint — 29 October 2026
+
+Code/test head `217e5c74878048d276de20929b57a6a2b5aa668d` passed Backend CI #40875989690. All stages passed, including backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention. The new unsuccessful-response-body guard and BSE/MCX unverified fallback labels are covered. Estimator source labels are `UPSTOX_API_ESTIMATE` and `HARDCODED_FALLBACK`. After documentation synchronization, verify the newest documentation-head CI separately.

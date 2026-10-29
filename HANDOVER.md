@@ -2618,3 +2618,14 @@ Continue from branch `phase3/cross-broker-gst-ipft-resolution` in `tarunsharma26
 - In paper trading, an expired/unavailable token must not block a fill: the charge estimator uses the hardcoded deterministic fallback and records the fallback source. The API-first estimate remains best-effort.
 - Live Upstox API calls have not been credential-tested in this CI environment. Do not label the real OAuth handshake or account-specific endpoint entitlements as end-to-end verified until a user-authorized integration test succeeds.
 - Official references: https://upstox.com/developer/api-documentation/get-token/ and https://upstox.com/developer/api-documentation/authentication/ .
+
+
+## Current resume point — 29 October 2026 (supersedes older next-step wording)
+
+- Resume from the newest Phase 3 checkpoint, not any historical failed run. Code/test head `778e76d3554a3baedc41f0396276c1cb3dafc38f` passed Backend CI #40755234415 (1,197 passed, 1 warning); documentation head `d57dd476ecd6acebd4dc9e169912b877811a8166` passed exact-head Backend CI #40755635769.
+- API-first paper charges are implemented: use the Upstox pre-trade Brokerage Details API only when supported components are complete, paise-exact and sum to the reported total; otherwise fall back locally without blocking paper fills. Persist the source as API estimate or local estimate. Never call these booked actuals.
+- Upstox post-trade charges endpoint is aggregate-only. GST formula fixtures for the five supplied January 2023 notes are regression coverage at daily-note scope, not per-fill actual evidence. IPFT remains effective-dated/scope-guarded and not a blocker to GST or paper-trading progress.
+- OAuth: standard token expiry is handled; don't invent refresh-token semantics. Real account credential/entitlement tests have not been claimed.
+- Next: continue instrument/segment/product/side applicability audit; add only a genuinely missing test/guard. Check any caller-level GST/API comparison gap before wiring new code. BSE/MCX scopes without approved source-backed tariff remain explicitly estimated/unverified.
+- Keep maintained docs synchronized and verify CI on the exact final head. Actual Oracle backup/restore acceptance waits for deployed backups.
+- Invariants: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` must not be modified. PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled; do not merge.

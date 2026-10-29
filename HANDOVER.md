@@ -2724,3 +2724,14 @@ Authoritative Phase 4 planning records:
 Phase 4 branch: `phase4/roadmap-progress-checkpoints`; created from Phase 3 checkpoint `9add7f98ccf89f0c146e4367b79cdd5877104ff3`. This is planning/checkpoint scaffolding only. The Phase 4 repository audit (P4-0) has not yet been completed, and no Phase 4 feature implementation is claimed. Exact-head CI for the new documentation commits is pending verification.
 
 Resume only after verifying the latest head and its own CI. Next task is P4-0 baseline audit and evidence-based gap matrix. Keep work exclusively in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope. Do not update `main` or merge PR #6/#7 without explicit user authorization. PAPER mode mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled. Upstox Brokerage Details is estimate-only; post-trade Trade Charges is aggregate reconciliation-only, never per-fill actual evidence. Real credentialed OAuth smoke test and production Oracle backup/restore remain deployment-gated.
+
+
+## Phase 4 P4-0 continuation — 29 October 2026
+
+- Static baseline audit saved in `PHASE4_P0_BASELINE_AUDIT.md`. Existing market-data streamer, strategy/risk services, paper execution/accounting, and backend migration/restore checks were found; do not rewrite them without a concrete gap.
+- Safety hardening: `backend/app/core/config.py` now normalizes `TRADING_MODE` and rejects anything except `PAPER` at settings load; regression tests are in `backend/tests/test_trading_mode_safety.py`.
+- Code commit: `791ae9858d80ddf5554db71f134db273e55be29b`; regression test commit: `1517b2947709f96083dc48e06edfebe32152d37f`.
+- Draft PR #8: https://github.com/tarunsharma2610-del/tradepro-improved/pull/8 (base `phase3/cross-broker-gst-ipft-resolution`; head `phase4/roadmap-progress-checkpoints`). PR #8 is unmerged; PR #6/#7 remain unmerged; `main` unchanged.
+- Backend CI run #40896797689 is running on exact head `4b4c78b60685f237fced74d1c9fc36117401515d`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40896797689. Do not call green until completed successfully.
+- Next resume step: inspect exact-head CI result; if green, continue P4-0B broker-write call-path audit and test coverage. If failed, inspect logs, fix on this Phase 4 branch, and rerun before a green checkpoint.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker writes disabled; no merge authorized; aggregate post-trade API remains reconciliation-only.

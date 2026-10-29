@@ -660,3 +660,13 @@ This supersedes the earlier extra BSE/MCX-specific fallback warning. The fallbac
 ### Final synchronized-head CI gate — 29 October 2026
 
 This checkpoint file was refreshed after the progress and handover updates. Verify Backend CI on this final branch head before marking the documentation sync complete. Current policy is API-first estimates with the same hardcoded fallback and standard paper-only disclaimer for every supported instrument scope; no BSE/MCX-specific blocker.
+
+
+## Latest resume checkpoint — 29 October 2026 (fallback/disclaimer repairs)
+
+- **Repository/branch:** `tarunsharma2610-del/tradepro-improved` / `phase3/cross-broker-gst-ipft-resolution`. PR #6/#7 remain Draft and unmerged.
+- **Code repairs:** stale fallback keyword arguments fixed; response schema's `charge_source` now defaults compatibly to `PAPER_ESTIMATE`; execution response disclaimer now recognizes `UPSTOX_API_ESTIMATE` and `HARDCODED_FALLBACK` as estimates and does not label `BROKER_CONTRACT_NOTE` as an estimate.
+- **Regression coverage:** tests exercise successful API estimate disclaimer, hardcoded fallback disclaimer, backward-compatible source default, and actual broker contract-note source exclusion.
+- **Latest code head before docs refresh:** `83a8ae95ccfc8d0271bb07c67316a40eff6be509`. Prior runs #40877183503 and #40877198561 failed with the stale fallback keyword and missing schema field; those failures drove the fixes and are not a status claim about this head. Run #40877487855 was still in progress but predates the final repairs. Verify a new CI run on the exact final head before marking this checkpoint green.
+- **Fallback policy (user-approved):** Upstox Brokerage Details API first; if token/API/response fails, use existing hardcoded calculator without blocking paper trades. Display: “Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.” BSE/MCX fallback is not a Phase 3 blocker.
+- **Safety:** only this repository; original `Tradepro` untouched; PAPER mode mandatory; live broker order writes disabled; PR #6/#7 remain Draft/unmerged.

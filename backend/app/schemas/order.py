@@ -76,7 +76,7 @@ class ExecutionOut(BaseModel):
     demat_transaction_charges: Decimal | None
     demat_charge_status: str
     total_charges: Decimal
-    charge_source: str
+    charge_source: str = "PAPER_ESTIMATE"
     realized_pnl: Decimal
     executed_at: datetime
 

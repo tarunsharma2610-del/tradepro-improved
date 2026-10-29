@@ -688,3 +688,8 @@ This checkpoint follows the final wording cleanup, ensuring the current policy i
 - Both market and matched-limit fill paths now persist `PAPER_UPSTOX_API_ESTIMATE` or `PAPER_HARDCODED_FALLBACK`. The response disclaimer applies to both source labels; actual contract-note charge sources are not labeled as estimates.
 - Regression coverage asserts a disabled-API paper fill persists `PAPER_HARDCODED_FALLBACK`, and schema tests cover both estimator and persisted source labels.
 - Commits: `01a891595b05c5ca5f1d6be92d778a786b70c5f2`, `e50f96eb398dd46d4c59168b1fb0d16ca27dacac`, `f109384089fdf59418bf9ef86678df48f186bccd`. Exact latest-head Backend CI is required.
+
+
+### Final-head CI gate after caller provenance fix
+
+This checkpoint follows the caller-level execution source-label fix and the latest progress/handover updates. The exact branch head must pass Backend CI before this increment is considered verified. Prior runs on older heads do not substitute for the exact-head result.

@@ -141,3 +141,25 @@ async def test_missing_token_uses_hardcoded_fallback():
     )
     assert result.source == "HARDCODED_FALLBACK"
     assert result.fallback_reason == "missing_access_token"
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("instrument_token", "segment"),
+    [
+        ("BSE_EQ|INE123A01016", Segment.EQUITY_DELIVERY),
+        ("MCX_FO|FUTCOM_12345", Segment.FUTURES),
+    ],
+)
+async def test_non_nse_local_fallback_is_explicitly_marked_unverified(instrument_token, segment):
+    result = await estimate_paper_trade_costs(
+        None,
+        instrument_token=instrument_token,
+        quantity=10,
+        segment=segment,
+        side=Side.BUY,
+        price=Decimal("100.00"),
+        trade_date=date(2026, 10, 29),
+    )
+    assert result.source == "HARDCODED_FALLBACK"
+    assert result.fallback_reason == "exchange_specific_tariff_unverified:missing_access_token"
+

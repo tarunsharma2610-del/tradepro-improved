@@ -50,19 +50,38 @@ class UpstoxChargeApiOrchestrationService:
         trade_date: date | None,
         scope: dict[str, str],
     ) -> ChargeApiEnvelope:
+        payload = result.data if result.ok else None
+        error_code = result.error_code
+        usable = False
+        if result.ok and isinstance(payload, dict) and payload.get("status") == "success":
+            data = payload.get("data")
+            if isinstance(data, dict):
+                # Upstox documents distinct response envelopes for these APIs.
+                # Do not call a successful HTTP response usable if its JSON schema
+                # is wrong; in particular, aggregate charges use charges_breakdown,
+                # not the pre-trade brokerage endpoint's charges object.
+                expected_key = (
+                    "charges"
+                    if endpoint == BROKERAGE_ESTIMATE_ENDPOINT
+                    else "charges_breakdown"
+                )
+                usable = isinstance(data.get(expected_key), dict)
+        if result.ok and not usable:
+            error_code = "INVALID_RESPONSE_SCHEMA"
+            payload = None
+
         return ChargeApiEnvelope(
             broker="upstox",
             endpoint=endpoint,
             evidence_kind=evidence_kind,
-            usable=bool(result.ok and result.data is not None),
-            # This orchestration service only calls the two documented APIs below;
-            # neither endpoint is accepted as per-fill actual evidence.
+            usable=usable,
+            # Neither endpoint is accepted as per-fill actual evidence.
             per_fill_actual=False,
             trade_date=trade_date,
             scope=dict(scope),
-            payload=result.data if result.ok else None,
+            payload=payload,
             status_code=result.status_code,
-            error_code=result.error_code,
+            error_code=error_code,
         )
 
     async def get_brokerage_estimate(

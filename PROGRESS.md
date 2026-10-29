@@ -3445,3 +3445,11 @@ Fixed API charge value resolution so a mapping such as `data.charges.ipft` reads
 - Code/test head `217e5c74878048d276de20929b57a6a2b5aa668d` passed exact-head Backend CI **#40875989690 — SUCCESS**. All workflow stages passed: backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore drill and retained evidence.
 - The new API response-status regression and BSE/MCX local-fallback scope regression tests are included in this passing head.
 - Actual estimate source labels in code are `UPSTOX_API_ESTIMATE` and `HARDCODED_FALLBACK`. Documentation has been corrected; verify the post-sync docs head separately.
+
+
+## User-directed simplification — 29 October 2026
+
+- Removed unnecessary BSE/MCX-specific fallback warning. Upstox Brokerage Details API remains first choice; on API/token/response failure, use the existing hardcoded estimate and allow paper trading to continue.
+- Standard disclaimer is now available in the paper estimate object and exposed through execution responses: “Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.”
+- Regression tests now expect the same fallback behavior for BSE/MCX and other instruments. The hardcoded estimate is explicitly an approximation, never actual booked-charge evidence.
+- Latest code changes: `3b3fe2aa981013cdb1d75b6014bd14c56361f5b2`, `5e803146c0992539da8fe93f3df6836e5232a276`, `134cc87386b0c19b6e1294b5c95ae9aac9d813d4`, `6f2a80b51266ec14cb8e89761c97caa675df1fe4`. Exact-head CI still required.

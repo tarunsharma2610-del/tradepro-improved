@@ -17,20 +17,22 @@ from app.services.transaction_costs import CostBreakdown, Segment, Side, calcula
 PAISE = Decimal("0.01")
 
 
+PAPER_ESTIMATE_DISCLAIMER = (
+    "Estimated charges may differ from actual broker charges. "
+    "For paper trading only; these are not actual booked charges."
+)
+
+
 @dataclass(frozen=True)
 class PaperTradeChargeEstimate:
     costs: CostBreakdown
     source: str
     fallback_reason: str | None = None
+    disclaimer: str = PAPER_ESTIMATE_DISCLAIMER
 
 
-def _fallback_estimate(
-    costs: CostBreakdown, *, instrument_token: str, reason: str
-) -> PaperTradeChargeEstimate:
-    """Keep fallback usable while flagging exchange scopes the local tariff does not model."""
-    exchange_prefix = instrument_token.split("|", 1)[0].upper() if isinstance(instrument_token, str) else ""
-    if exchange_prefix.startswith(("BSE_", "MCX_")):
-        reason = f"exchange_specific_tariff_unverified:{reason}"
+def _fallback_estimate(costs: CostBreakdown, *, reason: str) -> PaperTradeChargeEstimate:
+    """Use the deterministic local calculator when the API estimate is unavailable."""
     return PaperTradeChargeEstimate(costs, "HARDCODED_FALLBACK", reason)
 
 
@@ -110,7 +112,7 @@ async def estimate_paper_trade_costs(
     """Prefer a complete Upstox pre-trade estimate; otherwise use local rates."""
     fallback = calculate_costs(segment, side, quantity, price)
     if not access_token:
-        return _fallback_estimate(fallback, instrument_token=instrument_token, reason="missing_access_token")
+        return _fallback_estimate(fallback, reason="missing_access_token")
 
     product = "D" if segment == Segment.EQUITY_DELIVERY else "I"
     try:

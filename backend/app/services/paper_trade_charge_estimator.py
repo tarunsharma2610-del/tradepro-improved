@@ -126,13 +126,13 @@ async def estimate_paper_trade_costs(
             price=price,
         )
         if not result.ok:
-            return _fallback_estimate(fallback, instrument_token=instrument_token, reason=result.error_code or "api_unavailable")
+            return _fallback_estimate(fallback, reason=result.error_code or "api_unavailable")
         costs = _parse_api_costs(
             result.data, segment=segment, side=side, quantity=quantity, price=price
         )
         return PaperTradeChargeEstimate(costs, "UPSTOX_API_ESTIMATE")
     except (ValueError, TypeError, InvalidOperation, KeyError) as exc:
-        return _fallback_estimate(fallback, instrument_token=instrument_token, reason=str(exc))
+        return _fallback_estimate(fallback, reason=str(exc))
     except Exception:
         # A transient HTTP/client failure must never prevent paper trading.
-        return _fallback_estimate(fallback, instrument_token=instrument_token, reason="api_error")
+        return _fallback_estimate(fallback, reason="api_error")

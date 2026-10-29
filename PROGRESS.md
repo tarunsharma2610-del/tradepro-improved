@@ -3430,3 +3430,11 @@ Fixed API charge value resolution so a mapping such as `data.charges.ipft` reads
 - Accounting acceptance audit confirms exact six-component core reconciliation, evidence/reviewer/source integrity, deterministic per-fill allocation, exact replay/conflicting replay protections, rollback safeguards, and DP/demat gating for eligible delivery sells. Avoid duplicate tests.
 - Next: continue the remaining instrument/segment/product/side applicability audit and identify only genuine uncovered cases. Integrate GST/API comparison only if a concrete caller-level gap is found. Keep unsupported BSE/MCX tariff scopes estimated/unverified. Do not restart GST/IPFT research or let tiny aggregate rounding variance block paper trading.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled. Production Oracle restore acceptance waits for deployment backups.
+
+
+## Latest work — 29 October 2026 (CI pending for new code head)
+
+- Added strict Upstox brokerage estimate response-body status validation: only `status == "success"` is accepted; malformed/unsuccessful bodies fall back. Regression test added.
+- Added explicit `exchange_specific_tariff_unverified` fallback marker for BSE/MCX instrument tokens when the local tariff calculator is used, without blocking paper trades. BSE equity and MCX futures regression cases added.
+- Code/test head: `217e5c74878048d276de20929b57a6a2b5aa668d`; exact-head Backend CI #40875989690 was still in progress at documentation update. Do not record as passed until GitHub reports success.
+- Previous docs heads passed #40875565498, #40875627719 and #40875648924; these are prior-head results.

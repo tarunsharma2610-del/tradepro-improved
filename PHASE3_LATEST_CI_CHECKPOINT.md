@@ -629,3 +629,12 @@ This entry supersedes any earlier “docs CI pending” note for the 29 October 
 - **Exchange-scope safeguard:** if API estimates are unavailable and the instrument token identifies BSE or MCX, the local fallback still allows paper trading but explicitly prefixes the fallback reason with `exchange_specific_tariff_unverified:`. The fallback is not presented as a verified BSE/MCX tariff. Regression cases added for BSE equity and MCX futures.
 - **Existing docs-head verification:** backend runs #40875565498, #40875627719 and #40875648924 completed successfully for the prior code/docs heads. These do not substitute for the new exact-head run above.
 - **Next:** confirm #40875989690. If green, sync the final CI run/commit and resume remaining applicability audit. Do not claim exact-head CI success prematurely.
+
+
+## Verified checkpoint — 29 October 2026 (exact code-head CI passed)
+
+- **Code/test head:** `217e5c74878048d276de20929b57a6a2b5aa668d`.
+- **Exact-head Backend CI:** [#40875989690 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40875989690). Backend pytest, broker-write boundary enforcement, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore, and restore-evidence retention all completed successfully.
+- The regression suite includes rejection of an Upstox estimate response with non-success body status even when charge data looks complete, and explicit unverified-tariff markers for BSE equity/MCX futures local fallbacks.
+- **Documentation correction:** actual estimator source labels are `UPSTOX_API_ESTIMATE` and `HARDCODED_FALLBACK`; the docs were corrected to match the code. A new exact documentation-head CI is required after this sync.
+- This confirms CI success for the code head only. Do not claim that the newly synchronized documentation head has passed until its own run finishes.

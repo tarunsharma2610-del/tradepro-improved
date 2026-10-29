@@ -27,7 +27,7 @@ class FakeReadOnlyClient:
 
 @pytest.mark.asyncio
 async def test_brokerage_api_is_exposed_as_estimate_only_with_scope():
-    payload = {"data": {"charges": {"gst": 3.60, "ipft": None}}}
+    payload = {"status": "success", "data": {"charges": {"gst": 3.60, "ipft": None}}}
     client = FakeReadOnlyClient(ReadOnlyBrokerResult(ok=True, data=payload, status_code=200))
     service = UpstoxChargeApiOrchestrationService(client)
 
@@ -61,7 +61,7 @@ async def test_brokerage_api_is_exposed_as_estimate_only_with_scope():
 
 @pytest.mark.asyncio
 async def test_post_trade_charges_api_is_aggregate_only_never_per_fill_actual():
-    payload = {"data": {"total_charges": 20.15}}
+    payload = {"status": "success", "data": {"charges_breakdown": {"total": 20.15, "taxes": {"gst": 3.60}, "charges": {"ipft": None}}}}
     client = FakeReadOnlyClient(ReadOnlyBrokerResult(ok=True, data=payload, status_code=200))
     service = UpstoxChargeApiOrchestrationService(client)
 
@@ -81,6 +81,36 @@ async def test_post_trade_charges_api_is_aggregate_only_never_per_fill_actual():
     assert result.scope["segment"] == "FO"
     assert result.scope["financial_year"] == "2627"
     assert result.payload == payload
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("endpoint_kind", "payload"),
+    [
+        ("estimate", {"status": "error", "data": {"charges": {"total": 10}}}),
+        ("estimate", {"status": "success", "data": {"charges_breakdown": {"total": 10}}}),
+        ("aggregate", {"status": "success", "data": {"total_charges": 20.15}}),
+        ("aggregate", {"status": "success", "data": {"charges": {"total": 20.15}}}),
+        ("aggregate", {"data": {"charges_breakdown": {"total": 20.15}}}),
+    ],
+)
+async def test_successful_http_with_wrong_documented_payload_schema_is_unusable(endpoint_kind, payload):
+    client = FakeReadOnlyClient(ReadOnlyBrokerResult(ok=True, data=payload, status_code=200))
+    service = UpstoxChargeApiOrchestrationService(client)
+    if endpoint_kind == "estimate":
+        result = await service.get_brokerage_estimate(
+            "token", instrument_token="NSE_EQ|TEST", quantity=1, product="I",
+            transaction_type="BUY", price="100", trade_date=date(2026, 10, 27),
+            exchange="NSE", segment="EQ",
+        )
+    else:
+        result = await service.get_aggregate_trade_charges(
+            "token", segment="FO", financial_year="2627"
+        )
+    assert result.usable is False
+    assert result.payload is None
+    assert result.per_fill_actual is False
+    assert result.error_code == "INVALID_RESPONSE_SCHEMA"
 
 
 @pytest.mark.asyncio

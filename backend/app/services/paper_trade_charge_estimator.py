@@ -39,6 +39,8 @@ def _money(value: Any, field: str) -> Decimal:
 def _parse_api_costs(payload: Any, *, segment: Segment, side: Side, quantity: int, price: Decimal) -> CostBreakdown:
     if not isinstance(payload, dict):
         raise ValueError("API response is not an object")
+    if payload.get("status") != "success":
+        raise ValueError("API response status is not success")
     data = payload.get("data")
     charges = data.get("charges") if isinstance(data, dict) else None
     if not isinstance(charges, dict):

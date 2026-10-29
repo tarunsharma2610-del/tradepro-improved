@@ -80,6 +80,13 @@ class ExecutionOut(BaseModel):
     realized_pnl: Decimal
     executed_at: datetime
 
+    @field_validator("charge_source", mode="before")
+    @classmethod
+    def default_missing_charge_source(cls, value):
+        # Older/transient ORM rows can expose the nullable Python-side value
+        # before the database default has been applied.
+        return "PAPER_ESTIMATE" if value is None else value
+
     @computed_field
     @property
     def charge_estimate_disclaimer(self) -> str | None:

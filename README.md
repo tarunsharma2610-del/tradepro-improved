@@ -1,4 +1,4 @@
-<!-- Authoritative Phase 3 README checkpoint: 2026-10-25; branch phase3/durable-per-fill-charge-allocation. Code/test implementation commit 51f00627d4a267db2e4e1862a372f961812ff935 passed exact-head CI run 40185122013. Every subsequent documentation commit requires its own exact-head CI verification. -->
+<!-- Phase 3 checkpoint update — 27 Oct 2026. Latest code/test head 8feeb0cbb0c35e1e37012302c9075d43f1f33eb1 passed Backend CI #40458822529: 1,097 passed, 1 warning. Broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention passed. DP completeness checks require a consistent KNOWN + explicit valid finite nonnegative paise-exact amount, or NOT_APPLICABLE + no amount; invalid status, UNKNOWN-with-amount, KNOWN-without-amount, NOT_APPLICABLE-with-amount, NaN, negative and fractional-paise amounts fail closed. DP canonical manifests are checked against persisted broker trade → child order → local order mappings; only mapped equity-delivery SELL fills are accepted. Delivery SELL still requires reviewed/reconciled DP evidence and durable per-fill allocation; DP is included once in total and replay identity. Maintained docs are being synchronized after the green code run; exact-head CI on the final docs/checkpoint commit must pass before it is called green. PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled; original Tradepro repository out of scope. -->
 
 ## Phase 3 forward checkpoint — 25 October 2026
 
@@ -928,3 +928,73 @@ Safety remains unchanged: PAPER mode mandatory; live broker order writes disable
 - **Next action when resuming:** continue Phase 3 from this exact commit and checkpoint. Next gate is component-specific GST acceptance cases for equity delivery, intraday, futures and options, then implementation review and exact-head CI; do not restart from earlier saved checkpoints.
 - **Safety / PR:** PAPER mode mandatory; live broker `place_order`/`modify_order`/`cancel_order` and automatic live-fill promotion remain disabled. PR #6 remains open, draft and unmerged. Original `tarunsharma2610-del/Tradepro` is not the work target and must remain untouched.
 - This checkpoint supersedes older statements in this document about CI being in progress or requiring verification for the pre-`d287da7` head. Historical notes remain history; this is the canonical resume point.
+
+
+## Session checkpoint sync — 26 October 2026
+
+- Exact-head Backend CI [#40368554399 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40368554399) passed on code head `9d3f255480da9a71980a9d3819fbb69a34835753`. New documentation-sync commits require their own final exact-head CI check.
+- Statutory GST research: CBIC stock-broking FAQ and CGST Act section 15 / CGST Rules Rule 33 and Rule 27 govern valuation; pure-agent exclusion is conditional on evidence, not automatic. IGST Act section 12(12) governs stock-broking place of supply; supplier/place-of-supply state comparison determines IGST vs CGST+SGST. Sources: https://cbic-gst.gov.in/sectoral-faq.html ; https://cbic-gst.gov.in/valuation-rules.html
+- GST public-schedule helper/tests remain estimate-only. Statutory GST valuation service and tests are not implemented yet; GST/IPFT acceptance remains open. Next: implement Section 15 inclusion, Rule 33 evidence gates, tax-state split, Decimal/paise rounding and fail-closed handling. IPFT combined/separate and DP/demat persistence/reconciliation remain open.
+- No personal contract note available or required. Safety: only `tarunsharma2610-del/tradepro-improved`; PR #6/#7 Draft/unmerged; PAPER-only; live broker order writes disabled; original Tradepro repository out of scope.
+
+## Verified checkpoint — 27 October 2026 (DP/demat completeness)
+
+- Backend CI #40459846143 passed on `9400bc9aa221e2cf3b735e49a8e9a6d351237f02`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40459846143. Backend tests, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic PostgreSQL/document-volume restore checks passed.
+- DP completeness API regression added: invalid DP status must not expose a complete total. `KNOWN` requires a valid paise-exact amount; `NOT_APPLICABLE` requires no amount; unresolved states remain incomplete. Delivery SELL needs reviewed DP evidence and exact per-fill allocation.
+- Next gate: per-fill mapping, replay/idempotency, rollback atomicity and component applicability. Real invoice and production Oracle restore acceptance remain evidence-gated.
+- Safety: PAPER mandatory; live broker writes disabled; PR #6/#7 Draft/unmerged; original `Tradepro` repository out of scope.
+
+## Superseding decision — GST invoice regressions and API evidence scope (27 October 2026)
+
+- The five user-provided January 2023 Upstox daily contract-note fixtures and effective-dated IPFT estimator tests are included in code/test head `fe4c8c484650a8b6e63f822a8c7581431c855d22`.
+- Exact-head Backend CI [#40545398934 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40545398934): **1,149 passed, 1 warning**. Broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore checks passed.
+- GST daily-invoice calculation is now regression-validated for all five supplied dates. Do not reopen the basic 18% formula as an unresolved research question. The annual AGS two-paise variance remains an aggregate reconciliation note; it is not evidence of a broker error and must not block the GST implementation.
+- The Upstox pre-trade brokerage calculator is estimate-only. The post-trade charges endpoint `/v2/trade/profit-loss/charges` is aggregate-only. Preserve these meanings through `broker_charge_api_value_resolution.py`; do not promote either response to per-fill booked charges. Reconcile contract-note actuals at the source's disclosed scope.
+- IPFT is not a blocker to the validated GST formula. Use effective-dated IPFT only when the product/segment and source-supported premium basis apply. The supplied January 2023 note text has no separately identified IPFT line, so don't assume either a separately booked IPFT amount or that it is bundled. Preserve it as not separately disclosed; do not synthesize zero or an allocation. If no applicable IPFT rule/component is evidenced for a trade, leave it not applicable/unknown according to the source and product scope rather than holding up GST.
+- The guarded estimator is for estimate calculation only and requires an approved effective-dated tariff rule and explicit scope. It does not activate a production tariff or prove historical booked IPFT.
+- Next Phase 3 work should proceed to the remaining accounting acceptance gates (fill identity, replay/idempotency, atomic rollback and component applicability), while using these GST tests as regression coverage. Only revisit IPFT when an applicable source-backed tariff or actual source field requires it.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled.
+
+
+## API-first paper-trade charge estimation decision — 29 October 2026
+
+- User-approved behavior: use Upstox's pre-trade Brokerage Details API for paper-fill charge estimates when it returns a complete, valid, internally consistent breakdown. Keep the existing deterministic local calculator as the automatic fallback if the API is unavailable, expired/unauthorized, incomplete, null/invalid, or inconsistent. This is estimation only, not live-trading/accounting promotion.
+- Implementation added on the Phase 3 branch: `backend/app/services/paper_trade_charge_estimator.py` plus deterministic tests. `ExecutionService` now uses API-first estimates for market and matched limit paper fills and records `PAPER_UPSTOX_API_ESTIMATE` versus `PAPER_ESTIMATE` in the existing execution charge-source field. Components are accepted only when paise-exact supported components sum exactly to the API total; transaction, clearing and IPFT are combined once in the existing exchange-charge field. Unknown/incomplete fields fall back rather than block paper trading.
+- Existing post-trade Upstox charges endpoint remains aggregate reconciliation evidence, not per-fill actuals. The API route already exists. GST reconciliation remains available without blocking paper-trade P&L.
+- Implementation commits: `b90c09dc82a51181bc9eae422cb025eb79c65bcb`; default-enabled setting `UPSTOX_CHARGE_ESTIMATES_ENABLED`. CI disables network estimates only for the broad execution suite; mocked estimator tests cover API and fallback paths.
+- Backend CI [#40755234415](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40755234415) — **SUCCESS** on code/test head `778e76d3554a3baedc41f0396276c1cb3dafc38f`: **1,197 passed, 1 warning**; broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore/evidence retention passed. Documentation sync head `d57dd476ecd6acebd4dc9e169912b877811a8166` still needs exact-head CI verification before it is called green.
+- Next: continue the next uncovered Phase 3 accounting acceptance gate after CI recovery. Do not reopen GST/IPFT from zero or make minor estimate variance a paper-trading blocker. Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled; original `Tradepro` out of scope.
+
+
+## Authoritative Phase 3 engineering closure — 29 October 2026
+
+This section supersedes older status/next-step notes above; earlier entries remain as historical audit trail.
+
+**Status: Phase 3 engineering acceptance is complete for the agreed PAPER-mode scope.** This is not authorization to enable live broker writes, promote estimates to booked actuals, or merge Draft PRs.
+
+**Verified code checkpoint:** `3a0c464afcb10261d1590607f8440affd21295a0`, Backend CI [#40878367369 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40878367369): **1,207 passed, 1 warning**. Broker-write boundary, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore, and restore-evidence retention passed. The new documentation head still requires its own CI run.
+
+### Completed engineering scope
+
+- Paise-exact deterministic per-fill allocation; source integrity/reviewer controls; canonical source-to-component mapping; explicit combined/split transaction-charge/IPFT handling.
+- Idempotent replay and conflicting-replay rejection; locked charge verification; rollback protection for accounting/position mutation.
+- Explicit DP/demat persistence and total completeness. Delivery SELL fails closed when required DP evidence is unknown, invalid, inconsistent, or missing.
+- GST valuation and GST/API comparison primitives preserve Decimal/paise precision, state/place-of-supply, missing/null/zero distinctions, and review-required variances. They do not silently approve actual charges.
+- Upstox Brokerage Details API first for PAPER estimates; hardcoded calculator fallback on unavailable/invalid/inconsistent responses. Persist source as `PAPER_UPSTOX_API_ESTIMATE` or `PAPER_HARDCODED_FALLBACK` and display: “Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.”
+- Post-trade Trade Charges API is aggregate-only evidence, never per-fill actuals; aggregate responses are sanitized before persistence/return.
+
+### Non-blocking operational/release gates
+
+Credentialed Upstox OAuth/API smoke testing and real Oracle/database-plus-document-volume restore acceptance require deployment and user-authorized credentials/backups. Tariffs without independently approved scope/date evidence remain estimate-only/fail-closed for actual accounting. Historical contract-note fixtures support regression tests; estimates and aggregate summaries never become booked per-fill actuals. These constraints do not block PAPER-mode engineering completion.
+
+**Safety:** only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled. Phase 4 is the next separate increment after exact documentation-head CI passes.
+
+
+## Resume checkpoint — 29 October 2026 (Upstox response-schema validation)
+
+- **Code/test head:** `404c1e11ef4f2557c791c720c8d9a3fbc4e93bc1`; exact-head Backend CI [#40883660756 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40883660756). The workflow result confirms success; its summary did not expose a reliable pytest count, so no count is asserted here.
+- **Concrete fix:** `UpstoxChargeApiOrchestrationService` no longer marks arbitrary successful HTTP JSON as usable. Brokerage estimates require `status == "success"` and `data.charges`; post-trade aggregate charges require `status == "success"` and `data.charges_breakdown`. Wrong/missing schema returns `usable=false`, clears the payload and records `INVALID_RESPONSE_SCHEMA`.
+- **Regression coverage:** valid endpoint-specific response fixtures plus incorrect endpoint schema, unsuccessful/missing status, and aggregate wrong-shape payload cases.
+- **Evidence boundary:** Brokerage Details remains estimate-only; Trade Charges remains aggregate reconciliation-only and never per-fill actual evidence. Null IPFT must not be silently coerced to zero. This fix validates response shape; it does not approve tariffs or promote accounting.
+- **Contract-note continuity:** previously supplied January 2023 Upstox/RKSV contract-note examples remain available as historical regression fixtures; do not ask the user to provide them again. Their scope must be respected when using them for GST totals versus per-fill allocations.
+- **Next:** verify CI on the exact synchronized documentation head. Keep PR #6/#7 Draft and unmerged, PAPER mode mandatory, live broker writes disabled, and the original `tarunsharma2610-del/Tradepro` repository untouched.

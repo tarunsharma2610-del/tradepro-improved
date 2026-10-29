@@ -48,6 +48,7 @@ jobs:
           TEST_POSTGRES_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
           MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
+          UPSTOX_CHARGE_ESTIMATES_ENABLED: "false"
         run: python -m pytest -q
       - name: Enforce broker write boundary
         run: python -m scripts.check_broker_write_boundary

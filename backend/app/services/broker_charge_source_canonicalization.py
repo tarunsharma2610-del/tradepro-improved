@@ -21,10 +21,11 @@ CANONICAL_COMPONENTS = (
     "stamp_duty",
     "gst",
 )
-DIRECT_COMPONENTS = frozenset({"brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"})
+DIRECT_COMPONENTS = frozenset({"brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst", "demat_transaction_charges"})
+OPTIONAL_CANONICAL_COMPONENTS = frozenset({"demat_transaction_charges"})
 REPRESENTATION_COMPONENTS = frozenset({"transaction_charges", "ipft"})
 UNSUPPORTED_EVIDENCE_COMPONENTS = frozenset({
-    "clearing_charges", "other_charges", "demat_transaction_charges"
+    "clearing_charges", "other_charges"
 })
 
 
@@ -48,7 +49,7 @@ def _amount(row: SourceChargeRow) -> Decimal:
 
 
 def canonicalize_reviewed_source_components(rows: Iterable[SourceChargeRow]) -> dict[str, object]:
-    """Map one reviewed source representation to exactly six canonical totals.
+    """Map reviewed source rows to six core totals and optional DP/demat.
 
     Combined transaction/IPFT is represented by one transaction_charges row
     whose amount already includes IPFT. Split representation requires separate
@@ -114,7 +115,8 @@ def canonicalize_reviewed_source_components(rows: Iterable[SourceChargeRow]) -> 
         raise ValueError("A separate IPFT row requires transaction_charges.")
 
     missing = set(CANONICAL_COMPONENTS) - set(amounts)
-    extra = set(amounts) - set(CANONICAL_COMPONENTS)
+    allowed = set(CANONICAL_COMPONENTS) | set(OPTIONAL_CANONICAL_COMPONENTS)
+    extra = set(amounts) - allowed
     if missing or extra:
         raise ValueError(
             f"Canonical source set mismatch; missing={sorted(missing)}, extra={sorted(extra)}."
@@ -122,7 +124,9 @@ def canonicalize_reviewed_source_components(rows: Iterable[SourceChargeRow]) -> 
 
     source_names_by_canonical: dict[str, list[str]] = {}
     for row in source_rows:
-        if row.component_name == "transaction_charges" or row.component_name == "ipft":
+        if row.component_name == "demat_transaction_charges":
+            source_names_by_canonical.setdefault("demat_transaction_charges", []).append(row.component_name)
+        elif row.component_name == "transaction_charges" or row.component_name == "ipft":
             source_names_by_canonical.setdefault("exchange_charges", []).append(row.component_name)
         else:
             source_names_by_canonical.setdefault(row.component_name, []).append(row.component_name)
@@ -134,9 +138,19 @@ def canonicalize_reviewed_source_components(rows: Iterable[SourceChargeRow]) -> 
             name: format(amounts[name].quantize(Decimal("0.01")), "f")
             for name in CANONICAL_COMPONENTS
         },
+        "optional_canonical_components": {
+            name: format(amounts[name].quantize(Decimal("0.01")), "f")
+            for name in OPTIONAL_CANONICAL_COMPONENTS
+            if name in amounts
+        },
         "source_components_by_canonical": {
             name: source_names_by_canonical[name]
             for name in CANONICAL_COMPONENTS
+        },
+        "optional_source_components_by_canonical": {
+            name: source_names_by_canonical[name]
+            for name in OPTIONAL_CANONICAL_COMPONENTS
+            if name in source_names_by_canonical
         },
         "accounting_approved": False,
     }

@@ -20,7 +20,8 @@ from app.services.broker_charge_allocation_service import (
 from app.services.broker_charge_evidence_service import require_reviewed_charge_evidence
 
 SUPPORTED_COMPONENTS = frozenset({
-    "brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"
+    "brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst",
+    "demat_transaction_charges",
 })
 
 

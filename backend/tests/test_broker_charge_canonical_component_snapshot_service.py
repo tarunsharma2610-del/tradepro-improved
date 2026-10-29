@@ -104,6 +104,8 @@ def _context(db, make_user, monkeypatch, tmp_path):
         ])
     else:
         values.append(("exchange_charges", "307.00", "Exchange Charges", None, None))
+    if getattr(_context, "with_demat", False):
+        values.append(("demat_transaction_charges", "20.00", "Demat Transaction Charges", None, None))
     for index, (name, amount, label, mode, contract_version) in enumerate(values, start=1):
         db.add(BrokerChargeSourceComponent(
             evidence_id=evidence.id,
@@ -465,3 +467,92 @@ def test_canonical_reconciliation_rejects_incomplete_allocation_fill_set(db_sess
     assert len(remaining) == 1
     assert remaining[0].status == "PENDING_RECONCILIATION"
     assert remaining[0].reconciliation_reference is None
+
+
+
+def test_optional_demat_snapshot_is_reviewable_allocatable_and_reconcilable(
+    db_session, make_user, monkeypatch, tmp_path
+):
+    _context.with_demat = True
+    try:
+        source_reviewer, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    finally:
+        _context.with_demat = False
+
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=source_reviewer.id
+    )
+    db_session.commit()
+    assert len(snapshots) == 7
+    demat = next(row for row in snapshots if row.canonical_component == "demat_transaction_charges")
+    assert Decimal(demat.canonical_amount) == Decimal("20.00")
+    assert demat.status == "PENDING_REVIEW"
+
+    independent_reviewer = make_user(email=f"demat-canonical-reviewer-{uuid4().hex}@example.com")
+    independent_reviewer.is_admin = True
+    db_session.commit()
+    review_canonical_charge_component_snapshot(
+        db_session,
+        snapshot_id=demat.id,
+        reviewer_user_id=independent_reviewer.id,
+        decision="VERIFIED",
+        review_note="Synthetic optional DP/demat source mapping review",
+    )
+    db_session.commit()
+
+    allocations = allocate_and_persist_canonical_snapshot(
+        db_session,
+        snapshot_id=demat.id,
+        broker_connection_id=evidence.broker_connection_id,
+        broker_report_reference=evidence.broker_report_reference,
+    )
+    db_session.commit()
+    assert len(allocations) == 2
+    assert all(row.charge_component == "demat_transaction_charges" for row in allocations)
+    assert all(row.status == "PENDING_RECONCILIATION" for row in allocations)
+
+    reconciled = promote_verified_canonical_component_allocations(
+        db_session, snapshot_id=demat.id, reviewer_user_id=independent_reviewer.id
+    )
+    db_session.commit()
+    assert len(reconciled) == 2
+    assert all(row.status == "RECONCILED" for row in reconciled)
+    assert len({row.reconciliation_reference for row in reconciled}) == 1
+    assert all(row.reconciliation_reference for row in reconciled)
+
+
+def test_demat_snapshot_can_use_delivery_sell_subset_fill_manifest(db_session, make_user, monkeypatch, tmp_path):
+    """DP can apply to a subset of fills without forcing other charge manifests to match."""
+    _context.with_demat = True
+    try:
+        creator, evidence = _context(db_session, make_user, monkeypatch, tmp_path)
+    finally:
+        _context.with_demat = False
+
+    fill_ids = sorted(str(row.id) for row in db_session.query(BrokerTradeRecord).filter(
+        BrokerTradeRecord.broker_connection_id == evidence.broker_connection_id
+    ).all())
+    assert len(fill_ids) == 2
+    eligible_ids = [fill_ids[0]]
+    manifest = json.dumps(eligible_ids, separators=(",", ":"))
+    manifest_hash = hashlib.sha256(manifest.encode()).hexdigest()
+    weights = json.dumps(
+        [{"fill_record_id": eligible_ids[0], "weight": "1"}],
+        separators=(",", ":"),
+    )
+    demat = db_session.query(BrokerChargeSourceComponent).filter_by(
+        evidence_id=evidence.id, component_name="demat_transaction_charges"
+    ).one()
+    demat.eligible_fill_ids_json = manifest
+    demat.eligible_fill_weights_json = weights
+    demat.eligible_fill_set_sha256 = manifest_hash
+    db_session.commit()
+
+    snapshots = materialize_canonical_charge_component_snapshots(
+        db_session, evidence_id=evidence.id, requested_by_user_id=creator.id
+    )
+    assert len(snapshots) == 7
+    by_name = {row.canonical_component: row for row in snapshots}
+    assert set(json.loads(by_name["demat_transaction_charges"].eligible_fill_ids_json)) == set(eligible_ids)
+    for name in {"brokerage", "stt", "exchange_charges", "sebi_charges", "stamp_duty", "gst"}:
+        assert set(json.loads(by_name[name].eligible_fill_ids_json)) == set(fill_ids)

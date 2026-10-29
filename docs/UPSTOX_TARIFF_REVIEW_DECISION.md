@@ -1,3 +1,5 @@
+<!-- Phase 3 continuation sync: 27 October 2026. Latest verified code/test head: 31ce2a10bcc789c223608c6566082b24aea7358c; Backend CI #40383076131 SUCCESS. Previous maintained-doc synchronization head fbcefc1ae44f863b5d16d5e32fd819d277b0ead8 has documentation CI #40384521664 SUCCESS. DP/demat Execution persistence and central charge-total recomputation are implemented; next gate is focused audit of unknown-vs-zero semantics, delivery/non-delivery rules, migration round-trips, idempotency, rollback, and integration with per-fill allocation/reconciliation. GST/IPFT implementation is not being restarted. PR #6/#7 stay Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. -->
+
 ## Latest authoritative checkpoint — 26 October 2026, 21:06 IST
 
 This section supersedes earlier statements in this file that identify an older commit or CI run as the latest checkpoint. Historical entries below are retained for audit history.
@@ -175,3 +177,16 @@ This resolves the public-schedule estimate rule. It does not certify account-spe
 - Implementation + synchronized GST decision commit b75a97f6cd0043c185375cc253b84a1e6d6bfea1 passed exact-head Backend CI [#40345937942](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40345937942): 1,012 passed, 1 warning in 62.33s. Broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention passed.
 - Estimate decision: 18% on brokerage + combined transaction/IPFT exchange charges; explicit demat charges are additionally included for equity delivery. IPFT is counted once. STT, stamp duty and SEBI are excluded from the published estimate base. The inconsistent Brokerage Details API example is a documentation-example discrepancy, not proof of a live billing defect and not a reason to override the current public schedule.
 - Actual invoice/per-fill GST acceptance remains separate and evidence-gated; actual component-set candidates stay DRAFT. Do not request a personal contract note. PAPER mandatory; live writes/promotion/scheduling disabled; PR #6 draft/unmerged; original Tradepro untouched.
+
+
+## Authoritative Phase 3 engineering closure — 29 October 2026
+
+This section supersedes older status/next-step notes above; earlier entries remain as historical audit trail.
+
+**Status: Phase 3 engineering acceptance is complete for the agreed PAPER-mode scope.** Verified code checkpoint `3a0c464afcb10261d1590607f8440affd21295a0` passed Backend CI [#40878367369 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40878367369): **1,207 passed, 1 warning**; broker-write boundary, SQLite/PostgreSQL 16 migrations, synthetic restore and retained restore evidence passed. The new documentation-sync head requires its own CI result.
+
+Completed engineering scope includes deterministic paise-exact per-fill allocation; evidence integrity and reviewer control; source-to-canonical mapping; combined/split transaction/IPFT handling; replay conflict/idempotency, lock and rollback safeguards; explicit DP/demat completeness; statutory GST and GST/API diagnostic primitives; and Upstox API-first PAPER estimates with hardcoded fallback. Estimates carry: “Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.” Upstox post-trade charges remain aggregate-only and cannot be promoted to per-fill actuals.
+
+Non-blocking release gates: deployed, user-authorized Upstox OAuth/API smoke test; real Oracle/database-plus-document-volume backup/restore; and independent effective-dated tariff approval for any scope intended for actual-charge promotion. Unsupported tariff scopes remain estimate-only/fail-closed; historical contract-note fixtures do not turn API estimates into actuals. These gates do not block PAPER-mode engineering closure.
+
+Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled. Phase 4 is the next separate project increment after exact documentation-head CI passes.

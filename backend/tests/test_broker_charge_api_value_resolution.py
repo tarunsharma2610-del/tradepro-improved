@@ -40,7 +40,7 @@ def resolve(payload, selected_mapping, **changes):
         "intended_use": "PER_FILL_ACTUAL",
     }
     values.update(changes)
-    return resolve_charge_api_value(payload, "ipft", [selected_mapping], **values)
+    return resolve_charge_api_value({"charges": payload}, "ipft", [selected_mapping], **values)
 
 
 def assert_mapping_provenance(result):
@@ -64,6 +64,43 @@ def test_per_fill_actual_requires_explicit_per_fill_semantics():
 def test_aggregate_estimate_or_component_mapping_cannot_be_used_as_per_fill_actual(semantic):
     with pytest.raises(ValueError, match="do not permit per-fill actual"):
         resolve({"ipft": "0.01"}, mapping(semantic=semantic))
+
+
+def test_nested_official_response_path_is_used_exactly():
+    selected = replace(mapping(), field_path="data.charges.ipft")
+    result = resolve_charge_api_value(
+        {"data": {"charges": {"ipft": "0.01", "transaction": "3.55"}}},
+        "ipft",
+        [selected],
+        broker="Upstox",
+        endpoint="/contract-note/charges",
+        schema_version="fixture-v1",
+        field_path="data.charges.ipft",
+        scope="contract-note-fill",
+        trade_date=date(2026, 10, 24),
+        intended_use="PER_FILL_ACTUAL",
+    )
+    assert result["state"] == "VALUE"
+    assert result["decimal_value"] == "0.01"
+    assert result["usable"] is True
+
+
+def test_leaf_name_elsewhere_does_not_substitute_for_missing_approved_path():
+    selected = replace(mapping(), field_path="data.charges.ipft")
+    result = resolve_charge_api_value(
+        {"ipft": "0.01", "data": {"charges": {}}},
+        "ipft",
+        [selected],
+        broker="Upstox",
+        endpoint="/contract-note/charges",
+        schema_version="fixture-v1",
+        field_path="data.charges.ipft",
+        scope="contract-note-fill",
+        trade_date=date(2026, 10, 24),
+        intended_use="PER_FILL_ACTUAL",
+    )
+    assert result["state"] == "MISSING"
+    assert result["usable"] is False
 
 
 @pytest.mark.parametrize(

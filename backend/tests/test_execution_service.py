@@ -70,7 +70,7 @@ async def test_market_buy_fills_updates_position_and_cash(db_session, portfolio,
     _connect_fake_broker(db_session, user.id)
     service = ExecutionService(db_session)
 
-    with _mock_quote("2500.00"):
+    with patch("app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED", False), _mock_quote("2500.00"):
         order = await service.place_order(
             user.id,
             ServicePlaceOrderRequest(
@@ -96,6 +96,7 @@ async def test_market_buy_fills_updates_position_and_cash(db_session, portfolio,
     execution = db_session.query(Execution).filter(Execution.order_id == order.id).first()
     assert execution is not None
     assert execution.total_charges > 0
+    assert execution.charge_source == "PAPER_HARDCODED_FALLBACK"
 
 
 @pytest.mark.asyncio

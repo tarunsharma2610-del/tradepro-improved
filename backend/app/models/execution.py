@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -41,6 +42,12 @@ class Execution(BaseModel):
     sebi_charges: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     stamp_duty: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     gst: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
+    # A missing amount is not enough to distinguish unknown from not applicable.
+    # Status is explicit so delivery-sell DP charges cannot be silently treated as zero.
+    demat_transaction_charges: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    demat_charge_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="UNKNOWN", server_default="UNKNOWN"
+    )
     total_charges: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
 
     # Paper fills default to estimated charges; live promotion requires audited broker-reported charges.
@@ -72,3 +79,10 @@ class Execution(BaseModel):
     realized_pnl: Mapped[float] = mapped_column(Numeric(18, 2), default=0, nullable=False)
 
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    @property
+    def total_charges_complete(self) -> bool:
+        """True only when DP state and persisted component total reconcile."""
+        from app.services.execution_charge_totals import execution_charge_total_is_complete
+
+        return execution_charge_total_is_complete(self)

@@ -1,8 +1,9 @@
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from app.schemas.instrument import InstrumentBrief
 
@@ -54,6 +55,11 @@ class PositionOut(BaseModel):
 class ExecutionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    PAPER_CHARGE_ESTIMATE_DISCLAIMER: ClassVar[str] = (
+        "Estimated charges may differ from actual broker charges. "
+        "For paper trading only; these are not actual booked charges."
+    )
+
     id: UUID
     order_id: UUID
     instrument: InstrumentBrief
@@ -67,6 +73,36 @@ class ExecutionOut(BaseModel):
     sebi_charges: Decimal
     stamp_duty: Decimal
     gst: Decimal
+    demat_transaction_charges: Decimal | None
+    demat_charge_status: str
     total_charges: Decimal
+    charge_source: str = "PAPER_ESTIMATE"
     realized_pnl: Decimal
     executed_at: datetime
+
+    @field_validator("charge_source", mode="before")
+    @classmethod
+    def default_missing_charge_source(cls, value):
+        # Older/transient ORM rows can expose the nullable Python-side value
+        # before the database default has been applied.
+        return "PAPER_ESTIMATE" if value is None else value
+
+    @computed_field
+    @property
+    def charge_estimate_disclaimer(self) -> str | None:
+        """Expose the standard estimate disclaimer for paper fills."""
+        if self.charge_source in {
+            "PAPER_ESTIMATE",
+            "UPSTOX_API_ESTIMATE",
+            "HARDCODED_FALLBACK",
+        } or self.charge_source.startswith("PAPER_"):
+            return self.PAPER_CHARGE_ESTIMATE_DISCLAIMER
+        return None
+
+    @computed_field
+    @property
+    def total_charges_complete(self) -> bool:
+        """Derive completeness from validated persisted charge values."""
+        from app.services.execution_charge_totals import execution_charge_total_is_complete
+
+        return execution_charge_total_is_complete(self)

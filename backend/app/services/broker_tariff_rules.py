@@ -159,6 +159,9 @@ CONDITIONAL_COMPONENTS = frozenset({
     "dp_charges",
     "demat_transaction_charge",
     "depository_participant_charge",
+    # IPFT is product-, exchange-, basis- and effective-date-specific. It must
+    # use the guarded helper below, never a generic rate × arbitrary base.
+    "ipft",
 })
 
 
@@ -218,6 +221,46 @@ def calculate_stt_for_trade(
     if rule.rate_unit != "PERCENT":
         raise ValueError("STT requires a percentage-based approved rule.")
     return _calculate_rate_amount(rule, calculation_base)
+
+
+def calculate_ipft_estimate_for_scope(
+    rules: Iterable[TariffRule],
+    *,
+    broker: str,
+    exchange: str,
+    segment: str,
+    product: str,
+    transaction_side: str,
+    trade_date: date,
+    premium_value_base: Decimal | str | int | float,
+) -> tuple[TariffRule, Decimal]:
+    """Estimate NSE equity-options IPFT using one explicit premium-value scope.
+
+    The caller must supply a premium-value base whose aggregation scope matches
+    the selected source rule (for example, a documented side/period scope).
+    This helper does not decide aggregation, allocate aggregate amounts to fills,
+    or establish actual booked charges. It deliberately supports only NSE equity
+    options and a rupees-per-crore premium-value rule.
+    """
+    if exchange != "NSE" or segment != "FO" or product != "OPTIONS":
+        raise ValueError("IPFT estimate supports only NSE equity options in FO.")
+    if transaction_side not in {"BUY", "SELL"}:
+        raise ValueError("IPFT estimate requires an explicit BUY or SELL side.")
+    rule = select_tariff_rule(
+        rules,
+        component="ipft",
+        broker=broker,
+        exchange=exchange,
+        segment=segment,
+        product=product,
+        transaction_side=transaction_side,
+        calculation_basis="PREMIUM",
+        trade_date=trade_date,
+    )
+    if rule.rate_unit != "INR_PER_CRORE":
+        raise ValueError("NSE equity-options IPFT requires INR_PER_CRORE.")
+    amount = _calculate_rate_amount(rule, premium_value_base)
+    return rule, amount
 
 
 def calculate_tariff_amount(
@@ -378,6 +421,44 @@ def calculate_gst_on_explicit_components(
     taxable_base = taxable_base.quantize(PAISE, rounding="ROUND_HALF_UP")
     gst_amount = _calculate_rate_amount(rule, taxable_base)
     return taxable_base, gst_amount
+
+
+def aggregate_gst_invoice_components(
+    *,
+    igst: Decimal | str | int | float | None = None,
+    cgst: Decimal | str | int | float | None = None,
+    sgst: Decimal | str | int | float | None = None,
+) -> tuple[str, Decimal]:
+    """Normalize invoice GST tax lines without inferring taxability or tax rates.
+
+    Accept either an IGST line, or the paired CGST + SGST lines. Mixed
+    interstate/intrastate tax lines and incomplete CGST/SGST pairs fail closed.
+    The return value is (tax_mode, total_gst); the caller remains responsible
+    for invoice provenance, jurisdiction, taxable-base and statutory review.
+    """
+    def parse_line(name: str, value: Decimal | str | int | float) -> Decimal:
+        try:
+            amount = value if isinstance(value, Decimal) else Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError(f"{name} must be a finite nonnegative paise amount.") from exc
+        if not amount.is_finite() or amount < 0 or amount != amount.quantize(PAISE):
+            raise ValueError(f"{name} must be a finite nonnegative paise amount.")
+        return amount
+
+    has_igst = igst is not None
+    has_cgst = cgst is not None
+    has_sgst = sgst is not None
+    if has_igst and (has_cgst or has_sgst):
+        raise ValueError("Invoice GST cannot mix IGST with CGST/SGST lines.")
+    if has_igst:
+        return "IGST", parse_line("IGST", igst)
+    if has_cgst != has_sgst:
+        raise ValueError("Intrastate GST requires both CGST and SGST lines.")
+    if not has_cgst:
+        raise ValueError("At least an IGST line or a CGST/SGST pair is required.")
+    total = parse_line("CGST", cgst) + parse_line("SGST", sgst)
+    return "CGST_SGST", total.quantize(PAISE, rounding="ROUND_HALF_UP")
+
 
 def calculate_stamp_duty_for_trade(
     rule: TariffRule,

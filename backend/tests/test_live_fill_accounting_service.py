@@ -44,7 +44,7 @@ def _charges(**overrides):
     return LiveFillChargeBreakdown(**values)
 
 
-def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001", trade_record_id=None, representation="DIRECT"):
+def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-001", trade_record_id=None, representation="DIRECT", with_demat=False):
     db, user, _portfolio, _instrument, connection, *_rest = accounting_context
     if trade_record_id is not None:
         reference = f"{reference}-{str(trade_record_id)[:8]}"
@@ -131,6 +131,14 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
                     ])
                 else:
                     raise ValueError(f"Unsupported test source representation: {representation}")
+            if with_demat:
+                raw_rows.append({
+                    "component_name": "demat_transaction_charges",
+                    "source_amount": Decimal("20.00"),
+                    "source_label": "Demat Transaction Charges",
+                    "representation_mode": None,
+                    "representation_contract_version": None,
+                })
             for raw in raw_rows:
                 db.add(BrokerChargeSourceComponent(
                     evidence_id=evidence.id,
@@ -204,6 +212,11 @@ def _reviewed_charges(accounting_context, reference="contract-note-2026-10-18-00
             )
             db.commit()
 
+    if with_demat:
+        return _charges(
+            reference=reference, evidence_id=evidence.id, reviewer_user_id=reviewer.id,
+            demat_transaction_charges=Decimal("20.00"), total_charges=Decimal("43.86"),
+        )
     return _charges(reference=reference, evidence_id=evidence.id, reviewer_user_id=reviewer.id)
 
 
@@ -289,6 +302,51 @@ def accounting_context(db_session, make_user, monkeypatch):
     db_session.add_all([record, paper_position])
     db_session.commit()
     return db_session, user, portfolio, instrument, connection, order, child, record, paper_position
+
+
+def test_equity_delivery_sell_rejects_missing_dp_snapshot(accounting_context):
+    db, user, _portfolio, _instrument, _connection, order, _child, record, paper_position = accounting_context
+    order.side = "SELL"
+    record.side = "SELL"
+    db.commit()
+    charges = _reviewed_charges(accounting_context)
+
+    with pytest.raises(ValueError, match="reviewed DP snapshot"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
+
+def test_equity_delivery_sell_promotes_only_with_reconciled_demat_allocation(accounting_context):
+    db, user, _portfolio, instrument, connection, order, _child, record, paper_position = accounting_context
+    order.segment = "EQUITY_DELIVERY"
+    order.side = "SELL"
+    record.side = "SELL"
+    db.add(LivePosition(
+        broker_connection_id=connection.id,
+        instrument_id=instrument.id,
+        quantity=3,
+        avg_price=Decimal("90.00"),
+        realized_pnl=Decimal("0.00"),
+    ))
+    db.commit()
+    charges = _reviewed_charges(
+        accounting_context, reference="delivery-dp-note-2026-10-18-001", with_demat=True
+    )
+
+    result = LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+    execution = db.query(Execution).filter_by(broker_trade_id=record.broker_trade_id).one()
+    assert result.inserted is True
+    assert execution.demat_charge_status == "KNOWN"
+    assert execution.demat_transaction_charges == Decimal("20.00")
+    assert execution.total_charges == Decimal("43.86")
+    assert execution.total_charges_complete is True
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
 
 
 def test_promote_live_trade_atomically_updates_live_position_and_execution_only(accounting_context):
@@ -393,7 +451,7 @@ def test_replay_with_same_trade_id_but_changed_fill_details_is_rejected(accounti
         (_charges(source=" BROKER_REPORTED"), "broker-reported charges"),
         (_charges(reference=" "), "audit reference"),
         (_charges(reference="x" * 201), "at most 200 characters"),
-        (_charges(total_charges=Decimal("99.00")), "sum of its six components"),
+        (_charges(total_charges=Decimal("99.00")), "sum of the six core components"),
         (_charges(brokerage=Decimal("-1.00"), total_charges=Decimal("2.86")), "non-negative"),
         (_charges(stt=Decimal("0.201"), total_charges=Decimal("23.861")), "paise precision"),
     ],
@@ -422,6 +480,25 @@ def test_non_reconciled_charge_allocations_block_live_accounting(accounting_cont
 
     with pytest.raises(ValueError, match="Canonical allocation rows do not match|No allocations are linked|Pending canonical allocations"):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+    assert db.query(Execution).count() == 0
+    assert db.query(LivePosition).count() == 0
+    db.refresh(paper_position)
+    assert paper_position.quantity == 7
+
+
+def test_tampered_per_fill_allocation_amount_blocks_live_accounting(accounting_context):
+    db, user, _portfolio, _instrument, _connection, _order, _child, record, paper_position = accounting_context
+    charges = _reviewed_charges(accounting_context)
+    allocation = db.query(BrokerChargeAllocation).filter_by(
+        evidence_id=charges.evidence_id, broker_trade_record_id=record.id,
+        charge_component="brokerage",
+    ).one()
+    allocation.allocated_amount = Decimal(str(allocation.allocated_amount)) + Decimal("0.01")
+    db.commit()
+
+    with pytest.raises(ValueError, match="Canonical allocation rows do not match|Caller-supplied charge amounts differ"):
+        LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
+
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
     db.refresh(paper_position)
@@ -465,7 +542,7 @@ def test_separately_reported_ipft_component_blocks_six_component_live_promotion(
     ))
     db.commit()
 
-    with pytest.raises(ValueError, match="exactly six canonical per-fill charge allocations"):
+    with pytest.raises(ValueError, match="exactly the applicable canonical per-fill allocations"):
         LiveFillAccountingService(db).promote_trade(user.id, record.id, charges)
     assert db.query(Execution).count() == 0
     assert db.query(LivePosition).count() == 0
@@ -486,6 +563,28 @@ def test_caller_charge_amounts_must_match_reconciled_ledger(accounting_context):
     assert db.query(LivePosition).count() == 0
     db.refresh(paper_position)
     assert paper_position.quantity == 7
+
+
+
+def test_demat_charge_is_included_in_total_and_requires_paise_precision():
+    values = _charges(
+        demat_transaction_charges=Decimal("1.50"),
+        total_charges=Decimal("25.36"),
+    )
+    validated = LiveFillAccountingService._validate_charges(values)
+    assert validated["demat_transaction_charges"] == Decimal("1.50")
+    assert validated["total_charges"] == Decimal("25.36")
+
+
+def test_demat_charge_cannot_be_negative_or_fractional_paise():
+    with pytest.raises(ValueError, match="finite, non-negative and paise-exact"):
+        LiveFillAccountingService._validate_charges(
+            _charges(demat_transaction_charges=Decimal("-0.01"), total_charges=Decimal("23.85"))
+        )
+    with pytest.raises(ValueError, match="finite, non-negative and paise-exact"):
+        LiveFillAccountingService._validate_charges(
+            _charges(demat_transaction_charges=Decimal("1.501"), total_charges=Decimal("25.36"))
+        )
 
 
 def test_live_fill_promotion_requires_persisted_reviewed_evidence(accounting_context):
@@ -511,6 +610,8 @@ def test_naive_exchange_timestamp_blocks_live_promotion(accounting_context):
 
 def test_sell_fill_realizes_pnl_on_live_position_without_changing_paper_position(accounting_context):
     db, user, portfolio, instrument, connection, order, child, record, paper_position = accounting_context
+    # This test exercises generic sell-side position math, not delivery DP.
+    order.segment = "EQUITY_INTRADAY"
     order.side = "SELL"
     child.requested_quantity = 1
     child.filled_quantity = 1
@@ -1019,3 +1120,97 @@ def test_flush_failure_after_accounting_rows_are_staged_rolls_back_everything(ac
     ).count() == 0
     db.refresh(paper_position)
     assert paper_position.quantity == 7
+
+
+@pytest.mark.parametrize(
+    "status,demat_amount,expected",
+    [
+        ("INVALID", None, False),
+        ("UNKNOWN", Decimal("0.00"), False),
+        ("KNOWN", None, False),
+        ("NOT_APPLICABLE", Decimal("1.00"), False),
+        ("KNOWN", Decimal("NaN"), False),
+        ("KNOWN", Decimal("-0.01"), False),
+        ("KNOWN", Decimal("1.001"), False),
+        ("KNOWN", Decimal("0.00"), True),
+        ("NOT_APPLICABLE", None, True),
+    ],
+)
+def test_execution_completeness_property_fails_closed_on_inconsistent_demat_state(
+    status, demat_amount, expected
+):
+    row = Execution(
+        brokerage=Decimal("20.00"),
+        stt=Decimal("0.20"),
+        exchange_charges=Decimal("3.07"),
+        sebi_charges=Decimal("0.10"),
+        stamp_duty=Decimal("0.15"),
+        gst=Decimal("4.23"),
+        total_charges=Decimal("27.75") + (
+            demat_amount if status == "KNOWN" and demat_amount is not None
+            and demat_amount.is_finite() and demat_amount >= 0
+            and demat_amount.as_tuple().exponent >= -2
+            else Decimal("0.00")
+        ),
+        demat_charge_status=status,
+        demat_transaction_charges=demat_amount,
+    )
+    assert row.total_charges_complete is expected
+
+
+@pytest.mark.parametrize(
+    "trade_side,order_side,segment",
+    [
+        ("BUY", "BUY", "EQUITY_DELIVERY"),
+        ("SELL", "SELL", "EQUITY_INTRADAY"),
+        ("SELL", "BUY", "EQUITY_DELIVERY"),
+    ],
+)
+def test_demat_manifest_rejects_ineligible_fill_mapping(
+    accounting_context, trade_side, order_side, segment
+):
+    db, _user, _portfolio, _instrument, connection, order, _child, record, _paper_position = accounting_context
+    order.side = order_side
+    order.segment = segment
+    record.side = trade_side
+    db.commit()
+    snapshot = BrokerChargeCanonicalComponent(
+        eligible_fill_ids_json=json.dumps([str(record.id)])
+    )
+
+    with pytest.raises(ValueError, match="only mapped equity-delivery SELL fills"):
+        LiveFillAccountingService(db)._validate_demat_manifest_eligibility(
+            snapshot, broker_connection_id=connection.id
+        )
+
+
+def test_demat_manifest_rejects_non_equity_instrument_even_if_order_segment_says_delivery(accounting_context):
+    db, _user, _portfolio, instrument, connection, order, _child, record, _paper_position = accounting_context
+    order.side = "SELL"
+    order.segment = "EQUITY_DELIVERY"
+    record.side = "SELL"
+    instrument.instrument_type = "OPTIONS"
+    db.commit()
+    snapshot = BrokerChargeCanonicalComponent(
+        eligible_fill_ids_json=json.dumps([str(record.id)])
+    )
+
+    with pytest.raises(ValueError, match="only mapped equity-delivery SELL fills"):
+        LiveFillAccountingService(db)._validate_demat_manifest_eligibility(
+            snapshot, broker_connection_id=connection.id
+        )
+
+
+def test_demat_manifest_accepts_only_a_mapped_equity_delivery_sell(accounting_context):
+    db, _user, _portfolio, _instrument, connection, order, _child, record, _paper_position = accounting_context
+    order.side = "SELL"
+    order.segment = "EQUITY_DELIVERY"
+    record.side = "SELL"
+    db.commit()
+    snapshot = BrokerChargeCanonicalComponent(
+        eligible_fill_ids_json=json.dumps([str(record.id)])
+    )
+
+    LiveFillAccountingService(db)._validate_demat_manifest_eligibility(
+        snapshot, broker_connection_id=connection.id
+    )

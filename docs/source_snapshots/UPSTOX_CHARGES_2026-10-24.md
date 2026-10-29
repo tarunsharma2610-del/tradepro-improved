@@ -1,3 +1,5 @@
+<!-- Phase 3 continuation sync: 27 October 2026. Latest verified code/test head: 31ce2a10bcc789c223608c6566082b24aea7358c; Backend CI #40383076131 SUCCESS. Previous maintained-doc synchronization head fbcefc1ae44f863b5d16d5e32fd819d277b0ead8 has documentation CI #40384521664 SUCCESS. DP/demat Execution persistence and central charge-total recomputation are implemented; next gate is focused audit of unknown-vs-zero semantics, delivery/non-delivery rules, migration round-trips, idempotency, rollback, and integration with per-fill allocation/reconciliation. GST/IPFT implementation is not being restarted. PR #6/#7 stay Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. -->
+
 # Official charge-source excerpt snapshot — 2026-10-24
 
 **Purpose:** source research record only. This is a normalized excerpt of the pages below, not a byte-for-byte archive of their HTML. Rates are not active in the application.

@@ -693,3 +693,10 @@ This checkpoint follows the final wording cleanup, ensuring the current policy i
 ### Final-head CI gate after caller provenance fix
 
 This checkpoint follows the caller-level execution source-label fix and the latest progress/handover updates. The exact branch head must pass Backend CI before this increment is considered verified. Prior runs on older heads do not substitute for the exact-head result.
+
+
+### Legacy source compatibility follow-up — 29 October 2026
+
+- CI on the prior PR merge head reported **1,204 passed, 1 failed**. The sole failure showed that a transient ORM row may provide explicit `charge_source=None`, bypassing the schema field default.
+- Added a Pydantic before-validator to normalize a null legacy source to `PAPER_ESTIMATE`; the existing execution API completeness regression exercises this case.
+- Fix commit: `287dcc31807bc2b5677bc5128d2e65028c799017`. Exact latest-head Backend CI remains required.

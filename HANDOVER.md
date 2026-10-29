@@ -2654,3 +2654,6 @@ The earlier CI failures were actionable: stale fallback-call arguments caused AP
 ## Follow-up audit — persisted estimate-source provenance
 
 A caller-level audit found the execution service was collapsing the estimator's local fallback into generic `PAPER_ESTIMATE`. Both market and matched-limit fill paths now persist the distinct labels `PAPER_UPSTOX_API_ESTIMATE` and `PAPER_HARDCODED_FALLBACK`. The paper-only disclaimer covers both. Tests check fallback source persistence and disclaimer behavior. Commits: `01a891595b05c5ca5f1d6be92d778a786b70c5f2`, `e50f96eb398dd46d4c59168b1fb0d16ca27dacac`, `f109384089fdf59418bf9ef86678df48f186bccd`. Verify exact-head CI before marking green.
+
+
+The last CI run on the prior PR merge head had 1,204 passed and 1 failed because a transient ORM row supplied `charge_source=None`; the schema default did not apply to explicit null. A before-validator now normalizes that legacy null to `PAPER_ESTIMATE` (commit `287dcc31807bc2b5677bc5128d2e65028c799017`). Verify the new exact-head CI before declaring green.

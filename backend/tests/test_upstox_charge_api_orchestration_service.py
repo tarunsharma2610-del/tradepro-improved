@@ -27,7 +27,7 @@ class FakeReadOnlyClient:
 
 @pytest.mark.asyncio
 async def test_brokerage_api_is_exposed_as_estimate_only_with_scope():
-    payload = {"status": "success", "data": {"charges": {"gst": 3.60, "ipft": None}}}
+    payload = {"status": "success", "data": {"charges": {"total": 10.00, "brokerage": 1.00, "taxes": {"gst": 3.60}, "otherTaxes": {"ipft": None}}}}
     client = FakeReadOnlyClient(ReadOnlyBrokerResult(ok=True, data=payload, status_code=200))
     service = UpstoxChargeApiOrchestrationService(client)
 
@@ -56,7 +56,7 @@ async def test_brokerage_api_is_exposed_as_estimate_only_with_scope():
     }
     assert client.calls[0][1] == "secret-token"
     # Null IPFT is preserved in source payload; this service never converts it to zero.
-    assert result.payload["data"]["charges"]["ipft"] is None
+    assert result.payload["data"]["charges"]["otherTaxes"]["ipft"] is None
 
 
 @pytest.mark.asyncio

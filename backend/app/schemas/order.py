@@ -84,7 +84,11 @@ class ExecutionOut(BaseModel):
     @property
     def charge_estimate_disclaimer(self) -> str | None:
         """Expose the standard estimate disclaimer for paper fills."""
-        if self.charge_source.startswith("PAPER_") or self.charge_source == "PAPER_ESTIMATE":
+        if self.charge_source in {
+            "PAPER_ESTIMATE",
+            "UPSTOX_API_ESTIMATE",
+            "HARDCODED_FALLBACK",
+        } or self.charge_source.startswith("PAPER_"):
             return self.PAPER_CHARGE_ESTIMATE_DISCLAIMER
         return None
 

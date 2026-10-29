@@ -2629,3 +2629,8 @@ Continue from branch `phase3/cross-broker-gst-ipft-resolution` in `tarunsharma26
 - Next: continue instrument/segment/product/side applicability audit; add only a genuinely missing test/guard. Check any caller-level GST/API comparison gap before wiring new code. BSE/MCX scopes without approved source-backed tariff remain explicitly estimated/unverified.
 - Keep maintained docs synchronized and verify CI on the exact final head. Actual Oracle backup/restore acceptance waits for deployed backups.
 - Invariants: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` must not be modified. PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled; do not merge.
+
+
+## Latest handover — 29 October 2026
+
+Resume from code/test head `217e5c74878048d276de20929b57a6a2b5aa668d`. The Upstox brokerage estimate parser now rejects response bodies whose status is not `success`; regression coverage is added. BSE/MCX local fallback remains available for paper trading but explicitly marks exchange-specific tariffs unverified; regression cases cover BSE equity and MCX futures. Exact-head Backend CI #40875989690 was still running when this handover was written. Verify its final result before marking this code increment complete. Earlier runs #40875565498, #40875627719 and #40875648924 passed on earlier heads.

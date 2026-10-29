@@ -29,7 +29,7 @@ Therefore Phase 4 should harden existing functionality rather than rewrite it. T
 | CI trigger coverage | Backend workflow triggers on push to main, pull_request, workflow_dispatch; frontend workflow triggers on main/path changes, pull_request/path changes, workflow_dispatch | Push to the Phase 4 branch alone does not trigger backend workflow; frontend workflow is path-filtered | Use an authorized PR/workflow dispatch to obtain exact-head checks; never call empty status “passed” |
 
 ## Prioritized Phase 4 actions
-1. **P4-0A (safety first):** implement fail-closed startup validation so any `TRADING_MODE` value other than `PAPER` prevents the app/worker from starting trading services; test PAPER, LIVE, invalid and case-normalized values. This must not create a live mode or order-write path.
+1. **P4-0A (safety first) — IMPLEMENTED, CI PENDING:** `backend/app/core/config.py` now normalizes `TRADING_MODE` and rejects every value other than `PAPER` using Pydantic validation at settings load. Added `backend/tests/test_trading_mode_safety.py` for lowercase/whitespace normalization, default PAPER, and LIVE/invalid-mode rejection. The change is not accepted until backend CI passes on the exact head.
 2. **P4-0B:** review all references to adapter `place_order`, `modify_order`, `cancel_order`, dynamic dispatch and order routes. Ensure tests demonstrate no application execution path can submit live writes.
 3. **P4-0C:** inspect automated-entry kill switch, strategy exit behavior, stale market-data checks and service-boundary risk checks.
 4. **P4-0D:** paper order/fill/P&L/charge lifecycle and persistence failure/restart/replay tests.
@@ -38,7 +38,7 @@ Therefore Phase 4 should harden existing functionality rather than rewrite it. T
 
 ## CI status
 - The Phase 3 baseline run cited in prior checkpoint records is not CI evidence for the new Phase 4 documentation head.
-- At the time of this audit, commit `39952e8d091a6ed55d7eff2cb9a48f60c4e1288d` returned no combined status entries; that is **not a pass**.
+- At the time of the initial audit, commit `39952e8d091a6ed55d7eff2cb9a48f60c4e1288d` returned no combined status entries; that is **not a pass**. Safety hardening was subsequently committed at `791ae9858d80ddf5554db71f134db273e55be29b` and its tests at `1517b2947709f96083dc48e06edfebe32152d37f`; exact-head CI is still pending.
 - The repository's backend workflow is configured for pull requests and workflow_dispatch, not arbitrary branch pushes. No Phase 4 green run is claimed here.
 
 ## Safeguards confirmed for this work

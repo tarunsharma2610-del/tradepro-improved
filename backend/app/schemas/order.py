@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
@@ -54,7 +55,7 @@ class PositionOut(BaseModel):
 class ExecutionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    PAPER_CHARGE_ESTIMATE_DISCLAIMER = (
+    PAPER_CHARGE_ESTIMATE_DISCLAIMER: ClassVar[str] = (
         "Estimated charges may differ from actual broker charges. "
         "For paper trading only; these are not actual booked charges."
     )

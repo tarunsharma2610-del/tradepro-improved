@@ -54,6 +54,11 @@ class PositionOut(BaseModel):
 class ExecutionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    PAPER_CHARGE_ESTIMATE_DISCLAIMER = (
+        "Estimated charges may differ from actual broker charges. "
+        "For paper trading only; these are not actual booked charges."
+    )
+
     id: UUID
     order_id: UUID
     instrument: InstrumentBrief
@@ -70,8 +75,17 @@ class ExecutionOut(BaseModel):
     demat_transaction_charges: Decimal | None
     demat_charge_status: str
     total_charges: Decimal
+    charge_source: str
     realized_pnl: Decimal
     executed_at: datetime
+
+    @computed_field
+    @property
+    def charge_estimate_disclaimer(self) -> str | None:
+        """Expose the standard estimate disclaimer for paper fills."""
+        if self.charge_source.startswith("PAPER_") or self.charge_source == "PAPER_ESTIMATE":
+            return self.PAPER_CHARGE_ESTIMATE_DISCLAIMER
+        return None
 
     @computed_field
     @property

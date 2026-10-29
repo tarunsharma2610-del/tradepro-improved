@@ -82,6 +82,7 @@ async def test_delivery_uses_delivery_product_code():
     "payload",
     [
         {"status": "success", "data": {}},
+        {"status": "error", "data": api_payload()["data"]},
         api_payload(ipft=None),
         api_payload(total=Decimal("9.99")),
         {"status": "success", "data": {"charges": {

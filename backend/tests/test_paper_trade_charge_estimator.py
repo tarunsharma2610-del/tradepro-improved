@@ -170,7 +170,7 @@ async def test_non_nse_local_fallback_uses_normal_paper_estimate_disclaimer(inst
 
 @pytest.mark.parametrize(
     "charge_source",
-    ["UPSTOX_API_ESTIMATE", "HARDCODED_FALLBACK", "PAPER_ESTIMATE"],
+    ["UPSTOX_API_ESTIMATE", "HARDCODED_FALLBACK", "PAPER_UPSTOX_API_ESTIMATE", "PAPER_HARDCODED_FALLBACK", "PAPER_ESTIMATE"],
 )
 def test_execution_response_exposes_disclaimer_for_all_paper_estimate_sources(charge_source):
     execution = ExecutionOut.model_construct(charge_source=charge_source)

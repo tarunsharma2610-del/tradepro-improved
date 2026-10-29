@@ -680,3 +680,11 @@ This is the final checkpoint-file update after the progress and handover changes
 ### Final synchronized checkpoint head — 29 October 2026
 
 This checkpoint follows the final wording cleanup, ensuring the current policy is not contradicted by stale BSE/MCX fallback text. Verify Backend CI against the exact latest branch head before marking this checkpoint green. The prior failing runs are historical; only a successful run on the latest code/documentation head completes this checkpoint.
+
+
+## Caller-level source provenance fix — 29 October 2026
+
+- Found a real integration mismatch during the caller audit: estimator output distinguished `UPSTOX_API_ESTIMATE` from `HARDCODED_FALLBACK`, but execution persistence collapsed every non-API source to `PAPER_ESTIMATE`.
+- Both market and matched-limit fill paths now persist `PAPER_UPSTOX_API_ESTIMATE` or `PAPER_HARDCODED_FALLBACK`. The response disclaimer applies to both source labels; actual contract-note charge sources are not labeled as estimates.
+- Regression coverage asserts a disabled-API paper fill persists `PAPER_HARDCODED_FALLBACK`, and schema tests cover both estimator and persisted source labels.
+- Commits: `01a891595b05c5ca5f1d6be92d778a786b70c5f2`, `e50f96eb398dd46d4c59168b1fb0d16ca27dacac`, `f109384089fdf59418bf9ef86678df48f186bccd`. Exact latest-head Backend CI is required.

@@ -620,3 +620,12 @@ This entry supersedes any earlier “docs CI pending” note for the 29 October 
 - **Next implementation gate:** continue the remaining product/segment/side applicability audit and caller-level GST/API estimate comparison integration only where a concrete gap exists; add narrowly scoped tests for uncovered behavior. Keep unsupported BSE/MCX tariff scopes explicitly estimated/unverified. Then synchronize maintained docs and verify CI on the exact resulting head.
 - **Evidence boundary:** the five supplied January 2023 Upstox daily contract-note examples are test fixtures for invoice-level aggregate GST arithmetic, not per-fill actual-charge evidence. Actual per-fill reconciliation must use evidence at its disclosed scope. Production Oracle backup/restore acceptance remains deferred until deployment backups exist.
 - **Safety invariants:** work only in `tarunsharma2610-del/tradepro-improved`; never modify original `tarunsharma2610-del/Tradepro`. PAPER mode mandatory; live broker order writes disabled; PR #6/#7 stay Draft/unmerged; do not merge.
+
+
+## Resume update — 29 October 2026 (strict API status + BSE/MCX fallback scope)
+
+- **Code/test head:** `217e5c74878048d276de20929b57a6a2b5aa668d`. Latest exact-head Backend CI: [#40875989690](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40875989690) — **in progress at checkpoint write; do not mark green until completed**.
+- **Additional API response guard:** the pre-trade brokerage estimate parser now requires response body `status == "success"`, in addition to a complete paise-exact component breakdown and exact total reconciliation. An unsuccessful status with otherwise plausible `data.charges` is rejected and falls back locally. Regression case added.
+- **Exchange-scope safeguard:** if API estimates are unavailable and the instrument token identifies BSE or MCX, the local fallback still allows paper trading but explicitly prefixes the fallback reason with `exchange_specific_tariff_unverified:`. The fallback is not presented as a verified BSE/MCX tariff. Regression cases added for BSE equity and MCX futures.
+- **Existing docs-head verification:** backend runs #40875565498, #40875627719 and #40875648924 completed successfully for the prior code/docs heads. These do not substitute for the new exact-head run above.
+- **Next:** confirm #40875989690. If green, sync the final CI run/commit and resume remaining applicability audit. Do not claim exact-head CI success prematurely.

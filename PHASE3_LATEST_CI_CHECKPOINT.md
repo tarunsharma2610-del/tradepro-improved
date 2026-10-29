@@ -675,3 +675,8 @@ This checkpoint file was refreshed after the progress and handover updates. Veri
 ### Exact-head verification gate after this documentation sync
 
 This is the final checkpoint-file update after the progress and handover changes above. Check Backend CI for this exact branch head; until it completes successfully, the code and documentation sync remain pending verification.
+
+
+### Final synchronized checkpoint head — 29 October 2026
+
+This checkpoint follows the final wording cleanup, ensuring the current policy is not contradicted by stale BSE/MCX fallback text. Verify Backend CI against the exact latest branch head before marking this checkpoint green. The prior failing runs are historical; only a successful run on the latest code/documentation head completes this checkpoint.

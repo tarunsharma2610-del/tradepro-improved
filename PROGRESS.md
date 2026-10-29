@@ -3469,3 +3469,6 @@ Fixed API charge value resolution so a mapping such as `data.charges.ipft` reads
 - Auditing the caller integration found one additional concrete mismatch: the execution service collapsed the hardcoded fallback into generic `PAPER_ESTIMATE`, despite the estimator knowing whether the Upstox API estimate or local fallback was used.
 - Updated both market-fill and matched-limit-fill paths to persist `PAPER_UPSTOX_API_ESTIMATE` or `PAPER_HARDCODED_FALLBACK`. The disclaimer still applies to all paper estimate labels. Regression coverage now checks the persisted fallback label and all source-label disclaimer variants.
 - Code/test commits: `01a891595b05c5ca5f1d6be92d778a786b70c5f2`, `e50f96eb398dd46d4c59168b1fb0d16ca27dacac`, `f109384089fdf59418bf9ef86678df48f186bccd`. Exact-head CI required.
+
+
+- Follow-up CI on the earlier PR merge head reached 1,204 passed and 1 failed: a transient ORM execution row can expose `charge_source=None`, so a default alone did not preserve compatibility. Added a Pydantic before-validator that normalizes a null legacy source to `PAPER_ESTIMATE`; the failing execution-schema regression now covers this case. Fix commit: `287dcc31807bc2b5677bc5128d2e65028c799017`. New exact-head CI still required.

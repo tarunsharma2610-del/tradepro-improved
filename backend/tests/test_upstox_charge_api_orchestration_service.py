@@ -27,7 +27,7 @@ class FakeReadOnlyClient:
 
 @pytest.mark.asyncio
 async def test_brokerage_api_is_exposed_as_estimate_only_with_scope():
-    payload = {"status": "success", "data": {"charges": {"gst": 3.60, "ipft": None}}}
+    payload = {"status": "success", "data": {"charges": {"total": 10.00, "brokerage": 1.00, "taxes": {"gst": 3.60}, "otherTaxes": {"ipft": None}}}}
     client = FakeReadOnlyClient(ReadOnlyBrokerResult(ok=True, data=payload, status_code=200))
     service = UpstoxChargeApiOrchestrationService(client)
 
@@ -61,7 +61,7 @@ async def test_brokerage_api_is_exposed_as_estimate_only_with_scope():
 
 @pytest.mark.asyncio
 async def test_post_trade_charges_api_is_aggregate_only_never_per_fill_actual():
-    payload = {"status": "success", "data": {"charges_breakdown": {"total": 20.15, "taxes": {"gst": 3.60}, "charges": {"ipft": None}}}}
+    payload = {"status": "success", "data": {"charges_breakdown": {"total": 20.15, "brokerage": 10.00, "taxes": {"gst": 3.60}, "charges": {"ipft": None}}}}
     client = FakeReadOnlyClient(ReadOnlyBrokerResult(ok=True, data=payload, status_code=200))
     service = UpstoxChargeApiOrchestrationService(client)
 
@@ -89,9 +89,12 @@ async def test_post_trade_charges_api_is_aggregate_only_never_per_fill_actual():
     [
         ("estimate", {"status": "error", "data": {"charges": {"total": 10}}}),
         ("estimate", {"status": "success", "data": {"charges_breakdown": {"total": 10}}}),
+        ("estimate", {"status": "success", "data": {"charges": {}}}),
+        ("estimate", {"status": "success", "data": {"charges": {"total": 10, "brokerage": 1, "taxes": {}}}}),
         ("aggregate", {"status": "success", "data": {"total_charges": 20.15}}),
         ("aggregate", {"status": "success", "data": {"charges": {"total": 20.15}}}),
-        ("aggregate", {"data": {"charges_breakdown": {"total": 20.15}}}),
+        ("aggregate", {"status": "success", "data": {"charges_breakdown": {"brokerage": 10, "taxes": {}, "charges": {}}}}),
+        ("aggregate", {"data": {"charges_breakdown": {"total": 20.15, "brokerage": 10, "taxes": {}, "charges": {}}}}),
     ],
 )
 async def test_successful_http_with_wrong_documented_payload_schema_is_unusable(endpoint_kind, payload):

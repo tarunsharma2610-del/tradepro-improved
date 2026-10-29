@@ -55,17 +55,32 @@ class UpstoxChargeApiOrchestrationService:
         usable = False
         if result.ok and isinstance(payload, dict) and payload.get("status") == "success":
             data = payload.get("data")
-            if isinstance(data, dict):
-                # Upstox documents distinct response envelopes for these APIs.
-                # Do not call a successful HTTP response usable if its JSON schema
-                # is wrong; in particular, aggregate charges use charges_breakdown,
-                # not the pre-trade brokerage endpoint's charges object.
-                expected_key = (
-                    "charges"
-                    if endpoint == BROKERAGE_ESTIMATE_ENDPOINT
-                    else "charges_breakdown"
+            if isinstance(data, dict) and endpoint == BROKERAGE_ESTIMATE_ENDPOINT:
+                # Brokerage Details has a distinct estimate schema. A dictionary
+                # alone is not enough: require the documented amount and nested
+                # tax/other-charge containers, while preserving nullable components.
+                charges = data.get("charges")
+                other = charges.get("otherTaxes") if isinstance(charges, dict) else None
+                if other is None and isinstance(charges, dict):
+                    other = charges.get("other_charges")
+                usable = (
+                    isinstance(charges, dict)
+                    and "total" in charges
+                    and "brokerage" in charges
+                    and isinstance(charges.get("taxes"), dict)
+                    and isinstance(other, dict)
                 )
-                usable = isinstance(data.get(expected_key), dict)
+            elif isinstance(data, dict) and endpoint == AGGREGATE_CHARGES_ENDPOINT:
+                # Post-trade aggregate charges use charges_breakdown, including
+                # its own taxes and charges containers; they remain aggregate-only.
+                breakdown = data.get("charges_breakdown")
+                usable = (
+                    isinstance(breakdown, dict)
+                    and "total" in breakdown
+                    and "brokerage" in breakdown
+                    and isinstance(breakdown.get("taxes"), dict)
+                    and isinstance(breakdown.get("charges"), dict)
+                )
         if result.ok and not usable:
             error_code = "INVALID_RESPONSE_SCHEMA"
             payload = None

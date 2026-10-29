@@ -1,3 +1,16 @@
+<!-- CURRENT AUTHORITATIVE CHECKPOINT — 29 October 2026. Branch head: 9add7f98ccf89f0c146e4367b79cdd5877104ff3. Code/test head 404c1e11ef4f2557c791c720c8d9a3fbc4e93bc1 passed Backend CI #40883660756; maintained-doc head cd490b506cd973af75c3b96b585c18ff97e2f78f passed exact-head Backend CI #40884629622. Latest checkpoint refresh 9add7f98ccf89f0c146e4367b79cdd5877104ff3 passed Backend CI #40885193019. Keep PR #6/#7 Draft/unmerged, PAPER mode mandatory, live broker writes disabled, and original Tradepro repository untouched. User supplied historical January 2023 Upstox/RKSV contract-note examples; do not ask for them again. Real production Oracle backup/restore remains deferred until deployment. -->
+
+## Current authoritative status — 29 October 2026
+
+- Latest branch/checkpoint commit: `9add7f98ccf89f0c146e4367b79cdd5877104ff3`; exact-head Backend CI [#40885193019 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40885193019).
+- Upstox Brokerage Details API must return `status=success` and `data.charges`; this is estimate-only. Post-trade Trade Charges API must return `status=success` and `data.charges_breakdown`; this is aggregate reconciliation-only. Wrong/missing schemas are rejected as `INVALID_RESPONSE_SCHEMA`.
+- GST comparison preserves missing/null/invalid/zero states and surfaces variance; it does not approve invoice accounting. Unknown IPFT remains unknown, not zero. Public calculator/tariff estimates do not become per-fill actuals.
+- The historical January 2023 Upstox/RKSV contract-note examples supplied by the user remain regression evidence; do not request them again or overstate their per-fill scope.
+- Agreed PAPER-mode engineering scope is recorded complete. Remaining operational gates are credentialed Upstox smoke testing in deployment, actual Oracle database/document-volume backup/restore after deployment, and independent tariff approval before any actual-charge promotion. These do not block PAPER trading.
+- PR #6 and #7 remain Draft/unmerged. Live broker writes remain disabled. Work only in `tarunsharma2610-del/tradepro-improved`; never modify `tarunsharma2610-del/Tradepro`.
+
+---
+
 <!-- Phase 3 continuation sync: 27 October 2026. Latest verified code/test head: 31ce2a10bcc789c223608c6566082b24aea7358c; Backend CI #40383076131 SUCCESS. Latest checkpoint-document commit: 61f23e5ce714c37a97f996f5f75c1963cc1136e6; docs-head CI #40383798007 must be checked for final conclusion. DP/demat Execution persistence and central charge-total recomputation are implemented; next gate is focused accounting audit. GST/IPFT implementation is not being restarted. PR #6/#7 stay Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. -->
 
 ## CURRENT AUTHORITATIVE CHECKPOINT — 26 October 2026 (GST per-fill allocation test CI passed)

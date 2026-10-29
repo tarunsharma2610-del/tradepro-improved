@@ -655,3 +655,8 @@ This supersedes the earlier extra BSE/MCX-specific fallback warning. The fallbac
 - Removed the special `exchange_specific_tariff_unverified:` fallback reason. BSE/MCX use the same fallback behavior and disclaimer as other paper instruments.
 - Code changes: `3b3fe2aa981013cdb1d75b6014bd14c56361f5b2` (simplified fallback + estimate disclaimer), `5e803146c0992539da8fe93f3df6836e5232a276` (regression tests), `134cc87386b0c19b6e1294b5c95ae9aac9d813d4` and `6f2a80b51266ec14cb8e89761c97caa675df1fe4` (expose disclaimer/source on execution API schema).
 - CI on the newest code head must pass before this increment is marked verified.
+
+
+### Final synchronized-head CI gate — 29 October 2026
+
+This checkpoint file was refreshed after the progress and handover updates. Verify Backend CI on this final branch head before marking the documentation sync complete. Current policy is API-first estimates with the same hardcoded fallback and standard paper-only disclaimer for every supported instrument scope; no BSE/MCX-specific blocker.

@@ -670,3 +670,8 @@ This checkpoint file was refreshed after the progress and handover updates. Veri
 - **Latest code head before docs refresh:** `83a8ae95ccfc8d0271bb07c67316a40eff6be509`. Prior runs #40877183503 and #40877198561 failed with the stale fallback keyword and missing schema field; those failures drove the fixes and are not a status claim about this head. Run #40877487855 was still in progress but predates the final repairs. Verify a new CI run on the exact final head before marking this checkpoint green.
 - **Fallback policy (user-approved):** Upstox Brokerage Details API first; if token/API/response fails, use existing hardcoded calculator without blocking paper trades. Display: “Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges.” BSE/MCX fallback is not a Phase 3 blocker.
 - **Safety:** only this repository; original `Tradepro` untouched; PAPER mode mandatory; live broker order writes disabled; PR #6/#7 remain Draft/unmerged.
+
+
+### Exact-head verification gate after this documentation sync
+
+This is the final checkpoint-file update after the progress and handover changes above. Check Backend CI for this exact branch head; until it completes successfully, the code and documentation sync remain pending verification.

@@ -3462,3 +3462,10 @@ Fixed API charge value resolution so a mapping such as `data.charges.ipft` reads
 - Code commits: `8e7aef511aa965b5f7b1619a4b1f2d6786880d72`, `b8ae6f0e33356aa05bd3e89a664e166eef9c3ae5`, `c8f2e900e203f9d66ebfde2f7ac6b18fa7d54387`, `83a8ae95ccfc8d0271bb07c67316a40eff6be509`.
 - Runs #40877183503 and #40877198561 are failed historical runs and must not be treated as current-head status. Run #40877487855 was in progress when this note was written and started before the final two repairs; verify CI on the resulting latest head before marking this increment green.
 - User-directed policy supersedes older wording: BSE/MCX fallback is not a blocker; use API first, hardcoded fallback on failure, and a common paper-only estimate disclaimer. No tariff certification detour.
+
+
+## Follow-up audit — persisted estimate-source provenance
+
+- Auditing the caller integration found one additional concrete mismatch: the execution service collapsed the hardcoded fallback into generic `PAPER_ESTIMATE`, despite the estimator knowing whether the Upstox API estimate or local fallback was used.
+- Updated both market-fill and matched-limit-fill paths to persist `PAPER_UPSTOX_API_ESTIMATE` or `PAPER_HARDCODED_FALLBACK`. The disclaimer still applies to all paper estimate labels. Regression coverage now checks the persisted fallback label and all source-label disclaimer variants.
+- Code/test commits: `01a891595b05c5ca5f1d6be92d778a786b70c5f2`, `e50f96eb398dd46d4c59168b1fb0d16ca27dacac`, `f109384089fdf59418bf9ef86678df48f186bccd`. Exact-head CI required.

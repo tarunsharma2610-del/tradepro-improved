@@ -3438,3 +3438,10 @@ Fixed API charge value resolution so a mapping such as `data.charges.ipft` reads
 - Added explicit `exchange_specific_tariff_unverified` fallback marker for BSE/MCX instrument tokens when the local tariff calculator is used, without blocking paper trades. BSE equity and MCX futures regression cases added.
 - Code/test head: `217e5c74878048d276de20929b57a6a2b5aa668d`; exact-head Backend CI #40875989690 was still in progress at documentation update. Do not record as passed until GitHub reports success.
 - Previous docs heads passed #40875565498, #40875627719 and #40875648924; these are prior-head results.
+
+
+## Verified code checkpoint — 29 October 2026
+
+- Code/test head `217e5c74878048d276de20929b57a6a2b5aa668d` passed exact-head Backend CI **#40875989690 — SUCCESS**. All workflow stages passed: backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore drill and retained evidence.
+- The new API response-status regression and BSE/MCX local-fallback scope regression tests are included in this passing head.
+- Actual estimate source labels in code are `UPSTOX_API_ESTIMATE` and `HARDCODED_FALLBACK`. Documentation has been corrected; verify the post-sync docs head separately.

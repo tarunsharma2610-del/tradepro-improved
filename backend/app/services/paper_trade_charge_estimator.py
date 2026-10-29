@@ -24,6 +24,16 @@ class PaperTradeChargeEstimate:
     fallback_reason: str | None = None
 
 
+def _fallback_estimate(
+    costs: CostBreakdown, *, instrument_token: str, reason: str
+) -> PaperTradeChargeEstimate:
+    """Keep fallback usable while flagging exchange scopes the local tariff does not model."""
+    exchange_prefix = instrument_token.split("|", 1)[0].upper() if isinstance(instrument_token, str) else ""
+    if exchange_prefix.startswith(("BSE_", "MCX_")):
+        reason = f"exchange_specific_tariff_unverified:{reason}"
+    return PaperTradeChargeEstimate(costs, "HARDCODED_FALLBACK", reason)
+
+
 def _money(value: Any, field: str) -> Decimal:
     if isinstance(value, bool) or value is None:
         raise ValueError(f"{field} is missing or invalid")
@@ -100,7 +110,7 @@ async def estimate_paper_trade_costs(
     """Prefer a complete Upstox pre-trade estimate; otherwise use local rates."""
     fallback = calculate_costs(segment, side, quantity, price)
     if not access_token:
-        return PaperTradeChargeEstimate(fallback, "HARDCODED_FALLBACK", "missing_access_token")
+        return _fallback_estimate(fallback, instrument_token=instrument_token, reason="missing_access_token")
 
     product = "D" if segment == Segment.EQUITY_DELIVERY else "I"
     try:
@@ -114,13 +124,13 @@ async def estimate_paper_trade_costs(
             price=price,
         )
         if not result.ok:
-            return PaperTradeChargeEstimate(fallback, "HARDCODED_FALLBACK", result.error_code or "api_unavailable")
+            return _fallback_estimate(fallback, instrument_token=instrument_token, reason=result.error_code or "api_unavailable")
         costs = _parse_api_costs(
             result.data, segment=segment, side=side, quantity=quantity, price=price
         )
         return PaperTradeChargeEstimate(costs, "UPSTOX_API_ESTIMATE")
     except (ValueError, TypeError, InvalidOperation, KeyError) as exc:
-        return PaperTradeChargeEstimate(fallback, "HARDCODED_FALLBACK", str(exc))
+        return _fallback_estimate(fallback, instrument_token=instrument_token, reason=str(exc))
     except Exception:
         # A transient HTTP/client failure must never prevent paper trading.
-        return PaperTradeChargeEstimate(fallback, "HARDCODED_FALLBACK", "api_error")
+        return _fallback_estimate(fallback, instrument_token=instrument_token, reason="api_error")

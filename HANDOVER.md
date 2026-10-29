@@ -2649,3 +2649,8 @@ Follow the user's simplified policy: Upstox brokerage estimate API first; existi
 ## Current resume point — 29 October 2026 (latest fix set)
 
 The earlier CI failures were actionable: stale fallback-call arguments caused API-error handling to raise instead of falling back, and legacy ExecutionOut fixtures lacked the newly exposed charge-source field. These are fixed. The execution response disclaimer now recognizes `UPSTOX_API_ESTIMATE` and `HARDCODED_FALLBACK`; contract-note actuals are not labeled estimates. The response schema keeps a backwards-compatible `PAPER_ESTIMATE` default. Regression tests cover these behaviors. Latest code commit before docs refresh: `83a8ae95ccfc8d0271bb07c67316a40eff6be509`. Historical runs #40877183503 and #40877198561 failed before the repairs. Run #40877487855 was still in progress but predates the last two repairs; exact latest-head CI is required. Continue from this point. Do not reopen GST/IPFT research or treat BSE/MCX tariff certification as a blocker.
+
+
+## Follow-up audit — persisted estimate-source provenance
+
+A caller-level audit found the execution service was collapsing the estimator's local fallback into generic `PAPER_ESTIMATE`. Both market and matched-limit fill paths now persist the distinct labels `PAPER_UPSTOX_API_ESTIMATE` and `PAPER_HARDCODED_FALLBACK`. The paper-only disclaimer covers both. Tests check fallback source persistence and disclaimer behavior. Commits: `01a891595b05c5ca5f1d6be92d778a786b70c5f2`, `e50f96eb398dd46d4c59168b1fb0d16ca27dacac`, `f109384089fdf59418bf9ef86678df48f186bccd`. Verify exact-head CI before marking green.

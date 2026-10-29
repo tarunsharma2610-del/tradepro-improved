@@ -3420,3 +3420,13 @@ Fixed API charge value resolution so a mapping such as `data.charges.ipft` reads
 - In paper trading, an expired/unavailable token must not block a fill: the charge estimator uses the hardcoded deterministic fallback and records the fallback source. The API-first estimate remains best-effort.
 - Live Upstox API calls have not been credential-tested in this CI environment. Do not label the real OAuth handshake or account-specific endpoint entitlements as end-to-end verified until a user-authorized integration test succeeds.
 - Official references: https://upstox.com/developer/api-documentation/get-token/ and https://upstox.com/developer/api-documentation/authentication/ .
+
+
+## Resume update — 29 October 2026 (API-first estimates; checkpoint CI verified)
+
+- Backend CI #40755234415 passed on code/test head `778e76d3554a3baedc41f0396276c1cb3dafc38f` (1,197 passed, 1 warning). The synchronized documentation head `d57dd476ecd6acebd4dc9e169912b877811a8166` also passed exact-head Backend CI #40755635769, including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore, and evidence retention.
+- Paper fills now prefer a complete, internally consistent Upstox Brokerage Details API estimate and fall back to the deterministic local calculator on token/API/shape/amount/total failures. Charge source distinguishes API estimate from local estimate. Both remain estimates, not actual booked charges.
+- Post-trade Trade Charges API remains aggregate reconciliation evidence; do not promote aggregate results to per-fill actuals. Standard OAuth expiry is handled; no generic refresh-token grant is assumed. Live credentialed end-to-end verification remains unclaimed.
+- Accounting acceptance audit confirms exact six-component core reconciliation, evidence/reviewer/source integrity, deterministic per-fill allocation, exact replay/conflicting replay protections, rollback safeguards, and DP/demat gating for eligible delivery sells. Avoid duplicate tests.
+- Next: continue the remaining instrument/segment/product/side applicability audit and identify only genuine uncovered cases. Integrate GST/API comparison only if a concrete caller-level gap is found. Keep unsupported BSE/MCX tariff scopes estimated/unverified. Do not restart GST/IPFT research or let tiny aggregate rounding variance block paper trading.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` out of scope; PR #6/#7 Draft/unmerged; PAPER mandatory; live broker writes disabled. Production Oracle restore acceptance waits for deployment backups.

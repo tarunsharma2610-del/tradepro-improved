@@ -54,6 +54,7 @@ async def test_complete_upstox_estimate_is_used_and_ipft_counted_once():
     )
 
     assert result.source == "UPSTOX_API_ESTIMATE"
+    assert result.disclaimer == "Estimated charges may differ from actual broker charges. For paper trading only; these are not actual booked charges."
     assert result.costs.total_charges == Decimal("6.19")
     assert result.costs.exchange_charges == Decimal("2.17")
     assert result.costs.gst == Decimal("0.90")
@@ -105,6 +106,8 @@ async def test_incomplete_invalid_or_inconsistent_api_uses_hardcoded_fallback(pa
         client=client,
     )
     assert result.source == "HARDCODED_FALLBACK"
+    assert "may differ from actual broker charges" in result.disclaimer
+    assert "paper trading only" in result.disclaimer
     assert result.costs == calculate_costs(
         Segment.EQUITY_DELIVERY, Side.BUY, 10, Decimal("100.00")
     )
@@ -150,7 +153,7 @@ async def test_missing_token_uses_hardcoded_fallback():
         ("MCX_FO|FUTCOM_12345", Segment.FUTURES),
     ],
 )
-async def test_non_nse_local_fallback_is_explicitly_marked_unverified(instrument_token, segment):
+async def test_non_nse_local_fallback_uses_normal_paper_estimate_disclaimer(instrument_token, segment):
     result = await estimate_paper_trade_costs(
         None,
         instrument_token=instrument_token,
@@ -161,5 +164,6 @@ async def test_non_nse_local_fallback_is_explicitly_marked_unverified(instrument
         trade_date=date(2026, 10, 29),
     )
     assert result.source == "HARDCODED_FALLBACK"
-    assert result.fallback_reason == "exchange_specific_tariff_unverified:missing_access_token"
+    assert result.fallback_reason == "missing_access_token"
+    assert "may differ from actual broker charges" in result.disclaimer
 

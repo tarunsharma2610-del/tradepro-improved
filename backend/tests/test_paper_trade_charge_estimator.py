@@ -6,6 +6,7 @@ import pytest
 from app.brokers.upstox.reconciliation_client import ReadOnlyBrokerResult
 from app.services.paper_trade_charge_estimator import estimate_paper_trade_costs
 from app.services.transaction_costs import Segment, Side, calculate_costs
+from app.schemas.order import ExecutionOut
 
 
 class FakeChargeClient:
@@ -167,3 +168,15 @@ async def test_non_nse_local_fallback_uses_normal_paper_estimate_disclaimer(inst
     assert result.fallback_reason == "missing_access_token"
     assert "may differ from actual broker charges" in result.disclaimer
 
+@pytest.mark.parametrize(
+    "charge_source",
+    ["UPSTOX_API_ESTIMATE", "HARDCODED_FALLBACK", "PAPER_ESTIMATE"],
+)
+def test_execution_response_exposes_disclaimer_for_all_paper_estimate_sources(charge_source):
+    execution = ExecutionOut.model_construct(charge_source=charge_source)
+    assert execution.charge_estimate_disclaimer == ExecutionOut.PAPER_CHARGE_ESTIMATE_DISCLAIMER
+
+
+def test_execution_response_does_not_label_actual_broker_charges_as_estimates():
+    execution = ExecutionOut.model_construct(charge_source="BROKER_CONTRACT_NOTE")
+    assert execution.charge_estimate_disclaimer is None

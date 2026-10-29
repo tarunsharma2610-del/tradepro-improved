@@ -11,15 +11,19 @@
 - [x] Wrote Phase 4 roadmap and progress/checkpoint records.
 - [ ] Run an exact-head CI on the new Phase 4 documentation commit(s).
 - [ ] Verify the latest branch head and CI status after documentation updates.
-- [ ] Perform P4-0 repository audit and publish evidence-based gap matrix.
+- [x] Perform P4-0 static baseline audit and publish `PHASE4_P0_BASELINE_AUDIT.md`.
+- [x] Implement fail-closed `TRADING_MODE=PAPER` validation in `backend/app/core/config.py`.
+- [x] Add `backend/tests/test_trading_mode_safety.py` for PAPER normalization and LIVE/invalid-mode rejection.
+- [ ] Obtain backend CI on the exact final Phase 4 head; no green status claimed yet.
+- [ ] Continue P4-0B broker-write boundary call-path audit after CI.
 
 ## Work packages
-- P4-0 baseline/audit: NOT STARTED.
+- P4-0 baseline/audit: STATIC AUDIT DONE; safety config hardening committed, CI pending.
 - P4-1 risk and paper execution safety: NOT STARTED; audit before deciding what is missing.
 - P4-2 paper lifecycle/accounting integration: NOT STARTED; preserve Phase 3 invariants.
 - P4-3 persistence/security/observability: NOT STARTED.
 - P4-4 Upstox read-only integration readiness: NOT STARTED.
-- P4-5 CI/docs/checkpoint: IN PROGRESS (documentation setup); exact-head CI pending.
+- P4-5 CI/docs/checkpoint: IN PROGRESS; exact-head CI pending.
 
 ## Non-negotiable safeguards
 - Only `tarunsharma2610-del/tradepro-improved`; never modify `tarunsharma2610-del/Tradepro`.

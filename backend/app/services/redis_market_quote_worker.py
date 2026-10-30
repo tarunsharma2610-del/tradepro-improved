@@ -155,9 +155,16 @@ class RedisMarketQuoteWorker:
                 self._latest_quotes[quote_key] = quote
                 self._latest_quote_times[quote_key] = time.monotonic()
                 if self.on_quote is not None:
-                    result = self.on_quote(user_id, quote)
-                    if inspect.isawaitable(result):
-                        await result
+                    try:
+                        result = self.on_quote(user_id, quote)
+                        if inspect.isawaitable(result):
+                            await result
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        # Downstream scanner/observer failures must not tear
+                        # down the Redis listener or surrender its user lease.
+                        logger.exception("Market quote callback failed for user=%s instrument=%s", user_id, key)
 
         async def renew() -> None:
             interval = self.lease_seconds / 3

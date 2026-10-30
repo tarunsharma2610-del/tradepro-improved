@@ -170,3 +170,15 @@ Backend pytest passed on code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e
 - Status: publisher and callback wiring implemented; exact-head CI passed. Consumer, reconnect recovery, cross-process delivery tests, scanner and paper-strategy integration remain pending. Docs sync CI for this checkpoint remains pending.
 - Resume next: verify docs sync commit's exact-head CI; then implement Redis consumer. Consumer should treat Pub/Sub as notification only and retrieve/validate the latest Redis snapshot, including user ID, schema version, version monotonicity, TTL and exchange timestamp.
 - No live broker write path was added or enabled. PAPER remains mandatory. PR #9 remains Draft/unmerged; main is not to be updated without explicit user authorization. Work only in `tradepro-improved`; original `Tradepro` is out of scope.
+
+
+## 30 October 2026 — Redis atomic publisher exact-head checkpoint
+
+- Redis consumer implementation accepted on exact-head Backend CI #41025805338 (commit `a9e5cb59fde15dd273cde51b78acf063fd8ebe8c`).
+- Added Redis 7 service to backend CI and real Redis integration tests for publisher/consumer round-trip, tenant isolation, snapshot TTL, Pub/Sub notification semantics, and consumer-instance restart recovery.
+- Atomic Lua publisher commit `47e9108937270b288bf70a269d3dc89941884af2` was followed by correction commit `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e` adding missing JSON import in concurrency integration test.
+- **Latest exact-head Backend CI #41026567279 PASSED** on `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`: pytest, broker-write boundary, SQLite/PostgreSQL 16 migrations, synthetic restore, and evidence retention all passed.
+- Atomic publisher performs version increment, snapshot write/expiry, and Pub/Sub publish in one Lua script. Real Redis concurrent publishing coverage added.
+- Pending: automatic Redis reconnect/resubscribe, Redis server restart recovery, independent OS-process tests, scanner consumption, and PAPER strategy consumption. No scanner/strategy integration is claimed.
+- Next implementation gate: reconnect/resubscription with bounded backoff and a post-reconnect authoritative snapshot sweep; add real Redis failure/restart tests before wiring scanner.
+- PR #9 remains Draft/unmerged; no main update. PAPER mandatory; live broker writes disabled; original Tradepro untouched.

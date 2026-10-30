@@ -1695,3 +1695,10 @@ Token scopes are distinct: Analytics Token for officially supported market-data/
 ## Phase 4 architecture addendum — Redis market quote publication (30 October 2026)
 
 The Upstox V3 stream manager now routes its per-user asynchronous tick callback to `RedisMarketQuotePublisher`. The publisher writes a versioned latest-quote snapshot under a user-scoped key with TTL and publishes a per-user Pub/Sub notification. The snapshot is authoritative; Pub/Sub is only a wake-up signal. The publisher validates instrument-key shape, finite positive LTP, positive exchange timestamp, timezone-aware receive timestamp, and configured freshness bounds. Redis failure is logged and the tick is unavailable to downstream consumers; no in-memory fallback is permitted. The version counter also expires to avoid unbounded key retention. Exact-head Backend CI #41024607462 passed on `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`. Consumer-side validation/recovery and real cross-process tests are not yet implemented; scanner and strategy do not yet consume Redis snapshots.
+
+
+## Phase 4 market-data delivery — Redis checkpoint (30 October 2026)
+
+The Upstox V3 streamer remains the process-local WebSocket ingress and its existing async tick callback publishes validated ticks through `RedisMarketQuotePublisher`. Redis is the cross-process quote transport/cache; it is not a second market-data provider. The publisher uses a Lua script to atomically allocate per-user/per-instrument versions, write expiring authoritative snapshots, and publish lightweight wake-up notifications. Consumers must read and validate snapshots; Pub/Sub payloads are never trusted as quote values.
+
+Backend CI provisions Redis 7 and PostgreSQL 16. Exact-head Backend CI #41026567279 passed on `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`. Current limits: consumer reconnect/resubscribe after Redis outage, actual Redis server restart recovery, and independent OS-process tests remain pending. Scanner and strategy do not yet consume this shared quote stream. Downstream components must enforce user isolation, TTL, exchange timestamp, schema/version checks, and fail-closed stale-data handling.

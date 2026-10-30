@@ -2899,3 +2899,12 @@ PR #8 remains Draft/unmerged; only `tarunsharma2610-del/tradepro-improved`; main
 ## Phase 4 handover — 30 October 2026 (Redis publisher CI accepted)
 
 Resume only in `tarunsharma2610-del/tradepro-improved`. Latest verified implementation head is `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`; Backend CI #41024607462 passed on this exact SHA: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41024607462. Draft PR #9 is open and targets `phase4/roadmap-progress-checkpoints`; do not merge. The Redis publisher and Upstox V3 callback wiring are implemented. Publisher uses per-user keys/channels, versioned TTL snapshots, freshness validation, and Pub/Sub notifications. Redis failures do not fall back to stale in-memory quotes. Next gate is docs exact-head CI, then independent Redis consumer with authoritative snapshot reads, user/schema/version/TTL/timestamp validation and reconnect recovery. Scanner and PAPER strategy integration are pending. PR #8/#9 stay Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repo untouched.
+
+
+## Phase 4 handover — Redis delivery checkpoint, 30 October 2026
+
+Resume only in `tarunsharma2610-del/tradepro-improved`, branch `phase4/redis-market-data-publisher`, PR #9 Draft/unmerged. Latest verified code head `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`; exact-head Backend CI #41026567279 passed: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41026567279. This includes backend pytest, broker-write safety, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and evidence retention.
+
+Redis 7 is now a CI service. Publisher version increment + snapshot + TTL + Pub/Sub notification are atomic via Lua. Real Redis integration tests cover tenant isolation, TTL, authoritative snapshot reads, consumer-instance restart recovery, and concurrent publishing. Earlier run #41026517896 failed only on a missing test import; fixed in the accepted head.
+
+Next: implement bounded Redis reconnect/resubscription and recovery sweep after reconnect; test actual Redis server restart and independent OS processes. Only then integrate scanner and PAPER strategy. No scanner/strategy integration is currently claimed. PAPER mandatory; live broker writes disabled; PR #8/#9 Draft/unmerged; main untouched; original Tradepro untouched.

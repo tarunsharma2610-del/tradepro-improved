@@ -2211,3 +2211,13 @@ Use the official Upstox Analytics Token for supported market-data and real-time 
 ## Phase 4 continuation instruction — Redis publisher checkpoint (30 October 2026)
 
 Resume from exact verified code head `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`, Backend CI #41024607462 SUCCESS. Do not restart or repeat publisher work. Publisher and Upstox stream callback wiring are complete; Redis consumer, reconnect recovery, cross-process tests, scanner and PAPER strategy integration are not. First verify the latest docs-sync commit and exact-head CI. Then implement consumer using Redis snapshot as source of truth and Pub/Sub only as notification. Validate tenant/user scope, schema version, monotonic version, TTL and exchange timestamp; recover after missed notifications/restarts by reading latest snapshot. Fail closed on unavailable/stale data. Work only in `tarunsharma2610-del/tradepro-improved`; no main update/merge; PR #8/#9 Draft; PAPER mandatory; live broker writes disabled; original Tradepro out of scope.
+
+
+## Phase 4 continuation rules — Redis checkpoint (30 October 2026)
+
+- Continue only in `tarunsharma2610-del/tradepro-improved`; never modify original `tarunsharma2610-del/Tradepro`.
+- Latest verified Phase 4 code head: `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`; Backend CI #41026567279 passed on exact head. Treat subsequent commits as unverified until their own CI completes.
+- Redis quote publisher uses atomic Lua for version increment, authoritative snapshot/expiry, and Pub/Sub notification. Consumers must always fetch/validate the snapshot.
+- Next gates: reconnect/resubscribe and recovery after Redis outage; actual Redis server restart test; independent process test; scanner integration; PAPER strategy integration. Do not skip gates or claim integration prematurely.
+- PAPER mode mandatory. Live `place_order`, `modify_order`, and `cancel_order` writes remain disabled. Do not merge PR #8/#9 or update main without explicit authorization. Preserve Phase 3 accounting safeguards and all fail-closed freshness/risk controls.
+- Use official Upstox Developer Console, API docs, SDKs and supplied protobuf schemas when appropriate; audit existing capabilities before adding duplicate services or workaround layers.

@@ -208,3 +208,15 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - **Not yet complete:** independent Redis consumer, snapshot schema/user/version validation at consumer boundary, reconnect recovery, cross-process tests, scanner integration and paper-strategy integration. No live Upstox credentialed smoke test or Redis production deployment is claimed.
 - Next: update this seven-document checkpoint set and verify docs CI on its exact resulting head; then implement the consumer with recovery by reading the latest snapshot after subscription/reconnect. Consumer must fail closed on missing/expired/stale/mismatched snapshots and must not trust Pub/Sub payloads as quote data.
 - Safeguards: PAPER mandatory; live broker writes disabled; PR #8 and PR #9 remain Draft/unmerged; do not update main or merge without explicit approval; original `tarunsharma2610-del/Tradepro` remains out of scope.
+
+
+## Phase 4 Redis atomic publisher checkpoint — 30 October 2026
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; working branch: `phase4/redis-market-data-publisher`; PR #9 remains Draft/open and unmerged. No main-branch update. Original `tarunsharma2610-del/Tradepro` remains out of scope.
+- **Latest verified code/test head:** `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`.
+- **Exact-head Backend CI #41026567279: SUCCESS:** https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41026567279. Backend pytest, broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore and evidence retention passed.
+- Earlier atomic-publisher run #41026517896 failed because the concurrent Redis integration test omitted `import json`; corrected on the exact head above. The failure was a test import error, not a production publisher failure.
+- Real Redis 7 integration tests cover publisher/consumer snapshots, tenant isolation, TTL, Pub/Sub notification followed by authoritative snapshot reads, consumer-instance restart recovery, and concurrent publishing. Atomic Lua publisher now allocates version, writes expiring snapshot, and publishes notification in one Redis script.
+- The Redis consumer remains a standalone service: scanner/strategy integration is NOT complete. Actual Redis-server restart/reconnect and independent OS-process tests remain pending. Do not treat mocked/unit tests or consumer-instance restart as proof of Redis server restart recovery.
+- **Next:** implement and test Redis consumer reconnect/resubscribe and snapshot recovery after Redis restart; then independent-process tests; then scanner integration; then PAPER strategy integration. Preserve quote expiry, exchange timestamps, user isolation, version monotonicity, and fail-closed behaviour.
+- Safety: PAPER mandatory; live broker order writes remain disabled; PR #8/#9 remain Draft/unmerged; no main update; only Tradepro Improved may be modified.

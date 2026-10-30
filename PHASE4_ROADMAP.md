@@ -223,3 +223,20 @@ Engineering rule: check provider-supported capability and existing implementatio
 7. Integrate PAPER strategy evaluation only after scanner and consumer acceptance; preserve existing candle freshness and risk gates.
 
 No step is complete merely because a service or test double exists. Do not enable live trading or merge Draft PRs.
+
+
+## Redis delivery milestone update — 30 October 2026
+
+- [x] Redis quote consumer and unit tests; exact-head CI #41025805338 passed.
+- [x] Redis 7 service in backend CI and real Redis integration tests.
+- [x] Atomic publisher version/snapshot/notification sequence using Redis Lua.
+- [x] Concurrent publish test and corrected integration-test import.
+- [x] Exact-head CI #41026567279 passed on `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`.
+- [ ] Consumer reconnect and resubscribe after Redis connection loss.
+- [ ] Recovery sweep after Redis server restart; prove expired/missed quotes fail closed.
+- [ ] Independent publisher/consumer OS-process integration tests.
+- [ ] Scanner consumes only validated user-scoped fresh quotes.
+- [ ] PAPER strategy evaluation consumes validated quotes and retains candle/risk freshness checks.
+- [ ] Update checkpoint after each exact-head CI pass.
+
+Do not skip gates or mark downstream integrations complete based on publisher/consumer unit tests. Keep PR #9 Draft/unmerged and live broker writes disabled.

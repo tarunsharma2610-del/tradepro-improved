@@ -443,3 +443,10 @@ Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradep
 ## Phase 4 Redis market-data bridge checkpoint — 30 October 2026
 
 The existing Upstox Market Data Feed V3 streamer remains the provider-facing WebSocket implementation. Its asynchronous tick callback is now connected to a Redis publisher, rather than introducing another market-data service or duplicating the WebSocket connection. Redis stores per-user versioned latest snapshots with TTL; Pub/Sub carries notification metadata only. Downstream consumers must fetch the snapshot and independently validate user scope, schema/version, TTL and exchange timestamp. The stream callback is not permission to trigger broker orders; all evaluation remains PAPER-only. Exact-head Backend CI #41024607462 passed on `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`. Consumer, reconnect recovery and cross-process integration remain pending. Continue to prefer official Upstox V3 docs/protobuf/SDK where applicable; do not add a second data service or redundant SDK without a demonstrated need.
+
+
+## Phase 4 shared market-data transport checkpoint — 30 October 2026
+
+The Upstox V3 WebSocket remains the provider ingress. The existing streamer callback publishes validated ticks to Redis through the user-scoped publisher. Redis Pub/Sub is a notification channel only; the authoritative quote is the versioned, expiring Redis snapshot. The Lua publisher atomically increments version, stores snapshot/TTL, and publishes notification to prevent concurrent write reordering.
+
+Exact-head Backend CI #41026567279 passed on `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`, including real Redis 7 integration tests. Still pending: automatic Redis reconnect/resubscription, recovery after Redis server restart, independent-process delivery tests, scanner integration and PAPER strategy integration. No live order API is enabled. Prefer official Upstox APIs/protobuf/SDK contracts; do not introduce a duplicate market-data service.

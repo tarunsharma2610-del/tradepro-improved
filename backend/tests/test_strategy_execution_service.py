@@ -75,6 +75,7 @@ def _mock_broker(candles_result: BrokerCallResult, quote_price: str):
         "FakeAdapter", (),
         {
             "get_historical_data": AsyncMock(return_value=candles_result),
+            "get_intraday_data": AsyncMock(return_value=candles_result),
             "get_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ|INE002A01018": {"last_price": quote_price}}})),
         },
     )()

@@ -68,3 +68,14 @@ def test_scanner_accepts_new_epoch_after_redis_restart():
     assert scanner.process_quote(user_id, quote(user_id, version=8, epoch="old")) is not None
     result = scanner.process_quote(user_id, quote(user_id, version=1, epoch="new"))
     assert result is not None and result.version == 1 and result.epoch == "new"
+
+
+def test_scanner_expires_stale_observations(monkeypatch):
+    from app.services import market_scanner as scanner_module
+
+    user_id, scanner = uuid4(), MarketScanner(max_age_seconds=15)
+    result = scanner.process_quote(user_id, quote(user_id))
+    assert result is not None
+    monkeypatch.setattr(scanner_module.time, "monotonic", lambda: 15.1)
+
+    assert scanner.latest(user_id, result.instrument_key) is None

@@ -70,7 +70,7 @@ class StrategyExecutionService:
 
         access_token = self.broker_credentials.get_analytics_token(portfolio.user_id, "upstox")
         if access_token is None:
-            return EvaluationResult(str(strategy.id), Signal.HOLD.value, "No valid Upstox Analytics Token is configured in Settings.")
+            return EvaluationResult(str(strategy.id), Signal.HOLD.value, "No valid Upstox broker Analytics Token is configured in Settings.")
 
         candles = await self._fetch_candles(access_token, strategy.instrument.instrument_key)
         if candles is None:

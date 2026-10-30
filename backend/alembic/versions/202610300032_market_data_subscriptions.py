@@ -6,7 +6,6 @@ Create Date: 2026-10-30
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 revision = "202610300032"
 down_revision = "202610300031"
@@ -30,7 +29,12 @@ def upgrade() -> None:
             name="ck_market_subscription_feed_mode",
         ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["broker_connection_id"], ["broker_connections.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["broker_connection_id", "user_id"],
+            ["broker_connections.id", "broker_connections.user_id"],
+            ondelete="CASCADE",
+            name="fk_market_subscription_broker_user",
+        ),
         sa.ForeignKeyConstraint(["instrument_id"], ["instruments.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(

@@ -3611,3 +3611,11 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 - Official contract checked: https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ . The official documentation describes `full` as LTPC + five market levels + metadata + Greeks, and confirms India VIX instrument key `NSE_INDEX|India VIX`.
 - Next: verify exact-head CI and fix any failures; then implement the official Option Chain REST endpoint using `oi`, `prev_oi`, volume and Greeks, with missing/null/zero kept distinct. Follow with a subscription manager and shared worker/API market-data pipeline.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original Tradepro untouched; PAPER mode mandatory; live broker order writes disabled.
+
+
+## Phase 4 current progress — 30 October 2026 (Upstox SDK audit)
+
+- Exact-head Backend CI #41036389075 passed on 2212be0e094bb41423193b4384b6c07511ff3d62 after the durable-subscription test fixture correction.
+- Official Upstox SDK v2.30.0 compared against our REST adapter, OAuth flow, WebSocket streamer, protobuf, Redis delivery and instrument master. Audit saved in UPSTOX_SDK_COMPATIBILITY_AUDIT.md. Decision: retain our async implementation; no SDK dependency added.
+- Found and implemented CAS feed-field propagation from the already matching official V3 protobuf schema into MarketTick, Redis snapshots and stream status. Code head fe76751c54a720ffa5fcec7b4f3728b137447090 is pending exact-head CI; do not call it accepted yet.
+- Next: validate CAS CI, then complete worker-managed Redis consumer lifecycle and recovery before scanner integration. PAPER-only; live writes disabled; PR #9 Draft/unmerged; original Tradepro untouched.

@@ -82,6 +82,8 @@ class UpstoxMarketDataStreamer:
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
         self._connected = False
+        self._socket = None
+        self._send_lock = asyncio.Lock()
 
     @property
     def connected(self) -> bool:
@@ -104,6 +106,69 @@ class UpstoxMarketDataStreamer:
         if exchange_age > self.stale_after_seconds * 1000 or exchange_age < -60_000:
             return None
         return tick
+
+    async def _send_message(self, socket, method: str, instrument_keys: list[str], mode: str | None = None) -> None:
+        request = {
+            "guid": f"tradepro-improved-{method}-{time.time_ns()}",
+            "method": method,
+            "data": {"instrumentKeys": instrument_keys},
+        }
+        if mode is not None:
+            request["data"]["mode"] = mode
+        async with self._send_lock:
+            await socket.send(json.dumps(request).encode("utf-8"))
+
+    async def _send_control(self, method: str, instrument_keys: list[str], mode: str | None = None) -> str:
+        socket = self._socket
+        if socket is None or not self._connected:
+            return "queued_for_reconnect"
+        await self._send_message(socket, method, instrument_keys, mode)
+        return "sent"
+
+    def _validate_key_list(self, instrument_keys: list[str]) -> list[str]:
+        keys = list(dict.fromkeys(key.strip() for key in instrument_keys if key.strip()))
+        if not keys or any("|" not in key or len(key) > 100 for key in keys):
+            raise ValueError("Provide valid segment-prefixed instrument keys.")
+        return keys
+
+    async def subscribe(self, instrument_keys: list[str]) -> str:
+        keys = self._validate_key_list(instrument_keys)
+        additions = [key for key in keys if key not in self._instrument_key_set]
+        if not additions:
+            return "already_subscribed"
+        limits = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
+        if len(self.instrument_keys) + len(additions) > limits[self.mode]:
+            raise ValueError(f"{self.mode} mode supports at most {limits[self.mode]} instrument keys per connection.")
+        self.instrument_keys.extend(additions)
+        self._instrument_key_set.update(additions)
+        return await self._send_control("sub", additions, self.mode)
+
+    async def unsubscribe(self, instrument_keys: list[str]) -> str:
+        keys = self._validate_key_list(instrument_keys)
+        removals = [key for key in keys if key in self._instrument_key_set]
+        if not removals:
+            return "not_subscribed"
+        if len(removals) == len(self.instrument_keys):
+            raise ValueError("Cannot remove the final instruments; use DELETE /market-data/stream to stop the stream.")
+        self.instrument_keys = [key for key in self.instrument_keys if key not in set(removals)]
+        self._instrument_key_set.difference_update(removals)
+        for key in removals:
+            self._ticks.pop(key, None)
+        return await self._send_control("unsub", removals)
+
+    async def change_mode(self, instrument_keys: list[str], mode: str) -> str:
+        keys = self._validate_key_list(instrument_keys)
+        if mode not in {"ltpc", "option_greeks", "full"}:
+            raise ValueError("Unsupported mode. Allowed: ltpc, option_greeks, full.")
+        if set(keys) != self._instrument_key_set:
+            raise ValueError("Mode changes must cover the complete user stream; partial mixed-mode subscriptions are not enabled.")
+        limits = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
+        if len(keys) > limits[mode]:
+            raise ValueError(f"{mode} mode supports at most {limits[mode]} instrument keys per connection.")
+        if mode == self.mode:
+            return "already_in_mode"
+        self.mode = mode
+        return await self._send_control("change_mode", keys, mode)
 
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -159,14 +224,10 @@ class UpstoxMarketDataStreamer:
                     ping_timeout=20,
                     max_size=8 * 1024 * 1024,
                 ) as socket:
+                    self._socket = socket
                     self._connected = True
                     delay = 1.0
-                    request = {
-                        "guid": "tradepro-improved-market-data-v3",
-                        "method": "sub",
-                        "data": {"mode": self.mode, "instrumentKeys": self.instrument_keys},
-                    }
-                    await socket.send(json.dumps(request).encode("utf-8"))
+                    await self._send_message(socket, "sub", list(self.instrument_keys), self.mode)
                     while not self._stop.is_set():
                         # The websockets library handles ping/pong. A silent
                         # application stream is recycled so stale state is not trusted.
@@ -184,6 +245,7 @@ class UpstoxMarketDataStreamer:
                 logger.warning("Upstox market stream disconnected (%s); reconnecting.", type(exc).__name__)
             finally:
                 self._connected = False
+                self._socket = None
             if not self._stop.is_set():
                 await self._sleep_or_stop(delay)
                 delay = min(delay * 2, self.reconnect_max_seconds)

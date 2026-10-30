@@ -3638,3 +3638,15 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 - Redis consumer is implemented and validates authoritative snapshots; it is not yet managed by the background worker. Strategy worker remains on the existing candle evaluation path. Scanner/PAPER Redis integration is not complete.
 - Next: worker consumer lifecycle with durable subscription discovery, single-owner coordination and graceful shutdown; then scanner/PAPER integration after tests.
 - PR #9 Draft/unmerged; PAPER-only; live writes disabled; original Tradepro untouched.
+
+
+## Phase 4 checkpoint — Redis consumer epoch and heartbeat recovery — 30 October 2026
+
+- Latest implementation/test head: `a5e352bef2c78f27141b61bca5893fdfa0fd049a`.
+- Exact-head Backend CI [#41061518847 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41061518847). The Backend pytest job, Redis restart-recovery integration environment, broker-write boundary guard, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore, and evidence retention all completed successfully.
+- Regression coverage verifies recovery from Redis volatile-data loss when the new epoch restarts at version 1 after the prior epoch reached version 8, and verifies Pub/Sub PING/PONG on an idle listener connection.
+- The preceding token-refresh test remains covered by exact-head CI #41060945704 on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`: each reconnect calls the token provider again and obtains a fresh authorized V3 WebSocket URL.
+- Redis consumer validates authoritative snapshots and supports reconnect/resubscribe, snapshot sweep, heartbeat, tenant isolation and fail-closed freshness checks. These tests do not certify production Redis deployment or sustained production load.
+- Not complete: managed worker consumer lifecycle, durable subscription discovery/ownership coordination, scanner integration, and PAPER strategy consumption of Redis quotes. Existing strategy execution still uses its candle path.
+- Next: design and test worker-managed consumer lifecycle (single-owner/lease semantics, startup discovery, cancellation, graceful shutdown, replica coordination and isolated failure handling). Only after that gate passes, connect the scanner, then evaluate PAPER strategy consumption.
+- Safety unchanged: PR #9 remains Draft/open/unmerged; PAPER mandatory; live broker order writes disabled; no deployment or credentialed live smoke test claimed; original `tarunsharma2610-del/Tradepro` remains out of scope.

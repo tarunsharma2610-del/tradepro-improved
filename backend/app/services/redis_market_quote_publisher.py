@@ -8,7 +8,7 @@ import json
 import logging
 import math
 from datetime import datetime, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from redis.asyncio import Redis
 
@@ -17,29 +17,58 @@ from app.services.upstox_market_data_streamer import MarketTick
 logger = logging.getLogger(__name__)
 
 _PUBLISH_ATOMIC = """
-local version = redis.call('INCR', KEYS[2])
+local current = redis.call('GET', KEYS[2])
+local epoch = ARGV[6]
+local version = 1
+if current then
+    local separator = string.find(current, ':', 1, true)
+    if separator then
+        epoch = string.sub(current, 1, separator - 1)
+        local previous = tonumber(string.sub(current, separator + 1))
+        if not previous then
+            return redis.error_reply('invalid quote version counter')
+        end
+        version = previous + 1
+    else
+        -- One-time migration from the previous integer-only counter format.
+        local previous = tonumber(current)
+        if not previous then
+            return redis.error_reply('invalid legacy quote version counter')
+        end
+        version = previous + 1
+    end
+end
 local encoded = string.gsub(ARGV[1], '"version":0', '"version":' .. version, 1)
+encoded = string.gsub(encoded, '"epoch":""', '"epoch":"' .. epoch .. '"', 1)
+redis.call('SET', KEYS[2], epoch .. ':' .. version, 'EX', ARGV[5])
 redis.call('SET', KEYS[1], encoded, 'EX', ARGV[2])
 local event = cjson.encode({
     schema_version = 1,
     user_id = ARGV[3],
     instrument_key = ARGV[4],
+    epoch = epoch,
     version = version
 })
 redis.call('PUBLISH', KEYS[3], event)
-return version
+return {epoch, version}
 """
 
 
 class RedisMarketQuotePublisher:
     """Publish fresh ticks with atomic version, snapshot and notification ordering."""
 
-    def __init__(self, redis_client: Redis, user_id: UUID, *, ttl_seconds: int = 15) -> None:
+    def __init__(
+        self, redis_client: Redis, user_id: UUID, *,
+        ttl_seconds: int = 15, version_ttl_seconds: int = 86_400,
+    ) -> None:
         if ttl_seconds <= 0:
             raise ValueError("Quote TTL must be positive.")
+        if version_ttl_seconds < ttl_seconds:
+            raise ValueError("Version counter retention must be at least the quote TTL.")
         self.redis = redis_client
         self.user_id = str(user_id)
         self.ttl_seconds = ttl_seconds
+        self.version_ttl_seconds = version_ttl_seconds
         self.key_prefix = f"tradepro:market:v1:user:{self.user_id}"
 
     def snapshot_key(self, instrument_key: str) -> str:
@@ -70,7 +99,7 @@ class RedisMarketQuotePublisher:
         try:
             snapshot = {
                 "schema_version": 1, "user_id": self.user_id,
-                "instrument_key": tick.instrument_key, "version": 0,
+                "instrument_key": tick.instrument_key, "epoch": "", "version": 0,
                 "ltp": tick.ltp, "exchange_timestamp_ms": tick.exchange_timestamp_ms,
                 "received_at": tick.received_at.astimezone(timezone.utc).isoformat(),
                 "published_at": now.isoformat(), "depth": tick.depth,
@@ -84,6 +113,7 @@ class RedisMarketQuotePublisher:
             await self.redis.eval(
                 _PUBLISH_ATOMIC, 3, key, version_key, self.channel,
                 encoded, self.ttl_seconds, self.user_id, tick.instrument_key,
+                self.version_ttl_seconds, uuid4().hex,
             )
             return True
         except Exception as exc:

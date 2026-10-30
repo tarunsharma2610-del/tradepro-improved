@@ -20,6 +20,7 @@ class RedisMarketQuoteConsumer:
         self.max_age_seconds = max_age_seconds
         self.key_prefix = f"tradepro:market:v1:user:{self.user_id}"
         self._versions: dict[str, int] = {}
+        self._epochs: dict[str, str] = {}
 
     def snapshot_key(self, instrument_key: str) -> str:
         return f"{self.key_prefix}:quote:{instrument_key}"
@@ -44,10 +45,14 @@ class RedisMarketQuoteConsumer:
                 return None
             if snapshot.get("instrument_key") != instrument_key:
                 return None
+            epoch = snapshot.get("epoch")
+            if not isinstance(epoch, str) or not epoch:
+                return None
             version = snapshot.get("version")
             if isinstance(version, bool) or not isinstance(version, int) or version <= 0:
                 return None
-            if version < self._versions.get(instrument_key, 0):
+            previous_epoch = self._epochs.get(instrument_key)
+            if previous_epoch == epoch and version < self._versions.get(instrument_key, 0):
                 return None
             ltp = snapshot.get("ltp")
             if isinstance(ltp, bool) or not isinstance(ltp, (int, float)) or not math.isfinite(ltp) or ltp <= 0:
@@ -65,6 +70,7 @@ class RedisMarketQuoteConsumer:
                 return None
             if not -60_000 <= exchange_age <= self.max_age_seconds * 1000:
                 return None
+            self._epochs[instrument_key] = epoch
             self._versions[instrument_key] = version
             return snapshot
         except (TypeError, ValueError, KeyError, json.JSONDecodeError):
@@ -158,6 +164,7 @@ class RedisMarketQuoteConsumer:
                 # reset. Local version high-water marks belong to the old
                 # Redis process; clear them before reading the new epoch.
                 self._versions.clear()
+                self._epochs.clear()
                 logger.warning(
                     "Redis quote consumer disconnected; reconnect attempt %s (%s).",
                     reconnect_attempts, type(exc).__name__,

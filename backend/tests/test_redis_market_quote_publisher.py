@@ -37,20 +37,27 @@ class FakePipeline:
 
 class FakeRedis:
     def __init__(self):
-        self.snapshots, self.messages, self.versions = {}, [], {}
+        self.snapshots, self.messages, self.versions, self.version_ttls = {}, [], {}, {}
 
-    async def eval(self, script, numkeys, key, version_key, channel, encoded, ttl, user_id, instrument_key):
+    async def eval(self, script, numkeys, key, version_key, channel, encoded, ttl, user_id, instrument_key, version_ttl, candidate_epoch):
         assert numkeys == 3
-        version = self.versions.get(version_key, 0) + 1
-        self.versions[version_key] = version
+        current = self.versions.get(version_key)
+        if current is None:
+            epoch, version = candidate_epoch, 1
+        else:
+            epoch, previous = current.split(":")
+            version = int(previous) + 1
+        self.versions[version_key] = f"{epoch}:{version}"
+        self.version_ttls[version_key] = int(version_ttl)
         snapshot = json.loads(encoded)
+        snapshot["epoch"] = epoch
         snapshot["version"] = version
         self.snapshots[key] = (json.dumps(snapshot, separators=(",", ":")), int(ttl))
         self.messages.append((channel, json.dumps({
             "schema_version": 1, "user_id": user_id,
-            "instrument_key": instrument_key, "version": version,
+            "instrument_key": instrument_key, "epoch": epoch, "version": version,
         })))
-        return version
+        return [epoch, version]
 
 
 def make_tick(*, received_at=None, exchange_timestamp_ms=None, ltp=2500.5):
@@ -65,7 +72,7 @@ def make_tick(*, received_at=None, exchange_timestamp_ms=None, ltp=2500.5):
 @pytest.mark.asyncio
 async def test_publish_stores_versioned_snapshot_with_ttl_and_user_scoped_channel():
     redis, user_id = FakeRedis(), uuid4()
-    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=12)
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=12, version_ttl_seconds=3600)
     assert await publisher.publish(make_tick()) is True
     encoded, ttl = redis.snapshots[publisher.snapshot_key("NSE_EQ|INE002A01018")]
     snapshot = json.loads(encoded)
@@ -73,6 +80,8 @@ async def test_publish_stores_versioned_snapshot_with_ttl_and_user_scoped_channe
     assert snapshot["schema_version"] == 1
     assert snapshot["user_id"] == str(user_id)
     assert snapshot["version"] == 1
+    assert snapshot["epoch"]
+    assert redis.version_ttls[publisher.snapshot_key("NSE_EQ|INE002A01018") + ":version"] == 3600
     assert snapshot["ltp"] == 2500.5
     channel, message = redis.messages[0]
     assert channel == publisher.channel
@@ -86,7 +95,9 @@ async def test_publish_increments_version_for_each_snapshot():
     assert await publisher.publish(make_tick()) is True
     assert await publisher.publish(make_tick()) is True
     key = publisher.snapshot_key("NSE_EQ|INE002A01018")
-    assert json.loads(redis.snapshots[key][0])["version"] == 2
+    second = json.loads(redis.snapshots[key][0])
+    assert second["version"] == 2
+    assert second["epoch"] == json.loads(redis.messages[0][1])["epoch"]
 
 
 @pytest.mark.asyncio
@@ -123,6 +134,8 @@ async def test_publish_keeps_snapshot_version_and_notification_in_same_atomic_se
     results = await __import__("asyncio").gather(*(publisher.publish(tick) for tick in ticks))
     assert all(results)
     key = publisher.snapshot_key("NSE_EQ|INE002A01018")
-    assert json.loads(redis.snapshots[key][0])["version"] == 25
+    final_snapshot = json.loads(redis.snapshots[key][0])
+    assert final_snapshot["version"] == 25
+    assert len({json.loads(message)["epoch"] for _, message in redis.messages}) == 1
     versions = [json.loads(message)["version"] for _, message in redis.messages]
     assert versions == list(range(1, 26))

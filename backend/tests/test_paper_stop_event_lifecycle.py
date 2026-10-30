@@ -64,7 +64,7 @@ def test_claimed_event_can_execute_and_complete(db_session, make_user):
     )
     assert completed is not None
     assert completed.state == "COMPLETED"
-    assert completed.completed_at == now + timedelta(seconds=2)
+    # SQLite drops tzinfo for DateTime(timezone=True); normalize the stored\n    # naive value as UTC before comparing the instant.\n    assert completed.completed_at.replace(tzinfo=timezone.utc) == now + timedelta(seconds=2)
     db_session.commit()
 
 

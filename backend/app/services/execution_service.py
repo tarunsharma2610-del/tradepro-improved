@@ -117,7 +117,7 @@ class ExecutionService:
 
         access_token = self.broker_credentials.get_analytics_token(user_id, "upstox")
         if access_token is None:
-            return self._reject(order, "No valid Upstox Analytics Token is configured in Settings.")
+            return self._reject(order, "No valid Upstox broker Analytics Token is configured in Settings.")
 
         ltp, quote_error = await self._get_ltp(portfolio.user_id, instrument.instrument_key, access_token, req.side, req.quantity)
         if ltp is None:

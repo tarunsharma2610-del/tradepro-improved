@@ -2994,3 +2994,8 @@ Resume from `phase4/redis-market-data-publisher` in `tarunsharma2610-del/tradepr
 - Worker does not yet run Redis consumers. Current strategy worker still evaluates through candle path. Do not start scanner integration prematurely.
 - Next: after CI passes, design worker consumer lifecycle with durable subscription discovery, a single-owner/lease mechanism (avoid duplicate listeners across worker replicas), graceful cancellation/shutdown and isolated failure handling. Then add integration tests and connect scanner/PAPER strategy.
 - Preserve PAPER-only, live order writes disabled, no merge/deploy, and never modify `tarunsharma2610-del/Tradepro`.
+
+
+## Current handover — verified Redis recovery checkpoint — 30 October 2026
+
+Resume from `phase4/redis-market-data-publisher` in `tarunsharma2610-del/tradepro-improved`. Latest verified implementation head is `a5e352bef2c78f27141b61bca5893fdfa0fd049a`; exact-head Backend CI [#41061518847 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41061518847). Redis epoch rollover after volatile-data loss and idle Pub/Sub heartbeat regression tests passed. The fresh Upstox Analytics Token-on-reconnect test passed on prior exact head `f7c863977ed17a3d705b83db8dcc6b7ba421cccf` in CI #41060945704. Next work is worker-managed consumer lifecycle with durable subscription discovery, single-owner/lease coordination, cancellation and graceful shutdown. Do not connect scanner or PAPER strategy before this gate is accepted. PR #9 stays Draft/unmerged; PAPER mandatory; live writes disabled; original Tradepro untouched.

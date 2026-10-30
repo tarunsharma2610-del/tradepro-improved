@@ -36,7 +36,9 @@ def _connect_fake_broker(db_session, user_id):
         user_id=user_id, broker="upstox",
         api_key_encrypted=encrypt_value("k"), api_secret_encrypted=encrypt_value("s"),
         redirect_uri="https://example.com/cb", access_token_encrypted=encrypt_value("tok"),
-        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1), is_connected=True,
+        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        analytics_token_encrypted=encrypt_value("fake-analytics-token"),
+        analytics_token_expires_at=datetime.now(timezone.utc) + timedelta(days=365), is_connected=True,
     )
     db_session.add(conn)
     db_session.commit()

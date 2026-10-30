@@ -203,3 +203,15 @@ Backend pytest passed on code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e
 - Intermediate commit `85d8c30` failed five unit tests because consumer fixtures lacked the new epoch field; corrected in `cb52cb8`, with final exact-head CI passing on `7268edd6e7ddb7ef6d472799d1d0164b4210b135`.
 - Still pending: multi-user/multi-instrument scale/load tests; worker-managed consumer registry and graceful lifecycle; scanner integration; PAPER strategy consuming Redis snapshots. Strategy worker currently retains its candle-based evaluation path.
 - PR #9 remains Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled; original Tradepro out of scope.
+
+
+
+## Upstox SDK compatibility and CAS feed increment — 30 October 2026
+
+- Official SDK compatibility audit saved in UPSTOX_SDK_COMPATIBILITY_AUDIT.md. Decision: do not add upstox-python-sdk as a runtime dependency now. Its generated REST client is synchronous (urllib3) and its WebSocket feeder is callback-based (websocket-client); our async httpx/websockets adapter has better fit for FastAPI lifecycle, dynamic token-provider refresh on reconnect, bounded exponential retry, freshness enforcement and application-owned Redis pipeline.
+- Compared official SDK v2.30.0 V3 protobuf with our checked-in schema: exact schema match. No protobuf dependency replacement needed.
+- Identified a real decoder gap: CAS fields already in our schema were not surfaced. Added indicative equilibrium price, reference price, indicative equilibrium quantity, total/market indicative quantities and CAS eligibility to MarketTick, Redis snapshots and stream status; added populated/absent-field tests.
+- Exact-head Backend CI #41036389075 PASSED on 2212be0e094bb41423193b4384b6c07511ff3d62 after adding required broker-connection records to durable-subscription test fixtures.
+- CAS implementation code head: fe76751c54a720ffa5fcec7b4f3728b137447090. Its exact-head CI is running/pending verification; do not mark CAS accepted until it passes. Earlier intermediate CAS commits also triggered runs; acceptance is tied only to final exact head.
+- Newer SDK API coverage worth a later scanner/research roadmap review: v2.27 Fundamentals and Market Information APIs; v2.30 CAS quote/feed fields. Do not duplicate SDK methods where our adapter is already superior.
+- Safety unchanged: only Tradepro Improved; PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro untouched.

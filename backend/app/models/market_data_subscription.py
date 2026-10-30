@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, ForeignKeyConstraint, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -20,7 +20,7 @@ class MarketDataSubscription(BaseModel):
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     broker_connection_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("broker_connections.id", ondelete="CASCADE"), nullable=False, index=True
+        Uuid, nullable=False, index=True
     )
     instrument_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("instruments.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -32,6 +32,12 @@ class MarketDataSubscription(BaseModel):
         UniqueConstraint(
             "user_id", "broker_connection_id", "instrument_id", "feed_mode",
             name="uq_market_subscription_user_broker_instrument_mode",
+        ),
+        ForeignKeyConstraint(
+            ["broker_connection_id", "user_id"],
+            ["broker_connections.id", "broker_connections.user_id"],
+            ondelete="CASCADE",
+            name="fk_market_subscription_broker_user",
         ),
         CheckConstraint(
             "feed_mode IN ('ltpc', 'option_greeks', 'full')",

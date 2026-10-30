@@ -3650,3 +3650,14 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 - Not complete: managed worker consumer lifecycle, durable subscription discovery/ownership coordination, scanner integration, and PAPER strategy consumption of Redis quotes. Existing strategy execution still uses its candle path.
 - Next: design and test worker-managed consumer lifecycle (single-owner/lease semantics, startup discovery, cancellation, graceful shutdown, replica coordination and isolated failure handling). Only after that gate passes, connect the scanner, then evaluate PAPER strategy consumption.
 - Safety unchanged: PR #9 remains Draft/open/unmerged; PAPER mandatory; live broker order writes disabled; no deployment or credentialed live smoke test claimed; original `tarunsharma2610-del/Tradepro` remains out of scope.
+
+
+## Phase 4 resume checkpoint — 30 October 2026
+
+- Latest verified implementation head: `6ac3882a98f3c66abb4cd62848971b6277ab3be7`; Backend CI [#41080156436 SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436), exact SHA, pytest passed with no failed steps.
+- Added transactional PAPER stop-event claims: active user-owned portfolio and strategy/instrument relationship validation; portfolio → strategy → position locks; non-flat position required; shared portfolio/instrument position with multiple active strategies fails closed.
+- Claim identity is unique by strategy/event/quote epoch/version; stores claim token, bounded lease and attempt count. Duplicate claim uses nested savepoint and returns no claim; caller owns commit/rollback.
+- Tests cover duplicate claims, cross-user access, mismatched strategy/instrument, ambiguous shared position, flat/missing position and invalid inputs.
+- Existing dispatcher remains isolated; it is not connected to claim service or order execution.
+- Next: PostgreSQL 16 simultaneous-claim tests; event state transitions and lease reclaim; crash recovery tests; explicit shared-position allocation; only then connect dispatcher to existing PAPER execution with fresh depth, risk, kill switch and accounting.
+- PR #9 remains Draft/unmerged. PAPER mandatory; live broker writes disabled. Original `tarunsharma2610-del/Tradepro` is out of scope. Documentation sync itself needs exact-head CI.

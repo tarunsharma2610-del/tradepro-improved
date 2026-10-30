@@ -2999,3 +2999,14 @@ Resume from `phase4/redis-market-data-publisher` in `tarunsharma2610-del/tradepr
 ## Current handover — verified Redis recovery checkpoint — 30 October 2026
 
 Resume from `phase4/redis-market-data-publisher` in `tarunsharma2610-del/tradepro-improved`. Latest verified implementation head is `a5e352bef2c78f27141b61bca5893fdfa0fd049a`; exact-head Backend CI [#41061518847 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41061518847). Redis epoch rollover after volatile-data loss and idle Pub/Sub heartbeat regression tests passed. The fresh Upstox Analytics Token-on-reconnect test passed on prior exact head `f7c863977ed17a3d705b83db8dcc6b7ba421cccf` in CI #41060945704. Next work is worker-managed consumer lifecycle with durable subscription discovery, single-owner/lease coordination, cancellation and graceful shutdown. Do not connect scanner or PAPER strategy before this gate is accepted. PR #9 stays Draft/unmerged; PAPER mandatory; live writes disabled; original Tradepro untouched.
+
+
+## Phase 4 resume checkpoint — 30 October 2026
+
+- Latest verified implementation head: `6ac3882a98f3c66abb4cd62848971b6277ab3be7`; Backend CI [#41080156436 SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436), exact SHA, pytest passed with no failed steps.
+- Added transactional PAPER stop-event claims: active user-owned portfolio and strategy/instrument relationship validation; portfolio → strategy → position locks; non-flat position required; shared portfolio/instrument position with multiple active strategies fails closed.
+- Claim identity is unique by strategy/event/quote epoch/version; stores claim token, bounded lease and attempt count. Duplicate claim uses nested savepoint and returns no claim; caller owns commit/rollback.
+- Tests cover duplicate claims, cross-user access, mismatched strategy/instrument, ambiguous shared position, flat/missing position and invalid inputs.
+- Existing dispatcher remains isolated; it is not connected to claim service or order execution.
+- Next: PostgreSQL 16 simultaneous-claim tests; event state transitions and lease reclaim; crash recovery tests; explicit shared-position allocation; only then connect dispatcher to existing PAPER execution with fresh depth, risk, kill switch and accounting.
+- PR #9 remains Draft/unmerged. PAPER mandatory; live broker writes disabled. Original `tarunsharma2610-del/Tradepro` is out of scope. Documentation sync itself needs exact-head CI.

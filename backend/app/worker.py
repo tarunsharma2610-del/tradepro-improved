@@ -57,7 +57,7 @@ def _is_market_hours(now: datetime | None = None) -> bool:
     return market_open <= now <= market_close
 
 
-async def run_once() -> int:
+async def run_once(*, scanner: MarketScanner | None = None) -> int:
     """Match pending paper limits, then evaluate every active strategy.
 
     Returns the number of strategies evaluated. Matcher failure is isolated
@@ -83,7 +83,7 @@ async def run_once() -> int:
             strategy = session.get(Strategy, strategy_id)
             if strategy is None or not strategy.is_active:
                 continue  # deleted or deactivated between the list and now
-            result = await StrategyExecutionService(session).evaluate(strategy)
+            result = await StrategyExecutionService(session, scanner=scanner).evaluate(strategy)
             logger.info("strategy=%s signal=%s reason=%s", strategy_id, result.signal, result.reason)
             count += 1
         except Exception:
@@ -140,7 +140,7 @@ async def main() -> None:
 
             if now - last_strategy_eval >= STRATEGY_EVAL_INTERVAL_SECONDS:
                 if _is_market_hours():
-                    evaluated = await run_once()
+                    evaluated = await run_once(scanner=scanner)
                     if evaluated:
                         logger.info("Evaluated %s active strategies this pass.", evaluated)
                 else:

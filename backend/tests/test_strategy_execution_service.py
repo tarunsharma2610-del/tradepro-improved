@@ -67,7 +67,7 @@ def _candles_response(prices: list[float], *, age_minutes: int = 0):
         [(now - timedelta(minutes=5 * i)).isoformat(), p, p, p, p, 10000, 0]
         for i, p in enumerate(newest_first)
     ]
-    return BrokerCallResult(ok=True, data={"data": {"candles": candles}})
+    return BrokerCallResult(ok=True, data={"status": "success", "data": {"candles": candles}})
 
 
 def _mock_broker(candles_result: BrokerCallResult, quote_price: str):

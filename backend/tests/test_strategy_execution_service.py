@@ -218,3 +218,29 @@ async def test_inactive_strategy_cannot_be_evaluated_even_via_manual_service_cal
     assert result.signal == Signal.HOLD.value
     assert "inactive" in result.reason.lower()
     adapter.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_emergency_kill_switch_keeps_strategy_exits_available(db_session, portfolio, instrument, monkeypatch):
+    from app.core.config import settings
+    from app.repositories.position_repository import PositionRepository
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    service = StrategyExecutionService(db_session)
+
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await service.evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity > 0
+
+    # The emergency switch is entry-only: it must not trap an existing position.
+    monkeypatch.setattr(settings, "AUTOMATED_ENTRIES_ENABLED", False)
+    falling_prices = [110.0 - i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(falling_prices), str(falling_prices[-1])):
+        exit_result = await service.evaluate(strategy)
+
+    assert exit_result.signal == Signal.EXIT.value
+    assert exit_result.order_id is not None
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0

@@ -59,14 +59,14 @@ def _make_strategy(db_session, portfolio_id, instrument_id, **overrides) -> Stra
     return strategy
 
 
-def _candles_response(prices: list[float]):
-    """`prices` given oldest-to-newest, the way a human writes a trend.
-    Upstox's real (documented) convention is newest-first, and
-    _parse_candles un-reverses that — so this builds the mocked raw array
-    in newest-first order too, exactly mirroring what a real response
-    would look like, rather than pre-flipping it for convenience."""
+def _candles_response(prices: list[float], *, age_minutes: int = 0):
+    """Build a newest-first response with controllable freshness."""
     newest_first = list(reversed(prices))
-    candles = [[f"2026-08-{i + 1:02d}T10:00:00", p, p, p, p, 10000, 0] for i, p in enumerate(newest_first)]
+    now = datetime.now(timezone.utc) - timedelta(minutes=age_minutes)
+    candles = [
+        [(now - timedelta(minutes=5 * i)).isoformat(), p, p, p, p, 10000, 0]
+        for i, p in enumerate(newest_first)
+    ]
     return BrokerCallResult(ok=True, data={"data": {"candles": candles}})
 
 
@@ -243,4 +243,20 @@ async def test_emergency_kill_switch_keeps_strategy_exits_available(db_session, 
 
     assert exit_result.signal == Signal.EXIT.value
     assert exit_result.order_id is not None
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0
+
+@pytest.mark.asyncio
+async def test_stale_candles_fail_closed_without_opening_a_position(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    service = StrategyExecutionService(db_session)
+
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices, age_minutes=30), str(rising_prices[-1])):
+        result = await service.evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+    assert "stale" in result.reason.lower()
+    from app.repositories.position_repository import PositionRepository
     assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0

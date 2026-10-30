@@ -425,7 +425,7 @@ def test_stream_status_exposes_fresh_full_feed_fields_for_scanner_consumers(monk
         _clear()
 
 
-def test_stream_status_represents_stale_or_missing_quotes_as_unavailable(monkeypatch, make_user):
+def test_stream_status_represents_stale_or_missing_quotes_as_unavailable(monkeypatch, db_session, make_user):
     from app.api.v1 import market_data
 
     user = make_user()
@@ -439,6 +439,7 @@ def test_stream_status_represents_stale_or_missing_quotes_as_unavailable(monkeyp
         def latest_tick(self, key):
             return None
 
+    _overrides(db_session, user)
     monkeypatch.setattr(market_data.market_data_stream_manager, "get", lambda user_id: FakeStreamer())
     try:
         response = TestClient(app).get("/api/v1/market-data/stream")

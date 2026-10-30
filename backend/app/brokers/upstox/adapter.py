@@ -91,6 +91,11 @@ class UpstoxAdapter(BrokerAdapter):
         params = {"instrument_key": ",".join(instrument_keys)}
         return await self._get(f"{API_V3}/market-quote/ltp", access_token, params=params)
 
+    async def get_full_quote(self, access_token: str, instrument_keys: list[str]) -> BrokerCallResult:
+        # VERIFIED: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/
+        params = {"instrument_key": ",".join(instrument_keys)}
+        return await self._get(f"{API_V3}/market-quote/quotes", access_token, params=params)
+
     async def get_historical_data(
         self, access_token: str, instrument_key: str, unit: str, interval: str, from_date: date, to_date: date
     ) -> BrokerCallResult:

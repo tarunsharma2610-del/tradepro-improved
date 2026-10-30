@@ -76,7 +76,7 @@ def _mock_broker(candles_result: BrokerCallResult, quote_price: str):
         {
             "get_historical_data": AsyncMock(return_value=candles_result),
             "get_intraday_data": AsyncMock(return_value=candles_result),
-            "get_full_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ:TEST": {"instrument_token": "NSE_EQ|INE002A01018", "last_price": quote_price, "last_trade_time": str(int(datetime.now(timezone.utc).timestamp() * 1000))}}})),
+            "get_full_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ:TEST": {"instrument_token": "NSE_EQ|INE002A01018", "last_price": quote_price, "last_trade_time": "1600000000000", "timestamp": datetime.now(timezone.utc).isoformat(), "depth": {"buy": [{"price": quote_price, "quantity": 100000, "orders": 10}], "sell": [{"price": quote_price, "quantity": 100000, "orders": 10}]}}}})),
         },
     )()
     stack = ExitStack()

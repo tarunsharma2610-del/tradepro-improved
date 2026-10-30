@@ -47,3 +47,11 @@ At the start of each continuation: verify the branch head, read this file and `P
 - P4-0 static audit saved in `PHASE4_P0_BASELINE_AUDIT.md`. PAPER-only config validation added in `backend/app/core/config.py`; tests added in `backend/tests/test_trading_mode_safety.py`.
 - **Next step on resume:** verify the current branch head and latest CI (documentation updates can trigger a newer head/run); then continue P4-0B broker-write call-path audit and add targeted tests for every route into broker write methods, automated-entry kill switch, stale market data, and risk checks. Fix any failure and re-run before checkpointing green.
 - Safeguards: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; do not update `main` or merge PR #8/#7/#6 without explicit authorization; PAPER mode mandatory; live `place_order`, `modify_order`, `cancel_order` writes disabled; Upstox Brokerage Details remains estimate-only and aggregate Trade Charges remains reconciliation-only; no credentialed live smoke test or production Oracle restore claimed.
+
+## User-directed engineering principle — 30 October 2026
+
+Use Upstox Developer Console, official current API documentation, supported APIs, SDKs, and schema/proto files whenever they are the right tool. Audit existing implementation first; do not build bespoke polling, duplicate services, or workaround layers before checking provider-supported solutions. Custom fallbacks need a stated reason and tests. Local freshness checks are defense-in-depth, not a substitute for wiring the supported live stream and REST recovery path into strategy data.
+
+Official docs checked: https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ ; https://upstox.com/developer/api-documentation/v3/get-intra-day-candle-data/ ; https://upstox.com/developer/api-documentation/installing-sdk/.
+
+Audit finding: V3 streamer and REST methods exist, but strategy execution is not yet consuming a shared stream/candle pipeline, and candle parsing is explicitly marked BEST-EFFORT. Next priority: verify response ordering/timestamp/field contracts against official examples; connect existing WebSocket + REST recovery to strategy candles; add integration tests for disconnect/gap recovery and instrument identity. Do not enable live order writes.

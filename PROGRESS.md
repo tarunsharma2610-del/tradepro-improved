@@ -3629,3 +3629,12 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 - CI failure #41057234551 was an outdated single-mode test expectation; corrected on the verified head.
 - Next: implement and test mixed-mode V3 WebSocket subscribe/unsubscribe, reconnect replay, and Redis consumer lifecycle. Persistence tests do not yet prove end-to-end mixed-mode streaming.
 - PR #9 remains Draft/unmerged. PAPER mode mandatory; live broker writes disabled; original `Tradepro` repository out of scope.
+
+
+## Phase 4 update — Redis consumer recovery — 30 October 2026
+
+- Exact-head Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`, including fresh Upstox Analytics Token retrieval and authorized V3 WebSocket URL refresh on reconnect.
+- New code/test head `a5e352bef2c78f27141b61bca5893fdfa0fd049a` adds Redis consumer tests for a new epoch restarting at version 1 after Redis volatile-data loss and for idle Pub/Sub PING/PONG heartbeat. Exact-head CI #41061518847 is pending.
+- Redis consumer is implemented and validates authoritative snapshots; it is not yet managed by the background worker. Strategy worker remains on the existing candle evaluation path. Scanner/PAPER Redis integration is not complete.
+- Next: worker consumer lifecycle with durable subscription discovery, single-owner coordination and graceful shutdown; then scanner/PAPER integration after tests.
+- PR #9 Draft/unmerged; PAPER-only; live writes disabled; original Tradepro untouched.

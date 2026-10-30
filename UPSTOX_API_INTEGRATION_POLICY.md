@@ -381,3 +381,10 @@ Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradep
 - Analytics Token is read-only. It cannot place, modify or cancel orders. Live trading remains disabled; PAPER-only guard unchanged.
 - Official docs: https://upstox.com/developer/api-documentation/analytics-token/ ; https://upstox.com/developer/api-documentation/announcements/analytics-token-static-ip/ ; https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
 - CI for this new implementation is pending. Do not mark it accepted until exact-head CI passes, including migration round-trip and token isolation tests.
+
+## Verified Analytics Token checkpoint — 30 October 2026
+
+- Implementation head `083ab17a5150ea3be514438a16ea7c6c888c0be3` passed Backend CI #41017833952: 1,243 passed, 1 warning. Broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill all passed.
+- Analytics Token is stored separately encrypted, owner-scoped, expiry-checked and never returned in API output/logs. It is used only for documented read-only market-data/streaming/charge-estimate routes. Standard OAuth remains separate for account endpoints not enabled for Analytics Token or requiring static IP.
+- Real token entry and live API smoke test remain a deployment/user setup gate; code CI is not proof of a real broker session.
+- PAPER-only and live order-write safeguards unchanged; PR #8 remains Draft/unmerged; do not update main or the original Tradepro repository.

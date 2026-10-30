@@ -36,7 +36,7 @@ async def start_market_data_stream(
             f"Unknown or inactive instrument_key(s): {', '.join(missing[:10])}",
         )
 
-    streamer = await market_data_stream_manager.start(user.id, payload.instrument_keys)
+    streamer = await market_data_stream_manager.start(user.id, payload.instrument_keys, mode=payload.mode)
     return {
         "started": True,
         "connected": streamer.connected,

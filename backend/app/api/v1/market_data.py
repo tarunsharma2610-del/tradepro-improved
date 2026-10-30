@@ -278,7 +278,7 @@ async def get_option_chain(
 def market_data_stream_status(user: User = Depends(get_current_user)):
     streamer = market_data_stream_manager.get(user.id)
     if streamer is None:
-        return {"running": False, "connected": False, "quotes": {}}
+        return {"running": False, "connected": False, "quotes": {}, "market_status": None}
 
     quotes = {}
     for key in streamer.instrument_keys:
@@ -311,6 +311,7 @@ def market_data_stream_status(user: User = Depends(get_current_user)):
         "instrument_count": len(streamer.instrument_keys),
         "instrument_keys": streamer.instrument_keys,
         "quotes": quotes,
+        "market_status": streamer.market_info,
     }
 
 

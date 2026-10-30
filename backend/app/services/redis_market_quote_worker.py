@@ -144,7 +144,7 @@ class RedisMarketQuoteWorker:
         listener_task: asyncio.Task | None = None
         renewal_task: asyncio.Task | None = None
         lost_lease = asyncio.Event()
-        consumer = self.consumer_factory(self.redis, user_id)
+        consumer = None
 
         async def listen() -> None:
             async for quote in consumer.listen(list(instrument_keys)):
@@ -168,6 +168,10 @@ class RedisMarketQuoteWorker:
                     return
 
         try:
+            # Construct the consumer inside the lease-protected cleanup scope.
+            # A factory/configuration error must not strand the user's lease
+            # until its TTL expires and delay another healthy worker replica.
+            consumer = self.consumer_factory(self.redis, user_id)
             listener_task = asyncio.create_task(listen(), name=f"market-quotes:{user_id}")
             renewal_task = asyncio.create_task(renew(), name=f"market-quote-lease:{user_id}")
             done, pending = await asyncio.wait(

@@ -74,8 +74,9 @@ def test_scanner_expires_stale_observations(monkeypatch):
     from app.services import market_scanner as scanner_module
 
     user_id, scanner = uuid4(), MarketScanner(max_age_seconds=15)
+    monkeypatch.setattr(scanner_module.time, "monotonic", lambda: 100.0)
     result = scanner.process_quote(user_id, quote(user_id))
     assert result is not None
-    monkeypatch.setattr(scanner_module.time, "monotonic", lambda: 15.1)
+    monkeypatch.setattr(scanner_module.time, "monotonic", lambda: 115.1)
 
     assert scanner.latest(user_id, result.instrument_key) is None

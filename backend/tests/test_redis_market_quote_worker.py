@@ -166,3 +166,24 @@ def test_worker_latest_quote_expires_without_a_new_pubsub_message(monkeypatch):
 
     assert worker.latest_quote(user_id, instrument) is None
     assert quote_key not in worker._latest_quotes
+
+
+@pytest.mark.asyncio
+async def test_worker_releases_lease_when_consumer_factory_fails():
+    redis = FakeRedis()
+    user_id = uuid4()
+    worker = RedisMarketQuoteWorker(
+        redis_client=redis,
+        subscription_loader=lambda: {user_id: ["NSE_EQ|INE002A01018"]},
+        consumer_factory=lambda _client, _owner: (_ for _ in ()).throw(
+            RuntimeError("consumer configuration failed")
+        ),
+        lease_seconds=3,
+    )
+
+    await worker.reconcile_once()
+    task = worker._tasks[user_id][1]
+    await asyncio.wait_for(task, timeout=1)
+
+    assert worker._lease_key(user_id) not in redis.values
+    await worker.close()

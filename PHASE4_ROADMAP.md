@@ -124,3 +124,13 @@ Engineering rule: check provider-supported capability and existing implementatio
 - [x] Backend pytest passed on market-data code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e (run #41015772900).
 - [x] WebSocket code passed on d7c74a20a4a46741123ebbf4809176e90199643c (run #41015756833).
 - [ ] Verify exact-head CI for latest synchronized documentation head 2589db1e0a6446ea60d12a075d58ce43fa19ed93 (run #41015946896).
+
+## Verified checkpoint — 30 October 2026
+
+- [x] Use Full Market Quotes V3 snapshot timestamp and executable order-book depth for paper market fills.
+- [x] BUY consumes ask levels; SELL consumes bid levels; calculate quantity-weighted fill price across levels.
+- [x] Reject stale snapshots, mismatched instruments, invalid depth/prices and insufficient liquidity.
+- [x] Correct strategy fixtures and remove obsolete LTPC-only monkeypatch.
+- [x] Exact-head CI passed on `3a74fbb788a63ca3b042ceec400dbc7a83f32571`, run #41016468736: 1,240 passed, 1 warning; broker-write boundary, SQLite/PostgreSQL 16 migrations and synthetic restore drill passed.
+- [ ] Implement separately encrypted Upstox Analytics Token storage and use it for market-data/stream APIs only. Retain standard OAuth token for account/trading scope; verify endpoint permissions and tests before use.
+- [ ] Add token health/expiry status to broker connection UX; never invent automatic refresh for the daily standard token.

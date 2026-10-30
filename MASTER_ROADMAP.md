@@ -2190,3 +2190,13 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 Exact code/test head `3a74fbb788a63ca3b042ceec400dbc7a83f32571` passed Backend CI #41016468736 (1,240 tests, 1 warning), including broker-write boundary enforcement, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill. Paper market fills now use fresh Full Market Quotes V3 order-book depth with BUY/SELL side-aware depth consumption and weighted average price; stale/invalid/mismatched/insufficient depth fails closed.
 
 Next: implement the separately encrypted Upstox Analytics Token path for market data and streaming, retaining standard OAuth access token for account/trading scopes. Official docs distinguish Analytics Token from the daily standard access token. Do not implement unsupported automatic refresh. Safeguards remain PAPER-only, live writes disabled, PR #8 Draft/unmerged, no main update, original Tradepro untouched.
+ 
+## Upstox Analytics Token implementation — 30 October 2026
+
+- Added separate encrypted `analytics_token_encrypted` and `analytics_token_expires_at` fields to per-user broker connections with migration `202610300031` (down revision `202610270030`).
+- Added owner-scoped Settings API to save, inspect status and clear Analytics Token. Token is accepted from the user's Upstox Developer Apps > Analytics page; it is never returned, logged or included in API responses. Expiry is tracked as 365 days from local registration; confirm/renew against the Developer Console's actual expiry date.
+- Analytics Token retrieval is independent of standard OAuth `is_connected` state and fails closed when missing/expired. Standard OAuth access-token path remains separate for operations not documented as Analytics Token eligible.
+- Routed strategy historical/intraday candle fetch, paper market quote/charge estimation, queued paper limit-order quotes, and market WebSocket reconnects through Analytics Token. Broker order/trade ingestion continues to use standard OAuth until each endpoint's Analytics Token/static-IP eligibility is deliberately enabled.
+- Analytics Token is read-only. It cannot place, modify or cancel orders. Live trading remains disabled; PAPER-only guard unchanged.
+- Official docs: https://upstox.com/developer/api-documentation/analytics-token/ ; https://upstox.com/developer/api-documentation/announcements/analytics-token-static-ip/ ; https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
+- CI for this new implementation is pending. Do not mark it accepted until exact-head CI passes, including migration round-trip and token isolation tests.

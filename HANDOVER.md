@@ -2804,3 +2804,13 @@ Official docs: Full Market Quotes V3 https://upstox.com/developer/api-documentat
 ## CI status correction — 30 October 2026
 
 The exact code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e passed Backend pytest (run #41015772900). WebSocket implementation head d7c74a20a4a46741123ebbf4809176e90199643c passed run #41015756833; wording-only correction head 90bb1f5bf9d43767043a653e68a55b374bf0c599 passed run #41015671461. Current synchronized docs head 2589db1e0a6446ea60d12a075d58ce43fa19ed93 is in CI run #41015946896; verify this exact head before calling the latest checkpoint green.
+
+## Handover — 30 October 2026 (latest verified checkpoint)
+
+Latest code/test head `3a74fbb788a63ca3b042ceec400dbc7a83f32571` passed exact-head Backend CI #41016468736: 1,240 passed, 1 warning. CI also passed broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, and isolated synthetic PostgreSQL/document-volume restore drill.
+
+Paper market execution uses Full Market Quotes V3 executable depth. BUY walks asks; SELL walks bids; the simulated fill is the quantity-weighted average for the requested quantity. Snapshot timestamp (not last_trade_time) determines book freshness; mismatched instrument, stale snapshot, invalid prices or insufficient depth rejects the order. Strategy fixtures were updated; obsolete LTPC-only stream monkeypatch removed.
+
+Important next integration: official Upstox docs now distinguish standard daily access tokens from Analytics Tokens for market data and real-time streaming. Audit the existing broker token retrieval sites, add separately encrypted Analytics Token storage, route only supported market-data and stream APIs to it, and keep standard OAuth access token for account/trading scopes. Do not implement a fake refresh-token flow.
+
+PR #8 remains Draft/unmerged; only `tarunsharma2610-del/tradepro-improved`; main and original Tradepro untouched; PAPER mandatory; live broker writes disabled.

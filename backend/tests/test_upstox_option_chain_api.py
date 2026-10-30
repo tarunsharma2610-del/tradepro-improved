@@ -302,6 +302,6 @@ def test_stream_lifecycle_routes_require_existing_stream(monkeypatch, db_session
             "/api/v1/market-data/stream/subscribe",
             json={"instrument_keys": ["NSE_INDEX|India VIX"]},
         )
-        assert response.status_code == 422 or response.status_code == 409
+        assert response.status_code == 409
     finally:
         _clear()

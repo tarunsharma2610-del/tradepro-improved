@@ -125,6 +125,47 @@ class BrokerCredentialsService:
             "created_at": conn.created_at,
         }
 
+    def save_analytics_token(self, user_id: UUID, broker: str, token: str) -> BrokerConnection:
+        """Persist a console-generated, read-only Analytics Token separately from OAuth."""
+        if broker != "upstox":
+            raise ValueError("Analytics Token configuration is currently supported only for Upstox.")
+        token = token.strip()
+        if not token:
+            raise ValueError("Analytics Token cannot be empty.")
+        conn = self._require_connection(user_id, broker)
+        conn.analytics_token_encrypted = encrypt_value(token)
+        conn.analytics_token_expires_at = datetime.now(timezone.utc) + timedelta(days=365)
+        conn.last_error = None
+        return self.repo.save(conn)
+
+    def clear_analytics_token(self, user_id: UUID, broker: str) -> None:
+        conn = self._require_connection(user_id, broker)
+        conn.analytics_token_encrypted = None
+        conn.analytics_token_expires_at = None
+        self.repo.save(conn)
+
+    def analytics_token_status(self, user_id: UUID, broker: str) -> dict:
+        conn = self.repo.get_for_user(user_id, broker)
+        expires_at = conn.analytics_token_expires_at if conn else None
+        if expires_at is not None and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        configured = bool(
+            conn and conn.analytics_token_encrypted and expires_at and expires_at > datetime.now(timezone.utc)
+        )
+        return {"configured": configured, "expires_at": expires_at if configured else None}
+
+    def get_analytics_token(self, user_id: UUID, broker: str) -> str | None:
+        """Internal only. Analytics Token is independent of daily OAuth connection state."""
+        conn = self.repo.get_for_user(user_id, broker)
+        if conn is None or not conn.analytics_token_encrypted or not conn.analytics_token_expires_at:
+            return None
+        expires_at = conn.analytics_token_expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= datetime.now(timezone.utc):
+            return None
+        return decrypt_value(conn.analytics_token_encrypted)
+
     def get_access_token(self, user_id: UUID, broker: str) -> str | None:
         """For internal use by the execution engine only — never exposed
         over the API. Returns None (not an exception) for any reason the

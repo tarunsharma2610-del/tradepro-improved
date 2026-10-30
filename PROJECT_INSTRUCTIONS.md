@@ -2121,3 +2121,17 @@ The documentation sync head `5bb6d06e764c00b1ab406409889a2cde9e74dacf` passed Ba
 - **Evidence boundary:** Brokerage Details remains estimate-only; Trade Charges remains aggregate reconciliation-only and never per-fill actual evidence. Null IPFT must not be silently coerced to zero. This fix validates response shape; it does not approve tariffs or promote accounting.
 - **Contract-note continuity:** previously supplied January 2023 Upstox/RKSV contract-note examples remain available as historical regression fixtures; do not ask the user to provide them again. Their scope must be respected when using them for GST totals versus per-fill allocations.
 - **Next:** verify CI on the exact synchronized documentation head. Keep PR #6/#7 Draft and unmerged, PAPER mode mandatory, live broker writes disabled, and the original `tarunsharma2610-del/Tradepro` repository untouched.
+
+## Standing engineering rule — official Upstox capabilities first (30 October 2026)
+
+**Work smarter: audit and use the Upstox Developer Console, official current API documentation, supported APIs, SDKs, and supplied schemas/proto whenever they materially solve the problem.** Before adding custom polling, parsing, retries, stale-data patches, compatibility shims, or duplicate infrastructure:
+1. Check the current official Upstox API/SDK contract and deprecation notices.
+2. Audit Tradepro Improved's existing integration and reusable services first.
+3. Prefer the supported API/SDK and existing shared integration over a bespoke workaround.
+4. Implement the smallest correct end-to-end integration; use proportionate validation and fail-closed handling as defense in depth.
+5. Verify against official response examples/schema and deterministic tests. Use authorized Developer Console/account checks only when access is available; never claim live verification without performing it.
+6. Explain why a supported API/SDK cannot solve the issue before choosing a workaround.
+
+For market data, assess Upstox Market Data Feed V3 (protobuf/WebSocket), V3 intraday and historical candle endpoints, token/authorization lifecycle, and official Python SDK (upstox-python-sdk) where appropriate. Connect existing streaming and REST layers to strategy/candle processing rather than treating a local freshness threshold as the primary solution. Preserve candle semantics, instrument identity, timestamps, gap recovery, and reconnect behavior. Freshness checks remain safety nets, not substitutes for correct API integration.
+
+Do not add work merely to appear busy. Identify the actual gap, use provider-supported capabilities when available, reuse existing code, test the full path, and document genuine limitations. Safeguards remain: only tarunsharma2610-del/tradepro-improved; PAPER-only; live broker writes disabled; no main update or PR merge without explicit authorization.

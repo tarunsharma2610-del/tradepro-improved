@@ -211,3 +211,31 @@ async def test_authorization_accepts_official_upstox_v3_url_and_headers(monkeypa
     assert captured["url"] == "https://api.upstox.com/v3/feed/market-data-feed/authorize"
     assert captured["headers"]["Authorization"] == "Bearer test-access-token"
     assert captured["headers"]["Accept"] == "application/json"
+
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ltp,ltt", [(float("nan"), 0), (float("inf"), 0), (123.45, 0)])
+async def test_nonfinite_price_or_missing_exchange_trade_time_is_not_cached(ltp, ltt):
+    streamer = _streamer()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    response.feeds["NSE_EQ|INE002A01018"].ltpc.ltp = ltp
+    response.feeds["NSE_EQ|INE002A01018"].ltpc.ltt = ltt
+
+    await streamer._consume(response.SerializeToString())
+
+    assert streamer.latest_tick("NSE_EQ|INE002A01018") is None
+
+
+def test_tick_with_missing_exchange_timestamp_is_rejected_even_if_just_received():
+    streamer = _streamer()
+    streamer._ticks["NSE_EQ|INE002A01018"] = MarketTick(
+        instrument_key="NSE_EQ|INE002A01018",
+        ltp=100,
+        exchange_timestamp_ms=0,
+        received_at=datetime.now(timezone.utc),
+        received_monotonic=time.monotonic(),
+    )
+    assert streamer.latest_tick("NSE_EQ|INE002A01018") is None

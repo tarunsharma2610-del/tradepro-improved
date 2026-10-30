@@ -3,6 +3,8 @@ import asyncio
 import json
 import os
 import subprocess
+import shutil
+import socket
 import sys
 import textwrap
 from datetime import datetime, timezone
@@ -270,5 +272,112 @@ async def test_real_redis_market_quotes_cross_independent_os_processes():
             publisher.snapshot_key(instrument),
             publisher.snapshot_key(instrument) + ":version",
         )
+        await admin.aclose()
+        await redis.aclose()
+
+
+
+@pytest.mark.asyncio
+async def test_real_redis_server_process_restart_recovers_without_reusing_stale_quote(tmp_path):
+    """A real Redis process restart clears volatile snapshots; consumer must resubscribe."""
+    redis_server = shutil.which("redis-server")
+    if not redis_server:
+        pytest.skip("redis-server executable is required for process-restart integration test")
+
+    with socket.socket() as port_socket:
+        port_socket.bind(("127.0.0.1", 0))
+        port = port_socket.getsockname()[1]
+    url = f"redis://127.0.0.1:{port}/0"
+    data_dir = tmp_path / "redis-data"
+    data_dir.mkdir()
+
+    def start_server():
+        return subprocess.Popen(
+            [
+                redis_server, "--bind", "127.0.0.1", "--port", str(port),
+                "--protected-mode", "no", "--save", "", "--appendonly", "no",
+                "--dir", str(data_dir),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    async def wait_until_ready(client, process):
+        deadline = asyncio.get_running_loop().time() + 8
+        while asyncio.get_running_loop().time() < deadline:
+            if process.poll() is not None:
+                raise AssertionError("Redis server exited before becoming ready")
+            try:
+                if await client.ping():
+                    return
+            except Exception:
+                await asyncio.sleep(0.05)
+        raise AssertionError("Redis server did not become ready")
+
+    server = start_server()
+    redis = Redis.from_url(url, decode_responses=True, socket_connect_timeout=1)
+    admin = Redis.from_url(url, decode_responses=True, socket_connect_timeout=1)
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(redis, user_id, max_age_seconds=15)
+    listener = consumer.listen(
+        [instrument], max_reconnect_attempts=8,
+        min_backoff_seconds=0.05, max_backoff_seconds=0.2,
+    )
+    try:
+        await wait_until_ready(redis, server)
+        # Listener subscription is established before publishing the first quote.
+        first_waiter = asyncio.create_task(anext(listener))
+        await asyncio.sleep(0.05)
+        assert await publisher.publish(make_tick(instrument, 2800.0))
+        first_quote = await asyncio.wait_for(first_waiter, timeout=3)
+        assert first_quote["ltp"] == 2800.0
+        assert first_quote["version"] == 1
+
+        # Terminate the Redis server process, not merely one client connection.
+        server.terminate()
+        await asyncio.to_thread(server.wait, 5)
+        await asyncio.sleep(0.1)
+
+        # A dead server means no quote is available; cached consumer state is
+        # never returned as a fallback while the snapshot store is unavailable.
+        assert await consumer.get_quote(instrument) is None
+
+        server = start_server()
+        await wait_until_ready(redis, server)
+
+        # Wait until the listener has recreated its subscription on the new
+        # Redis process. The restarted Redis instance has no old snapshot.
+        deadline = asyncio.get_running_loop().time() + 8
+        subscribed = False
+        while asyncio.get_running_loop().time() < deadline:
+            try:
+                subscriptions = await admin.pubsub_numsub(consumer.channel)
+                if subscriptions and subscriptions[0][1] == 1:
+                    subscribed = True
+                    break
+            except Exception:
+                pass
+            await asyncio.sleep(0.05)
+        assert subscribed, "consumer did not resubscribe after Redis process restart"
+
+        # The restart erased volatile cache and version keys. Publish a new,
+        # fresh quote and require the listener to deliver that quote, not v1.
+        recovered_waiter = asyncio.create_task(anext(listener))
+        assert await publisher.publish(make_tick(instrument, 2801.25))
+        recovered = await asyncio.wait_for(recovered_waiter, timeout=3)
+        assert recovered["ltp"] == 2801.25
+        assert recovered["received_at"] != first_quote["received_at"]
+        assert recovered["exchange_timestamp_ms"] >= first_quote["exchange_timestamp_ms"]
+        assert recovered["version"] == 1  # Redis's volatile counter restarts with the process.
+    finally:
+        await listener.aclose()
+        try:
+            server.terminate()
+            await asyncio.to_thread(server.wait, 5)
+        except (ProcessLookupError, subprocess.TimeoutExpired):
+            server.kill()
+            await asyncio.to_thread(server.wait)
         await admin.aclose()
         await redis.aclose()

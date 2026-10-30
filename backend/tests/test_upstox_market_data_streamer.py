@@ -528,3 +528,47 @@ async def test_absent_cas_numeric_fields_remain_unavailable():
     assert tick.indicative_interest_quantity_total is None
     assert tick.indicative_interest_quantity_market is None
     assert tick.cas_eligible is False
+
+
+@pytest.mark.asyncio
+async def test_ltpc_iep_is_preserved_during_preopen_or_closing_auction():
+    streamer = _streamer()
+    key = "NSE_EQ|INE002A01018"
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    ltpc = response.feeds[key].ltpc
+    ltpc.ltp = 123.45
+    ltpc.ltt = now_ms
+    ltpc.iep.value = 123.6
+
+    await streamer._consume(response.SerializeToString())
+
+    tick = streamer.latest_tick(key)
+    assert tick is not None
+    assert tick.indicative_equilibrium_price == pytest.approx(123.6)
+
+
+@pytest.mark.asyncio
+async def test_market_info_message_exposes_segment_cas_and_preopen_status():
+    streamer = _streamer()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.type = market_data_pb.market_info
+    response.currentTs = now_ms
+    response.marketInfo.segmentStatus["NSE_EQ"] = market_data_pb.NORMAL_OPEN
+    cas = response.marketInfo.casMarketStatus["NSE_EQ"]
+    cas.status = "CAS_LM_START"
+    cas.updatedTime = now_ms
+    preopen = response.marketInfo.preOpenSessionStatus["NSE_EQ"]
+    preopen.status = "PRE_OPEN_START"
+    preopen.updatedTime = now_ms
+
+    await streamer._consume(response.SerializeToString())
+
+    assert streamer.market_info == {
+        "current_timestamp_ms": now_ms,
+        "segment_status": {"NSE_EQ": "NORMAL_OPEN"},
+        "cas_market_status": {"NSE_EQ": {"status": "CAS_LM_START", "updated_time_ms": now_ms}},
+        "pre_open_session_status": {"NSE_EQ": {"status": "PRE_OPEN_START", "updated_time_ms": now_ms}},
+    }

@@ -3573,3 +3573,10 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 - Next active work package: P4-0C — automated-entry kill switch, exit availability, stale market data, and risk-check enforcement. Audit before edits; add only targeted regression coverage for confirmed gaps.
 - Continue safeguards: work only in `tarunsharma2610-del/tradepro-improved`; no main update or PR merge; PAPER-only; live broker writes disabled; real Oracle restore and credentialed smoke tests remain deployment-gated.
 
+## Phase 4 — latest verified checkpoint (30 October 2026)
+
+- Latest code/test head `3a74fbb788a63ca3b042ceec400dbc7a83f32571`.
+- Exact-head Backend CI #41016468736 passed: 1,240 tests passed, 1 warning; broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore drill passed.
+- Paper market orders now use Upstox Full Market Quotes V3 depth: BUY consumes asks, SELL consumes bids, with a quantity-weighted simulated fill price and fail-closed validation of snapshot age, instrument identity, price validity and available depth.
+- OAuth audit identified official Analytics Token support for market data/streaming without daily reauthorization. Next: implement separate encrypted token storage and scope-aware routing; standard access token remains for account/trading APIs and expires daily.
+- Safeguards: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PR #8 Draft/unmerged; no main update; PAPER mandatory; live broker order writes disabled.

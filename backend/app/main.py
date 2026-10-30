@@ -28,33 +28,47 @@ async def _restore_desired_market_streams() -> None:
             .filter(MarketDataSubscription.is_active.is_(True))
             .all()
         )
-        grouped: dict[tuple, list[str]] = {}
-        modes: dict[object, set[str]] = {}
+        grouped: dict[object, dict[str, set[str]]] = {}
         for row in rows:
-            modes.setdefault(row.user_id, set()).add(row.feed_mode)
-            grouped.setdefault((row.user_id, row.feed_mode), []).append(
+            grouped.setdefault(row.user_id, {}).setdefault(row.feed_mode, set()).add(
                 row.instrument.instrument_key
             )
     finally:
         db.close()
 
-    for (user_id, mode), instrument_keys in grouped.items():
-        if len(modes.get(user_id, set())) != 1:
+    for user_id, subscriptions_by_mode in grouped.items():
+        # A single instrument cannot be assigned to multiple modes. Treat
+        # conflicting legacy rows as corrupt desired state and restore none.
+        assigned_modes: dict[str, str] = {}
+        conflicts: set[str] = set()
+        for feed_mode, keys in subscriptions_by_mode.items():
+            for key in keys:
+                previous = assigned_modes.get(key)
+                if previous is not None and previous != feed_mode:
+                    conflicts.add(key)
+                assigned_modes[key] = feed_mode
+        if conflicts:
             logger.error(
-                "Skipping market stream restore for user=%s: conflicting active feed modes=%s",
-                user_id, sorted(modes[user_id]),
+                "Skipping market stream restore for user=%s: instruments have conflicting feed modes=%s",
+                user_id, sorted(conflicts)[:10],
             )
             continue
-        try:
-            streamer = await market_data_stream_manager.start(
-                user_id, list(dict.fromkeys(instrument_keys)), mode=mode
-            )
-            logger.info(
-                "Restored desired market stream user=%s mode=%s instruments=%s connected=%s",
-                user_id, mode, len(streamer.instrument_keys), streamer.connected,
-            )
-        except Exception:
-            logger.exception("Could not restore desired market stream for user=%s", user_id)
+
+        for mode, instrument_keys in sorted(subscriptions_by_mode.items()):
+            try:
+                streamer = await market_data_stream_manager.start(
+                    user_id, sorted(instrument_keys), mode=mode
+                )
+                logger.info(
+                    "Restored desired market stream user=%s mode=%s instruments=%s connected=%s",
+                    user_id, mode, len(instrument_keys), streamer.connected,
+                )
+            except Exception:
+                # Do not prevent other modes or users from being restored.
+                logger.exception(
+                    "Could not restore desired market stream user=%s mode=%s",
+                    user_id, mode,
+                )
 
 
 @asynccontextmanager

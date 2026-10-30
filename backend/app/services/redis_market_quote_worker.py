@@ -7,6 +7,7 @@ This module does not place, modify, or cancel broker orders.
 """
 import asyncio
 import logging
+import time
 import inspect
 from collections.abc import Awaitable, Callable
 from uuid import UUID, uuid4
@@ -58,9 +59,11 @@ class RedisMarketQuoteWorker:
         )
         self.on_quote = on_quote
         self.lease_seconds = lease_seconds
+        self.quote_max_age_seconds = 15.0
         self.reconcile_seconds = reconcile_seconds
         self._tasks: dict[UUID, tuple[tuple[str, ...], asyncio.Task]] = {}
         self._latest_quotes: dict[tuple[UUID, str], dict] = {}
+        self._latest_quote_times: dict[tuple[UUID, str], float] = {}
         self._closed = False
 
     @staticmethod
@@ -148,7 +151,9 @@ class RedisMarketQuoteWorker:
                 key = quote.get("instrument_key")
                 if not isinstance(key, str):
                     continue
-                self._latest_quotes[(user_id, key)] = quote
+                quote_key = (user_id, key)
+                self._latest_quotes[quote_key] = quote
+                self._latest_quote_times[quote_key] = time.monotonic()
                 if self.on_quote is not None:
                     result = self.on_quote(user_id, quote)
                     if inspect.isawaitable(result):
@@ -190,7 +195,9 @@ class RedisMarketQuoteWorker:
                 return_exceptions=True,
             )
             for key in instrument_keys:
-                self._latest_quotes.pop((user_id, key), None)
+                quote_key = (user_id, key)
+                self._latest_quotes.pop(quote_key, None)
+                self._latest_quote_times.pop(quote_key, None)
             try:
                 await self._release_lease(user_id, token)
             except Exception:
@@ -230,7 +237,13 @@ class RedisMarketQuoteWorker:
 
     def latest_quote(self, user_id: UUID, instrument_key: str) -> dict | None:
         """Return the latest validated in-process quote, if this worker owns it."""
-        return self._latest_quotes.get((user_id, instrument_key))
+        quote_key = (user_id, instrument_key)
+        received_at = self._latest_quote_times.get(quote_key)
+        if received_at is None or time.monotonic() - received_at > self.quote_max_age_seconds:
+            self._latest_quotes.pop(quote_key, None)
+            self._latest_quote_times.pop(quote_key, None)
+            return None
+        return self._latest_quotes.get(quote_key)
 
     async def close(self) -> None:
         self._closed = True
@@ -240,5 +253,6 @@ class RedisMarketQuoteWorker:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         self._latest_quotes.clear()
+        self._latest_quote_times.clear()
         if self._owns_redis:
             await self.redis.aclose()

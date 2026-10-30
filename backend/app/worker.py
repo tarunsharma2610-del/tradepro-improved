@@ -6,7 +6,7 @@ and docker-compose.yml's `worker` service) -- this file is a different
 entrypoint into the same codebase, not a second implementation of
 anything.
 
-Three independent cadences share one process rather than three separate
+Four independent cadences share one process rather than three separate
 containers, since none of them is expensive enough alone to justify its
 own container + healthcheck + restart policy:
 - run_once(): strategy evaluation, every 5 min, market hours only.
@@ -140,7 +140,7 @@ async def main() -> None:
                 if _is_market_hours():
                     evaluated = await run_once()
                     if evaluated:
-                        logger.info("Evaluated %s active strateg(ies) this pass.", evaluated)
+                        logger.info("Evaluated %s active strategies this pass.", evaluated)
                 else:
                     logger.debug("Outside market hours -- skipping strategy evaluation this pass.")
                 last_strategy_eval = now

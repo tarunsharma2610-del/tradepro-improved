@@ -476,3 +476,55 @@ async def test_subscription_lifecycle_enforces_limits_and_keeps_one_key():
     await streamer.subscribe(["NSE_EQ|TWO"])
     with pytest.raises(ValueError, match="complete user stream"):
         await streamer.change_mode(["NSE_EQ|ONE"], "ltpc")
+
+
+@pytest.mark.asyncio
+async def test_official_v3_cas_fields_are_preserved_in_full_market_feed():
+    streamer = _streamer()
+    key = "NSE_EQ|INE002A01018"
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    market = response.feeds[key].fullFeed.marketFF
+    market.ltpc.ltp = 123.45
+    market.ltpc.ltt = now_ms
+    market.iep = 123.6
+    market.rp = 123.4
+    market.ieq = 1500
+    market.iiqTotal = 2400
+    market.iiqM = 900
+    market.casEligible = True
+
+    await streamer._consume(response.SerializeToString())
+
+    tick = streamer.latest_tick(key)
+    assert tick is not None
+    assert tick.indicative_equilibrium_price == pytest.approx(123.6)
+    assert tick.reference_price == pytest.approx(123.4)
+    assert tick.indicative_equilibrium_quantity == 1500
+    assert tick.indicative_interest_quantity_total == 2400
+    assert tick.indicative_interest_quantity_market == 900
+    assert tick.cas_eligible is True
+
+
+@pytest.mark.asyncio
+async def test_absent_cas_numeric_fields_remain_unavailable():
+    streamer = _streamer()
+    key = "NSE_EQ|INE002A01018"
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    market = response.feeds[key].fullFeed.marketFF
+    market.ltpc.ltp = 123.45
+    market.ltpc.ltt = now_ms
+
+    await streamer._consume(response.SerializeToString())
+
+    tick = streamer.latest_tick(key)
+    assert tick is not None
+    assert tick.indicative_equilibrium_price is None
+    assert tick.reference_price is None
+    assert tick.indicative_equilibrium_quantity is None
+    assert tick.indicative_interest_quantity_total is None
+    assert tick.indicative_interest_quantity_market is None
+    assert tick.cas_eligible is False

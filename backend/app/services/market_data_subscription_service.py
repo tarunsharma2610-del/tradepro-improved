@@ -53,7 +53,6 @@ class MarketDataSubscriptionService:
             .filter(
                 MarketDataSubscription.user_id == user_id,
                 MarketDataSubscription.broker_connection_id == connection.id,
-                MarketDataSubscription.feed_mode == feed_mode,
             )
             .all()
         )

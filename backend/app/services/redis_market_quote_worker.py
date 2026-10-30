@@ -7,6 +7,7 @@ This module does not place, modify, or cancel broker orders.
 """
 import asyncio
 import logging
+import inspect
 from collections.abc import Awaitable, Callable
 from uuid import UUID, uuid4
 
@@ -49,7 +50,7 @@ class RedisMarketQuoteWorker:
     ) -> None:
         if lease_seconds < 3 or reconcile_seconds <= 0:
             raise ValueError("Lease must be at least 3 seconds and reconcile interval must be positive.")
-        self.redis = redis_client or from_url(settings.REDIS_URL, decode_responses=True)
+        self.redis = redis_client if redis_client is not None else from_url(settings.REDIS_URL, decode_responses=True)
         self._owns_redis = redis_client is None
         self.subscription_loader = subscription_loader or self._load_subscriptions
         self.consumer_factory = consumer_factory or (
@@ -128,7 +129,12 @@ class RedisMarketQuoteWorker:
 
     async def _consume(self, user_id: UUID, instrument_keys: tuple[str, ...]) -> None:
         token = uuid4().hex
-        if not await self._acquire_lease(user_id, token):
+        try:
+            acquired = await self._acquire_lease(user_id, token)
+        except Exception:
+            logger.warning("Could not acquire Redis quote consumer lease for user=%s", user_id)
+            return
+        if not acquired:
             logger.debug("Another worker owns Redis quote consumption for user=%s", user_id)
             return
 
@@ -145,7 +151,7 @@ class RedisMarketQuoteWorker:
                 self._latest_quotes[(user_id, key)] = quote
                 if self.on_quote is not None:
                     result = self.on_quote(user_id, quote)
-                    if asyncio.iscoroutine(result):
+                    if inspect.isawaitable(result):
                         await result
 
         async def renew() -> None:

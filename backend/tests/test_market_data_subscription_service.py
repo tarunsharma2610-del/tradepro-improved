@@ -167,3 +167,22 @@ def test_replace_modes_persists_complete_mixed_mode_state_atomically(db_session,
     rows = db_session.query(MarketDataSubscription).all()
     assert len(rows) == 3
     assert sum(row.is_active for row in rows) == 1
+
+def test_replace_modes_rejects_same_instrument_assigned_to_multiple_modes(db_session, make_user):
+    user, first, _ = _setup(db_session, make_user)
+    service = MarketDataSubscriptionService(db_session)
+
+    try:
+        service.replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode={
+                "ltpc": [first.instrument_key],
+                "full": [first.instrument_key],
+            },
+        )
+        assert False, "Expected cross-mode duplicate validation to fail"
+    except ValueError as exc:
+        assert "cannot be active in both" in str(exc)
+
+    assert service.list_active(user_id=user.id) == []

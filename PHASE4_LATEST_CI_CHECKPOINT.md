@@ -39,3 +39,16 @@ This checkpoint creates Phase 4 planning/resume records only. It does not claim 
 - P4-0 static audit saved in `PHASE4_P0_BASELINE_AUDIT.md`. PAPER-only config validation added in `backend/app/core/config.py`; tests added in `backend/tests/test_trading_mode_safety.py`.
 - **Next step on resume:** verify the current branch head and latest CI (documentation updates can trigger a newer head/run); then continue P4-0B broker-write call-path audit and add targeted tests for every route into broker write methods, automated-entry kill switch, stale market data, and risk checks. Fix any failure and re-run before checkpointing green.
 - Safeguards: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; do not update `main` or merge PR #8/#7/#6 without explicit authorization; PAPER mode mandatory; live `place_order`, `modify_order`, `cancel_order` writes disabled; Upstox Brokerage Details remains estimate-only and aggregate Trade Charges remains reconciliation-only; no credentialed live smoke test or production Oracle restore claimed.
+
+## Phase 4 checkpoint — 30 October 2026: P4-0B static reflection guard
+
+- Latest code/test head: `24c34dac47e273f9377485dc697f9fa510808a72`.
+- Exact-head Backend CI: [#41012821073 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41012821073).
+- The backend pytest job passed, including the broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, and synthetic PostgreSQL/document-volume restore drill.
+- Change: AST guard now rejects literal `getattr(adapter, "place_order"/"modify_order"/"cancel_order")` dispatch; regression tests verify literal write methods are blocked and ordinary read-method reflection is allowed.
+- An intermediate run #41012807565 failed because the first test version wrote literal backslash-n characters into its synthetic source file, causing a SyntaxError. The fixture escaping was corrected; run #41012821073 passed on the corrected exact head.
+- PR #8 remains Draft/unmerged; `main` was not updated. PR #6/#7 remain unmerged.
+- Next: P4-0C, test automated-entry kill-switch behavior and verify exit paths remain available, then audit stale-market-data handling and risk checks at service boundaries.
+- Static-analysis limit remains explicit: dynamically computed method names and arbitrary reflection cannot be fully proven safe by this AST guard.
+- Safety invariants unchanged: only `tradepro-improved`; PAPER mandatory; live broker writes disabled; no live order, deployment, credentialed smoke test, or production Oracle restore claimed.
+

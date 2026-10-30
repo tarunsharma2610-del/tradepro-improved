@@ -10,6 +10,9 @@ class _Query:
     def __init__(self, rows):
         self.rows = rows
 
+    def join(self, *_args, **_kwargs):
+        return self
+
     def filter(self, *_args, **_kwargs):
         return self
 

@@ -72,8 +72,10 @@ def test_replace_can_reactivate_previous_feed_mode_identity(db_session, make_use
 
     rows = db_session.query(MarketDataSubscription).all()
     assert len(rows) == 2
-    assert sum(row.is_active for row in rows) == 1
-    assert next(row for row in rows if row.feed_mode == "ltpc").is_active
+    # Switching back to ltpc reactivates its identity without deactivating
+    # the independently desired full-mode subscription.
+    assert sum(row.is_active for row in rows) == 2
+    assert all(row.is_active for row in rows)
 
 
 def test_deactivate_clears_all_user_desired_subscriptions(db_session, make_user):

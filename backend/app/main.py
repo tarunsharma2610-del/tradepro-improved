@@ -8,6 +8,7 @@ from app.api.v1 import health
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.models.broker_connection import BrokerConnection
 from app.models.market_data_subscription import MarketDataSubscription
 from app.services.market_data_stream_manager import market_data_stream_manager
 
@@ -25,7 +26,15 @@ async def _restore_desired_market_streams() -> None:
     try:
         rows = (
             db.query(MarketDataSubscription)
-            .filter(MarketDataSubscription.is_active.is_(True))
+            .join(
+                BrokerConnection,
+                MarketDataSubscription.broker_connection_id == BrokerConnection.id,
+            )
+            .filter(
+                MarketDataSubscription.is_active.is_(True),
+                BrokerConnection.broker == "upstox",
+                BrokerConnection.user_id == MarketDataSubscription.user_id,
+            )
             .all()
         )
         grouped: dict[object, dict[str, set[str]]] = {}

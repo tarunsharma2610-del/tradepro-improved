@@ -156,19 +156,17 @@ class UpstoxMarketDataStreamer:
         self._instrument_key_set = set().union(*self.subscriptions.values())
         self.instrument_keys = sorted(self._instrument_key_set)
 
-    def _validate_mode_limits(self, mode: str, proposed: set[str]) -> None:
+    def _validate_mode_limits(self, proposed: dict[str, set[str]]) -> None:
         individual = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
-        if mode not in individual:
-            raise ValueError("Unsupported mode. Allowed: ltpc, option_greeks, full.")
-        active_modes = {name for name, keys in self.subscriptions.items() if keys}
-        if len(active_modes | {mode}) == 1:
-            limit = individual[mode]
-        else:
-            # Official V3 combined-subscription caps when multiple categories
-            # are active: LTPC/Greeks 2,000 each, Full 1,500.
-            limit = {"ltpc": 2000, "option_greeks": 2000, "full": 1500}[mode]
-        if len(proposed) > limit:
-            raise ValueError(f"{mode} mode supports at most {limit} instrument keys in the current subscription combination.")
+        combined = {"ltpc": 2000, "option_greeks": 2000, "full": 1500}
+        active_modes = [name for name, keys in proposed.items() if keys]
+        for feed_mode in active_modes:
+            limit = individual[feed_mode] if len(active_modes) == 1 else combined[feed_mode]
+            if len(proposed[feed_mode]) > limit:
+                raise ValueError(
+                    f"{feed_mode} mode supports at most {limit} instrument keys "
+                    "in the current subscription combination."
+                )
 
     async def subscribe(self, instrument_keys: list[str], mode: str | None = None) -> str:
         keys = self._validate_key_list(instrument_keys)
@@ -184,9 +182,10 @@ class UpstoxMarketDataStreamer:
         conflicts = set(keys) & self._instrument_key_set - self.subscriptions[target_mode]
         if conflicts:
             raise ValueError("Instrument already subscribed in another mode; use change_mode().")
-        proposed = self.subscriptions[target_mode] | set(additions)
-        self._validate_mode_limits(target_mode, proposed)
-        self.subscriptions[target_mode] = proposed
+        proposed = {name: set(mode_keys) for name, mode_keys in self.subscriptions.items()}
+        proposed[target_mode].update(additions)
+        self._validate_mode_limits(proposed)
+        self.subscriptions = proposed
         self._refresh_instrument_index()
         if not additions:
             return "already_subscribed"
@@ -216,11 +215,10 @@ class UpstoxMarketDataStreamer:
         current_modes = {name for name, mode_keys in self.subscriptions.items() if set(keys) & mode_keys}
         if len(current_modes) == 1 and mode in current_modes:
             return "already_in_mode"
-        proposed = self.subscriptions[mode] | set(keys)
-        self._validate_mode_limits(mode, proposed)
-        for mode_keys in self.subscriptions.values():
-            mode_keys.difference_update(keys)
-        self.subscriptions[mode].update(keys)
+        proposed = {name: set(mode_keys) - set(keys) for name, mode_keys in self.subscriptions.items()}
+        proposed[mode].update(keys)
+        self._validate_mode_limits(proposed)
+        self.subscriptions = proposed
         self._refresh_instrument_index()
         active_modes = [name for name, mode_keys in self.subscriptions.items() if mode_keys]
         if len(active_modes) == 1:

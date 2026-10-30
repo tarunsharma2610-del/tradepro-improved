@@ -84,3 +84,10 @@ Implemented the first direct API correction rather than adding more stale-data h
 ## CI result — 30 October 2026
 
 Backend pytest passed on code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e (run #41015772900). The WebSocket code head d7c74a20a4a46741123ebbf4809176e90199643c passed run #41015756833; the rejection-message correction head 90bb1f5bf9d43767043a653e68a55b374bf0c599 passed run #41015671461. Latest documentation head 2589db1e0a6446ea60d12a075d58ce43fa19ed93 is in CI run #41015946896; await exact-head result.
+
+## 30 October 2026 — market-depth execution and CI checkpoint
+
+- Exact code/test head `3a74fbb788a63ca3b042ceec400dbc7a83f32571`; Backend CI #41016468736 passed: 1,240 tests, 1 warning, including broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill.
+- Paper market fills use fresh Full Market Quotes V3 depth, consuming asks for BUY and bids for SELL, calculating a depth-weighted average, and rejecting stale snapshots, wrong instruments, invalid prices or insufficient depth.
+- Test fixtures updated to V3 depth contract; obsolete LTPC-only stream monkeypatch removed. CI fixes changed test fixtures/wording only, not safety semantics.
+- OAuth audit: standard Upstox access token expires at 3:30 AM IST next day; expired token fails closed. Official docs identify a distinct Analytics Token for market data and streaming without daily reauthorization. Next: separately encrypted analytics-token persistence and scope-correct market-data routing.

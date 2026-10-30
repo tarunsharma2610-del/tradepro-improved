@@ -154,6 +154,10 @@ class RedisMarketQuoteConsumer:
                 raise
             except Exception as exc:
                 reconnect_attempts += 1
+                # Redis may have restarted with volatile data and INCR keys
+                # reset. Local version high-water marks belong to the old
+                # Redis process; clear them before reading the new epoch.
+                self._versions.clear()
                 logger.warning(
                     "Redis quote consumer disconnected; reconnect attempt %s (%s).",
                     reconnect_attempts, type(exc).__name__,

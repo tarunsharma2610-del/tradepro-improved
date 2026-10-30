@@ -335,6 +335,13 @@ async def test_real_redis_server_process_restart_recovers_without_reusing_stale_
         assert first_quote["ltp"] == 2800.0
         assert first_quote["version"] == 1
 
+        # Advance the Redis INCR counter beyond its initial value so restart
+        # proves the consumer does not reject a fresh post-restart v1 snapshot.
+        second_waiter = asyncio.create_task(anext(listener))
+        assert await publisher.publish(make_tick(instrument, 2800.5))
+        second_quote = await asyncio.wait_for(second_waiter, timeout=3)
+        assert second_quote["version"] == 2
+
         # Async generators are demand-driven: keep an outstanding read so the
         # listener continues polling Pub/Sub while Redis is stopped/restarted.
         recovery_waiter = asyncio.create_task(anext(listener))
@@ -375,6 +382,7 @@ async def test_real_redis_server_process_restart_recovers_without_reusing_stale_
         assert recovered["received_at"] != first_quote["received_at"]
         assert recovered["exchange_timestamp_ms"] >= first_quote["exchange_timestamp_ms"]
         assert recovered["version"] == 1  # Redis's volatile counter restarts with the process.
+        assert consumer._versions[instrument] == 1
     finally:
         await listener.aclose()
         try:

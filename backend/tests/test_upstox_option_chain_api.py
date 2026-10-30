@@ -372,3 +372,77 @@ def test_index_presets_fail_closed_for_missing_or_ambiguous_catalog_entries(db_s
         assert presets["india_vix"]["available"] is False
     finally:
         _clear()
+
+
+
+def test_stream_status_exposes_fresh_full_feed_fields_for_scanner_consumers(monkeypatch, make_user):
+    from datetime import datetime, timezone
+    from app.api.v1 import market_data
+    from app.services.upstox_market_data_streamer import MarketTick
+
+    user = make_user()
+    tick = MarketTick(
+        instrument_key="NSE_INDEX|Nifty 50",
+        ltp=24500.5,
+        exchange_timestamp_ms=1_798_000_000_000,
+        received_at=datetime.now(timezone.utc),
+        received_monotonic=1.0,
+        depth=({"bid_quantity": 10, "bid_price": 24500.0, "ask_quantity": 12, "ask_price": 24501.0},),
+        option_greeks=None,
+        open_interest=123456.0,
+        volume_traded_today=98765,
+        average_traded_price=24490.0,
+        total_buy_quantity=1000.0,
+        total_sell_quantity=900.0,
+        ohlc=({"interval": "1d", "open": 24400.0, "high": 24600.0, "low": 24350.0, "close": 24500.5, "volume": 98765, "timestamp_ms": 1_798_000_000_000},),
+    )
+
+    class FakeStreamer:
+        running = True
+        connected = True
+        mode = "full"
+        instrument_keys = ["NSE_INDEX|Nifty 50"]
+
+        def latest_tick(self, key):
+            return tick if key == tick.instrument_key else None
+
+    _overrides(None, user)
+    monkeypatch.setattr(market_data.market_data_stream_manager, "get", lambda user_id: FakeStreamer())
+    try:
+        response = TestClient(app).get("/api/v1/market-data/stream")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        quote = body["quotes"]["NSE_INDEX|Nifty 50"]
+        assert quote["instrument_key"] == "NSE_INDEX|Nifty 50"
+        assert quote["ltp"] == 24500.5
+        assert quote["depth"][0]["bid_price"] == 24500.0
+        assert quote["open_interest"] == 123456.0
+        assert quote["volume_traded_today"] == 98765
+        assert quote["average_traded_price"] == 24490.0
+        assert quote["ohlc"][0]["interval"] == "1d"
+        assert quote["stale"] is False
+    finally:
+        _clear()
+
+
+def test_stream_status_represents_stale_or_missing_quotes_as_unavailable(monkeypatch, make_user):
+    from app.api.v1 import market_data
+
+    user = make_user()
+
+    class FakeStreamer:
+        running = True
+        connected = True
+        mode = "full"
+        instrument_keys = ["NSE_INDEX|India VIX"]
+
+        def latest_tick(self, key):
+            return None
+
+    monkeypatch.setattr(market_data.market_data_stream_manager, "get", lambda user_id: FakeStreamer())
+    try:
+        response = TestClient(app).get("/api/v1/market-data/stream")
+        assert response.status_code == 200
+        assert response.json()["quotes"]["NSE_INDEX|India VIX"] is None
+    finally:
+        _clear()

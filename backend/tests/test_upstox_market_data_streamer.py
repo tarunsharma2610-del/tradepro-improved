@@ -239,3 +239,91 @@ def test_tick_with_missing_exchange_timestamp_is_rejected_even_if_just_received(
         received_monotonic=time.monotonic(),
     )
     assert streamer.latest_tick("NSE_EQ|INE002A01018") is None
+
+
+@pytest.mark.asyncio
+async def test_full_v3_feed_decodes_depth_greeks_oi_volume_and_ohlc():
+    streamer = _streamer()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    market_ff = response.feeds["NSE_EQ|INE002A01018"].fullFeed.marketFF
+    market_ff.ltpc.ltp = 123.45
+    market_ff.ltpc.ltt = now_ms
+    quote = market_ff.marketLevel.bidAskQuote.add()
+    quote.bidQ = 10
+    quote.bidP = 123.4
+    quote.askQ = 12
+    quote.askP = 123.5
+    market_ff.optionGreeks.delta = 0.51
+    market_ff.optionGreeks.theta = -2.1
+    market_ff.optionGreeks.gamma = 0.02
+    market_ff.optionGreeks.vega = 1.5
+    market_ff.optionGreeks.rho = 0.1
+    market_ff.oi = 15000
+    market_ff.vtt = 25000
+    market_ff.atp = 123.2
+    market_ff.tbq = 500
+    market_ff.tsq = 450
+    candle = market_ff.marketOHLC.ohlc.add()
+    candle.interval = "1d"
+    candle.open = 120
+    candle.high = 125
+    candle.low = 119
+    candle.close = 123.45
+    candle.vol = 25000
+    candle.ts = now_ms
+
+    await streamer._consume(response.SerializeToString())
+
+    tick = streamer.latest_tick("NSE_EQ|INE002A01018")
+    assert tick is not None
+    assert tick.depth == ({
+        "bid_quantity": 10, "bid_price": 123.4,
+        "ask_quantity": 12, "ask_price": 123.5,
+    },)
+    assert tick.option_greeks == {
+        "delta": 0.51, "theta": -2.1, "gamma": 0.02, "vega": 1.5, "rho": 0.1,
+    }
+    assert tick.open_interest == 15000
+    assert tick.volume_traded_today == 25000
+    assert tick.average_traded_price == pytest.approx(123.2)
+    assert tick.total_buy_quantity == 500
+    assert tick.total_sell_quantity == 450
+    assert tick.ohlc[0]["interval"] == "1d"
+    assert tick.ohlc[0]["volume"] == 25000
+
+
+def test_full_feed_is_default_and_subscription_limits_are_mode_specific():
+    streamer = _streamer()
+    assert streamer.mode == "full"
+    with pytest.raises(ValueError, match="full_d30"):
+        UpstoxMarketDataStreamer(_no_token, ["NSE_EQ|INE002A01018"], mode="full_d30")
+    with pytest.raises(ValueError, match="2000"):
+        UpstoxMarketDataStreamer(
+            _no_token,
+            [f"NSE_EQ|{index}" for index in range(2001)],
+            mode="full",
+        )
+
+
+@pytest.mark.asyncio
+async def test_full_feed_does_not_fabricate_missing_optional_fields_as_zero():
+    streamer = _streamer()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    market_ff = response.feeds["NSE_EQ|INE002A01018"].fullFeed.marketFF
+    market_ff.ltpc.ltp = 123.45
+    market_ff.ltpc.ltt = now_ms
+
+    await streamer._consume(response.SerializeToString())
+
+    tick = streamer.latest_tick("NSE_EQ|INE002A01018")
+    assert tick is not None
+    assert tick.depth is None
+    assert tick.option_greeks is None
+    assert tick.open_interest is None
+    assert tick.volume_traded_today is None
+    assert tick.average_traded_price is None
+    assert tick.ohlc is None

@@ -187,3 +187,26 @@ async def test_worker_releases_lease_when_consumer_factory_fails():
 
     assert worker._lease_key(user_id) not in redis.values
     await worker.close()
+
+
+@pytest.mark.asyncio
+async def test_downstream_scanner_failure_does_not_stop_redis_quote_listener():
+    redis = FakeRedis()
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    worker = RedisMarketQuoteWorker(
+        redis_client=redis,
+        subscription_loader=lambda: {user_id: [instrument]},
+        consumer_factory=lambda client, owner: FakeConsumer(client, owner),
+        on_quote=lambda _user, _quote: (_ for _ in ()).throw(RuntimeError("scanner failed")),
+        lease_seconds=3,
+    )
+    try:
+        await worker.reconcile_once()
+        task = worker._tasks[user_id][1]
+        await asyncio.sleep(0.02)
+        assert not task.done()
+        assert worker.latest_quote(user_id, instrument)["ltp"] == 123.45
+        assert worker._lease_key(user_id) in redis.values
+    finally:
+        await worker.close()

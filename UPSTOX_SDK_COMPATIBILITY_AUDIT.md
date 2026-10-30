@@ -13,7 +13,7 @@ Verified package: `upstox-python-sdk==2.30.0`, MIT licence, PyPI upload 7 Septem
 | REST transport | `httpx.AsyncClient`, async BrokerAdapter, typed BrokerCallResult, endpoint-specific methods | Generated synchronous client using urllib3 | Keep ours; no async/concurrency advantage from SDK |
 | OAuth | Server-side OAuth state bound to user/connection, one-time nonce, encrypted credentials and tokens | Generated API methods/models for API calls | Keep ours; application state/security lifecycle is more specific |
 | WebSocket | Native asyncio/websockets, TLS host validation, fresh authorized URL and token_provider on each reconnect | Callback/event streamer built on websocket-client; configurable finite auto-reconnect | Keep ours; dynamic token provider and bounded exponential retry are better aligned with app lifecycle |
-| Subscription control | Async subscribe/unsubscribe/change-mode, key validation and limits | Equivalent control methods | Keep ours; no missing feature established |
+| Subscription control | Current implementation applies one feed mode to the whole user stream | SDK maintains separate per-mode subscription sets and replays each set after reconnect | Borrow per-mode registry/replay design into our async streamer; do not adopt SDK transport |
 | Protobuf | Checked-in official V3 schema and generated decoder | Bundled V3 schema/decoder | No dependency needed; schemas were compared and matched |
 | Redis | User-isolated atomic snapshot/version/epoch and Pub/Sub pipeline | Not provided by SDK | Keep ours |
 | Freshness/recovery | Exchange + receive timestamp checks, silence timeout, reconnect and fail-closed quotes | Not an application-level replacement | Keep ours |
@@ -42,3 +42,12 @@ Reconsider adding the SDK only if a specific endpoint/model/feature cannot be im
 5. Preserve PAPER mode and the broker-write boundary; never expose live order methods through normal application paths.
 
 No SDK package dependency was added. No live broker calls or credentials were used in this audit.
+
+
+## Additional concrete gap — mixed feed modes
+
+A deeper source-level comparison of the official v2.30.0 MarketDataStreamerV3 found that it maintains separate subscription sets for LTPC, full, option_greeks and full_d30, and replays each set when the socket opens. The current Tradepro Improved streamer has one user-wide mode and requires a mode change to cover every subscribed key. This prevents a mixed workload (broad LTPC universe, selected full-depth instruments, selected option-Greeks instruments) on one user stream.
+
+**Decision: borrow the SDK's per-mode subscription registry and reconnect replay semantics**, while keeping our own asyncio/websockets transport, fresh token-provider call on every reconnect, bounded exponential retry, protobuf parsing, freshness checks and Redis publisher. Persist each instrument/mode identity in the existing durable subscription table. Do not add the SDK package just for this design pattern.
+
+Implementation gate: after CAS field propagation passes exact-head CI, extend the streamer and subscription service to reconcile a mapping of feed mode to instrument keys; replay each mode after reconnect; allow mode-specific subscribe/unsubscribe/change-mode; enforce Upstox limits per mode and any combined connection limit from current official docs; add reconnect, persistence, tenant isolation and API tests before scanner integration.

@@ -195,3 +195,16 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - Next work: audit current Redis configuration and Redis Python package APIs; define a small versioned quote envelope and namespaced user/instrument keys; implement publisher + cache write in the existing stream lifecycle; implement worker/API consumer with TTL and timestamp validation; test outage, reconnect, expiry, ownership isolation and process restart; only then connect scanner and paper strategy consumers.
 - This checkpoint does not certify Redis fan-out, scanner integration or strategy integration as complete. No live broker order capability was introduced.
 - Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original `Tradepro` untouched; PAPER mode mandatory; live broker order submission/modification/cancellation disabled; no credentials in code, logs, docs or chat.
+
+
+## Redis publisher checkpoint — 30 October 2026 (exact-head CI passed)
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Implementation branch: `phase4/redis-market-data-publisher`; Draft PR #9 targets `phase4/roadmap-progress-checkpoints`. PR #9 remains open, Draft and unmerged.
+- **Exact verified head:** `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`.
+- **Backend CI #41024607462: SUCCESS on that exact SHA** — https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41024607462. Backend pytest job completed successfully. This checkpoint records the job conclusion; no test count or unreported workflow checks are inferred.
+- Added `backend/app/services/redis_market_quote_publisher.py`: per-user Redis namespace, versioned latest-quote snapshots, TTL, timestamp/price/instrument validation, and Pub/Sub notification. Latest snapshot is the source of truth; Pub/Sub is a wake-up signal. Version counter receives expiry.
+- Connected the existing Upstox V3 stream manager's asynchronous `on_tick` callback to the publisher in `backend/app/services/market_data_stream_manager.py`. Redis publishing failure is logged and returns unavailable; there is no in-memory fallback for downstream consumers.
+- Added publisher unit tests and corrected the fake Redis pipeline context-manager and expiry behaviour. Earlier CI failures were confined to the test double; production auth and market-data validation were not weakened.
+- **Not yet complete:** independent Redis consumer, snapshot schema/user/version validation at consumer boundary, reconnect recovery, cross-process tests, scanner integration and paper-strategy integration. No live Upstox credentialed smoke test or Redis production deployment is claimed.
+- Next: update this seven-document checkpoint set and verify docs CI on its exact resulting head; then implement the consumer with recovery by reading the latest snapshot after subscription/reconnect. Consumer must fail closed on missing/expired/stale/mismatched snapshots and must not trust Pub/Sub payloads as quote data.
+- Safeguards: PAPER mandatory; live broker writes disabled; PR #8 and PR #9 remain Draft/unmerged; do not update main or merge without explicit approval; original `tarunsharma2610-del/Tradepro` remains out of scope.

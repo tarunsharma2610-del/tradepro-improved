@@ -159,3 +159,14 @@ Backend pytest passed on code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e
 - Next work: audit current Redis configuration and Redis Python package APIs; define a small versioned quote envelope and namespaced user/instrument keys; implement publisher + cache write in the existing stream lifecycle; implement worker/API consumer with TTL and timestamp validation; test outage, reconnect, expiry, ownership isolation and process restart; only then connect scanner and paper strategy consumers.
 - This checkpoint does not certify Redis fan-out, scanner integration or strategy integration as complete. No live broker order capability was introduced.
 - Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original `Tradepro` untouched; PAPER mode mandatory; live broker order submission/modification/cancellation disabled; no credentials in code, logs, docs or chat.
+
+
+## Latest verified Phase 4 progress — 30 October 2026
+
+- **Latest verified code/test commit:** `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`.
+- **Exact-head Backend CI #41024607462: SUCCESS** — https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41024607462. Backend pytest job passed on the exact commit.
+- Redis publisher implemented and connected to the Upstox V3 stream manager callback. Features: per-user key/channel namespace, versioned quote snapshot, TTL, exchange/receive timestamp and positive finite LTP validation, Pub/Sub notification, and no stale in-memory fallback.
+- Publisher unit tests added; fake Redis pipeline context-manager and version-key expiry behaviour corrected after CI identified test-double issues.
+- Status: publisher and callback wiring implemented; exact-head CI passed. Consumer, reconnect recovery, cross-process delivery tests, scanner and paper-strategy integration remain pending. Docs sync CI for this checkpoint remains pending.
+- Resume next: verify docs sync commit's exact-head CI; then implement Redis consumer. Consumer should treat Pub/Sub as notification only and retrieve/validate the latest Redis snapshot, including user ID, schema version, version monotonicity, TTL and exchange timestamp.
+- No live broker write path was added or enabled. PAPER remains mandatory. PR #9 remains Draft/unmerged; main is not to be updated without explicit user authorization. Work only in `tradepro-improved`; original `Tradepro` is out of scope.

@@ -202,3 +202,24 @@ Engineering rule: check provider-supported capability and existing implementatio
 - Next work: audit current Redis configuration and Redis Python package APIs; define a small versioned quote envelope and namespaced user/instrument keys; implement publisher + cache write in the existing stream lifecycle; implement worker/API consumer with TTL and timestamp validation; test outage, reconnect, expiry, ownership isolation and process restart; only then connect scanner and paper strategy consumers.
 - This checkpoint does not certify Redis fan-out, scanner integration or strategy integration as complete. No live broker order capability was introduced.
 - Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original `Tradepro` untouched; PAPER mode mandatory; live broker order submission/modification/cancellation disabled; no credentials in code, logs, docs or chat.
+
+
+## Roadmap checkpoint update — 30 October 2026
+
+### Completed
+- [x] Add user-isolated Redis quote publisher with versioned latest snapshots and TTL.
+- [x] Validate instrument key, finite positive LTP, exchange timestamp and receive timestamp before publishing.
+- [x] Publish per-user Pub/Sub notifications after writing the latest snapshot.
+- [x] Connect Upstox V3 stream manager's `on_tick` callback to Redis publisher.
+- [x] Add publisher tests and pass exact-head Backend CI #41024607462 on `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`.
+
+### Remaining sequence
+1. Synchronize the seven Phase 4 checkpoint documents and pass docs-triggered CI on the exact resulting commit.
+2. Implement an independent Redis quote consumer. Pub/Sub is notification only; read authoritative snapshot from Redis.
+3. Enforce user isolation, schema/version checks, TTL, exchange timestamp freshness, and monotonic version handling in consumer.
+4. Implement startup/reconnect recovery by re-reading latest snapshots; add missed-notification and Redis outage tests.
+5. Add real Redis integration tests (including separate publisher/consumer processes) before declaring cross-process delivery complete.
+6. Integrate scanner only after consumer acceptance.
+7. Integrate PAPER strategy evaluation only after scanner and consumer acceptance; preserve existing candle freshness and risk gates.
+
+No step is complete merely because a service or test double exists. Do not enable live trading or merge Draft PRs.

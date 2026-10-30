@@ -82,7 +82,7 @@ class PaperStopEventClaimService:
                 Strategy.instrument_id == instrument_id,
                 Strategy.is_active.is_(True),
             )
-            .with_for_update()
+            .with_for_update(of=Strategy)
             .first()
         )
         if strategy is None:

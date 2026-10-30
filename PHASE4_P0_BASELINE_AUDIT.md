@@ -72,3 +72,7 @@ Official Upstox docs distinguish exchange last-trade time (LTPC LTT) from packet
 ## Verification status correction — 30 October 2026
 
 WebSocket timestamp validation and its regression tests passed Backend pytest on exact code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e (run #41015772900). Latest synchronized documentation head 2589db1e0a6446ea60d12a075d58ce43fa19ed93 is awaiting exact-head CI #41015946896.
+
+## Market-depth and token-scope audit — 30 October 2026
+
+Exact code/test head `3a74fbb788a63ca3b042ceec400dbc7a83f32571` passed Backend CI #41016468736 (1,240 tests, 1 warning). Paper market fills use fresh Full Market Quotes V3 depth with side-aware depth consumption and quantity-weighted pricing; stale snapshot, invalid/mismatched instrument or insufficient depth fails closed. Next integration audit: distinguish Upstox Analytics Token (market-data/streaming) from standard daily OAuth access token (account/trading). Add separate encrypted storage and route by documented endpoint scope; never assume a refresh token.

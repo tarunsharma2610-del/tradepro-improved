@@ -215,3 +215,10 @@ Backend pytest passed on code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e
 - CAS implementation code head: fe76751c54a720ffa5fcec7b4f3728b137447090. Its exact-head CI is running/pending verification; do not mark CAS accepted until it passes. Earlier intermediate CAS commits also triggered runs; acceptance is tied only to final exact head.
 - Newer SDK API coverage worth a later scanner/research roadmap review: v2.27 Fundamentals and Market Information APIs; v2.30 CAS quote/feed fields. Do not duplicate SDK methods where our adapter is already superior.
 - Safety unchanged: only Tradepro Improved; PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro untouched.
+
+
+## SDK mixed-mode subscription finding — 30 October 2026
+
+- Source-level SDK comparison found a real capability gap: official MarketDataStreamerV3 maintains separate LTPC/full/option_greeks/full_d30 subscription sets and replays each mode on socket open; Tradepro currently uses one mode for the whole user stream.
+- Decision: borrow the per-mode registry and reconnect replay design, not the SDK's callback/websocket-client transport. Keep our asyncio transport, token-provider refresh on every reconnect, bounded exponential retry, protobuf validation and Redis delivery.
+- Implementation is gated on the current CAS field propagation exact-head CI passing. Then extend durable subscription reconciliation to preserve per-instrument feed modes and enforce current official per-mode/combined limits. Scanner integration remains blocked until these tests pass.

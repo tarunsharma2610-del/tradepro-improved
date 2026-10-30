@@ -43,6 +43,11 @@ class FakeRedis:
         self.versions[key] = self.versions.get(key, 0) + 1
         return self.versions[key]
 
+    async def expire(self, key, ttl):
+        self.version_ttls = getattr(self, "version_ttls", {})
+        self.version_ttls[key] = ttl
+        return True
+
     def pipeline(self, transaction=True):
         assert transaction is True
         return FakePipeline(self)

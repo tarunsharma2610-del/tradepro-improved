@@ -97,3 +97,10 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - Official API docs confirm Full Market Quotes V3 returns instrument_token, last_price, last_trade_time (milliseconds); Market Data Feed V3 LTPC provides ltp and ltt. Sources: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ and https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
 - Stream architecture remains intentionally simple: API process uses fresh WebSocket ticks when available; separate worker process cannot share the in-memory registry and therefore uses timestamped REST full quotes. No Redis bridge added without a concrete need.
 - Safeguards unchanged: only tarunsharma2610-del/tradepro-improved; PR #8 Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled.
+
+## CI result correction — 30 October 2026
+
+- Exact code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e passed Backend pytest in run #41015772900.
+- WebSocket implementation head d7c74a20a4a46741123ebbf4809176e90199643c passed Backend pytest in run #41015756833.
+- Rejection-message correction head 90bb1f5bf9d43767043a653e68a55b374bf0c599 passed Backend pytest in run #41015671461.
+- Latest documentation head at this update: 2589db1e0a6446ea60d12a075d58ce43fa19ed93; exact-head CI #41015946896 is running. Older doc-head runs #41015887638 and #41015931607 are also running; only the newest exact head should be used for final green status.

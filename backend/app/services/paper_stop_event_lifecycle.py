@@ -63,6 +63,7 @@ class PaperStopEventLifecycle:
         if changed != 1:
             return None
         self.db.flush()
+        self.db.expire_all()
         return self.db.get(PaperStopEvent, event_id)
 
     def begin_execution(
@@ -156,6 +157,7 @@ class PaperStopEventLifecycle:
         )
         if changed == 1:
             self.db.flush()
+            self.db.expire_all()
             return self.db.get(PaperStopEvent, event_id)
 
         # An expired event that exhausted its retry budget is terminalized.

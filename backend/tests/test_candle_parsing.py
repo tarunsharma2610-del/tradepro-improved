@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from app.services.candle_parsing import parse_candles
 
 
@@ -20,10 +22,10 @@ def test_documented_upstox_candle_rows_are_normalized_oldest_first():
     assert candles is not None
     assert len(candles) == 2
     assert candles[0].timestamp.isoformat() == "2025-01-12T15:10:00+05:30"
-    assert candles[0].open == 2309.1
-    assert candles[0].high == 2310.75
-    assert candles[0].low == 2305.25
-    assert candles[0].close == 2305.3
+    assert candles[0].open == Decimal("2309.1")
+    assert candles[0].high == Decimal("2310.75")
+    assert candles[0].low == Decimal("2305.25")
+    assert candles[0].close == Decimal("2305.3")
     assert candles[0].volume == 740124
     assert candles[1].timestamp.isoformat() == "2025-01-12T15:15:00+05:30"
 

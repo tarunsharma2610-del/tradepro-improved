@@ -222,7 +222,7 @@ class ExecutionService:
                 self.db.rollback()
                 continue
 
-            access_token = self.broker_credentials.get_access_token(portfolio.user_id, "upstox")
+            access_token = self.broker_credentials.get_analytics_token(portfolio.user_id, "upstox")
             if access_token is None:
                 self.db.rollback()
                 continue

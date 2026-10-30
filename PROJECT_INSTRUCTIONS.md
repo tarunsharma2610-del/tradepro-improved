@@ -2263,3 +2263,8 @@ Do not stop an SDK audit at feature-name parity. Compare actual source behaviour
 - This service is storage/claim coordination only; it is not connected to the dispatcher or order execution.
 - Next: PostgreSQL 16 multi-worker race tests, lease reclaim/state transitions, crash recovery, shared-position ownership policy, then gated PAPER integration.
 - PR #9 remains Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. Documentation commits require exact-head CI.
+
+
+## Phase 4 checkpoint — 30 October 2026
+
+The exact implementation SHA `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358). Coverage includes PostgreSQL 16 concurrent PAPER stop-event claims (same-identity duplicate suppression and distinct quote versions), broker-write boundary enforcement, SQLite and isolated PostgreSQL migration round trips, and synthetic restore. The migration database is separate from the concurrency test database. Follow-up: implement claim-token-guarded state transitions and lease expiry/reclamation tests before dispatcher-to-PAPER integration. Preserve scope: only `tarunsharma2610-del/tradepro-improved`; PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled; no deployment.

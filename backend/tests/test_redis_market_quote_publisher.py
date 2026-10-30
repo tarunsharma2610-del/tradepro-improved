@@ -46,7 +46,7 @@ def make_tick(*, received_at=None, exchange_timestamp_ms=None, ltp=2500.5):
     now = datetime.now(timezone.utc)
     return MarketTick(
         instrument_key="NSE_EQ|INE002A01018", ltp=ltp,
-        exchange_timestamp_ms=exchange_timestamp_ms or int(now.timestamp() * 1000),
+        exchange_timestamp_ms=(int(now.timestamp() * 1000) if exchange_timestamp_ms is None else exchange_timestamp_ms),
         received_at=received_at or now, received_monotonic=1.0,
     )
 

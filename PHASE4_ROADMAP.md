@@ -273,3 +273,16 @@ Persistent version keys require an explicit retention/cleanup policy for instrum
 - [ ] Integrate PAPER strategy evaluation only after scanner acceptance; retain candle freshness and risk gates unless a separately reviewed quote-based execution design is approved.
 
 Do not claim scanner or strategy integration: `app/worker.py` currently uses its existing candle-based strategy path and does not run a Redis quote-consumer registry. Keep PR #9 Draft/unmerged and live broker writes disabled.
+
+
+
+## SDK compatibility audit and next implementation gate — 30 October 2026
+
+1. [x] Compare official Upstox Python SDK v2.30.0 with the existing REST adapter, OAuth flow, V3 streamer, protobuf, Redis publisher/consumer and instrument master.
+2. [x] Record decision not to add the SDK as a dependency: generated synchronous REST client and callback WebSocket feeder do not improve our async architecture; existing token refresh, reconnect, validation and Redis handling remain application-owned.
+3. [x] Compare official SDK V3 protobuf with local schema; schemas match.
+4. [ ] Verify exact-head CI for CAS-field propagation (fe76751c54a720ffa5fcec7b4f3728b137447090). The decoder now carries IEP/reference price/indicative quantities/CAS eligibility into MarketTick, Redis snapshots and stream status.
+5. [ ] After CAS CI passes, proceed with the worker-managed Redis consumer lifecycle and durable subscription recovery/validation before scanner integration.
+6. [ ] Add a later scanner/research design review for official Fundamentals and Market Information APIs introduced in SDK v2.27.0. Prefer official endpoints where useful; do not add SDK runtime dependency by default.
+
+No live broker writes. PAPER remains mandatory; PR #9 remains Draft/unmerged.

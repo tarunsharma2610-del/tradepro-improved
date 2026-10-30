@@ -210,3 +210,86 @@ async def test_listener_stops_after_configured_reconnect_limit():
 
     assert results == []
     assert redis.created == 1
+
+@pytest.mark.asyncio
+async def test_listener_accepts_new_epoch_with_lower_version_after_redis_data_loss():
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    redis = ReconnectingFakeRedis([])
+    key = RedisMarketQuoteConsumer(redis, user_id).snapshot_key(instrument)
+    redis.values[key] = (json.dumps(snapshot(user_id, epoch="before-restart", version=8)), 10)
+
+    class RestartingPubSub(DisconnectingPubSub):
+        async def get_message(self, *, ignore_subscribe_messages=True, timeout=0):
+            if self.fail:
+                self.fail = False
+                redis.values[key] = (
+                    json.dumps(snapshot(user_id, epoch="after-restart", version=1, ltp=2501.0)),
+                    10,
+                )
+                raise ConnectionError("simulated Redis restart and volatile data loss")
+            return await super().get_message(
+                ignore_subscribe_messages=ignore_subscribe_messages,
+                timeout=timeout,
+            )
+
+    redis.pubsubs = [RestartingPubSub(fail=True), DisconnectingPubSub()]
+    consumer = RedisMarketQuoteConsumer(redis, user_id)
+    recovered = [
+        quote async for quote in consumer.listen(
+            [instrument],
+            max_reconnect_attempts=1,
+            min_backoff_seconds=0,
+            max_backoff_seconds=0,
+        )
+    ]
+
+    assert [quote["epoch"] for quote in recovered] == ["before-restart", "after-restart"]
+    assert [quote["version"] for quote in recovered] == [8, 1]
+    assert recovered[-1]["ltp"] == 2501.0
+
+
+@pytest.mark.asyncio
+async def test_listener_uses_pubsub_ping_pong_heartbeat_for_idle_connection():
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+
+    class IdleOncePubSub(FakePubSub):
+        def __init__(self):
+            super().__init__()
+            self.idle_once = True
+            self.ping_count = 0
+
+        async def get_message(self, *, ignore_subscribe_messages=True, timeout=0):
+            if self.idle_once:
+                self.idle_once = False
+                return None
+            return await super().get_message(
+                ignore_subscribe_messages=ignore_subscribe_messages,
+                timeout=timeout,
+            )
+
+        async def ping(self):
+            self.ping_count += 1
+            await super().ping()
+
+    redis, consumer = FakeRedis(), RedisMarketQuoteConsumer(FakeRedis(), user_id)
+    pubsub = IdleOncePubSub()
+    redis.pubsub_instance = pubsub
+    consumer.redis = redis
+    redis.values[consumer.snapshot_key(instrument)] = (
+        json.dumps(snapshot(user_id)), 10
+    )
+
+    recovered = [
+        quote async for quote in consumer.listen(
+            [instrument],
+            max_reconnect_attempts=0,
+            min_backoff_seconds=0,
+            max_backoff_seconds=0,
+        )
+    ]
+
+    assert len(recovered) == 1
+    assert pubsub.ping_count == 1
+    assert pubsub.closed

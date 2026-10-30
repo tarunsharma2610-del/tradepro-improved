@@ -26,6 +26,7 @@ from app.models.news_feed_source import NewsFeedSource  # noqa: F401
 from app.models.news_item import NewsItem  # noqa: F401
 from app.models.telegram_link import TelegramBotState, TelegramLink  # noqa: F401
 from app.models.market_data_subscription import MarketDataSubscription  # noqa: F401
+from app.models.paper_stop_event import PaperStopEvent  # noqa: F401
 from app.models.live_order_records import LiveOrderIntent, LiveOrderEvent, LiveOrderOutbox, BrokerFillIdentity, LiveReconciliationLease  # noqa: F401
 
 __all__ = [
@@ -49,6 +50,7 @@ __all__ = [
     "Position",
     "Execution",
     "Strategy",
+    "PaperStopEvent",
     "BacktestRun",
     "BacktestTrade",
     "NewsFeedSource",

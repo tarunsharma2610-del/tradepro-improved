@@ -39,3 +39,13 @@ This commit adds the isolated dispatcher and unit tests only. It does not yet co
 - No database or broker access in the dispatcher.
 - No order creation from Redis callback.
 - PR #9 remains Draft and unmerged.
+
+
+## Durable PAPER stop-event storage — 30 October 2026
+
+- Added `PaperStopEvent` as an inert durable idempotency/claim record keyed uniquely by strategy, event type, subscription epoch and quote version.
+- Persisted fields include tenant/portfolio/strategy/instrument scope, trigger LTP, state, claim token/lease expiry, attempt count, safe error code and completion timestamp.
+- Database checks constrain supported event type, state vocabulary, positive quote version/trigger price and nonnegative attempts.
+- This is schema/model groundwork only: no dispatcher consumer creates events, no stop event can authorize an order, and no live broker write path was added.
+- Unit tests cover persistence, duplicate quote-event rejection and database check constraints.
+- Remaining before any event consumer: enforce strategy↔portfolio↔instrument and user↔portfolio consistency transactionally; define one owner for shared portfolio/instrument positions; add PostgreSQL row-lock/claim concurrency tests; define recovery for CLAIMED/EXECUTING after process death; connect only to existing PAPER execution after those gates.

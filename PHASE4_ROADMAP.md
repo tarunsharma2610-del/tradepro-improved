@@ -335,3 +335,14 @@ Keep the existing async httpx/websockets adapter, application OAuth/token lifecy
 ### Safety and repository boundary
 
 Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-publisher. PR #9 remains Draft/unmerged. Do not modify tarunsharma2610-del/Tradepro. No live broker place/modify/cancel calls.
+
+
+## Current Phase 4 checkpoint — 30 October 2026
+
+The older Gate 0/Gate 1 notes above are historical. Mixed-mode persistence, V3 WebSocket lifecycle/reconnect replay, startup recovery and token refresh have since been implemented and have passing exact-head CI checkpoints. See `PHASE4_LATEST_CI_CHECKPOINT.md`.
+
+- Latest code/test head: `a5e352bef2c78f27141b61bca5893fdfa0fd049a`; Backend CI #41061518847 is running, not yet accepted.
+- Added tests for Redis consumer epoch rollover after volatile data loss and idle Pub/Sub heartbeat. Prior exact-head head `f7c863977ed17a3d705b83db8dcc6b7ba421cccf` passed Backend CI #41060945704.
+- Next: (1) exact-head CI pass; (2) worker-managed Redis consumer lifecycle with durable per-user subscription discovery, single-owner/lease coordination, cancellation and shutdown; (3) multi-user/multi-instrument delivery and recovery; (4) scanner and PAPER strategy integration only after those gates.
+- Do not interpret Redis publisher/consumer unit tests as scanner integration or production deployment validation.
+- PR #9 remains Draft/unmerged. PAPER mandatory; live order writes disabled; original Tradepro out of scope.

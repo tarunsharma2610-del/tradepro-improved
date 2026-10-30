@@ -222,6 +222,9 @@ class UpstoxMarketDataStreamer:
             mode_keys.difference_update(keys)
         self.subscriptions[mode].update(keys)
         self._refresh_instrument_index()
+        active_modes = [name for name, mode_keys in self.subscriptions.items() if mode_keys]
+        if len(active_modes) == 1:
+            self.mode = mode
         for key in keys:
             self._ticks.pop(key, None)
         return await self._send_control("change_mode", keys, mode)

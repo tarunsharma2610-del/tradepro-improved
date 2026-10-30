@@ -36,7 +36,9 @@ def _connect_fake_broker(db_session, user_id):
         user_id=user_id, broker="upstox",
         api_key_encrypted=encrypt_value("k"), api_secret_encrypted=encrypt_value("s"),
         redirect_uri="https://example.com/cb", access_token_encrypted=encrypt_value("tok"),
-        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1), is_connected=True,
+        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        analytics_token_encrypted=encrypt_value("fake-analytics-token"),
+        analytics_token_expires_at=datetime.now(timezone.utc) + timedelta(days=365), is_connected=True,
     )
     db_session.add(conn)
     db_session.commit()
@@ -59,15 +61,15 @@ def _make_strategy(db_session, portfolio_id, instrument_id, **overrides) -> Stra
     return strategy
 
 
-def _candles_response(prices: list[float]):
-    """`prices` given oldest-to-newest, the way a human writes a trend.
-    Upstox's real (documented) convention is newest-first, and
-    _parse_candles un-reverses that — so this builds the mocked raw array
-    in newest-first order too, exactly mirroring what a real response
-    would look like, rather than pre-flipping it for convenience."""
+def _candles_response(prices: list[float], *, age_minutes: int = 0):
+    """Build a newest-first response with controllable freshness."""
     newest_first = list(reversed(prices))
-    candles = [[f"2026-08-{i + 1:02d}T10:00:00", p, p, p, p, 10000, 0] for i, p in enumerate(newest_first)]
-    return BrokerCallResult(ok=True, data={"data": {"candles": candles}})
+    now = datetime.now(timezone.utc) - timedelta(minutes=age_minutes)
+    candles = [
+        [(now - timedelta(minutes=5 * i)).isoformat(), p, p, p, p, 10000, 0]
+        for i, p in enumerate(newest_first)
+    ]
+    return BrokerCallResult(ok=True, data={"status": "success", "data": {"candles": candles}})
 
 
 def _mock_broker(candles_result: BrokerCallResult, quote_price: str):
@@ -75,7 +77,8 @@ def _mock_broker(candles_result: BrokerCallResult, quote_price: str):
         "FakeAdapter", (),
         {
             "get_historical_data": AsyncMock(return_value=candles_result),
-            "get_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ|INE002A01018": {"last_price": quote_price}}})),
+            "get_intraday_data": AsyncMock(return_value=candles_result),
+            "get_full_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ:TEST": {"instrument_token": "NSE_EQ|INE002A01018", "last_price": quote_price, "last_trade_time": "1600000000000", "timestamp": datetime.now(timezone.utc).isoformat(), "depth": {"buy": [{"price": quote_price, "quantity": 100000, "orders": 10}], "sell": [{"price": quote_price, "quantity": 100000, "orders": 10}]}}}})),
         },
     )()
     stack = ExitStack()
@@ -218,3 +221,45 @@ async def test_inactive_strategy_cannot_be_evaluated_even_via_manual_service_cal
     assert result.signal == Signal.HOLD.value
     assert "inactive" in result.reason.lower()
     adapter.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_emergency_kill_switch_keeps_strategy_exits_available(db_session, portfolio, instrument, monkeypatch):
+    from app.core.config import settings
+    from app.repositories.position_repository import PositionRepository
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    service = StrategyExecutionService(db_session)
+
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await service.evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity > 0
+
+    # The emergency switch is entry-only: it must not trap an existing position.
+    monkeypatch.setattr(settings, "AUTOMATED_ENTRIES_ENABLED", False)
+    falling_prices = [110.0 - i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(falling_prices), str(falling_prices[-1])):
+        exit_result = await service.evaluate(strategy)
+
+    assert exit_result.signal == Signal.EXIT.value
+    assert exit_result.order_id is not None
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0
+
+@pytest.mark.asyncio
+async def test_stale_candles_fail_closed_without_opening_a_position(db_session, portfolio, instrument):
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    service = StrategyExecutionService(db_session)
+
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices, age_minutes=30), str(rising_prices[-1])):
+        result = await service.evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+    assert "stale" in result.reason.lower()
+    from app.repositories.position_repository import PositionRepository
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0

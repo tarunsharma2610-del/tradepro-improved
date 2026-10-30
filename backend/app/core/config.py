@@ -14,6 +14,7 @@ MASTER_ENCRYPTION_KEY below. See ARCHITECTURE.md, "Credential tiers".
 
 import secrets
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -46,6 +47,17 @@ class Settings(BaseSettings):
     # Nothing in this codebase currently acts on LIVE even if set — see that
     # doc for exactly why flipping this alone was never going to be enough.
     TRADING_MODE: str = "PAPER"
+
+    @field_validator("TRADING_MODE", mode="before")
+    @classmethod
+    def enforce_paper_only(cls, value: object) -> str:
+        """Fail closed: this build must never start with a non-PAPER mode."""
+        mode = str(value).strip().upper()
+        if mode != "PAPER":
+            raise ValueError(
+                "This build is PAPER-only. TRADING_MODE must be PAPER; live trading is disabled."
+            )
+        return mode
 
     # Emergency stop for automated strategy entries. Set AUTOMATED_ENTRIES_ENABLED=false
     # in the backend environment and restart the API/worker to block new entries.

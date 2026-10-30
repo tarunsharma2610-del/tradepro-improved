@@ -69,6 +69,26 @@ class BrokerAdapter(ABC):
     ) -> BrokerCallResult:
         ...
 
+    async def get_full_quote(self, access_token: str, instrument_keys: list[str]) -> BrokerCallResult:
+        """Optional full quote snapshot, including exchange timestamps when supported."""
+        return BrokerCallResult(ok=False, error=f"{self.broker_name} adapter does not implement full quotes.")
+
+    async def get_option_chain(
+        self, access_token: str, instrument_key: str, expiry_date: str
+    ) -> BrokerCallResult:
+        """Optional option-chain snapshot capability."""
+        return BrokerCallResult(ok=False, error=f"{self.broker_name} adapter does not implement option chains.")
+
+    async def get_intraday_data(
+        self, access_token: str, instrument_key: str, unit: str, interval: str
+    ) -> BrokerCallResult:
+        """Fetch current-session candles when the broker exposes a dedicated endpoint.
+
+        Optional capability: adapters without a dedicated intraday endpoint
+        return a typed unsupported result instead of inventing fallback data.
+        """
+        return BrokerCallResult(ok=False, error=f"{self.broker_name} adapter does not implement intraday candles.")
+
     @abstractmethod
     def get_market_data_stream_url(self, access_token: str) -> BrokerCallResult:
         """Authenticated WebSocket URL for live market data. Full streaming

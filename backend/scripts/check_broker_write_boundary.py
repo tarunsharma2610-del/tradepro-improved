@@ -1,10 +1,12 @@
 """Fail CI if production app code bypasses the approved broker-write boundary.
 
 The AST scanner rejects production attribute references to place/modify/cancel
-methods, regardless of receiver variable name. Exceptions are limited to the
-known PAPER strategy call and the exact existing PAPER HTTP endpoint functions.
+methods, regardless of receiver variable name. It also rejects literal-name
+getattr dispatch to those methods, which would otherwise evade attribute-only
+inspection. Exceptions are limited to known PAPER execution calls.
 Adapter method definitions are not attribute references and need no file-wide
-exemption. Dynamic dispatch/reflection cannot be fully proven safe here.
+exemption. Arbitrary reflection or dynamically computed method names cannot be
+fully proven safe by a static scanner; keep the reviewed call graph explicit.
 """
 from __future__ import annotations
 
@@ -79,15 +81,32 @@ def find_violations(app_root: Path) -> list[str]:
             continue
         parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
         for node in ast.walk(tree):
-            if not isinstance(node, ast.Attribute) or node.attr.lower() not in WRITE_METHODS:
+            if isinstance(node, ast.Attribute) and node.attr.lower() in WRITE_METHODS:
+                chain = _attribute_chain(node.value)
+                function_name = _enclosing_function(node, parents)
+                if _is_approved_paper_execution_call(relative, node, chain, function_name):
+                    continue
+                violations.append(
+                    f"{relative}:{node.lineno}: unapproved broker-write reference: {node.attr}"
+                )
                 continue
-            chain = _attribute_chain(node.value)
-            function_name = _enclosing_function(node, parents)
-            if _is_approved_paper_execution_call(relative, node, chain, function_name):
-                continue
-            violations.append(
-                f"{relative}:{node.lineno}: unapproved broker-write reference: {node.attr}"
-            )
+
+            # Catch the common reflection escape hatch: getattr(adapter, "place_order").
+            # Only literal method names are decidable here; computed names remain a
+            # documented static-analysis limitation rather than being silently allowed.
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "getattr"
+                and len(node.args) >= 2
+                and isinstance(node.args[1], ast.Constant)
+                and isinstance(node.args[1].value, str)
+                and node.args[1].value.lower() in WRITE_METHODS
+            ):
+                violations.append(
+                    f"{relative}:{node.lineno}: dynamic broker-write dispatch via getattr: "
+                    f"{node.args[1].value}"
+                )
     return violations
 
 

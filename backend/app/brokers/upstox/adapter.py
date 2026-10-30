@@ -10,7 +10,7 @@ Phase 2, rather than trusting this comment.
 
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import httpx
 
@@ -91,6 +91,11 @@ class UpstoxAdapter(BrokerAdapter):
         params = {"instrument_key": ",".join(instrument_keys)}
         return await self._get(f"{API_V3}/market-quote/ltp", access_token, params=params)
 
+    async def get_full_quote(self, access_token: str, instrument_keys: list[str]) -> BrokerCallResult:
+        # VERIFIED: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/
+        params = {"instrument_key": ",".join(instrument_keys)}
+        return await self._get(f"{API_V3}/market-quote/quotes", access_token, params=params)
+
     async def get_historical_data(
         self, access_token: str, instrument_key: str, unit: str, interval: str, from_date: date, to_date: date
     ) -> BrokerCallResult:
@@ -98,6 +103,24 @@ class UpstoxAdapter(BrokerAdapter):
         # Path shape: /v3/historical-candle/{instrument_key}/{unit}/{interval}/{to_date}/{from_date}
         # unit: "minutes" | "hours" | "days" | "weeks" | "months"; to_date comes BEFORE from_date.
         path = f"{API_V3}/historical-candle/{instrument_key}/{unit}/{interval}/{to_date.isoformat()}/{from_date.isoformat()}"
+        return await self._get(path, access_token)
+
+    async def get_option_chain(
+        self, access_token: str, instrument_key: str, expiry_date: str
+    ) -> BrokerCallResult:
+        """Fetch the official option-chain snapshot using the Analytics Token."""
+        return await self._get(
+            f"{API_V2}/option/chain",
+            access_token,
+            params={"instrument_key": instrument_key, "expiry_date": expiry_date},
+        )
+
+    async def get_intraday_data(
+        self, access_token: str, instrument_key: str, unit: str, interval: str
+    ) -> BrokerCallResult:
+        """Fetch current-session candles using Upstox's supported V3 endpoint."""
+        encoded_key = quote(instrument_key, safe="")
+        path = f"{API_V3}/historical-candle/intraday/{encoded_key}/{unit}/{interval}"
         return await self._get(path, access_token)
 
     def get_market_data_stream_url(self, access_token: str) -> BrokerCallResult:

@@ -33,7 +33,6 @@ from app.repositories.position_repository import PositionRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.position_math import apply_fill
 from app.services.portfolio_risk_service import check_portfolio_order
-from app.services.market_data_stream_manager import market_data_stream_manager
 from app.services.transaction_costs import Segment, Side, calculate_costs
 from app.services.paper_trade_charge_estimator import estimate_paper_trade_costs
 from app.core.config import settings
@@ -116,11 +115,11 @@ class ExecutionService:
             # The worker rechecks relevant limits before filling the order.
             return self.orders.create(order)
 
-        access_token = self.broker_credentials.get_access_token(user_id, "upstox")
+        access_token = self.broker_credentials.get_analytics_token(user_id, "upstox")
         if access_token is None:
-            return self._reject(order, "No connected broker with a live session — connect Upstox in Settings first.")
+            return self._reject(order, "No valid Upstox broker Analytics Token is configured in Settings.")
 
-        ltp, quote_error = await self._get_ltp(portfolio.user_id, instrument.instrument_key, access_token)
+        ltp, quote_error = await self._get_ltp(portfolio.user_id, instrument.instrument_key, access_token, req.side, req.quantity)
         if ltp is None:
             return self._reject(order, quote_error or "No fresh market price is available.")
 
@@ -223,7 +222,7 @@ class ExecutionService:
                 self.db.rollback()
                 continue
 
-            access_token = self.broker_credentials.get_access_token(portfolio.user_id, "upstox")
+            access_token = self.broker_credentials.get_analytics_token(portfolio.user_id, "upstox")
             if access_token is None:
                 self.db.rollback()
                 continue
@@ -321,21 +320,29 @@ class ExecutionService:
             trade_date=datetime.now(timezone.utc).date(),
         )
 
-    async def _get_ltp(self, user_id: UUID, instrument_key: str, access_token: str) -> tuple[Decimal | None, str | None]:
-        """Prefer a fresh subscribed WebSocket tick; fall back to authenticated REST LTP."""
-        streamer = market_data_stream_manager.get(user_id)
-        if streamer is not None:
-            tick = streamer.latest_tick(instrument_key)
-            if tick is not None:
-                return Decimal(str(tick.ltp)), None
+    async def _get_ltp(
+        self,
+        user_id: UUID,
+        instrument_key: str,
+        access_token: str,
+        side: Side = Side.BUY,
+        quantity: int = 1,
+    ) -> tuple[Decimal | None, str | None]:
+        """Price a paper market order from a fresh exchange snapshot's executable depth.
 
-        quote_result = await get_broker_adapter("upstox").get_quote(access_token, [instrument_key])
+        The current WebSocket subscription is LTPC-only, so it is suitable for
+        monitoring/valuation but does not provide enough depth to simulate a
+        market fill. Use Full Market Quotes V3 for the executable bid/ask book.
+        """
+        quote_result = await get_broker_adapter("upstox").get_full_quote(access_token, [instrument_key])
         if not quote_result.ok:
-            return None, f"Could not fetch a live price: {quote_result.error}"
-        ltp = _extract_ltp(quote_result.data, instrument_key)
-        if ltp is None:
-            return None, "Broker response didn't contain a readable last traded price."
-        return ltp, None
+            return None, f"Could not fetch a timestamped market-depth snapshot: {quote_result.error}"
+        price = _extract_fresh_market_depth_price(
+            quote_result.data, instrument_key, side=side, quantity=quantity
+        )
+        if price is None:
+            return None, "Broker market-depth price snapshot was missing, stale, invalid, or lacked enough executable quantity."
+        return price, None
 
     def _is_reducing_position(self, portfolio_id: UUID, instrument_id: UUID, side: Side, quantity: int) -> bool:
         position = (
@@ -408,6 +415,69 @@ class ExecutionService:
         self.db.commit()
 
         return order
+
+
+def _extract_fresh_market_depth_price(
+    quote_data: Any,
+    instrument_key: str,
+    *,
+    side: Side,
+    quantity: int,
+    now: datetime | None = None,
+    max_snapshot_age_seconds: int = 15,
+) -> Decimal | None:
+    """Return a depth-weighted paper fill price from a fresh Upstox V3 snapshot.
+
+    Snapshot timestamp, not last_trade_time, determines feed freshness:
+    an illiquid instrument can have an older last trade while its current
+    bid/ask book remains fresh. BUY consumes asks; SELL consumes bids.
+    """
+    if quantity <= 0 or not isinstance(quote_data, dict):
+        return None
+    payload = quote_data.get("data", quote_data)
+    if not isinstance(payload, dict):
+        return None
+    current = now or datetime.now(timezone.utc)
+    for quote in payload.values():
+        if not isinstance(quote, dict) or quote.get("instrument_token") != instrument_key:
+            continue
+        try:
+            snapshot_raw = quote.get("timestamp")
+            if not isinstance(snapshot_raw, str):
+                return None
+            snapshot_time = datetime.fromisoformat(snapshot_raw.replace("Z", "+00:00"))
+            if snapshot_time.tzinfo is None:
+                return None
+            snapshot_age = (current - snapshot_time.astimezone(timezone.utc)).total_seconds()
+            if snapshot_age < -60 or snapshot_age > max_snapshot_age_seconds:
+                return None
+            depth = quote.get("depth")
+            if not isinstance(depth, dict):
+                return None
+            levels = depth.get("sell" if side == Side.BUY else "buy")
+            if not isinstance(levels, list):
+                return None
+            remaining = quantity
+            gross_value = Decimal("0")
+            for level in levels:
+                if not isinstance(level, dict):
+                    continue
+                try:
+                    price = Decimal(str(level.get("price")))
+                    available = int(level.get("quantity"))
+                except (InvalidOperation, TypeError, ValueError, OverflowError):
+                    continue
+                if not price.is_finite() or price <= 0 or available <= 0:
+                    continue
+                taken = min(remaining, available)
+                gross_value += price * taken
+                remaining -= taken
+                if remaining == 0:
+                    return gross_value / Decimal(quantity)
+            return None
+        except (TypeError, ValueError, OverflowError):
+            return None
+    return None
 
 
 def _extract_ltp(quote_data: Any, instrument_key: str) -> Decimal | None:

@@ -8,10 +8,11 @@ This module does not place or modify orders.
 import asyncio
 import json
 import logging
+import math
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Literal
 from urllib.parse import urlparse
 
 import httpx
@@ -31,6 +32,15 @@ class MarketTick:
     exchange_timestamp_ms: int
     received_at: datetime
     received_monotonic: float
+    # None means the provider omitted the field; it is not a zero-value reading.
+    depth: tuple[dict, ...] | None = None
+    option_greeks: dict | None = None
+    open_interest: float | None = None
+    volume_traded_today: int | None = None
+    average_traded_price: float | None = None
+    total_buy_quantity: float | None = None
+    total_sell_quantity: float | None = None
+    ohlc: tuple[dict, ...] | None = None
 
 
 class UpstoxMarketDataStreamer:
@@ -45,12 +55,16 @@ class UpstoxMarketDataStreamer:
         stale_after_seconds: float = 15.0,
         silence_timeout_seconds: float = 60.0,
         reconnect_max_seconds: float = 30.0,
+        mode: Literal["ltpc", "full", "option_greeks"] = "full",
     ):
         keys = list(dict.fromkeys(key.strip() for key in instrument_keys if key.strip()))
         if not keys:
             raise ValueError("At least one instrument_key is required.")
-        if len(keys) > _MAX_LTPC_KEYS:
-            raise ValueError(f"LTPC supports at most {_MAX_LTPC_KEYS} instrument keys per connection.")
+        limits = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
+        if mode not in limits:
+            raise ValueError("Unsupported Upstox V3 mode; full_d30 requires an eligible Upstox Plus entitlement and is not enabled here.")
+        if len(keys) > limits[mode]:
+            raise ValueError(f"{mode} supports at most {limits[mode]} instrument keys per connection.")
         if any("|" not in key or len(key) > 100 for key in keys):
             raise ValueError("Every instrument_key must be a valid segment-prefixed key.")
         if stale_after_seconds <= 0 or silence_timeout_seconds <= stale_after_seconds:
@@ -58,6 +72,7 @@ class UpstoxMarketDataStreamer:
 
         self.token_provider = token_provider
         self.instrument_keys = keys
+        self.mode = mode
         self._instrument_key_set = set(keys)
         self.on_tick = on_tick
         self.stale_after_seconds = stale_after_seconds
@@ -67,6 +82,8 @@ class UpstoxMarketDataStreamer:
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
         self._connected = False
+        self._socket = None
+        self._send_lock = asyncio.Lock()
 
     @property
     def connected(self) -> bool:
@@ -83,11 +100,77 @@ class UpstoxMarketDataStreamer:
             return None
         if time.monotonic() - tick.received_monotonic > self.stale_after_seconds:
             return None
-        if tick.exchange_timestamp_ms > 0:
-            exchange_age = datetime.now(timezone.utc).timestamp() * 1000 - tick.exchange_timestamp_ms
-            if exchange_age > self.stale_after_seconds * 1000 or exchange_age < -60_000:
-                return None
+        if tick.exchange_timestamp_ms <= 0:
+            return None
+        exchange_age = datetime.now(timezone.utc).timestamp() * 1000 - tick.exchange_timestamp_ms
+        if exchange_age > self.stale_after_seconds * 1000 or exchange_age < -60_000:
+            return None
         return tick
+
+    async def _send_message(self, socket, method: str, instrument_keys: list[str], mode: str | None = None) -> None:
+        request = {
+            "guid": f"tradepro-improved-{method}-{time.time_ns()}",
+            "method": method,
+            "data": {"instrumentKeys": instrument_keys},
+        }
+        if mode is not None:
+            request["data"]["mode"] = mode
+        async with self._send_lock:
+            await socket.send(json.dumps(request).encode("utf-8"))
+
+    async def _send_control(self, method: str, instrument_keys: list[str], mode: str | None = None) -> str:
+        socket = self._socket
+        if socket is None or not self._connected:
+            return "queued_for_reconnect"
+        await self._send_message(socket, method, instrument_keys, mode)
+        return "sent"
+
+    def _validate_key_list(self, instrument_keys: list[str]) -> list[str]:
+        keys = list(dict.fromkeys(key.strip() for key in instrument_keys if key.strip()))
+        if not keys or any("|" not in key or len(key) > 100 for key in keys):
+            raise ValueError("Provide valid segment-prefixed instrument keys.")
+        return keys
+
+    async def subscribe(self, instrument_keys: list[str]) -> str:
+        keys = self._validate_key_list(instrument_keys)
+        additions = [key for key in keys if key not in self._instrument_key_set]
+        if not additions:
+            return "already_subscribed"
+        limits = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
+        if len(self.instrument_keys) + len(additions) > limits[self.mode]:
+            raise ValueError(f"{self.mode} mode supports at most {limits[self.mode]} instrument keys per connection.")
+        self.instrument_keys.extend(additions)
+        self._instrument_key_set.update(additions)
+        return await self._send_control("sub", additions, self.mode)
+
+    async def unsubscribe(self, instrument_keys: list[str]) -> str:
+        keys = self._validate_key_list(instrument_keys)
+        removals = [key for key in keys if key in self._instrument_key_set]
+        if not removals:
+            return "not_subscribed"
+        if len(removals) == len(self.instrument_keys):
+            raise ValueError("Cannot remove the final instruments; use DELETE /market-data/stream to stop the stream.")
+        self.instrument_keys = [key for key in self.instrument_keys if key not in set(removals)]
+        self._instrument_key_set.difference_update(removals)
+        for key in removals:
+            self._ticks.pop(key, None)
+        return await self._send_control("unsub", removals)
+
+    async def change_mode(self, instrument_keys: list[str], mode: str) -> str:
+        keys = self._validate_key_list(instrument_keys)
+        if mode not in {"ltpc", "option_greeks", "full"}:
+            raise ValueError("Unsupported mode. Allowed: ltpc, option_greeks, full.")
+        if set(keys) != self._instrument_key_set:
+            raise ValueError("Mode changes must cover the complete user stream; partial mixed-mode subscriptions are not enabled.")
+        limits = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
+        if len(keys) > limits[mode]:
+            raise ValueError(f"{mode} mode supports at most {limits[mode]} instrument keys per connection.")
+        if mode == self.mode:
+            return "already_in_mode"
+        self.mode = mode
+        for key in keys:
+            self._ticks.pop(key, None)
+        return await self._send_control("change_mode", keys, mode)
 
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -143,14 +226,10 @@ class UpstoxMarketDataStreamer:
                     ping_timeout=20,
                     max_size=8 * 1024 * 1024,
                 ) as socket:
+                    self._socket = socket
                     self._connected = True
                     delay = 1.0
-                    request = {
-                        "guid": "tradepro-improved-market-data-v3",
-                        "method": "sub",
-                        "data": {"mode": "ltpc", "instrumentKeys": self.instrument_keys},
-                    }
-                    await socket.send(json.dumps(request).encode("utf-8"))
+                    await self._send_message(socket, "sub", list(self.instrument_keys), self.mode)
                     while not self._stop.is_set():
                         # The websockets library handles ping/pong. A silent
                         # application stream is recycled so stale state is not trusted.
@@ -168,6 +247,7 @@ class UpstoxMarketDataStreamer:
                 logger.warning("Upstox market stream disconnected (%s); reconnecting.", type(exc).__name__)
             finally:
                 self._connected = False
+                self._socket = None
             if not self._stop.is_set():
                 await self._sleep_or_stop(delay)
                 delay = min(delay * 2, self.reconnect_max_seconds)
@@ -199,14 +279,71 @@ class UpstoxMarketDataStreamer:
             elif union == "firstLevelWithGreeks":
                 ltpc = feed.firstLevelWithGreeks.ltpc
 
-            if ltpc is None or not ltpc.ltp or ltpc.ltp <= 0:
+            market_ff = None
+            if union == "fullFeed" and full_union == "marketFF":
+                market_ff = feed.fullFeed.marketFF
+            elif union == "firstLevelWithGreeks":
+                market_ff = feed.firstLevelWithGreeks
+            if ltpc is None or not math.isfinite(ltpc.ltp) or ltpc.ltp <= 0 or ltpc.ltt <= 0:
                 continue
+            depth = None
+            greeks = None
+            open_interest = volume = average_price = total_buy = total_sell = None
+            ohlc = None
+            if market_ff is not None:
+                if union == "firstLevelWithGreeks":
+                    first = market_ff.firstDepth
+                    depth = ({
+                        "bid_quantity": int(first.bidQ), "bid_price": float(first.bidP),
+                        "ask_quantity": int(first.askQ), "ask_price": float(first.askP),
+                    },) if market_ff.HasField("firstDepth") else None
+                if union == "fullFeed" and full_union == "marketFF":
+                    depth = tuple({
+                        "bid_quantity": int(q.bidQ), "bid_price": float(q.bidP),
+                        "ask_quantity": int(q.askQ), "ask_price": float(q.askP),
+                    } for q in market_ff.marketLevel.bidAskQuote) if market_ff.HasField("marketLevel") else None
+                    greeks_source = market_ff.optionGreeks if market_ff.HasField("optionGreeks") else None
+                    # The provider's proto3 scalar fields have no presence bits.
+                    # Treat their default zero as unavailable rather than inventing
+                    # a confirmed zero when the wire payload omitted the field.
+                    open_interest = float(market_ff.oi) if market_ff.oi != 0 else None
+                    volume = int(market_ff.vtt) if market_ff.vtt != 0 else None
+                    average_price = float(market_ff.atp) if market_ff.atp != 0 else None
+                    total_buy = float(market_ff.tbq) if market_ff.tbq != 0 else None
+                    total_sell = float(market_ff.tsq) if market_ff.tsq != 0 else None
+                    ohlc = tuple({
+                        "interval": item.interval, "open": float(item.open),
+                        "high": float(item.high), "low": float(item.low),
+                        "close": float(item.close), "volume": int(item.vol),
+                        "timestamp_ms": int(item.ts),
+                    } for item in market_ff.marketOHLC.ohlc) if market_ff.HasField("marketOHLC") else None
+                else:
+                    greeks_source = market_ff.optionGreeks if market_ff.HasField("optionGreeks") else None
+                    open_interest = float(market_ff.oi) if market_ff.oi != 0 else None
+                    volume = int(market_ff.vtt) if market_ff.vtt != 0 else None
+                if greeks_source is not None:
+                    greeks = {
+                        "delta": float(greeks_source.delta), "theta": float(greeks_source.theta),
+                        "gamma": float(greeks_source.gamma), "vega": float(greeks_source.vega),
+                        "rho": float(greeks_source.rho),
+                    }
+                    implied_volatility = float(market_ff.iv) if market_ff.iv != 0 else None
+                    if implied_volatility is not None:
+                        greeks["iv"] = implied_volatility
             tick = MarketTick(
                 instrument_key=key,
                 ltp=float(ltpc.ltp),
-                exchange_timestamp_ms=int(ltpc.ltt or response.currentTs),
+                exchange_timestamp_ms=int(ltpc.ltt),
                 received_at=received_at,
                 received_monotonic=received_monotonic,
+                depth=depth,
+                option_greeks=greeks,
+                open_interest=open_interest,
+                volume_traded_today=volume,
+                average_traded_price=average_price,
+                total_buy_quantity=total_buy,
+                total_sell_quantity=total_sell,
+                ohlc=ohlc,
             )
             self._ticks[key] = tick
             if self.on_tick is not None:

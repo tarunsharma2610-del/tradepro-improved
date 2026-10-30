@@ -13,6 +13,12 @@ class FakePipeline:
         self.redis = redis
         self.operations = []
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
     def set(self, key, value, ex):
         self.operations.append(("set", key, value, ex))
         return self

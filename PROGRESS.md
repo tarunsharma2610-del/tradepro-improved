@@ -3619,3 +3619,13 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 - Official Upstox SDK v2.30.0 compared against our REST adapter, OAuth flow, WebSocket streamer, protobuf, Redis delivery and instrument master. Audit saved in UPSTOX_SDK_COMPATIBILITY_AUDIT.md. Decision: retain our async implementation; no SDK dependency added.
 - Found and implemented CAS feed-field propagation from the already matching official V3 protobuf schema into MarketTick, Redis snapshots and stream status. Code head fe76751c54a720ffa5fcec7b4f3728b137447090 is pending exact-head CI; do not call it accepted yet.
 - Next: validate CAS CI, then complete worker-managed Redis consumer lifecycle and recovery before scanner integration. PAPER-only; live writes disabled; PR #9 Draft/unmerged; original Tradepro untouched.
+
+
+## Phase 4 update — 30 October 2026
+
+- Latest verified code/test commit: `ef80d792c4d89abda1850b73f54f7b81bf16bbf7`.
+- Exact-head Backend CI [#41057600440 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41057600440), including pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore/evidence checks.
+- Feed-mode subscription persistence now replaces only the selected mode's desired instrument set; other modes remain active. Regression coverage added for independent `ltpc` and `full` subscriptions.
+- CI failure #41057234551 was an outdated single-mode test expectation; corrected on the verified head.
+- Next: implement and test mixed-mode V3 WebSocket subscribe/unsubscribe, reconnect replay, and Redis consumer lifecycle. Persistence tests do not yet prove end-to-end mixed-mode streaming.
+- PR #9 remains Draft/unmerged. PAPER mode mandatory; live broker writes disabled; original `Tradepro` repository out of scope.

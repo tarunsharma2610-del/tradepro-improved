@@ -30,7 +30,7 @@ async def wait_for_consumer(consumers):
     while not consumers and asyncio.get_running_loop().time() < deadline:
         await asyncio.sleep(0.001)
     assert consumers, "worker did not create a consumer after acquiring its lease"
-    await wait_for_consumer(consumers)
+    await asyncio.wait_for(consumers[0].started.wait(), timeout=1)
 
 
 class FakeConsumer:
@@ -68,7 +68,7 @@ async def test_worker_consumes_quotes_under_user_scoped_lease_and_releases_on_cl
         lease_seconds=3,
     )
     await worker.reconcile_once()
-    await asyncio.wait_for(consumers[0].started.wait(), timeout=1)
+    await wait_for_consumer(consumers)
     await asyncio.sleep(0)
 
     assert worker.latest_quote(user_id, instrument)["ltp"] == 123.45
@@ -138,7 +138,7 @@ async def test_worker_stops_consuming_when_its_lease_is_replaced():
         lease_seconds=3,
     )
     await worker.reconcile_once()
-    await asyncio.wait_for(consumers[0].started.wait(), timeout=1)
+    await wait_for_consumer(consumers)
 
     lease_key = worker._lease_key(user_id)
     redis.values[lease_key] = "new-owner-token"

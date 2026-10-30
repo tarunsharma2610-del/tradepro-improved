@@ -96,12 +96,15 @@ class RedisMarketQuoteConsumer:
                     if not isinstance(event, dict) or event.get("user_id") != self.user_id:
                         continue
                     instrument_key = event.get("instrument_key")
+                    event_version = event.get("version")
                     if instrument_key not in instrument_keys:
+                        continue
+                    if isinstance(event_version, bool) or not isinstance(event_version, int) or event_version <= 0:
                         continue
                 except (TypeError, ValueError, json.JSONDecodeError):
                     continue
                 quote = await self.get_quote(instrument_key)
-                if quote is not None and quote["version"] >= event.get("version", 0):
+                if quote is not None and quote["version"] >= event_version:
                     yield quote
         finally:
             await pubsub.unsubscribe(self.channel)

@@ -6,6 +6,7 @@ message as the quote itself.
 """
 import json
 import logging
+import math
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -37,7 +38,7 @@ class RedisMarketQuotePublisher:
     def _fresh(self, tick: MarketTick, now: datetime) -> bool:
         if not tick.instrument_key or "|" not in tick.instrument_key:
             return False
-        if tick.ltp <= 0 or tick.exchange_timestamp_ms <= 0:
+        if not math.isfinite(tick.ltp) or tick.ltp <= 0 or tick.exchange_timestamp_ms <= 0:
             return False
         if now.tzinfo is None or tick.received_at.tzinfo is None:
             return False
@@ -54,6 +55,7 @@ class RedisMarketQuotePublisher:
         version_key = f"{key}:version"
         try:
             version = await self.redis.incr(version_key)
+            await self.redis.expire(version_key, self.ttl_seconds)
             snapshot = {
                 "schema_version": 1, "user_id": self.user_id,
                 "instrument_key": tick.instrument_key, "version": version,

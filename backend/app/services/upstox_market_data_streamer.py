@@ -227,6 +227,12 @@ class UpstoxMarketDataStreamer:
             open_interest = volume = average_price = total_buy = total_sell = None
             ohlc = None
             if market_ff is not None:
+                if union == "firstLevelWithGreeks":
+                    first = market_ff.firstDepth
+                    depth = ({
+                        "bid_quantity": int(first.bidQ), "bid_price": float(first.bidP),
+                        "ask_quantity": int(first.askQ), "ask_price": float(first.askP),
+                    },) if market_ff.HasField("firstDepth") else None
                 if union == "fullFeed" and full_union == "marketFF":
                     depth = tuple({
                         "bid_quantity": int(q.bidQ), "bid_price": float(q.bidP),
@@ -257,6 +263,9 @@ class UpstoxMarketDataStreamer:
                         "gamma": float(greeks_source.gamma), "vega": float(greeks_source.vega),
                         "rho": float(greeks_source.rho),
                     }
+                    implied_volatility = float(market_ff.iv) if market_ff.iv != 0 else None
+                    if implied_volatility is not None:
+                        greeks["iv"] = implied_volatility
             tick = MarketTick(
                 instrument_key=key,
                 ltp=float(ltpc.ltp),

@@ -243,6 +243,7 @@ async def change_market_data_stream_mode(
         "mode_changed": True,
         "delivery": delivery,
         "mode": streamer.mode,
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
         "instrument_count": len(streamer.instrument_keys),
         "instrument_keys": streamer.instrument_keys,
     }
@@ -329,6 +330,7 @@ def market_data_stream_status(user: User = Depends(get_current_user)):
         "running": streamer.running,
         "connected": streamer.connected,
         "mode": streamer.mode,
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
         "instrument_count": len(streamer.instrument_keys),
         "instrument_keys": streamer.instrument_keys,
         "quotes": quotes,

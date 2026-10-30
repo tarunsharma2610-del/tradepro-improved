@@ -33,7 +33,6 @@ from app.repositories.position_repository import PositionRepository
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.position_math import apply_fill
 from app.services.portfolio_risk_service import check_portfolio_order
-from app.services.market_data_stream_manager import market_data_stream_manager
 from app.services.transaction_costs import Segment, Side, calculate_costs
 from app.services.paper_trade_charge_estimator import estimate_paper_trade_costs
 from app.core.config import settings

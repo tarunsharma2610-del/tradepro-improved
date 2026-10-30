@@ -255,3 +255,8 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - SDK audit: UPSTOX_SDK_COMPATIBILITY_AUDIT.md. No SDK dependency added because current async adapter/streamer outperforms the SDK's synchronous/callback interfaces for our lifecycle. Official V3 protobuf schema matches the checked-in schema.
 - Follow-on CAS field propagation code head: fe76751c54a720ffa5fcec7b4f3728b137447090. This adds CAS numeric fields and eligibility to tick parsing, Redis snapshots, stream status and tests. Exact-head CI is pending; the prior successful CI does not certify this newer code.
 - Do not merge PR #9 or update main. PAPER mandatory; live order writes disabled; original Tradepro untouched.
+
+
+## SDK comparison — additional mixed-mode finding
+
+The official SDK source tracks separate instrument sets by feed mode and resubscribes each set on connection open. Our current streamer has one mode per user connection. This is a genuine gap for mixed scanner workloads. Borrow the mode-indexed subscription registry and reconnect replay logic after CAS-field CI passes; retain our async transport and token-provider refresh. Audit detail is in UPSTOX_SDK_COMPATIBILITY_AUDIT.md. This is planned work, not yet implemented or accepted.

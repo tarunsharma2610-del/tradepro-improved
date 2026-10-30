@@ -115,7 +115,16 @@ class MarketDataSubscriptionService:
         if connection is None:
             raise ValueError("Broker connection is not configured for this user.")
 
-        all_keys = {key for keys in subscriptions_by_mode.values() for key in keys}
+        assigned_modes: dict[str, str] = {}
+        for feed_mode, keys in subscriptions_by_mode.items():
+            for key in keys:
+                previous_mode = assigned_modes.get(key)
+                if previous_mode is not None and previous_mode != feed_mode:
+                    raise ValueError(
+                        f"Instrument {key} cannot be active in both {previous_mode} and {feed_mode} modes."
+                    )
+                assigned_modes[key] = feed_mode
+        all_keys = set(assigned_modes)
         instruments = (
             self.db.query(Instrument)
             .filter(Instrument.is_active.is_(True), Instrument.instrument_key.in_(all_keys))

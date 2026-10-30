@@ -261,3 +261,13 @@ Keep the existing async httpx/websockets adapter, application OAuth/token lifecy
 ### Safety and repository boundary
 
 Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-publisher. PR #9 remains Draft/unmerged. Do not modify tarunsharma2610-del/Tradepro. No live broker place/modify/cancel calls.
+
+
+## Phase 4 update — 30 October 2026
+
+- Latest verified code/test commit: `ef80d792c4d89abda1850b73f54f7b81bf16bbf7`.
+- Exact-head Backend CI [#41057600440 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41057600440), including pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore/evidence checks.
+- Feed-mode subscription persistence now replaces only the selected mode's desired instrument set; other modes remain active. Regression coverage added for independent `ltpc` and `full` subscriptions.
+- CI failure #41057234551 was an outdated single-mode test expectation; corrected on the verified head.
+- Next: implement and test mixed-mode V3 WebSocket subscribe/unsubscribe, reconnect replay, and Redis consumer lifecycle. Persistence tests do not yet prove end-to-end mixed-mode streaming.
+- PR #9 remains Draft/unmerged. PAPER mode mandatory; live broker writes disabled; original `Tradepro` repository out of scope.

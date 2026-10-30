@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 _PUBLISH_ATOMIC = """
 local version = redis.call('INCR', KEYS[2])
-redis.call('EXPIRE', KEYS[2], ARGV[2])
 local encoded = string.gsub(ARGV[1], '"version":0', '"version":' .. version, 1)
 redis.call('SET', KEYS[1], encoded, 'EX', ARGV[2])
 local event = cjson.encode({

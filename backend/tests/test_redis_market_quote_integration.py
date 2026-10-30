@@ -57,7 +57,7 @@ async def test_real_redis_publisher_consumer_round_trip_and_user_isolation():
         assert quote_a["version"] == quote_b["version"] == 1
 
         assert await redis.ttl(publisher_a.snapshot_key(instrument)) > 0
-        assert await redis.ttl(publisher_a.snapshot_key(instrument) + ":version") > 0
+        assert await redis.ttl(publisher_a.snapshot_key(instrument) + ":version") == -1
         assert await redis.ttl(publisher_b.snapshot_key(instrument)) > 0
     finally:
         await redis.delete(
@@ -65,6 +65,34 @@ async def test_real_redis_publisher_consumer_round_trip_and_user_isolation():
             publisher_a.snapshot_key(instrument) + ":version",
             publisher_b.snapshot_key(instrument),
             publisher_b.snapshot_key(instrument) + ":version",
+        )
+        await redis.aclose()
+
+
+@pytest.mark.asyncio
+async def test_real_redis_version_counter_survives_quote_snapshot_expiry():
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=2)
+    try:
+        assert await publisher.publish(make_tick(instrument, 2500.0))
+        version_key = publisher.snapshot_key(instrument) + ":version"
+        assert await redis.get(version_key) == "1"
+        assert await redis.ttl(version_key) == -1
+
+        # Simulate a quiet instrument whose quote snapshot expires naturally.
+        await redis.delete(publisher.snapshot_key(instrument))
+        assert await redis.get(publisher.snapshot_key(instrument)) is None
+        assert await publisher.publish(make_tick(instrument, 2501.0))
+        snapshot = json.loads(await redis.get(publisher.snapshot_key(instrument)))
+        assert snapshot["version"] == 2
+        assert await redis.get(version_key) == "2"
+        assert await redis.ttl(version_key) == -1
+    finally:
+        await redis.delete(
+            publisher.snapshot_key(instrument),
+            publisher.snapshot_key(instrument) + ":version",
         )
         await redis.aclose()
 
@@ -140,7 +168,7 @@ async def test_real_redis_concurrent_publishes_preserve_atomic_version_order():
         assert json.loads(snapshot)["version"] == 40
         notifications = await redis.pubsub_numsub(publisher.channel)
         assert notifications[0][1] == 0
-        assert await redis.ttl(publisher.snapshot_key(instrument) + ":version") > 0
+        assert await redis.ttl(publisher.snapshot_key(instrument) + ":version") == -1
     finally:
         await redis.delete(
             publisher.snapshot_key(instrument),

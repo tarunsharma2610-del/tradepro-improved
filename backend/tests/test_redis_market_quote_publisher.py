@@ -43,8 +43,6 @@ class FakeRedis:
         assert numkeys == 3
         version = self.versions.get(version_key, 0) + 1
         self.versions[version_key] = version
-        self.version_ttls = getattr(self, "version_ttls", {})
-        self.version_ttls[version_key] = int(ttl)
         snapshot = json.loads(encoded)
         snapshot["version"] = version
         self.snapshots[key] = (json.dumps(snapshot, separators=(",", ":")), int(ttl))

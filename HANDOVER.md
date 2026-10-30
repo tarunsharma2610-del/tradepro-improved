@@ -2908,3 +2908,12 @@ Resume only in `tarunsharma2610-del/tradepro-improved`, branch `phase4/redis-mar
 Redis 7 is now a CI service. Publisher version increment + snapshot + TTL + Pub/Sub notification are atomic via Lua. Real Redis integration tests cover tenant isolation, TTL, authoritative snapshot reads, consumer-instance restart recovery, and concurrent publishing. Earlier run #41026517896 failed only on a missing test import; fixed in the accepted head.
 
 Next: implement bounded Redis reconnect/resubscription and recovery sweep after reconnect; test actual Redis server restart and independent OS processes. Only then integrate scanner and PAPER strategy. No scanner/strategy integration is currently claimed. PAPER mandatory; live broker writes disabled; PR #8/#9 Draft/unmerged; main untouched; original Tradepro untouched.
+
+
+## Phase 4 handover — Redis version-counter lifecycle checkpoint, 30 October 2026
+
+Resume only in `tarunsharma2610-del/tradepro-improved`, branch `phase4/redis-market-data-publisher`, PR #9 Draft/unmerged. Latest verified code head `3088e49cf24317f58f7e04a60d6cd54e065143b4`; exact-head Backend pytest CI #41031153316 passed: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41031153316.
+
+The Redis publisher now keeps per-user/per-instrument version counters persistent while quote snapshots retain their TTL. A real Redis integration test verifies that after a snapshot is deleted/expired, the next publish increments the counter instead of resetting it. This resolves ordinary snapshot-expiry version regression. Redis process-restart recovery has its own test; do not claim independent OS-process delivery or full production readiness from it.
+
+Next: audit consumer startup/reconnect snapshot recovery and worker lifecycle; add independent publisher/consumer OS-process tests; test multiple users/instruments under concurrency and restart. Then integrate scanner, then PAPER strategy. No scanner or strategy integration is currently claimed. PAPER mandatory; live broker writes disabled; PR #9 Draft/unmerged; main untouched; original Tradepro untouched.

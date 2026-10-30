@@ -1702,3 +1702,10 @@ The Upstox V3 stream manager now routes its per-user asynchronous tick callback 
 The Upstox V3 streamer remains the process-local WebSocket ingress and its existing async tick callback publishes validated ticks through `RedisMarketQuotePublisher`. Redis is the cross-process quote transport/cache; it is not a second market-data provider. The publisher uses a Lua script to atomically allocate per-user/per-instrument versions, write expiring authoritative snapshots, and publish lightweight wake-up notifications. Consumers must read and validate snapshots; Pub/Sub payloads are never trusted as quote values.
 
 Backend CI provisions Redis 7 and PostgreSQL 16. Exact-head Backend CI #41026567279 passed on `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`. Current limits: consumer reconnect/resubscribe after Redis outage, actual Redis server restart recovery, and independent OS-process tests remain pending. Scanner and strategy do not yet consume this shared quote stream. Downstream components must enforce user isolation, TTL, exchange timestamp, schema/version checks, and fail-closed stale-data handling.
+
+
+## Phase 4 Redis version-counter lifecycle — 30 October 2026
+
+Exact-head Backend pytest CI #41031153316 passed on `3088e49cf24317f58f7e04a60d6cd54e065143b4`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41031153316. The Redis publisher no longer applies TTL to the version counter; the authoritative quote snapshot continues to expire. A real Redis integration test verifies that deleting/expiring a snapshot and publishing a subsequent tick produces the next version rather than resetting the version sequence.
+
+This addresses ordinary snapshot expiry, not Redis data-loss epochs. A Redis server restart can erase volatile counters and snapshots; consumer-local high-water marks must be reset/reconciled safely and a post-reconnect authoritative snapshot sweep must occur. Persistent version keys also need an explicit bounded-retention/cleanup policy for instruments no longer subscribed. Independent OS-process delivery and sustained multi-tenant load remain pending; scanner and PAPER strategy do not yet consume this transport.

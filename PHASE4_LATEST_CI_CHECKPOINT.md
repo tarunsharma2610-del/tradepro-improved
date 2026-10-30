@@ -220,3 +220,15 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - The Redis consumer remains a standalone service: scanner/strategy integration is NOT complete. Actual Redis-server restart/reconnect and independent OS-process tests remain pending. Do not treat mocked/unit tests or consumer-instance restart as proof of Redis server restart recovery.
 - **Next:** implement and test Redis consumer reconnect/resubscribe and snapshot recovery after Redis restart; then independent-process tests; then scanner integration; then PAPER strategy integration. Preserve quote expiry, exchange timestamps, user isolation, version monotonicity, and fail-closed behaviour.
 - Safety: PAPER mandatory; live broker order writes remain disabled; PR #8/#9 remain Draft/unmerged; no main update; only Tradepro Improved may be modified.
+
+
+## 30 October 2026 — Redis quote version-counter lifecycle checkpoint
+
+- **Latest verified code/test head:** `3088e49cf24317f58f7e04a60d6cd54e065143b4`.
+- **Exact-head Backend pytest workflow #41031153316: SUCCESS:** https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41031153316.
+- Publisher version counters no longer receive a TTL; authoritative quote snapshots continue to expire. This prevents a quiet instrument's counter resetting while a long-running consumer retains a higher local version.
+- Added real Redis integration coverage for snapshot deletion/expiry followed by a subsequent publish retaining the incremented version.
+- This checkpoint does NOT by itself prove all Redis recovery/production lifecycle gates. The earlier real Redis process-restart integration test is present, but independent OS-process publisher/consumer testing and sustained multi-user/multi-instrument load remain pending.
+- Scanner and PAPER strategy integrations remain NOT complete. Do not advance them until transport acceptance gates are met.
+- **Next:** audit consumer startup/reconnect snapshot sweep and worker lifecycle; add independent OS-process delivery tests and sustained isolation/load tests; then integrate scanner, followed by PAPER strategy.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #9 Draft/unmerged; no main update; PAPER mandatory; live broker writes disabled; original Tradepro untouched.

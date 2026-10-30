@@ -240,3 +240,18 @@ No step is complete merely because a service or test double exists. Do not enabl
 - [ ] Update checkpoint after each exact-head CI pass.
 
 Do not skip gates or mark downstream integrations complete based on publisher/consumer unit tests. Keep PR #9 Draft/unmerged and live broker writes disabled.
+
+
+## Redis version-counter lifecycle update — 30 October 2026
+
+- [x] Keep Redis version counters persistent across ordinary quote snapshot expiry.
+- [x] Real Redis integration test: delete/expire snapshot, publish next quote, verify version increments rather than resetting.
+- [x] Exact-head Backend pytest CI #41031153316 passed on `3088e49cf24317f58f7e04a60d6cd54e065143b4`.
+- [ ] Audit consumer startup/reconnect authoritative snapshot sweep and fail-closed behaviour.
+- [ ] Verify dedicated worker lifecycle, cancellation and graceful shutdown.
+- [ ] Add independent publisher/consumer OS-process integration tests.
+- [ ] Add multi-user/multi-instrument concurrency, isolation and recovery tests.
+- [ ] Integrate scanner only after transport gates pass.
+- [ ] Integrate PAPER strategy only after scanner acceptance; retain candle freshness and risk gates.
+
+Persistent version keys require an explicit retention/cleanup policy for instruments no longer subscribed; do not reintroduce TTL-based counter resets without an epoch-safe design. Keep PR #9 Draft/unmerged and live broker writes disabled.

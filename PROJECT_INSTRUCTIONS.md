@@ -2221,3 +2221,13 @@ Resume from exact verified code head `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`,
 - Next gates: reconnect/resubscribe and recovery after Redis outage; actual Redis server restart test; independent process test; scanner integration; PAPER strategy integration. Do not skip gates or claim integration prematurely.
 - PAPER mode mandatory. Live `place_order`, `modify_order`, and `cancel_order` writes remain disabled. Do not merge PR #8/#9 or update main without explicit authorization. Preserve Phase 3 accounting safeguards and all fail-closed freshness/risk controls.
 - Use official Upstox Developer Console, API docs, SDKs and supplied protobuf schemas when appropriate; audit existing capabilities before adding duplicate services or workaround layers.
+
+
+## Phase 4 continuation checkpoint — 30 October 2026
+
+- Latest verified code head: `3088e49cf24317f58f7e04a60d6cd54e065143b4`; exact-head Backend pytest CI #41031153316 passed.
+- Redis quote snapshots retain TTL; per-instrument version counters no longer expire, preventing version regression after ordinary snapshot expiry. Real Redis integration coverage was added.
+- Do not interpret this as proof of independent OS-process delivery or complete production readiness. Next audit startup/reconnect authoritative snapshot sweep, consumer/worker lifecycle and shutdown; add independent-process and multi-user/multi-instrument tests.
+- Persistent version keys need an explicit retention/cleanup policy; do not add counter TTL back without epoch-safe version semantics.
+- Only modify `tarunsharma2610-del/tradepro-improved`; never original `tarunsharma2610-del/Tradepro`. PR #9 remains Draft/unmerged; do not update main or merge without explicit authorization. PAPER mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled. Preserve Phase 3 accounting safeguards and fail-closed freshness/risk controls.
+- Prefer official Upstox Developer Console, API docs, SDKs and protobuf contracts when relevant; audit existing support before adding duplicate services.

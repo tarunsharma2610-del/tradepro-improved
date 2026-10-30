@@ -182,3 +182,13 @@ Backend pytest passed on code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e
 - Pending: automatic Redis reconnect/resubscribe, Redis server restart recovery, independent OS-process tests, scanner consumption, and PAPER strategy consumption. No scanner/strategy integration is claimed.
 - Next implementation gate: reconnect/resubscription with bounded backoff and a post-reconnect authoritative snapshot sweep; add real Redis failure/restart tests before wiring scanner.
 - PR #9 remains Draft/unmerged; no main update. PAPER mandatory; live broker writes disabled; original Tradepro untouched.
+
+
+## 30 October 2026 — Redis version-counter lifecycle checkpoint
+
+- **Exact-head Backend pytest CI #41031153316 PASSED** on `3088e49cf24317f58f7e04a60d6cd54e065143b4`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41031153316.
+- Publisher no longer expires the per-user/per-instrument version counter; quote snapshots retain their configured TTL. This preserves monotonic versions when a quiet instrument's snapshot expires and later receives another tick.
+- Added real Redis coverage verifying snapshot absence followed by a new publish produces the next version, not a reset version.
+- Redis process-restart test exists and previously passed in #41029973040. Do not conflate that test with independent OS-process publisher/consumer validation or full production readiness.
+- Pending: inspect startup/reconnect authoritative snapshot sweep, worker lifecycle and shutdown; independent OS-process delivery tests; multi-user/multi-instrument load and isolation tests; scanner consumption; PAPER strategy consumption.
+- PR #9 remains Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled; original Tradepro out of scope.

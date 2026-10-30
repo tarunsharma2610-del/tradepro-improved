@@ -1604,3 +1604,9 @@ Credentialed Upstox OAuth/API smoke testing and real Oracle/database-plus-docume
 - **Evidence boundary:** Brokerage Details remains estimate-only; Trade Charges remains aggregate reconciliation-only and never per-fill actual evidence. Null IPFT must not be silently coerced to zero. This fix validates response shape; it does not approve tariffs or promote accounting.
 - **Contract-note continuity:** previously supplied January 2023 Upstox/RKSV contract-note examples remain available as historical regression fixtures; do not ask the user to provide them again. Their scope must be respected when using them for GST totals versus per-fill allocations.
 - **Next:** verify CI on the exact synchronized documentation head. Keep PR #6/#7 Draft and unmerged, PAPER mode mandatory, live broker writes disabled, and the original `tarunsharma2610-del/Tradepro` repository untouched.
+
+## Market-data execution pricing — 30 October 2026
+
+Paper market-order pricing uses Upstox Full Market Quotes V3 order-book depth, not LTP alone. BUY simulation consumes ask levels; SELL simulation consumes bid levels; the fill price is quantity-weighted across consumed levels. Snapshot timestamp determines book freshness; last_trade_time is not used as a proxy for snapshot freshness. Instrument identity, positive finite prices, timestamp bounds and sufficient displayed depth are mandatory. A missing/stale/invalid snapshot or insufficient depth rejects the paper order.
+
+Token scopes are distinct: Analytics Token for officially supported market-data/streaming APIs; standard OAuth access token for account/portfolio/trading APIs. Keep credentials separately encrypted and never cross-fallback.

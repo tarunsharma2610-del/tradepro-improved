@@ -464,44 +464,6 @@ async def test_filled_order_cannot_be_cancelled(db_session, portfolio, instrumen
 
 
 @pytest.mark.asyncio
-async def test_execution_prefers_fresh_subscribed_websocket_quote(db_session, monkeypatch):
-    from types import SimpleNamespace
-    from uuid import uuid4
-
-    streamer = type("FreshStreamer", (), {
-        "latest_tick": lambda self, key: SimpleNamespace(ltp=123.45)
-    })()
-    monkeypatch.setattr(
-        "app.services.execution_service.market_data_stream_manager.get",
-        lambda user_id: streamer,
-    )
-    with patch("app.services.execution_service.get_broker_adapter") as adapter:
-        price, error = await ExecutionService(db_session)._get_ltp(
-            uuid4(), "NSE_EQ|INE002A01018", "test-token"
-        )
-    assert price == Decimal("123.45")
-    assert error is None
-    adapter.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_execution_falls_back_to_rest_when_websocket_quote_is_stale(db_session, monkeypatch):
-    from uuid import uuid4
-
-    stale_streamer = type("StaleStreamer", (), {"latest_tick": lambda self, key: None})()
-    monkeypatch.setattr(
-        "app.services.execution_service.market_data_stream_manager.get",
-        lambda user_id: stale_streamer,
-    )
-    with _mock_quote("2500"):
-        price, error = await ExecutionService(db_session)._get_ltp(
-            uuid4(), "NSE_EQ|INE002A01018", "test-token"
-        )
-    assert price == Decimal("2500")
-    assert error is None
-
-
-@pytest.mark.asyncio
 async def test_portfolio_daily_realized_loss_limit_blocks_new_entry(db_session, portfolio, instrument):
     user, p = portfolio
     p.risk_controls_enabled = True

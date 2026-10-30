@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
@@ -9,7 +9,7 @@ from app.models.execution import Execution
 from app.models.order import Order
 from app.core.encryption import encrypt_value
 from app.repositories.portfolio_repository import PortfolioRepository
-from app.services.execution_service import ExecutionService, OrderValidationError, _extract_fresh_full_quote_ltp, _extract_ltp
+from app.services.execution_service import ExecutionService, OrderValidationError, _extract_fresh_market_depth_price, _extract_ltp
 from app.services.execution_service import PlaceOrderRequest as ServicePlaceOrderRequest
 from app.services.instrument_service import InstrumentService
 from app.services.transaction_costs import Segment, Side
@@ -56,10 +56,21 @@ def _mock_quote(price: str):
     """The only thing mocked is the actual HTTP call to Upstox — real
     account credentials aren't available in a test environment. Everything
     downstream (cost calc, position update, cash accounting) is real."""
+    now = datetime.now(timezone.utc).isoformat()
+    level = {"price": price, "quantity": 100000, "orders": 10}
+    quote = {
+        "instrument_token": "NSE_EQ|INE002A01018",
+        "last_price": price,
+        "last_trade_time": "1600000000000",
+        "timestamp": now,
+        "depth": {"buy": [level], "sell": [level]},
+    }
     return patch(
         "app.services.execution_service.get_broker_adapter",
         return_value=type(
-            "FakeAdapter", (), {"get_full_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ:TEST": {"instrument_token": "NSE_EQ|INE002A01018", "last_price": price, "last_trade_time": str(int(datetime.now(timezone.utc).timestamp() * 1000))}}}))}
+            "FakeAdapter",
+            (),
+            {"get_full_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ:TEST": quote}}))},
         )(),
     )
 
@@ -775,23 +786,69 @@ def test_quote_parser_uses_only_the_requested_instrument_key():
 
 
 
-def test_full_quote_ltp_requires_matching_instrument_and_fresh_exchange_timestamp():
+def test_market_depth_price_uses_fresh_snapshot_and_side_appropriate_depth():
     now = datetime(2026, 10, 30, 10, 0, tzinfo=timezone.utc)
-    fresh_ms = int(now.timestamp() * 1000)
     fresh = {
         "data": {
             "NSE_EQ:TEST": {
                 "instrument_token": "NSE_EQ|INE002A01018",
                 "last_price": "123.45",
-                "last_trade_time": str(fresh_ms),
+                "last_trade_time": "1600000000000",
+                "timestamp": now.isoformat(),
+                "depth": {
+                    "buy": [{"price": "123.40", "quantity": 2}],
+                    "sell": [
+                        {"price": "123.50", "quantity": 1},
+                        {"price": "123.60", "quantity": 2},
+                    ],
+                },
             }
         }
     }
-    assert _extract_fresh_full_quote_ltp(fresh, "NSE_EQ|INE002A01018", now=now) == Decimal("123.45")
-    assert _extract_fresh_full_quote_ltp(fresh, "NSE_EQ|OTHER", now=now) is None
+    assert _extract_fresh_market_depth_price(
+        fresh, "NSE_EQ|INE002A01018", side=Side.BUY, quantity=2, now=now
+    ) == Decimal("123.55")
+    assert _extract_fresh_market_depth_price(
+        fresh, "NSE_EQ|INE002A01018", side=Side.SELL, quantity=2, now=now
+    ) == Decimal("123.40")
+    assert _extract_fresh_market_depth_price(
+        fresh, "NSE_EQ|OTHER", side=Side.BUY, quantity=1, now=now
+    ) is None
 
-    stale = {"data": {"NSE_EQ:TEST": {**fresh["data"]["NSE_EQ:TEST"], "last_trade_time": str(fresh_ms - 60_000)}}}
-    assert _extract_fresh_full_quote_ltp(stale, "NSE_EQ|INE002A01018", now=now) is None
 
-    missing_timestamp = {"data": {"NSE_EQ:TEST": {"instrument_token": "NSE_EQ|INE002A01018", "last_price": "123.45"}}}
-    assert _extract_fresh_full_quote_ltp(missing_timestamp, "NSE_EQ|INE002A01018", now=now) is None
+def test_market_depth_rejects_stale_snapshot_and_insufficient_liquidity():
+    now = datetime(2026, 10, 30, 10, 0, tzinfo=timezone.utc)
+    quote = {
+        "instrument_token": "NSE_EQ|INE002A01018",
+        "timestamp": (now - timedelta(seconds=20)).isoformat(),
+        "depth": {"buy": [{"price": "123.40", "quantity": 1}], "sell": [{"price": "123.50", "quantity": 1}]},
+    }
+    stale = {"data": {"NSE_EQ:TEST": quote}}
+    assert _extract_fresh_market_depth_price(
+        stale, "NSE_EQ|INE002A01018", side=Side.BUY, quantity=1, now=now
+    ) is None
+    quote["timestamp"] = now.isoformat()
+    assert _extract_fresh_market_depth_price(
+        stale, "NSE_EQ|INE002A01018", side=Side.BUY, quantity=2, now=now
+    ) is None
+
+
+@pytest.mark.asyncio
+async def test_market_order_uses_rest_depth_even_when_ltpc_websocket_exists(db_session, monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    streamer = type("FreshStreamer", (), {
+        "latest_tick": lambda self, key: SimpleNamespace(ltp=999999.0)
+    })()
+    monkeypatch.setattr(
+        "app.services.execution_service.market_data_stream_manager.get",
+        lambda user_id: streamer,
+    )
+    with _mock_quote("2500") as quote_patch:
+        price, error = await ExecutionService(db_session)._get_ltp(
+            uuid4(), "NSE_EQ|INE002A01018", "test-token", Side.BUY, 1
+        )
+    assert price == Decimal("2500")
+    assert error is None
+    quote_patch.assert_called_once()

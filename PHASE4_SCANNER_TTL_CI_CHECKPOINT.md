@@ -53,3 +53,12 @@
 - Tests cover fresh LTP trailing-stop exit and cross-user isolation. The follow-up test added on this documentation/test increment checks that a 15.1-second-old observation is unavailable to strategy evaluation.
 - Important limitation: strategy evaluation still runs on a 300-second cadence. This is not a tick-by-tick stop monitor; next work must evaluate a safe quote-driven PAPER stop-monitor path without repeating candle downloads or bypassing execution/risk/depth/accounting safeguards.
 - No live broker writes, deployment, or credentialed Upstox smoke test.
+
+
+## Quote-driven PAPER stop monitor audit — 30 October 2026
+
+- Baseline `d6fd555d17faa02beff229a04acd3dfcd4cf86c5` passed Backend CI #41076913522.
+- A separate architecture audit was saved in `PHASE4_PAPER_STOP_MONITOR_DESIGN.md`.
+- A tick-driven stop monitor is intentionally not enabled yet. The audit identified missing durable event idempotency, strategy/position concurrency locks, ambiguous ownership when multiple strategies share one portfolio/instrument, exchange-timestamp freshness enforcement, and bounded quote dispatch/backpressure.
+- LTPC WebSocket messages remain trigger/valuation data only; PAPER fills must continue through the existing shared ExecutionService and fresh Full Market Quotes V3 depth. No live broker order writes.
+- Next work: implement/test a bounded coalescing dispatcher and durable stop-event claim/ownership model before connecting quote events to PAPER exits.

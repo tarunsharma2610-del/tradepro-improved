@@ -102,7 +102,7 @@ class PaperStopEventClaimService:
                 Strategy.is_active.is_(True),
                 Strategy.id != strategy.id,
             )
-            .with_for_update()
+            .with_for_update(of=Strategy)
             .first()
         )
         if competing is not None:
@@ -116,7 +116,7 @@ class PaperStopEventClaimService:
                 Position.portfolio_id == portfolio.id,
                 Position.instrument_id == instrument_id,
             )
-            .with_for_update()
+            .with_for_update(of=Position)
             .first()
         )
         if position is None or position.quantity == 0:

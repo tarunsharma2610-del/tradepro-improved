@@ -69,6 +69,10 @@ class BrokerAdapter(ABC):
     ) -> BrokerCallResult:
         ...
 
+    async def get_full_quote(self, access_token: str, instrument_keys: list[str]) -> BrokerCallResult:
+        """Optional full quote snapshot, including exchange timestamps when supported."""
+        return BrokerCallResult(ok=False, error=f"{self.broker_name} adapter does not implement full quotes.")
+
     async def get_intraday_data(
         self, access_token: str, instrument_key: str, unit: str, interval: str
     ) -> BrokerCallResult:

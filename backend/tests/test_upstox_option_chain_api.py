@@ -257,17 +257,29 @@ def test_stream_lifecycle_routes_use_user_scoped_stream_and_validate_active_keys
         running = True
         mode = "full"
         instrument_keys = ["NSE_INDEX|Nifty 50"]
+        subscriptions = {"ltpc": set(), "option_greeks": set(), "full": {"NSE_INDEX|Nifty 50"}}
 
-        async def subscribe(self, keys):
-            self.instrument_keys.extend(key for key in keys if key not in self.instrument_keys)
+        @property
+        def subscriptions_by_mode(self):
+            return {mode: sorted(keys) for mode, keys in self.subscriptions.items() if keys}
+
+        async def subscribe(self, keys, mode=None):
+            target = mode or self.mode
+            self.subscriptions[target].update(keys)
+            self.instrument_keys = sorted(set().union(*self.subscriptions.values()))
             return "sent"
 
         async def unsubscribe(self, keys):
-            self.instrument_keys = [key for key in self.instrument_keys if key not in keys]
+            for mode_keys in self.subscriptions.values():
+                mode_keys.difference_update(keys)
+            self.instrument_keys = sorted(set().union(*self.subscriptions.values()))
             return "sent"
 
         async def change_mode(self, keys, mode):
-            assert set(keys) == set(self.instrument_keys)
+            for mode_keys in self.subscriptions.values():
+                mode_keys.difference_update(keys)
+            self.subscriptions[mode].update(keys)
+            self.instrument_keys = sorted(set().union(*self.subscriptions.values()))
             self.mode = mode
             return "sent"
 
@@ -422,6 +434,7 @@ def test_stream_status_exposes_fresh_full_feed_fields_for_scanner_consumers(monk
         connected = True
         mode = "full"
         instrument_keys = ["NSE_INDEX|Nifty 50"]
+        subscriptions_by_mode = {"full": ["NSE_INDEX|Nifty 50"]}
 
         def latest_tick(self, key):
             return tick if key == tick.instrument_key else None
@@ -456,6 +469,7 @@ def test_stream_status_represents_stale_or_missing_quotes_as_unavailable(monkeyp
         connected = True
         mode = "full"
         instrument_keys = ["NSE_INDEX|India VIX"]
+        subscriptions_by_mode = {"full": ["NSE_INDEX|India VIX"]}
 
         def latest_tick(self, key):
             return None

@@ -15,6 +15,89 @@ from app.brokers.registry import get_broker_adapter
 
 router = APIRouter(prefix="/market-data", tags=["market-data"])
 
+_INDEX_PRESET_DEFINITIONS = (
+    {
+        "preset": "nifty_50",
+        "display_name": "Nifty 50",
+        "name_aliases": {"NIFTY50"},
+        "symbol_aliases": {"NIFTY"},
+    },
+    {
+        "preset": "nifty_bank",
+        "display_name": "Nifty Bank",
+        "name_aliases": {"NIFTYBANK", "BANKNIFTY"},
+        "symbol_aliases": {"BANKNIFTY", "NIFTYBANK"},
+    },
+    {
+        "preset": "india_vix",
+        "display_name": "India VIX",
+        "name_aliases": {"INDIAVIX"},
+        "symbol_aliases": {"INDIAVIX"},
+    },
+)
+
+
+def _normalize_index_label(value: str | None) -> str:
+    return "".join(character for character in (value or "").upper() if character.isalnum())
+
+
+@router.get("/index-presets")
+def get_index_feed_presets(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Resolve common index feed presets from the validated Upstox BOD catalog.
+
+    The complete BOD catalog is the authoritative local universe used by the
+    scanner. Resolve keys from active NSE_INDEX rows rather than hardcoding
+    exchange tokens or depending on an OAuth-only search request at runtime.
+    """
+    catalog = (
+        db.query(Instrument)
+        .filter(
+            Instrument.is_active.is_(True),
+            Instrument.exchange == "NSE",
+            Instrument.segment == "NSE_INDEX",
+            Instrument.instrument_type == "INDEX",
+        )
+        .all()
+    )
+    presets = []
+    for definition in _INDEX_PRESET_DEFINITIONS:
+        matches = [
+            item for item in catalog
+            if _normalize_index_label(item.name) in definition["name_aliases"]
+            or _normalize_index_label(item.trading_symbol) in definition["symbol_aliases"]
+        ]
+        if len(matches) == 1:
+            item = matches[0]
+            presets.append({
+                "preset": definition["preset"],
+                "display_name": definition["display_name"],
+                "available": True,
+                "instrument": {
+                    "instrument_key": item.instrument_key,
+                    "name": item.name,
+                    "trading_symbol": item.trading_symbol,
+                    "exchange": item.exchange,
+                    "segment": item.segment,
+                    "instrument_type": item.instrument_type,
+                },
+            })
+        else:
+            presets.append({
+                "preset": definition["preset"],
+                "display_name": definition["display_name"],
+                "available": False,
+                "reason": "not_found" if not matches else "ambiguous_catalog_match",
+                "instrument": None,
+            })
+    return {
+        "source": "upstox_bod_instrument_master",
+        "catalog_sync_endpoint": "/api/v1/instruments/sync",
+        "presets": presets,
+    }
+
 def _validate_active_instruments(db: Session, instrument_keys: list[str]) -> None:
     found = {
         row.instrument_key

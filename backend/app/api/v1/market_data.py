@@ -190,7 +190,9 @@ async def unsubscribe_market_data(
         if desired_keys:
             MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=desired_keys, feed_mode=streamer.mode)
         else:
-            MarketDataSubscriptionService(db).deactivate_for_user(user_id=user.id, broker="upstox")
+            MarketDataSubscriptionService(db).deactivate_mode_for_user(
+                user_id=user.id, broker="upstox", feed_mode=streamer.mode
+            )
         delivery = await streamer.unsubscribe(payload.instrument_keys)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))

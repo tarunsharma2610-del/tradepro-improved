@@ -115,7 +115,7 @@ def main() -> int:
     violations = find_violations(app_root)
     if violations:
         print("Broker-write boundary guard FAILED:")
-        print("\\n".join(f" - {item}" for item in violations))
+        print("\n".join(f" - {item}" for item in violations))
         return 1
     print("Broker-write boundary guard passed: no unapproved broker-write references found.")
     return 0

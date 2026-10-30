@@ -21,7 +21,7 @@ def _response(candles):
 async def test_strategy_fetch_combines_historical_and_current_session_candles():
     now = datetime.now(IST).replace(second=0, microsecond=0)
     historical_time = (now - timedelta(days=1)).replace(hour=15, minute=20)
-    current_time = now.replace(hour=10, minute=0)
+    current_time = now - timedelta(minutes=5)
     historical = _response([
         [historical_time.isoformat(), 100, 102, 99, 101, 1000, 0],
     ])

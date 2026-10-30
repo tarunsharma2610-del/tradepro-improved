@@ -81,6 +81,9 @@ def test_non_triggering_observation_only_advances_long_watermark(db_session, mak
     )
 
     assert events == []
+    # The intake service deliberately leaves transaction ownership to its
+    # caller; commit the watermark update before verifying persisted state.
+    db_session.commit()
     db_session.refresh(strategy)
     assert strategy.current_watermark == Decimal("103.0000")
     assert db_session.query(PaperStopEvent).count() == 0

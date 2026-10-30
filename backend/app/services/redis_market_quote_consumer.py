@@ -110,7 +110,24 @@ class RedisMarketQuoteConsumer:
                 for quote in (await self.recover(instrument_keys)).values():
                     yield quote
 
-                async for message in pubsub.listen():
+                while True:
+                    # A blocking listen() can remain suspended on a dead TCP
+                    # socket indefinitely when Redis is restarted without
+                    # another message. Poll with a bounded timeout and use a
+                    # Pub/Sub PING/PONG heartbeat to detect dead connections.
+                    message = await pubsub.get_message(
+                        ignore_subscribe_messages=True,
+                        timeout=1.0,
+                    )
+                    if message is None:
+                        await pubsub.ping()
+                        pong = await pubsub.get_message(
+                            ignore_subscribe_messages=False,
+                            timeout=1.0,
+                        )
+                        if pong is None or pong.get("type") != "pong":
+                            raise ConnectionError("Redis Pub/Sub heartbeat was not acknowledged")
+                        continue
                     if message.get("type") != "message":
                         continue
                     try:
@@ -128,8 +145,6 @@ class RedisMarketQuoteConsumer:
                     quote = await self.get_quote(instrument_key)
                     if quote is not None and quote["version"] >= event_version:
                         yield quote
-
-                raise ConnectionError("Redis Pub/Sub stream ended unexpectedly")
             except asyncio.CancelledError:
                 raise
             except Exception as exc:

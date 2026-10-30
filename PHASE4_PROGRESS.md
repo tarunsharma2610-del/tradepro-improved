@@ -281,3 +281,13 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Worker currently does not manage Redis consumer instances; strategy evaluation remains on the existing candle path. Scanner/PAPER strategy Redis consumption is not implemented.
 - Next gate: exact-head CI; then implement a controlled worker consumer lifecycle with durable subscription discovery, single-owner coordination, graceful shutdown/cancellation and reconnect tests. Only then connect scanner/PAPER evaluation.
 - PR #9 Draft/unmerged; PAPER-only; live broker writes disabled; original Tradepro repository untouched.
+
+
+## Latest verified checkpoint — 30 October 2026
+
+- Implementation commit `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI [#41080156436](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436); Backend pytest success, no failed steps.
+- Added transactional `PaperStopEventClaimService`: ownership validation; portfolio → strategy → position locks; open position requirement; ambiguous shared portfolio/instrument ownership fails closed; unique quote-event identity; claim token/lease/attempt metadata; duplicate insert protected by nested savepoint.
+- Claim service is not connected to dispatcher or order execution. Caller owns transaction commit/rollback.
+- Next: PostgreSQL 16 multi-session claim race tests; explicit state transitions and lease reclaim; crash recovery; shared-position allocation decision; only then controlled dispatcher-to-PAPER execution.
+- Do not enable live writes, merge PR #9, or deploy. PR #9 remains Draft/unmerged; PAPER mandatory.
+- The documentation synchronization commit is separate and requires exact-head CI.

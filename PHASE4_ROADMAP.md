@@ -88,3 +88,15 @@ Phase 4 is complete only when each applicable work-package exit criterion is sup
 - [ ] Run exact-head backend CI after code/docs changes and checkpoint only the exact passing head.
 
 Engineering rule: check provider-supported capability and existing implementation before writing custom workarounds. Explain and justify any remaining workaround. PAPER/live-write/repository boundaries remain unchanged.
+
+## Upstox API-first market-data work — 30 October 2026
+
+- [x] Confirm the official current-session V3 intraday candle endpoint and documented seven-field candle schema.
+- [x] Add optional adapter capability and Upstox V3 intraday REST implementation.
+- [x] Combine historical and intraday candle sources in strategy evaluation; use Asia/Kolkata session date and timestamp-normalized deduplication.
+- [x] Add API contract, source merge, and fail-closed regression tests.
+- [ ] Verify CI on exact current head d7c786fc164ed297df42f26493c994ceacd337a7; resolve failures before checkpointing green.
+- [ ] Audit how to consume the existing V3 WebSocket stream inside the actual strategy worker process. The current API-process stream registry is process-local; do not assume it is shared with the worker container.
+- [ ] Only integrate WebSocket data where it improves a defined requirement (e.g. current LTP for paper valuation/stop decisions); preserve five-minute candle indicator semantics and use official candle endpoints for OHLC history.
+- [ ] Verify current Upstox SDK endpoint coverage/dependencies before deciding whether it adds value. Do not add it just for appearance.
+- [ ] Keep all paper/live safeguards and original repository boundary intact.

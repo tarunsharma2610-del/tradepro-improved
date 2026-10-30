@@ -58,17 +58,23 @@ class MarketDataSubscriptionService:
         )
         desired_ids = {by_key[key].id for key in instrument_keys}
         for row in existing:
-            row.is_active = row.instrument_id in desired_ids
+            row.is_active = False
 
-        existing_ids = {row.instrument_id for row in existing}
-        for instrument_id in desired_ids - existing_ids:
-            self.db.add(MarketDataSubscription(
-                user_id=user_id,
-                broker_connection_id=connection.id,
-                instrument_id=instrument_id,
-                feed_mode=feed_mode,
-                is_active=True,
-            ))
+        existing_by_identity = {
+            (row.instrument_id, row.feed_mode): row for row in existing
+        }
+        for instrument_id in desired_ids:
+            row = existing_by_identity.get((instrument_id, feed_mode))
+            if row is None:
+                self.db.add(MarketDataSubscription(
+                    user_id=user_id,
+                    broker_connection_id=connection.id,
+                    instrument_id=instrument_id,
+                    feed_mode=feed_mode,
+                    is_active=True,
+                ))
+            else:
+                row.is_active = True
 
         try:
             self.db.commit()

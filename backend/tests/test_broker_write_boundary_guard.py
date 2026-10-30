@@ -108,3 +108,32 @@ def test_same_file_cannot_hide_write_reference_in_unapproved_function(tmp_path):
     violations = find_violations(app)
     assert len(violations) == 1
     assert "portfolios.py:5" in violations[0]
+
+
+def test_literal_getattr_cannot_bypass_broker_write_guard(tmp_path):
+    app = tmp_path / "app"
+    (app / "services").mkdir(parents=True)
+    (app / "services" / "dynamic_dispatch.py").write_text(
+        'async def submit(adapter):\\n'
+        '    method = getattr(adapter, "place_order")\\n'
+        '    return await method(token, payload)\\n',
+        encoding="utf-8",
+    )
+
+    violations = find_violations(app)
+
+    assert len(violations) == 1
+    assert "dynamic_dispatch.py:2" in violations[0]
+    assert "getattr" in violations[0]
+    assert "place_order" in violations[0]
+
+
+def test_literal_getattr_for_non_write_method_is_allowed(tmp_path):
+    app = tmp_path / "app"
+    (app / "services").mkdir(parents=True)
+    (app / "services" / "dynamic_dispatch.py").write_text(
+        'def read(adapter):\\n    return getattr(adapter, "get_quote")\\n',
+        encoding="utf-8",
+    )
+
+    assert find_violations(app) == []

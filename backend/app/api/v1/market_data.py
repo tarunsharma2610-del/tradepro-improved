@@ -133,11 +133,20 @@ async def start_market_data_stream(
     _require_analytics_token(db, user)
     _validate_active_instruments(db, payload.instrument_keys)
 
+    existing_streamer = market_data_stream_manager.get(user.id)
     try:
-        MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=payload.instrument_keys, feed_mode=payload.mode)
+        if existing_streamer is not None and existing_streamer.running:
+            await existing_streamer.subscribe(payload.instrument_keys, payload.mode)
+            streamer = existing_streamer
+        else:
+            streamer = await market_data_stream_manager.start(user.id, payload.instrument_keys, mode=payload.mode)
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
-    streamer = await market_data_stream_manager.start(user.id, payload.instrument_keys, mode=payload.mode)
     return {
         "started": True,
         "connected": streamer.connected,
@@ -159,13 +168,13 @@ async def subscribe_market_data(
         raise HTTPException(status.HTTP_409_CONFLICT, "Start a market-data stream before adding subscriptions.")
     _validate_active_instruments(db, payload.instrument_keys)
     feed_mode = payload.mode or streamer.mode
-    active_keys = [row.instrument.instrument_key for row in MarketDataSubscriptionService(db).list_active(user_id=user.id) if row.feed_mode == feed_mode]
-    desired_keys = list(dict.fromkeys(active_keys + payload.instrument_keys))
     try:
-        # Validate and update the in-memory desired state before committing
-        # the durable mode-specific desired set.
         delivery = await streamer.subscribe(payload.instrument_keys, feed_mode)
-        MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=desired_keys, feed_mode=feed_mode)
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     return {
@@ -201,18 +210,13 @@ async def unsubscribe_market_data(
         for mode, mode_keys in streamer.subscriptions.items()
         if requested & mode_keys
     }
-    service = MarketDataSubscriptionService(db)
     try:
-        for feed_mode, removals in removals_by_mode.items():
-            active_keys = [
-                row.instrument.instrument_key for row in service.list_active(user_id=user.id)
-                if row.feed_mode == feed_mode and row.instrument.instrument_key not in removals
-            ]
-            if active_keys:
-                service.replace_for_user(user_id=user.id, broker="upstox", instrument_keys=active_keys, feed_mode=feed_mode)
-            else:
-                service.deactivate_mode_for_user(user_id=user.id, broker="upstox", feed_mode=feed_mode)
         delivery = await streamer.unsubscribe(list(requested))
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     return {
@@ -235,8 +239,12 @@ async def change_market_data_stream_mode(
     if streamer is None or not streamer.running:
         raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
     try:
-        MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=payload.instrument_keys, feed_mode=payload.mode)
         delivery = await streamer.change_mode(payload.instrument_keys, payload.mode)
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     return {

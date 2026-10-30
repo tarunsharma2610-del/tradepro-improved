@@ -348,3 +348,14 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Next: PostgreSQL 16 multi-session claim race tests; explicit state transitions and lease reclaim; crash recovery; shared-position allocation decision; only then controlled dispatcher-to-PAPER execution.
 - Do not enable live writes, merge PR #9, or deploy. PR #9 remains Draft/unmerged; PAPER mandatory.
 - The documentation synchronization commit is separate and requires exact-head CI.
+
+
+## Verified checkpoint — PostgreSQL 16 PAPER stop-event claim concurrency (30 October 2026)
+
+- **Implementation SHA:** `0d3700f0a12add3239457bc4009eb019d77c78a0`
+- **Backend CI:** [#41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358) — **SUCCESS**, exact SHA.
+- Full workflow passed: backend pytest, broker-write boundary, SQLite migration upgrade/downgrade/re-upgrade, isolated PostgreSQL 16 migration database upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore drill with retained evidence.
+- PostgreSQL 16 concurrency tests cover same quote identity races (one durable claim, one duplicate) and distinct quote versions (both accepted). Strategy and Position locks are scoped to their respective tables to avoid nullable-side outer-join locking errors.
+- PostgreSQL migration validation now uses isolated `tradepro_migration_check`; the concurrency suite retains `tradepro_test`.
+- **Next:** implement and test claim-token-owned event lifecycle transitions (CLAIMED → EXECUTING → COMPLETED; explicit RETRYABLE/FAILED), then lease expiry/reclamation and crash recovery. Do not connect to PAPER order execution until lifecycle/idempotency gates pass.
+- **Safety:** only `tarunsharma2610-del/tradepro-improved`; PR #9 remains Draft/open/unmerged; PAPER mandatory; live broker order writes disabled; no deployment or live trading.

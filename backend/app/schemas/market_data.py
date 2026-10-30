@@ -28,6 +28,7 @@ class MarketDataStreamStart(BaseModel):
 
 class MarketDataStreamKeys(BaseModel):
     instrument_keys: list[str] = Field(min_length=1, max_length=5000)
+    mode: Literal["ltpc", "option_greeks", "full"] | None = None
 
     @field_validator("instrument_keys")
     @classmethod

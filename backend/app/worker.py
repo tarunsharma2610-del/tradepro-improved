@@ -29,6 +29,7 @@ from app.models.strategy import Strategy
 from app.repositories.strategy_repository import StrategyRepository
 from app.services.execution_service import ExecutionService
 from app.services.news_service import NewsService
+from app.services.redis_market_quote_worker import RedisMarketQuoteWorker
 from app.services.strategy_execution_service import StrategyExecutionService
 from app.services.telegram_service import TelegramService
 
@@ -122,30 +123,39 @@ async def main() -> None:
     )
     last_strategy_eval = 0.0
     last_news_ingest = 0.0
+    quote_worker = RedisMarketQuoteWorker()
+    quote_worker_task = asyncio.create_task(
+        quote_worker.run_forever(), name="redis-market-quote-worker"
+    )
 
-    while True:
-        now = time.monotonic()
+    try:
+        while True:
+            now = time.monotonic()
 
-        completed_links = await run_telegram_poll()
-        if completed_links:
-            logger.info("Completed %s Telegram link(s) this tick.", completed_links)
+            completed_links = await run_telegram_poll()
+            if completed_links:
+                logger.info("Completed %s Telegram link(s) this tick.", completed_links)
 
-        if now - last_strategy_eval >= STRATEGY_EVAL_INTERVAL_SECONDS:
-            if _is_market_hours():
-                evaluated = await run_once()
-                if evaluated:
-                    logger.info("Evaluated %s active strategy(ies) this pass.", evaluated)
-            else:
-                logger.debug("Outside market hours -- skipping strategy evaluation this pass.")
-            last_strategy_eval = now
+            if now - last_strategy_eval >= STRATEGY_EVAL_INTERVAL_SECONDS:
+                if _is_market_hours():
+                    evaluated = await run_once()
+                    if evaluated:
+                        logger.info("Evaluated %s active strateg(ies) this pass.", evaluated)
+                else:
+                    logger.debug("Outside market hours -- skipping strategy evaluation this pass.")
+                last_strategy_eval = now
 
-        if now - last_news_ingest >= NEWS_INGEST_INTERVAL_SECONDS:
-            results = await run_news_ingest()
-            if results:
-                logger.info("News ingestion: %s", results)
-            last_news_ingest = now
+            if now - last_news_ingest >= NEWS_INGEST_INTERVAL_SECONDS:
+                results = await run_news_ingest()
+                if results:
+                    logger.info("News ingestion: %s", results)
+                last_news_ingest = now
 
-        await asyncio.sleep(TELEGRAM_POLL_INTERVAL_SECONDS)
+            await asyncio.sleep(TELEGRAM_POLL_INTERVAL_SECONDS)
+    finally:
+        quote_worker_task.cancel()
+        await asyncio.gather(quote_worker_task, return_exceptions=True)
+        await quote_worker.close()
 
 
 if __name__ == "__main__":

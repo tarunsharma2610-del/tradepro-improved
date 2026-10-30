@@ -39,18 +39,20 @@ class FakeRedis:
     def __init__(self):
         self.snapshots, self.messages, self.versions = {}, [], {}
 
-    async def incr(self, key):
-        self.versions[key] = self.versions.get(key, 0) + 1
-        return self.versions[key]
-
-    async def expire(self, key, ttl):
+    async def eval(self, script, numkeys, key, version_key, channel, encoded, ttl, user_id, instrument_key):
+        assert numkeys == 3
+        version = self.versions.get(version_key, 0) + 1
+        self.versions[version_key] = version
         self.version_ttls = getattr(self, "version_ttls", {})
-        self.version_ttls[key] = ttl
-        return True
-
-    def pipeline(self, transaction=True):
-        assert transaction is True
-        return FakePipeline(self)
+        self.version_ttls[version_key] = int(ttl)
+        snapshot = json.loads(encoded)
+        snapshot["version"] = version
+        self.snapshots[key] = (json.dumps(snapshot, separators=(",", ":")), int(ttl))
+        self.messages.append((channel, json.dumps({
+            "schema_version": 1, "user_id": user_id,
+            "instrument_key": instrument_key, "version": version,
+        })))
+        return version
 
 
 def make_tick(*, received_at=None, exchange_timestamp_ms=None, ltp=2500.5):
@@ -113,3 +115,16 @@ def test_user_namespaces_are_isolated():
     first, second = RedisMarketQuotePublisher(redis, uuid4()), RedisMarketQuotePublisher(redis, uuid4())
     assert first.snapshot_key("NSE_EQ|INE002A01018") != second.snapshot_key("NSE_EQ|INE002A01018")
     assert first.channel != second.channel
+
+
+@pytest.mark.asyncio
+async def test_publish_keeps_snapshot_version_and_notification_in_same_atomic_sequence():
+    redis = FakeRedis()
+    publisher = RedisMarketQuotePublisher(redis, uuid4())
+    ticks = [make_tick(ltp=2400.0 + i) for i in range(25)]
+    results = await __import__("asyncio").gather(*(publisher.publish(tick) for tick in ticks))
+    assert all(results)
+    key = publisher.snapshot_key("NSE_EQ|INE002A01018")
+    assert json.loads(redis.snapshots[key][0])["version"] == 25
+    versions = [json.loads(message)["version"] for _, message in redis.messages]
+    assert versions == list(range(1, 26))

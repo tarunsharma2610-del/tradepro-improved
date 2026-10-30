@@ -115,3 +115,29 @@ async def test_real_redis_consumer_recovers_latest_snapshot_after_new_consumer_i
             publisher.snapshot_key(instrument) + ":version",
         )
         await redis.aclose()
+
+
+@pytest.mark.asyncio
+async def test_real_redis_concurrent_publishes_preserve_atomic_version_order():
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    try:
+        outcomes = await asyncio.gather(*(
+            publisher.publish(make_tick(instrument, 2500.0 + index))
+            for index in range(40)
+        ))
+        assert all(outcomes)
+        snapshot = await redis.get(publisher.snapshot_key(instrument))
+        assert snapshot is not None
+        assert json.loads(snapshot)["version"] == 40
+        notifications = await redis.pubsub_numsub(publisher.channel)
+        assert notifications[0][1] == 0
+        assert await redis.ttl(publisher.snapshot_key(instrument) + ":version") > 0
+    finally:
+        await redis.delete(
+            publisher.snapshot_key(instrument),
+            publisher.snapshot_key(instrument) + ":version",
+        )
+        await redis.aclose()

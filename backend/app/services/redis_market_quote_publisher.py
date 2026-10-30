@@ -16,9 +16,24 @@ from app.services.upstox_market_data_streamer import MarketTick
 
 logger = logging.getLogger(__name__)
 
+_PUBLISH_ATOMIC = """
+local version = redis.call('INCR', KEYS[2])
+redis.call('EXPIRE', KEYS[2], ARGV[2])
+local encoded = string.gsub(ARGV[1], '"version":0', '"version":' .. version, 1)
+redis.call('SET', KEYS[1], encoded, 'EX', ARGV[2])
+local event = cjson.encode({
+    schema_version = 1,
+    user_id = ARGV[3],
+    instrument_key = ARGV[4],
+    version = version
+})
+redis.call('PUBLISH', KEYS[3], event)
+return version
+"""
+
 
 class RedisMarketQuotePublisher:
-    """Publish fresh ticks into a per-user Redis cache and notification channel."""
+    """Publish fresh ticks with atomic version, snapshot and notification ordering."""
 
     def __init__(self, redis_client: Redis, user_id: UUID, *, ttl_seconds: int = 15) -> None:
         if ttl_seconds <= 0:
@@ -47,18 +62,16 @@ class RedisMarketQuotePublisher:
         return 0 <= received_age <= self.ttl_seconds and -60_000 <= exchange_age <= self.ttl_seconds * 1000
 
     async def publish(self, tick: MarketTick) -> bool:
-        """Atomically store a versioned snapshot and publish its key/version."""
+        """Atomically allocate version, store expiring snapshot and publish event."""
         now = datetime.now(timezone.utc)
         if not self._fresh(tick, now):
             return False
         key = self.snapshot_key(tick.instrument_key)
         version_key = f"{key}:version"
         try:
-            version = await self.redis.incr(version_key)
-            await self.redis.expire(version_key, self.ttl_seconds)
             snapshot = {
                 "schema_version": 1, "user_id": self.user_id,
-                "instrument_key": tick.instrument_key, "version": version,
+                "instrument_key": tick.instrument_key, "version": 0,
                 "ltp": tick.ltp, "exchange_timestamp_ms": tick.exchange_timestamp_ms,
                 "received_at": tick.received_at.astimezone(timezone.utc).isoformat(),
                 "published_at": now.isoformat(), "depth": tick.depth,
@@ -69,13 +82,10 @@ class RedisMarketQuotePublisher:
                 "total_sell_quantity": tick.total_sell_quantity, "ohlc": tick.ohlc,
             }
             encoded = json.dumps(snapshot, separators=(",", ":"), allow_nan=False)
-            async with self.redis.pipeline(transaction=True) as pipe:
-                pipe.set(key, encoded, ex=self.ttl_seconds)
-                pipe.publish(self.channel, json.dumps({
-                    "schema_version": 1, "user_id": self.user_id,
-                    "instrument_key": tick.instrument_key, "version": version,
-                }, separators=(",", ":")))
-                await pipe.execute()
+            await self.redis.eval(
+                _PUBLISH_ATOMIC, 3, key, version_key, self.channel,
+                encoded, self.ttl_seconds, self.user_id, tick.instrument_key,
+            )
             return True
         except Exception as exc:
             logger.warning("Redis market quote publish failed (%s); quote is unavailable to consumers.", type(exc).__name__)

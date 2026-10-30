@@ -7,10 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.models.instrument import Instrument
+from app.models.market_data_subscription import MarketDataSubscription
 from app.models.user import User
 from app.schemas.market_data import MarketDataStreamChangeMode, MarketDataStreamKeys, MarketDataStreamStart
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.market_data_stream_manager import market_data_stream_manager
+from app.services.market_data_subscription_service import MarketDataSubscriptionService
 from app.brokers.registry import get_broker_adapter
 
 router = APIRouter(prefix="/market-data", tags=["market-data"])
@@ -131,6 +133,10 @@ async def start_market_data_stream(
     _require_analytics_token(db, user)
     _validate_active_instruments(db, payload.instrument_keys)
 
+    try:
+        MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=payload.instrument_keys, feed_mode=payload.mode)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     streamer = await market_data_stream_manager.start(user.id, payload.instrument_keys, mode=payload.mode)
     return {
         "started": True,
@@ -152,7 +158,10 @@ async def subscribe_market_data(
     if streamer is None or not streamer.running:
         raise HTTPException(status.HTTP_409_CONFLICT, "Start a market-data stream before adding subscriptions.")
     _validate_active_instruments(db, payload.instrument_keys)
+    active_keys = [row.instrument.instrument_key for row in MarketDataSubscriptionService(db).list_active(user_id=user.id) if row.feed_mode == streamer.mode]
+    desired_keys = list(dict.fromkeys(active_keys + payload.instrument_keys))
     try:
+        MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=desired_keys, feed_mode=streamer.mode)
         delivery = await streamer.subscribe(payload.instrument_keys)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
@@ -175,7 +184,13 @@ async def unsubscribe_market_data(
     streamer = market_data_stream_manager.get(user.id)
     if streamer is None or not streamer.running:
         raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
+    active_keys = [row.instrument.instrument_key for row in MarketDataSubscriptionService(db).list_active(user_id=user.id) if row.feed_mode == streamer.mode]
+    desired_keys = [key for key in active_keys if key not in set(payload.instrument_keys)]
     try:
+        if desired_keys:
+            MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=desired_keys, feed_mode=streamer.mode)
+        else:
+            MarketDataSubscriptionService(db).deactivate_for_user(user_id=user.id, broker="upstox")
         delivery = await streamer.unsubscribe(payload.instrument_keys)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
@@ -199,6 +214,7 @@ async def change_market_data_stream_mode(
     if streamer is None or not streamer.running:
         raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
     try:
+        MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=payload.instrument_keys, feed_mode=payload.mode)
         delivery = await streamer.change_mode(payload.instrument_keys, payload.mode)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
@@ -293,6 +309,7 @@ def market_data_stream_status(user: User = Depends(get_current_user)):
 
 
 @router.delete("/stream")
-async def stop_market_data_stream(user: User = Depends(get_current_user)):
+async def stop_market_data_stream(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    MarketDataSubscriptionService(db).deactivate_for_user(user_id=user.id, broker="upstox")
     stopped = await market_data_stream_manager.stop(user.id)
     return {"stopped": stopped}

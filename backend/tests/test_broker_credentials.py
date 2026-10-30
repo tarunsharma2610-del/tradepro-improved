@@ -183,3 +183,71 @@ def test_expired_upstox_access_token_is_not_returned_to_api_callers(db_session, 
     db_session.commit()
 
     assert service.get_access_token(user.id, "upstox") is None
+
+
+
+def test_analytics_token_is_encrypted_and_independent_of_oauth_connection(db_session, make_user):
+    from datetime import datetime, timezone
+
+    user = make_user()
+    service = BrokerCredentialsService(db_session)
+    service.save_credentials(
+        user.id,
+        BrokerConnectionCreate(
+            broker="upstox", api_key="api-key", api_secret="api-secret", redirect_uri="https://example.com/cb"
+        ),
+    )
+
+    conn = service.save_analytics_token(user.id, "upstox", "console-generated-analytics-token")
+    db_session.refresh(conn)
+
+    assert conn.analytics_token_encrypted != "console-generated-analytics-token"
+    assert decrypt_value(conn.analytics_token_encrypted) == "console-generated-analytics-token"
+    assert conn.analytics_token_expires_at > datetime.now(timezone.utc)
+    assert conn.is_connected is False
+    assert service.get_analytics_token(user.id, "upstox") == "console-generated-analytics-token"
+
+
+def test_expired_analytics_token_is_not_returned(db_session, make_user):
+    from datetime import datetime, timedelta, timezone
+    from app.core.encryption import encrypt_value
+
+    user = make_user()
+    service = BrokerCredentialsService(db_session)
+    conn = service.save_credentials(
+        user.id,
+        BrokerConnectionCreate(
+            broker="upstox", api_key="api-key", api_secret="api-secret", redirect_uri="https://example.com/cb"
+        ),
+    )
+    conn.analytics_token_encrypted = encrypt_value("expired-analytics-token")
+    conn.analytics_token_expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    db_session.add(conn)
+    db_session.commit()
+
+    assert service.get_analytics_token(user.id, "upstox") is None
+    assert service.analytics_token_status(user.id, "upstox") == {"configured": False, "expires_at": None}
+
+
+def test_analytics_token_is_owner_scoped_and_can_be_cleared(db_session, make_user):
+    import pytest
+
+    user_a = make_user(email="analytics-a@example.com")
+    user_b = make_user(email="analytics-b@example.com")
+    service = BrokerCredentialsService(db_session)
+    for user in (user_a, user_b):
+        service.save_credentials(
+            user.id,
+            BrokerConnectionCreate(
+                broker="upstox", api_key="key", api_secret="secret", redirect_uri="https://example.com/cb"
+            ),
+        )
+    service.save_analytics_token(user_a.id, "upstox", "user-a-token")
+
+    assert service.get_analytics_token(user_a.id, "upstox") == "user-a-token"
+    assert service.get_analytics_token(user_b.id, "upstox") is None
+    service.clear_analytics_token(user_a.id, "upstox")
+    assert service.get_analytics_token(user_a.id, "upstox") is None
+
+    with pytest.raises(ValueError, match="only for Upstox"):
+        service.save_analytics_token(user_a.id, "zerodha", "not-supported")

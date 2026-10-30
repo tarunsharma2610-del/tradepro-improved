@@ -2982,3 +2982,15 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - CI failure #41057234551 was an outdated single-mode test expectation; corrected on the verified head.
 - Next: implement and test mixed-mode V3 WebSocket subscribe/unsubscribe, reconnect replay, and Redis consumer lifecycle. Persistence tests do not yet prove end-to-end mixed-mode streaming.
 - PR #9 remains Draft/unmerged. PAPER mode mandatory; live broker writes disabled; original `Tradepro` repository out of scope.
+
+
+## Current handover — Phase 4 Redis consumer recovery — 30 October 2026
+
+Resume from `phase4/redis-market-data-publisher` in `tarunsharma2610-del/tradepro-improved`, PR #9 Draft/unmerged.
+
+- Latest code/test head: `a5e352bef2c78f27141b61bca5893fdfa0fd049a`; exact-head Backend CI #41061518847 is running. Do not mark accepted until it completes successfully.
+- Prior head `f7c863977ed17a3d705b83db8dcc6b7ba421cccf` passed exact-head CI #41060945704.
+- New regression tests cover Redis epoch rollover after volatile-data loss and idle Pub/Sub heartbeat. Redis consumer itself already performs authoritative snapshot recovery, resubscription, heartbeat and fail-closed freshness/tenant validation.
+- Worker does not yet run Redis consumers. Current strategy worker still evaluates through candle path. Do not start scanner integration prematurely.
+- Next: after CI passes, design worker consumer lifecycle with durable subscription discovery, a single-owner/lease mechanism (avoid duplicate listeners across worker replicas), graceful cancellation/shutdown and isolated failure handling. Then add integration tests and connect scanner/PAPER strategy.
+- Preserve PAPER-only, live order writes disabled, no merge/deploy, and never modify `tarunsharma2610-del/Tradepro`.

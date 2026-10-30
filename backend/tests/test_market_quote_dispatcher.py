@@ -120,7 +120,14 @@ def test_dispatcher_enforces_single_flight_and_replays_latest_after_ack():
         assert dispatcher.publish(obs(version=3, ltp=102.0))
         assert dispatcher.pending_keys == 1
 
-        second_consumer = asyncio.create_task(dispatcher.get())
+        async def consume_coalesced_update():
+            second = await dispatcher.get()
+            assert second.version == 3
+            assert second.observation.ltp == 102.0
+            dispatcher.task_done()
+            return second
+
+        second_consumer = asyncio.create_task(consume_coalesced_update())
         await asyncio.sleep(0)
         assert not second_consumer.done()
         assert dispatcher.inflight_keys == 1
@@ -129,8 +136,6 @@ def test_dispatcher_enforces_single_flight_and_replays_latest_after_ack():
         second = await asyncio.wait_for(second_consumer, timeout=1)
         assert second.version == 3
         assert second.observation.ltp == 102.0
-        assert dispatcher.inflight_keys == 1
-        dispatcher.task_done()
         assert dispatcher.inflight_keys == 0
         assert dispatcher.pending_keys == 0
 

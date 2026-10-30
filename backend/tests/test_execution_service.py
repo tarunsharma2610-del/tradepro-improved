@@ -9,7 +9,7 @@ from app.models.execution import Execution
 from app.models.order import Order
 from app.core.encryption import encrypt_value
 from app.repositories.portfolio_repository import PortfolioRepository
-from app.services.execution_service import ExecutionService, OrderValidationError, _extract_ltp
+from app.services.execution_service import ExecutionService, OrderValidationError, _extract_fresh_full_quote_ltp, _extract_ltp
 from app.services.execution_service import PlaceOrderRequest as ServicePlaceOrderRequest
 from app.services.instrument_service import InstrumentService
 from app.services.transaction_costs import Segment, Side
@@ -59,7 +59,7 @@ def _mock_quote(price: str):
     return patch(
         "app.services.execution_service.get_broker_adapter",
         return_value=type(
-            "FakeAdapter", (), {"get_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ|INE002A01018": {"last_price": price}}}))}
+            "FakeAdapter", (), {"get_full_quote": AsyncMock(return_value=BrokerCallResult(ok=True, data={"data": {"NSE_EQ:TEST": {"instrument_token": "NSE_EQ|INE002A01018", "last_price": price, "last_trade_time": str(int(datetime.now(timezone.utc).timestamp() * 1000))}}}))}
         )(),
     )
 
@@ -772,3 +772,26 @@ def test_quote_parser_uses_only_the_requested_instrument_key():
 
     assert _extract_ltp({"data": {requested: {"last_price": "123.45"}}}, requested) == Decimal("123.45")
     assert _extract_ltp({"data": {other: {"last_price": "9999.00"}}}, requested) is None
+
+
+
+def test_full_quote_ltp_requires_matching_instrument_and_fresh_exchange_timestamp():
+    now = datetime(2026, 10, 30, 10, 0, tzinfo=timezone.utc)
+    fresh_ms = int(now.timestamp() * 1000)
+    fresh = {
+        "data": {
+            "NSE_EQ:TEST": {
+                "instrument_token": "NSE_EQ|INE002A01018",
+                "last_price": "123.45",
+                "last_trade_time": str(fresh_ms),
+            }
+        }
+    }
+    assert _extract_fresh_full_quote_ltp(fresh, "NSE_EQ|INE002A01018", now=now) == Decimal("123.45")
+    assert _extract_fresh_full_quote_ltp(fresh, "NSE_EQ|OTHER", now=now) is None
+
+    stale = {"data": {"NSE_EQ:TEST": {**fresh["data"]["NSE_EQ:TEST"], "last_trade_time": str(fresh_ms - 60_000)}}}
+    assert _extract_fresh_full_quote_ltp(stale, "NSE_EQ|INE002A01018", now=now) is None
+
+    missing_timestamp = {"data": {"NSE_EQ:TEST": {"instrument_token": "NSE_EQ|INE002A01018", "last_price": "123.45"}}}
+    assert _extract_fresh_full_quote_ltp(missing_timestamp, "NSE_EQ|INE002A01018", now=now) is None

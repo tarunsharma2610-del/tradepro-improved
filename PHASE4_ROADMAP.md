@@ -134,3 +134,13 @@ Engineering rule: check provider-supported capability and existing implementatio
 - [x] Exact-head CI passed on `3a74fbb788a63ca3b042ceec400dbc7a83f32571`, run #41016468736: 1,240 passed, 1 warning; broker-write boundary, SQLite/PostgreSQL 16 migrations and synthetic restore drill passed.
 - [ ] Implement separately encrypted Upstox Analytics Token storage and use it for market-data/stream APIs only. Retain standard OAuth token for account/trading scope; verify endpoint permissions and tests before use.
 - [ ] Add token health/expiry status to broker connection UX; never invent automatic refresh for the daily standard token.
+ 
+## Upstox Analytics Token implementation — 30 October 2026
+
+- Added separate encrypted `analytics_token_encrypted` and `analytics_token_expires_at` fields to per-user broker connections with migration `202610300031` (down revision `202610270030`).
+- Added owner-scoped Settings API to save, inspect status and clear Analytics Token. Token is accepted from the user's Upstox Developer Apps > Analytics page; it is never returned, logged or included in API responses. Expiry is tracked as 365 days from local registration; confirm/renew against the Developer Console's actual expiry date.
+- Analytics Token retrieval is independent of standard OAuth `is_connected` state and fails closed when missing/expired. Standard OAuth access-token path remains separate for operations not documented as Analytics Token eligible.
+- Routed strategy historical/intraday candle fetch, paper market quote/charge estimation, queued paper limit-order quotes, and market WebSocket reconnects through Analytics Token. Broker order/trade ingestion continues to use standard OAuth until each endpoint's Analytics Token/static-IP eligibility is deliberately enabled.
+- Analytics Token is read-only. It cannot place, modify or cancel orders. Live trading remains disabled; PAPER-only guard unchanged.
+- Official docs: https://upstox.com/developer/api-documentation/analytics-token/ ; https://upstox.com/developer/api-documentation/announcements/analytics-token-static-ip/ ; https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
+- CI for this new implementation is pending. Do not mark it accepted until exact-head CI passes, including migration round-trip and token isolation tests.

@@ -2800,3 +2800,7 @@ CI on earlier Full Market Quote V3 integration failed five existing assertions b
 Audited the streamer and fixed a substantive edge case: do not substitute packet currentTs for missing LTPC last-trade time (LTT). Packet receive time is not proof of a recent trade. Streamer now caches only finite positive LTP with positive exchange LTT; latest_tick validates exchange age and monotonic receive age. Added NaN/Infinity/missing-LTT tests. Current code head 4dd8420d4d787be049c956204e15bfdff9586f3e. CI #41015772900 running on this exact test head at handover; previous correction CI #41015671461 passed. Streamer code CI #41015756833 was still running. Check exact-head CI before claiming green.
 
 Official docs: Full Market Quotes V3 https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ ; Market Data Feed V3 https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
+
+## CI status correction — 30 October 2026
+
+The exact code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e passed Backend pytest (run #41015772900). WebSocket implementation head d7c74a20a4a46741123ebbf4809176e90199643c passed run #41015756833; wording-only correction head 90bb1f5bf9d43767043a653e68a55b374bf0c599 passed run #41015671461. Current synchronized docs head 2589db1e0a6446ea60d12a075d58ce43fa19ed93 is in CI run #41015946896; verify this exact head before calling the latest checkpoint green.

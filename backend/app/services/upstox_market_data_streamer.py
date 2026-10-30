@@ -231,30 +231,32 @@ class UpstoxMarketDataStreamer:
                     depth = tuple({
                         "bid_quantity": int(q.bidQ), "bid_price": float(q.bidP),
                         "ask_quantity": int(q.askQ), "ask_price": float(q.askP),
-                    } for q in market_ff.marketLevel.bidAskQuote)
-                    greeks_source = market_ff.optionGreeks
-                    open_interest = float(market_ff.oi) if market_ff.HasField("oi") else None
-                    volume = int(market_ff.vtt) if market_ff.HasField("vtt") else None
-                    average_price = float(market_ff.atp) if market_ff.HasField("atp") else None
-                    total_buy = float(market_ff.tbq) if market_ff.HasField("tbq") else None
-                    total_sell = float(market_ff.tsq) if market_ff.HasField("tsq") else None
+                    } for q in market_ff.marketLevel.bidAskQuote) if market_ff.HasField("marketLevel") else None
+                    greeks_source = market_ff.optionGreeks if market_ff.HasField("optionGreeks") else None
+                    # The provider's proto3 scalar fields have no presence bits.
+                    # Treat their default zero as unavailable rather than inventing
+                    # a confirmed zero when the wire payload omitted the field.
+                    open_interest = float(market_ff.oi) if market_ff.oi != 0 else None
+                    volume = int(market_ff.vtt) if market_ff.vtt != 0 else None
+                    average_price = float(market_ff.atp) if market_ff.atp != 0 else None
+                    total_buy = float(market_ff.tbq) if market_ff.tbq != 0 else None
+                    total_sell = float(market_ff.tsq) if market_ff.tsq != 0 else None
                     ohlc = tuple({
                         "interval": item.interval, "open": float(item.open),
                         "high": float(item.high), "low": float(item.low),
                         "close": float(item.close), "volume": int(item.vol),
                         "timestamp_ms": int(item.ts),
-                    } for item in market_ff.marketOHLC.ohlc)
+                    } for item in market_ff.marketOHLC.ohlc) if market_ff.HasField("marketOHLC") else None
                 else:
-                    greeks_source = market_ff.optionGreeks
-                    if market_ff.HasField("oi"):
-                        open_interest = float(market_ff.oi)
-                    if market_ff.HasField("vtt"):
-                        volume = int(market_ff.vtt)
-                greeks = {
-                    "delta": float(greeks_source.delta), "theta": float(greeks_source.theta),
-                    "gamma": float(greeks_source.gamma), "vega": float(greeks_source.vega),
-                    "rho": float(greeks_source.rho),
-                }
+                    greeks_source = market_ff.optionGreeks if market_ff.HasField("optionGreeks") else None
+                    open_interest = float(market_ff.oi) if market_ff.oi != 0 else None
+                    volume = int(market_ff.vtt) if market_ff.vtt != 0 else None
+                if greeks_source is not None:
+                    greeks = {
+                        "delta": float(greeks_source.delta), "theta": float(greeks_source.theta),
+                        "gamma": float(greeks_source.gamma), "vega": float(greeks_source.vega),
+                        "rho": float(greeks_source.rho),
+                    }
             tick = MarketTick(
                 instrument_key=key,
                 ltp=float(ltpc.ltp),

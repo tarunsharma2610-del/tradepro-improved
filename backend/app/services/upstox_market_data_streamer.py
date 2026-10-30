@@ -85,6 +85,7 @@ class UpstoxMarketDataStreamer:
         self.silence_timeout_seconds = silence_timeout_seconds
         self.reconnect_max_seconds = reconnect_max_seconds
         self._ticks: dict[str, MarketTick] = {}
+        self._market_info: dict | None = None
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
         self._connected = False
@@ -98,6 +99,10 @@ class UpstoxMarketDataStreamer:
     @property
     def running(self) -> bool:
         return self._task is not None and not self._task.done()
+
+    @property
+    def market_info(self) -> dict | None:
+        return self._market_info
 
     def latest_tick(self, instrument_key: str) -> MarketTick | None:
         """Return only fresh data; callers must fail closed when this is None."""
@@ -269,6 +274,23 @@ class UpstoxMarketDataStreamer:
         response.ParseFromString(payload)
         received_at = datetime.now(timezone.utc)
         received_monotonic = time.monotonic()
+        if response.HasField("marketInfo"):
+            info = response.marketInfo
+            self._market_info = {
+                "current_timestamp_ms": int(response.currentTs),
+                "segment_status": {
+                    segment: market_data_pb.MarketStatus.Name(value)
+                    for segment, value in info.segmentStatus.items()
+                },
+                "cas_market_status": {
+                    segment: {"status": value.status, "updated_time_ms": int(value.updatedTime)}
+                    for segment, value in info.casMarketStatus.items()
+                },
+                "pre_open_session_status": {
+                    segment: {"status": value.status, "updated_time_ms": int(value.updatedTime)}
+                    for segment, value in info.preOpenSessionStatus.items()
+                },
+            }
         for key, feed in response.feeds.items():
             if key not in self._instrument_key_set:
                 continue
@@ -296,7 +318,9 @@ class UpstoxMarketDataStreamer:
             greeks = None
             open_interest = volume = average_price = total_buy = total_sell = None
             ohlc = None
-            indicative_equilibrium_price = None
+            indicative_equilibrium_price = (
+                float(ltpc.iep.value) if ltpc is not None and ltpc.HasField("iep") else None
+            )
             reference_price = None
             indicative_equilibrium_quantity = None
             indicative_interest_quantity_total = None
@@ -333,7 +357,8 @@ class UpstoxMarketDataStreamer:
                     # market-data additions). Proto3 scalar zero is treated as
                     # unavailable for numeric fields, consistent with the other
                     # optional quote fields in this decoder.
-                    indicative_equilibrium_price = float(market_ff.iep) if market_ff.iep != 0 else None
+                    if market_ff.iep != 0:
+                        indicative_equilibrium_price = float(market_ff.iep)
                     reference_price = float(market_ff.rp) if market_ff.rp != 0 else None
                     indicative_equilibrium_quantity = int(market_ff.ieq) if market_ff.ieq != 0 else None
                     indicative_interest_quantity_total = int(market_ff.iiqTotal) if market_ff.iiqTotal != 0 else None

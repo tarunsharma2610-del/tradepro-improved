@@ -14,6 +14,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # A unique index permits the composite tenant-scoped FK on SQLite and PostgreSQL.
+    op.create_index("uq_broker_connection_id_user", "broker_connections", ["id", "user_id"], unique=True)
     op.create_table(
         "market_data_subscriptions",
         sa.Column("user_id", sa.Uuid(), nullable=False),
@@ -52,3 +54,4 @@ def downgrade() -> None:
     op.drop_index("ix_market_data_subscriptions_broker_connection_id", table_name="market_data_subscriptions")
     op.drop_index("ix_market_data_subscriptions_user_id", table_name="market_data_subscriptions")
     op.drop_table("market_data_subscriptions")
+    op.drop_index("uq_broker_connection_id_user", table_name="broker_connections")

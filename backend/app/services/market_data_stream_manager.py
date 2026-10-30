@@ -25,8 +25,11 @@ class MarketDataStreamManager:
 
     async def start(self, user_id: UUID, instrument_keys: list[str], mode: str = "full") -> UpstoxMarketDataStreamer:
         current = self._streams.get(user_id)
-        if current is not None:
-            await current.stop()
+        if current is not None and current.running:
+            # A second start request adds/reconciles another feed-mode set on
+            # the existing user socket instead of disrupting healthy feeds.
+            await current.subscribe(instrument_keys, mode)
+            return current
 
         async def token_provider() -> str | None:
             db = SessionLocal()

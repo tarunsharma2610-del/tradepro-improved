@@ -55,3 +55,13 @@ Use Upstox Developer Console, official current API documentation, supported APIs
 Official docs checked: https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ ; https://upstox.com/developer/api-documentation/v3/get-intra-day-candle-data/ ; https://upstox.com/developer/api-documentation/installing-sdk/.
 
 Audit finding: V3 streamer and REST methods exist, but strategy execution is not yet consuming a shared stream/candle pipeline, and candle parsing is explicitly marked BEST-EFFORT. Next priority: verify response ordering/timestamp/field contracts against official examples; connect existing WebSocket + REST recovery to strategy candles; add integration tests for disconnect/gap recovery and instrument identity. Do not enable live order writes.
+
+## 30 October 2026 — supported intraday API integration
+
+Implemented the first direct API correction rather than adding more stale-data heuristics:
+- Added a broker-level optional intraday-candle capability and Upstox V3 implementation using the official current-session candle endpoint.
+- Strategy candle loading now combines historical V3 candles with current-session V3 intraday candles using Asia/Kolkata date boundaries and timestamp deduplication; intraday rows win on overlap.
+- Fail-closed behavior remains if either required source is unavailable or malformed.
+- Added tests for the exact endpoint/auth contract, historical+intraday merge, source failure, and strategy fixture compatibility.
+- Exact current code head: d7c786fc164ed297df42f26493c994ceacd337a7. CI pending for this head; previous successful run #41014529152 was on the earlier head 58e6674dab5c02f725f76401af358397fd47c161.
+- Next: verify exact-head CI, fix failures, then assess WebSocket integration into the worker. Don't aggregate these as complete yet. No live account test has been performed.

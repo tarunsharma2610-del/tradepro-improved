@@ -116,19 +116,24 @@ class RedisMarketQuoteConsumer:
                     # another message. Poll with a bounded timeout and use a
                     # Pub/Sub PING/PONG heartbeat to detect dead connections.
                     message = await pubsub.get_message(
-                        ignore_subscribe_messages=True,
+                        ignore_subscribe_messages=False,
                         timeout=1.0,
                     )
                     if message is None:
+                        # PING is sent on the Pub/Sub connection itself. Read
+                        # its PONG explicitly; do not use the general Redis
+                        # connection pool as a proxy for Pub/Sub health.
                         await pubsub.ping()
                         pong = await pubsub.get_message(
                             ignore_subscribe_messages=False,
-                            timeout=1.0,
+                            timeout=2.0,
                         )
                         if pong is None or pong.get("type") != "pong":
                             raise ConnectionError("Redis Pub/Sub heartbeat was not acknowledged")
                         continue
                     if message.get("type") != "message":
+                        # Subscription acknowledgements and heartbeat replies
+                        # are control frames, never market-data notifications.
                         continue
                     try:
                         event = json.loads(message.get("data", "{}"))

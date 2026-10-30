@@ -23,9 +23,13 @@ class FakePubSub:
     async def aclose(self):
         self.closed = True
 
-    async def listen(self):
-        for message in self.messages:
-            yield message
+    async def get_message(self, *, ignore_subscribe_messages=True, timeout=0):
+        if not self.messages:
+            raise ConnectionError("fake Pub/Sub stream ended")
+        return self.messages.pop(0)
+
+    async def ping(self):
+        self.messages.append({"type": "pong", "data": "pong"})
 
 
 class FakeRedis:
@@ -137,12 +141,14 @@ class DisconnectingPubSub(FakePubSub):
         super().__init__(messages)
         self.fail = fail
 
-    async def listen(self):
+    async def get_message(self, *, ignore_subscribe_messages=True, timeout=0):
         if self.fail:
             self.fail = False
             raise ConnectionError("simulated Redis connection drop")
-        async for message in super().listen():
-            yield message
+        return await super().get_message(
+            ignore_subscribe_messages=ignore_subscribe_messages,
+            timeout=timeout,
+        )
 
 
 class ReconnectingFakeRedis(FakeRedis):

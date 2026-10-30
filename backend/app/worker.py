@@ -29,6 +29,7 @@ from app.models.strategy import Strategy
 from app.repositories.strategy_repository import StrategyRepository
 from app.services.execution_service import ExecutionService
 from app.services.news_service import NewsService
+from app.services.market_scanner import MarketScanner
 from app.services.redis_market_quote_worker import RedisMarketQuoteWorker
 from app.services.strategy_execution_service import StrategyExecutionService
 from app.services.telegram_service import TelegramService
@@ -123,7 +124,8 @@ async def main() -> None:
     )
     last_strategy_eval = 0.0
     last_news_ingest = 0.0
-    quote_worker = RedisMarketQuoteWorker()
+    scanner = MarketScanner()
+    quote_worker = RedisMarketQuoteWorker(on_quote=scanner.process_quote)
     quote_worker_task = asyncio.create_task(
         quote_worker.run_forever(), name="redis-market-quote-worker"
     )

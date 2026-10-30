@@ -271,3 +271,13 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - CI failure #41057234551 was an outdated single-mode test expectation; corrected on the verified head.
 - Next: implement and test mixed-mode V3 WebSocket subscribe/unsubscribe, reconnect replay, and Redis consumer lifecycle. Persistence tests do not yet prove end-to-end mixed-mode streaming.
 - PR #9 remains Draft/unmerged. PAPER mode mandatory; live broker writes disabled; original `Tradepro` repository out of scope.
+
+
+## Phase 4 update — Redis consumer recovery hardening — 30 October 2026
+
+- Prior exact-head Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`, including the reconnect token-refresh regression.
+- New head `a5e352bef2c78f27141b61bca5893fdfa0fd049a` adds Redis consumer tests for Redis data-loss epoch rollover (old epoch version 8 -> new epoch version 1) and idle Pub/Sub PING/PONG heartbeat. Exact-head CI #41061518847 is running; acceptance is pending.
+- Audited the Redis consumer: it validates authoritative snapshots, user/instrument identity, TTL, exchange and receive timestamps, epoch/version, and ignores Pub/Sub payloads except as wake-up signals. It resubscribes and sweeps authoritative snapshots after reconnect; heartbeat detects a silent dead Pub/Sub socket.
+- Worker currently does not manage Redis consumer instances; strategy evaluation remains on the existing candle path. Scanner/PAPER strategy Redis consumption is not implemented.
+- Next gate: exact-head CI; then implement a controlled worker consumer lifecycle with durable subscription discovery, single-owner coordination, graceful shutdown/cancellation and reconnect tests. Only then connect scanner/PAPER evaluation.
+- PR #9 Draft/unmerged; PAPER-only; live broker writes disabled; original Tradepro repository untouched.

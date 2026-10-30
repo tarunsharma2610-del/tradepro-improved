@@ -305,3 +305,70 @@ def test_stream_lifecycle_routes_require_existing_stream(monkeypatch, db_session
         assert response.status_code == 409
     finally:
         _clear()
+
+
+
+def test_index_presets_resolve_only_active_nse_index_catalog_rows(db_session, make_user):
+    user = make_user()
+    rows = [
+        ("NSE_INDEX|Nifty 50", "Nifty 50", "NIFTY"),
+        ("NSE_INDEX|Nifty Bank", "Nifty Bank", "BANKNIFTY"),
+        ("NSE_INDEX|India VIX", "India VIX", "INDIAVIX"),
+        # Same label in another exchange/segment must not be selected.
+        ("BSE_INDEX|Nifty 50", "Nifty 50", "NIFTY"),
+        ("NSE_EQ|NIFTY", "Nifty 50 ETF", "NIFTYETF"),
+    ]
+    for key, name, symbol in rows:
+        db_session.add(Instrument(
+            instrument_key=key,
+            exchange="BSE" if key.startswith("BSE_") else "NSE",
+            segment=key.split("|", 1)[0],
+            instrument_type="INDEX" if "_INDEX|" in key else "EQUITY",
+            trading_symbol=symbol,
+            name=name,
+            is_active=True,
+        ))
+    db_session.commit()
+    _overrides(db_session, user)
+    try:
+        response = TestClient(app).get("/api/v1/market-data/index-presets")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["source"] == "upstox_bod_instrument_master"
+        presets = {item["preset"]: item for item in body["presets"]}
+        assert presets["nifty_50"]["available"] is True
+        assert presets["nifty_50"]["instrument"]["instrument_key"] == "NSE_INDEX|Nifty 50"
+        assert presets["nifty_bank"]["instrument"]["instrument_key"] == "NSE_INDEX|Nifty Bank"
+        assert presets["india_vix"]["instrument"]["instrument_key"] == "NSE_INDEX|India VIX"
+    finally:
+        _clear()
+
+
+def test_index_presets_fail_closed_for_missing_or_ambiguous_catalog_entries(db_session, make_user):
+    user = make_user()
+    for key, name, symbol in [
+        ("NSE_INDEX|Nifty 50", "Nifty 50", "NIFTY"),
+        ("NSE_INDEX|Nifty 50 Duplicate", "Nifty 50", "NIFTY50"),
+    ]:
+        db_session.add(Instrument(
+            instrument_key=key,
+            exchange="NSE",
+            segment="NSE_INDEX",
+            instrument_type="INDEX",
+            trading_symbol=symbol,
+            name=name,
+            is_active=True,
+        ))
+    db_session.commit()
+    _overrides(db_session, user)
+    try:
+        response = TestClient(app).get("/api/v1/market-data/index-presets")
+        assert response.status_code == 200, response.text
+        presets = {item["preset"]: item for item in response.json()["presets"]}
+        assert presets["nifty_50"]["available"] is False
+        assert presets["nifty_50"]["reason"] == "ambiguous_catalog_match"
+        assert presets["nifty_bank"]["available"] is False
+        assert presets["nifty_bank"]["reason"] == "not_found"
+        assert presets["india_vix"]["available"] is False
+    finally:
+        _clear()

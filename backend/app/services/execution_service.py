@@ -329,12 +329,12 @@ class ExecutionService:
             if tick is not None:
                 return Decimal(str(tick.ltp)), None
 
-        quote_result = await get_broker_adapter("upstox").get_quote(access_token, [instrument_key])
+        quote_result = await get_broker_adapter("upstox").get_full_quote(access_token, [instrument_key])
         if not quote_result.ok:
-            return None, f"Could not fetch a live price: {quote_result.error}"
-        ltp = _extract_ltp(quote_result.data, instrument_key)
+            return None, f"Could not fetch a timestamped market quote: {quote_result.error}"
+        ltp = _extract_fresh_full_quote_ltp(quote_result.data, instrument_key)
         if ltp is None:
-            return None, "Broker response didn't contain a readable last traded price."
+            return None, "Broker full quote was missing the requested instrument, a valid LTP, or a sufficiently recent last-trade timestamp."
         return ltp, None
 
     def _is_reducing_position(self, portfolio_id: UUID, instrument_id: UUID, side: Side, quantity: int) -> bool:
@@ -408,6 +408,38 @@ class ExecutionService:
         self.db.commit()
 
         return order
+
+
+def _extract_fresh_full_quote_ltp(
+    quote_data: Any,
+    instrument_key: str,
+    *,
+    now: datetime | None = None,
+    max_age_seconds: int = 15,
+) -> Decimal | None:
+    """Extract requested LTP only when its exchange trade time is fresh."""
+    if not isinstance(quote_data, dict):
+        return None
+    payload = quote_data.get("data", quote_data)
+    if not isinstance(payload, dict):
+        return None
+    for quote in payload.values():
+        if not isinstance(quote, dict) or quote.get("instrument_token") != instrument_key:
+            continue
+        try:
+            price = Decimal(str(quote.get("last_price")))
+            trade_ms = int(quote.get("last_trade_time"))
+        except (InvalidOperation, TypeError, ValueError, OverflowError):
+            return None
+        if not price.is_finite() or price <= 0 or trade_ms <= 0:
+            return None
+        current = now or datetime.now(timezone.utc)
+        trade_time = datetime.fromtimestamp(trade_ms / 1000, tz=timezone.utc)
+        age = (current - trade_time).total_seconds()
+        if age < -60 or age > max_age_seconds:
+            return None
+        return price
+    return None
 
 
 def _extract_ltp(quote_data: Any, instrument_key: str) -> Decimal | None:

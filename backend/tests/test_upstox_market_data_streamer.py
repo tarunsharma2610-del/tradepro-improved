@@ -474,8 +474,7 @@ async def test_subscription_lifecycle_enforces_limits_and_keeps_one_key():
     with pytest.raises(ValueError, match="2000"):
         await streamer.subscribe([f"NSE_EQ|{index}" for index in range(2000)])
     await streamer.subscribe(["NSE_EQ|TWO"])
-    with pytest.raises(ValueError, match="complete user stream"):
-        await streamer.change_mode(["NSE_EQ|ONE"], "ltpc")
+    assert await streamer.change_mode(["NSE_EQ|ONE"], "ltpc") == "sent"
 
 
 @pytest.mark.asyncio
@@ -572,3 +571,94 @@ async def test_market_info_message_exposes_segment_cas_and_preopen_status():
         "cas_market_status": {"NSE_EQ": {"status": "CAS_LM_START", "updated_time_ms": now_ms}},
         "pre_open_session_status": {"NSE_EQ": {"status": "PRE_OPEN_START", "updated_time_ms": now_ms}},
     }
+
+@pytest.mark.asyncio
+async def test_mixed_mode_subscriptions_are_tracked_independently_and_unsubscribed_safely():
+    import json
+
+    streamer = UpstoxMarketDataStreamer(_no_token, ["NSE_EQ|ONE"], mode="ltpc")
+    sent = []
+
+    class FakeSocket:
+        async def send(self, payload):
+            sent.append(json.loads(payload.decode("utf-8")))
+
+    streamer._socket = FakeSocket()
+    streamer._connected = True
+
+    assert await streamer.subscribe(["NSE_FO|TWO"], "option_greeks") == "sent"
+    assert streamer.subscriptions_by_mode == {
+        "ltpc": ["NSE_EQ|ONE"],
+        "option_greeks": ["NSE_FO|TWO"],
+    }
+    assert sent[-1]["data"] == {
+        "instrumentKeys": ["NSE_FO|TWO"], "mode": "option_greeks"
+    }
+
+    assert await streamer.change_mode(["NSE_EQ|ONE"], "full") == "sent"
+    assert streamer.subscriptions_by_mode == {
+        "option_greeks": ["NSE_FO|TWO"],
+        "full": ["NSE_EQ|ONE"],
+    }
+    assert sent[-1]["method"] == "change_mode"
+    assert sent[-1]["data"] == {
+        "instrumentKeys": ["NSE_EQ|ONE"], "mode": "full"
+    }
+
+    assert await streamer.unsubscribe(["NSE_FO|TWO"]) == "sent"
+    assert streamer.subscriptions_by_mode == {"full": ["NSE_EQ|ONE"]}
+
+
+@pytest.mark.asyncio
+async def test_mixed_mode_reconnect_replays_each_mode_as_a_separate_binary_request():
+    import json
+
+    streamer = UpstoxMarketDataStreamer(_no_token, ["NSE_EQ|ONE"], mode="ltpc")
+    await streamer.subscribe(["NSE_FO|TWO"], "option_greeks")
+    await streamer.change_mode(["NSE_EQ|ONE"], "full")
+    sent = []
+
+    class FakeSocket:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def send(self, payload):
+            sent.append(json.loads(payload.decode("utf-8")))
+
+        async def recv(self):
+            streamer._stop.set()
+            raise asyncio.TimeoutError()
+
+    async def token_provider():
+        return "test-access-token"
+
+    async def authorized_url(_token):
+        return "wss://feed.upstox.com/test"
+
+    streamer.token_provider = token_provider
+    streamer._authorized_url = authorized_url
+    streamer._stop.clear()
+    import app.services.upstox_market_data_streamer as streamer_module
+    original_connect = streamer_module.websockets.connect
+    streamer_module.websockets.connect = lambda *_args, **_kwargs: FakeSocket()
+    try:
+        await streamer._run()
+    finally:
+        streamer_module.websockets.connect = original_connect
+
+    assert {(request["data"]["mode"], tuple(request["data"]["instrumentKeys"]))
+            for request in sent} == {
+        ("option_greeks", ("NSE_FO|TWO",)),
+        ("full", ("NSE_EQ|ONE",)),
+    }
+    assert all(request["method"] == "sub" for request in sent)
+
+
+@pytest.mark.asyncio
+async def test_same_instrument_cannot_be_subscribed_in_two_modes_without_change_mode():
+    streamer = UpstoxMarketDataStreamer(_no_token, ["NSE_EQ|ONE"], mode="ltpc")
+    with pytest.raises(ValueError, match="already subscribed in another mode"):
+        await streamer.subscribe(["NSE_EQ|ONE"], "full")

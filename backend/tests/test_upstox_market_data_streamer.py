@@ -334,3 +334,42 @@ async def test_full_feed_does_not_fabricate_missing_optional_fields_as_zero():
     assert tick.volume_traded_today is None
     assert tick.average_traded_price is None
     assert tick.ohlc is None
+
+
+
+@pytest.mark.asyncio
+async def test_option_greeks_mode_decodes_first_level_depth_and_iv():
+    streamer = UpstoxMarketDataStreamer(
+        _no_token, ["NSE_FO|12345"], mode="option_greeks"
+    )
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    feed = response.feeds["NSE_FO|12345"].firstLevelWithGreeks
+    feed.ltpc.ltp = 101.25
+    feed.ltpc.ltt = now_ms
+    feed.firstDepth.bidQ = 100
+    feed.firstDepth.bidP = 101.2
+    feed.firstDepth.askQ = 125
+    feed.firstDepth.askP = 101.3
+    feed.optionGreeks.delta = 0.52
+    feed.optionGreeks.theta = -4.2
+    feed.optionGreeks.gamma = 0.001
+    feed.optionGreeks.vega = 8.1
+    feed.optionGreeks.rho = 1.2
+    feed.iv = 0.18
+    feed.oi = 25000
+    feed.vtt = 4000
+
+    await streamer._consume(response.SerializeToString())
+
+    tick = streamer.latest_tick("NSE_FO|12345")
+    assert tick is not None
+    assert tick.depth == ({
+        "bid_quantity": 100, "bid_price": 101.2,
+        "ask_quantity": 125, "ask_price": 101.3,
+    },)
+    assert tick.option_greeks["delta"] == pytest.approx(0.52)
+    assert tick.option_greeks["iv"] == pytest.approx(0.18)
+    assert tick.open_interest == 25000
+    assert tick.volume_traded_today == 4000

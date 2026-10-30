@@ -120,7 +120,7 @@ class ExecutionService:
         if access_token is None:
             return self._reject(order, "No connected broker with a live session — connect Upstox in Settings first.")
 
-        ltp, quote_error = await self._get_ltp(portfolio.user_id, instrument.instrument_key, access_token)
+        ltp, quote_error = await self._get_ltp(portfolio.user_id, instrument.instrument_key, access_token, req.side, req.quantity)
         if ltp is None:
             return self._reject(order, quote_error or "No fresh market price is available.")
 
@@ -321,21 +321,29 @@ class ExecutionService:
             trade_date=datetime.now(timezone.utc).date(),
         )
 
-    async def _get_ltp(self, user_id: UUID, instrument_key: str, access_token: str) -> tuple[Decimal | None, str | None]:
-        """Prefer a fresh subscribed WebSocket tick; fall back to authenticated REST LTP."""
-        streamer = market_data_stream_manager.get(user_id)
-        if streamer is not None:
-            tick = streamer.latest_tick(instrument_key)
-            if tick is not None:
-                return Decimal(str(tick.ltp)), None
+    async def _get_ltp(
+        self,
+        user_id: UUID,
+        instrument_key: str,
+        access_token: str,
+        side: Side = Side.BUY,
+        quantity: int = 1,
+    ) -> tuple[Decimal | None, str | None]:
+        """Price a paper market order from a fresh exchange snapshot's executable depth.
 
+        The current WebSocket subscription is LTPC-only, so it is suitable for
+        monitoring/valuation but does not provide enough depth to simulate a
+        market fill. Use Full Market Quotes V3 for the executable bid/ask book.
+        """
         quote_result = await get_broker_adapter("upstox").get_full_quote(access_token, [instrument_key])
         if not quote_result.ok:
-            return None, f"Could not fetch a timestamped market quote: {quote_result.error}"
-        ltp = _extract_fresh_full_quote_ltp(quote_result.data, instrument_key)
-        if ltp is None:
-            return None, "Broker full quote had an invalid price, missing requested instrument, or missing/stale last-trade timestamp."
-        return ltp, None
+            return None, f"Could not fetch a timestamped market-depth snapshot: {quote_result.error}"
+        price = _extract_fresh_market_depth_price(
+            quote_result.data, instrument_key, side=side, quantity=quantity
+        )
+        if price is None:
+            return None, "Broker market-depth snapshot was missing, stale, invalid, or lacked enough executable quantity."
+        return price, None
 
     def _is_reducing_position(self, portfolio_id: UUID, instrument_id: UUID, side: Side, quantity: int) -> bool:
         position = (
@@ -410,35 +418,66 @@ class ExecutionService:
         return order
 
 
-def _extract_fresh_full_quote_ltp(
+def _extract_fresh_market_depth_price(
     quote_data: Any,
     instrument_key: str,
     *,
+    side: Side,
+    quantity: int,
     now: datetime | None = None,
-    max_age_seconds: int = 15,
+    max_snapshot_age_seconds: int = 15,
 ) -> Decimal | None:
-    """Extract requested LTP only when its exchange trade time is fresh."""
-    if not isinstance(quote_data, dict):
+    """Return a depth-weighted paper fill price from a fresh Upstox V3 snapshot.
+
+    Snapshot timestamp, not last_trade_time, determines feed freshness:
+    an illiquid instrument can have an older last trade while its current
+    bid/ask book remains fresh. BUY consumes asks; SELL consumes bids.
+    """
+    if quantity <= 0 or not isinstance(quote_data, dict):
         return None
     payload = quote_data.get("data", quote_data)
     if not isinstance(payload, dict):
         return None
+    current = now or datetime.now(timezone.utc)
     for quote in payload.values():
         if not isinstance(quote, dict) or quote.get("instrument_token") != instrument_key:
             continue
         try:
-            price = Decimal(str(quote.get("last_price")))
-            trade_ms = int(quote.get("last_trade_time"))
-        except (InvalidOperation, TypeError, ValueError, OverflowError):
+            snapshot_raw = quote.get("timestamp")
+            if not isinstance(snapshot_raw, str):
+                return None
+            snapshot_time = datetime.fromisoformat(snapshot_raw.replace("Z", "+00:00"))
+            if snapshot_time.tzinfo is None:
+                return None
+            snapshot_age = (current - snapshot_time.astimezone(timezone.utc)).total_seconds()
+            if snapshot_age < -60 or snapshot_age > max_snapshot_age_seconds:
+                return None
+            depth = quote.get("depth")
+            if not isinstance(depth, dict):
+                return None
+            levels = depth.get("sell" if side == Side.BUY else "buy")
+            if not isinstance(levels, list):
+                return None
+            remaining = quantity
+            gross_value = Decimal("0")
+            for level in levels:
+                if not isinstance(level, dict):
+                    continue
+                try:
+                    price = Decimal(str(level.get("price")))
+                    available = int(level.get("quantity"))
+                except (InvalidOperation, TypeError, ValueError, OverflowError):
+                    continue
+                if not price.is_finite() or price <= 0 or available <= 0:
+                    continue
+                taken = min(remaining, available)
+                gross_value += price * taken
+                remaining -= taken
+                if remaining == 0:
+                    return gross_value / Decimal(quantity)
             return None
-        if not price.is_finite() or price <= 0 or trade_ms <= 0:
+        except (TypeError, ValueError, OverflowError):
             return None
-        current = now or datetime.now(timezone.utc)
-        trade_time = datetime.fromtimestamp(trade_ms / 1000, tz=timezone.utc)
-        age = (current - trade_time).total_seconds()
-        if age < -60 or age > max_age_seconds:
-            return None
-        return price
     return None
 
 

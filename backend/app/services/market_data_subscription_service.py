@@ -57,8 +57,11 @@ class MarketDataSubscriptionService:
             .all()
         )
         desired_ids = {by_key[key].id for key in instrument_keys}
+        # Replacing one feed mode must not deactivate instruments assigned to
+        # another mode; mixed-mode streams maintain independent desired sets.
         for row in existing:
-            row.is_active = False
+            if row.feed_mode == feed_mode:
+                row.is_active = False
 
         existing_by_identity = {
             (row.instrument_id, row.feed_mode): row for row in existing

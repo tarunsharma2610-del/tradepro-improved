@@ -10,7 +10,7 @@ Phase 2, rather than trusting this comment.
 
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import httpx
 
@@ -98,6 +98,14 @@ class UpstoxAdapter(BrokerAdapter):
         # Path shape: /v3/historical-candle/{instrument_key}/{unit}/{interval}/{to_date}/{from_date}
         # unit: "minutes" | "hours" | "days" | "weeks" | "months"; to_date comes BEFORE from_date.
         path = f"{API_V3}/historical-candle/{instrument_key}/{unit}/{interval}/{to_date.isoformat()}/{from_date.isoformat()}"
+        return await self._get(path, access_token)
+
+    async def get_intraday_data(
+        self, access_token: str, instrument_key: str, unit: str, interval: str
+    ) -> BrokerCallResult:
+        """Fetch current-session candles using Upstox's supported V3 endpoint."""
+        encoded_key = quote(instrument_key, safe="")
+        path = f"{API_V3}/historical-candle/intraday/{encoded_key}/{unit}/{interval}"
         return await self._get(path, access_token)
 
     def get_market_data_stream_url(self, access_token: str) -> BrokerCallResult:

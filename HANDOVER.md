@@ -2933,3 +2933,42 @@ Important remaining gap: the consumer service is implemented and tested but `app
 ## Phase 4 resume pointer — Upstox SDK/CAS audit (30 October 2026)
 
 Resume from the Phase 4 branch phase4/redis-market-data-publisher. Exact-head CI #41036389075 passed on commit 2212be0e094bb41423193b4384b6c07511ff3d62. Durable subscription persistence/startup recovery code is in place; fixture fix is accepted. Official SDK comparison is documented in UPSTOX_SDK_COMPATIBILITY_AUDIT.md: do not add upstox-python-sdk dependency now because current async REST/WebSocket layers fit our architecture better; local V3 protobuf schema matches SDK 2.30.0. CAS field propagation is implemented in commit fe76751c54a720ffa5fcec7b4f3728b137447090 but its exact-head CI must pass before acceptance. Next: inspect/fix that CI, checkpoint green, then continue worker-managed Redis consumer lifecycle and only then scanner integration. PAPER mandatory; live broker writes disabled; PR #9 Draft/unmerged; original Tradepro untouched.
+
+
+## PAUSED — next implementation plan to resume here (30 October 2026)
+
+**Do not restart from an older checkpoint. Resume from the latest Phase 4 branch head and the sequence below.**
+
+### Gate 0 — repair the current exact-head CI failure
+
+- Latest code head: 0cd3e2273f831b9e7d4968899ef8fc6a5d14a59d.
+- Workflow #41037359835 FAILED in pytest: 1,304 passed, 2 failed. Both failures are in tests/test_upstox_option_chain_api.py because the test FakeStreamer fixture does not define the newly exposed market_info attribute. Production parser/API work is not the failure identified by CI.
+- On resume, inspect the FakeStreamer fixture and add a safe default market_info=None (and a focused assertion if appropriate). Do not weaken/remove the production market status field or its tests.
+- Rerun full backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore drill. Only checkpoint after all exact-head checks pass.
+
+### Gate 1 — mixed feed-mode subscription implementation (next feature)
+
+Borrow the useful design from official Upstox Python SDK v2.30.0, not its transport:
+
+1. Replace the current one-mode-per-user stream assumption with a mode-indexed subscription registry for LTPC, full, option_greeks and full_d30 where officially supported.
+2. Permit a user connection to carry different instruments in different feed modes concurrently, subject to current official Upstox limits.
+3. Replay each mode's instrument set after every reconnect, using our own asyncio streamer and fresh token-provider call on reconnect.
+4. Update durable subscription service/API reconciliation so subscribing, unsubscribing or changing one instrument's mode does not deactivate unrelated mode subscriptions.
+5. Preserve user/broker ownership isolation, validate instrument keys and feed modes, and enforce per-mode plus combined connection limits from current official docs.
+6. Restore mixed-mode desired subscriptions after API/worker restart.
+7. Add tests for mixed modes, mode-specific changes, duplicate requests, limits, reconnect replay, token refresh, startup recovery, Redis delivery and tenant isolation.
+8. Benchmark/verify against the official SDK's behaviour and record the comparison; do not add SDK dependency unless a separately proven benefit emerges.
+
+### Gate 2 — only after mixed-mode tests and CI are green
+
+- Integrate Redis quote consumers with the scanner's broad LTPC universe, selected full-depth instruments and selected option-Greeks contracts.
+- Validate freshness, stream silence, mode correctness and missing-field behaviour at the scanner boundary.
+- Keep PAPER mode mandatory and all live broker order writes disabled.
+
+### Preserved architecture decision
+
+Keep the existing async httpx/websockets adapter, application OAuth/token lifecycle, V3 protobuf decoder, Redis snapshot/version/epoch delivery, freshness validation and domain-level safeguards. Do not add upstox-python-sdk as a runtime dependency merely for parity; selectively borrow proven SDK capabilities. See UPSTOX_SDK_COMPATIBILITY_AUDIT.md.
+
+### Safety and repository boundary
+
+Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-publisher. PR #9 remains Draft/unmerged. Do not modify tarunsharma2610-del/Tradepro. No live broker place/modify/cancel calls.

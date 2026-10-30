@@ -86,3 +86,29 @@ def test_deactivate_clears_all_user_desired_subscriptions(db_session, make_user)
 
     assert service.deactivate_for_user(user_id=user.id, broker="upstox") == 1
     assert service.list_active(user_id=user.id) == []
+
+def test_replacing_one_feed_mode_preserves_other_mode_subscriptions(db_session, make_user):
+    user, first, second = _setup(db_session, make_user)
+    service = MarketDataSubscriptionService(db_session)
+
+    service.replace_for_user(
+        user_id=user.id, broker="upstox",
+        instrument_keys=[first.instrument_key], feed_mode="ltpc",
+    )
+    service.replace_for_user(
+        user_id=user.id, broker="upstox",
+        instrument_keys=[second.instrument_key], feed_mode="full",
+    )
+
+    active = service.list_active(user_id=user.id)
+    active_pairs = {(row.instrument_id, row.feed_mode) for row in active}
+    assert active_pairs == {(first.id, "ltpc"), (second.id, "full")}
+
+    # Replacing the ltpc set affects ltpc only; full-mode intent stays active.
+    service.replace_for_user(
+        user_id=user.id, broker="upstox",
+        instrument_keys=[second.instrument_key], feed_mode="ltpc",
+    )
+    active = service.list_active(user_id=user.id)
+    active_pairs = {(row.instrument_id, row.feed_mode) for row in active}
+    assert active_pairs == {(second.id, "ltpc"), (second.id, "full")}

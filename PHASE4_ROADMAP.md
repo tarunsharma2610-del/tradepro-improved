@@ -68,3 +68,12 @@ Progress from Phase 3 PAPER-mode accounting safeguards into a verified, maintain
 
 ## Phase 4 completion definition
 Phase 4 is complete only when each applicable work-package exit criterion is supported by tests or documented operational evidence, all safety invariants hold, exact-head CI passes, and the user-facing progress/handover/checkpoint files identify the same verified head. Deployment-only gates must be explicitly labelled deferred, not falsely passed.
+
+## Execution update — 30 October 2026
+
+- [x] P4-0B initial static hardening: literal `getattr` dispatch to broker write methods is rejected; targeted tests added.
+- [x] Exact-head Backend CI #41012821073 passed on `24c34dac47e273f9377485dc697f9fa510808a72`.
+- [ ] P4-0B broader call-path review: dynamically computed method names and arbitrary reflection remain limitations; continue auditing routes/services and don't overstate static guard coverage.
+- [ ] P4-0C: test kill switch blocks new strategy entries while exits remain possible; inspect stale market-data/candle handling and risk checks at shared execution boundary.
+- [ ] P4-1: continue order lifecycle, partial/rejected/replay/restart tests only after the P4-0C findings are addressed.
+

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
@@ -7,6 +9,7 @@ from app.models.user import User
 from app.schemas.market_data import MarketDataStreamStart
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.market_data_stream_manager import market_data_stream_manager
+from app.brokers.registry import get_broker_adapter
 
 router = APIRouter(prefix="/market-data", tags=["market-data"])
 
@@ -17,8 +20,8 @@ async def start_market_data_stream(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if BrokerCredentialsService(db).get_access_token(user.id, "upstox") is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Connect Upstox and complete OAuth before starting a market stream.")
+    if BrokerCredentialsService(db).get_analytics_token(user.id, "upstox") is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Configure a valid Upstox Analytics Token in Settings before starting a market stream.")
 
     found = {
         row.instrument_key
@@ -38,9 +41,33 @@ async def start_market_data_stream(
         "started": True,
         "connected": streamer.connected,
         "instrument_count": len(streamer.instrument_keys),
-        "mode": "ltpc",
+        "mode": streamer.mode,
         "message": "Stream task started. Check GET /market-data/stream for connection and fresh-quote status.",
     }
+
+
+@router.get("/option-chain")
+async def get_option_chain(
+    instrument_key: str = Query(min_length=3, max_length=100),
+    expiry_date: str = Query(min_length=7, max_length=20),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return Upstox's authoritative option-chain snapshot for one expiry."""
+    if instrument_key.startswith("MCX_"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Upstox Option Chain API does not currently support MCX.")
+    if expiry_date not in {"current_week", "next_week", "far_week", "current_month", "next_month", "far_month"}:
+        try:
+            date.fromisoformat(expiry_date)
+        except ValueError:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "expiry_date must be YYYY-MM-DD or a supported Upstox relative expiry keyword.")
+    token = BrokerCredentialsService(db).get_analytics_token(user.id, "upstox")
+    if token is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Configure a valid Upstox Analytics Token in Settings before requesting option-chain data.")
+    result = await get_broker_adapter("upstox").get_option_chain(token, instrument_key, expiry_date)
+    if not result.ok:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, result.error or "Upstox option-chain request failed.")
+    return result.data
 
 
 @router.get("/stream")

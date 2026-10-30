@@ -114,9 +114,9 @@ def test_literal_getattr_cannot_bypass_broker_write_guard(tmp_path):
     app = tmp_path / "app"
     (app / "services").mkdir(parents=True)
     (app / "services" / "dynamic_dispatch.py").write_text(
-        'async def submit(adapter):\\n'
-        '    method = getattr(adapter, "place_order")\\n'
-        '    return await method(token, payload)\\n',
+        'async def submit(adapter):\n'
+        '    method = getattr(adapter, "place_order")\n'
+        '    return await method(token, payload)\n',
         encoding="utf-8",
     )
 
@@ -132,7 +132,7 @@ def test_literal_getattr_for_non_write_method_is_allowed(tmp_path):
     app = tmp_path / "app"
     (app / "services").mkdir(parents=True)
     (app / "services" / "dynamic_dispatch.py").write_text(
-        'def read(adapter):\\n    return getattr(adapter, "get_quote")\\n',
+        'def read(adapter):\n    return getattr(adapter, "get_quote")\n',
         encoding="utf-8",
     )
 

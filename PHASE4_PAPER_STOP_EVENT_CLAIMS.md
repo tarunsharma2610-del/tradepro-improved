@@ -41,3 +41,12 @@ This slice adds an atomic, database-backed claim operation for an already-valida
 ## Concurrency limitation
 
 The unique database constraint is the final duplicate guard. PostgreSQL row locks serialize claims for one portfolio/strategy/position when all writers use this service. Multi-replica PostgreSQL 16 tests are still required before the service is considered production-safe.
+
+
+## Latest Phase 4 verification — 30 October 2026
+
+- Transactional PAPER stop-event claim implementation: `6ac3882a98f3c66abb4cd62848971b6277ab3be7`.
+- Exact-head Backend CI #41080156436 passed: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436.
+- Claims validate user/portfolio/strategy/instrument ownership, lock portfolio → strategy → position, reject flat or ambiguously shared positions, and persist unique quote identity, claim token and bounded lease. Duplicate claims fail closed.
+- No claim consumer or order path is enabled by this slice. PAPER-only remains mandatory; live broker order writes remain disabled; PR #9 remains Draft/unmerged; original Tradepro repository is out of scope.
+- Next: PostgreSQL 16 multi-worker claim tests, safe lease reclamation and crash recovery, then controlled PAPER dispatcher integration only after those gates.

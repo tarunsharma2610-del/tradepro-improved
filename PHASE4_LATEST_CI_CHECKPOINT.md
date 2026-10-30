@@ -232,3 +232,16 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - Scanner and PAPER strategy integrations remain NOT complete. Do not advance them until transport acceptance gates are met.
 - **Next:** audit consumer startup/reconnect snapshot sweep and worker lifecycle; add independent OS-process delivery tests and sustained isolation/load tests; then integrate scanner, followed by PAPER strategy.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #9 Draft/unmerged; no main update; PAPER mandatory; live broker writes disabled; original Tradepro untouched.
+
+
+## 30 October 2026 — Redis bounded epoch/version lifecycle accepted
+
+- **Latest verified code/test head:** `7268edd6e7ddb7ef6d472799d1d0164b4210b135`.
+- **Exact-head Backend CI #41032764754: SUCCESS:** https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41032764754. The full job passed pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document restore, and evidence retention.
+- Redis publisher now uses a bounded version-counter retention (default 24 hours) and a unique epoch identifier. Quote snapshots retain their short configured TTL (15 seconds by default). Lua atomically allocates epoch/version, writes the snapshot, and publishes notification.
+- When the version key expires or Redis loses volatile data, the next publisher creates a new epoch and starts at version 1. Consumers compare (epoch, version), accepting a reset only when the epoch changes. Existing integer-only version keys are migrated on the next publish.
+- Real Redis tests cover actual snapshot TTL expiry while the counter remains in the same epoch; actual counter TTL expiry followed by a new epoch and consumer acceptance; Pub/Sub connection kill/reconnect; Redis process restart; independent publisher/consumer OS processes; two-user isolation; and concurrent version ordering.
+- Intermediate epoch commit `85d8c30` failed five consumer unit tests because the fixture snapshots did not yet include the required epoch. The fixtures and tests were corrected in `cb52cb8`; the final exact-head CI above passed.
+- **Not complete:** multi-user/multi-instrument load testing at scale; a managed long-running consumer registry in the worker; scanner integration; PAPER strategy consumption of Redis quotes. The current worker still evaluates strategies through its existing candle path.
+- **Next:** define durable user/instrument subscription discovery and lifecycle for the worker consumer; add cancellation, restart, shutdown and scale tests; then connect scanner; only then evaluate PAPER strategy integration.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #9 Draft/unmerged; no main update; PAPER mandatory; live broker writes disabled; original Tradepro untouched.

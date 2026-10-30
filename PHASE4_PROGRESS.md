@@ -192,3 +192,14 @@ Backend pytest passed on code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e
 - Redis process-restart test exists and previously passed in #41029973040. Do not conflate that test with independent OS-process publisher/consumer validation or full production readiness.
 - Pending: inspect startup/reconnect authoritative snapshot sweep, worker lifecycle and shutdown; independent OS-process delivery tests; multi-user/multi-instrument load and isolation tests; scanner consumption; PAPER strategy consumption.
 - PR #9 remains Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled; original Tradepro out of scope.
+
+
+## 30 October 2026 — Redis bounded epoch/version lifecycle checkpoint
+
+- **Exact-head Backend CI #41032764754 PASSED** on `7268edd6e7ddb7ef6d472799d1d0164b4210b135`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41032764754. All workflow steps passed: backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and evidence retention.
+- Redis quote snapshots retain their configured short TTL; version counters use a bounded 24-hour default retention and carry a unique epoch. Atomic Lua allocates epoch/version, writes the snapshot and publishes the notification in one operation.
+- Counter expiry or Redis data loss creates a new epoch; consumers validate epoch plus version, so a new epoch's version 1 is not rejected as regression. Legacy integer counters migrate on next publish.
+- Real Redis suite covers snapshot TTL expiry, counter TTL expiry/new epoch, Pub/Sub disconnect recovery, Redis process restart, independent OS-process publisher/consumer delivery, two-user isolation and concurrent atomic version ordering.
+- Intermediate commit `85d8c30` failed five unit tests because consumer fixtures lacked the new epoch field; corrected in `cb52cb8`, with final exact-head CI passing on `7268edd6e7ddb7ef6d472799d1d0164b4210b135`.
+- Still pending: multi-user/multi-instrument scale/load tests; worker-managed consumer registry and graceful lifecycle; scanner integration; PAPER strategy consuming Redis snapshots. Strategy worker currently retains its candle-based evaluation path.
+- PR #9 remains Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled; original Tradepro out of scope.

@@ -255,3 +255,21 @@ Do not skip gates or mark downstream integrations complete based on publisher/co
 - [ ] Integrate PAPER strategy only after scanner acceptance; retain candle freshness and risk gates.
 
 Persistent version keys require an explicit retention/cleanup policy for instruments no longer subscribed; do not reintroduce TTL-based counter resets without an epoch-safe design. Keep PR #9 Draft/unmerged and live broker writes disabled.
+
+
+## Redis bounded epoch/version lifecycle update — 30 October 2026
+
+- [x] Add bounded version-counter retention (24-hour default) and unique epoch identifier.
+- [x] Atomically allocate epoch/version, write snapshot and publish notification through Lua.
+- [x] Migrate existing integer-only counters on next publish.
+- [x] Verify actual quote snapshot expiry while version remains in the same epoch.
+- [x] Verify actual counter expiry starts a new epoch and an existing consumer accepts the reset safely.
+- [x] Verify Pub/Sub connection kill/reconnect and real Redis process restart.
+- [x] Verify independent OS-process publisher/consumer delivery, two-user isolation and concurrent atomic version order.
+- [x] Exact-head full Backend CI #41032764754 passed on `7268edd6e7ddb7ef6d472799d1d0164b4210b135`.
+- [ ] Multi-user/multi-instrument scale and sustained-load testing.
+- [ ] Implement worker-managed consumer registry with durable subscription discovery, dynamic add/remove, cancellation, graceful shutdown and restart recovery.
+- [ ] Integrate scanner only after worker consumer lifecycle acceptance.
+- [ ] Integrate PAPER strategy evaluation only after scanner acceptance; retain candle freshness and risk gates unless a separately reviewed quote-based execution design is approved.
+
+Do not claim scanner or strategy integration: `app/worker.py` currently uses its existing candle-based strategy path and does not run a Redis quote-consumer registry. Keep PR #9 Draft/unmerged and live broker writes disabled.

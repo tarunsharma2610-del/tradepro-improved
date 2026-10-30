@@ -2917,3 +2917,14 @@ Resume only in `tarunsharma2610-del/tradepro-improved`, branch `phase4/redis-mar
 The Redis publisher now keeps per-user/per-instrument version counters persistent while quote snapshots retain their TTL. A real Redis integration test verifies that after a snapshot is deleted/expired, the next publish increments the counter instead of resetting it. This resolves ordinary snapshot-expiry version regression. Redis process-restart recovery has its own test; do not claim independent OS-process delivery or full production readiness from it.
 
 Next: audit consumer startup/reconnect snapshot recovery and worker lifecycle; add independent publisher/consumer OS-process tests; test multiple users/instruments under concurrency and restart. Then integrate scanner, then PAPER strategy. No scanner or strategy integration is currently claimed. PAPER mandatory; live broker writes disabled; PR #9 Draft/unmerged; main untouched; original Tradepro untouched.
+
+
+## Phase 4 handover — Redis bounded epoch/version checkpoint, 30 October 2026
+
+Resume only in `tarunsharma2610-del/tradepro-improved`, branch `phase4/redis-market-data-publisher`, PR #9 Draft/unmerged. Latest verified code head `7268edd6e7ddb7ef6d472799d1d0164b4210b135`; exact-head full Backend CI #41032764754 passed: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41032764754. This includes backend pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document restore and evidence retention.
+
+Redis publisher uses short-lived authoritative snapshots (15-second default) and bounded version-counter retention (24-hour default) with unique epochs. Lua atomically allocates epoch/version, writes snapshot and publishes notification. Counter expiry or Redis data loss creates a new epoch; consumer compares epoch plus version. Legacy integer counters are migrated on next publish.
+
+Exact-head real Redis tests passed for snapshot TTL expiry, counter TTL expiry/new epoch, Pub/Sub disconnect recovery, Redis process restart, independent OS-process publisher/consumer delivery, two-user isolation and concurrent version ordering. Intermediate `85d8c30` failed because test fixtures lacked epoch fields; corrected in `cb52cb8`; final accepted head is `7268edd6e7ddb7ef6d472799d1d0164b4210b135`.
+
+Important remaining gap: the consumer service is implemented and tested but `app/worker.py` does not yet run a managed Redis consumer registry. Strategy execution still uses its candle-based path. Next define durable user/instrument subscription discovery, implement worker lifecycle/dynamic subscriptions and test graceful shutdown/restart/load. Then integrate scanner, then PAPER strategy. No scanner/strategy Redis integration is currently claimed. PAPER mandatory; live broker writes disabled; PR #9 Draft/unmerged; main untouched; original Tradepro untouched.

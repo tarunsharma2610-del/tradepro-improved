@@ -2231,3 +2231,15 @@ Resume from exact verified code head `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`,
 - Persistent version keys need an explicit retention/cleanup policy; do not add counter TTL back without epoch-safe version semantics.
 - Only modify `tarunsharma2610-del/tradepro-improved`; never original `tarunsharma2610-del/Tradepro`. PR #9 remains Draft/unmerged; do not update main or merge without explicit authorization. PAPER mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled. Preserve Phase 3 accounting safeguards and fail-closed freshness/risk controls.
 - Prefer official Upstox Developer Console, API docs, SDKs and protobuf contracts when relevant; audit existing support before adding duplicate services.
+
+
+## Phase 4 continuation checkpoint — 30 October 2026
+
+- Latest verified code head: `7268edd6e7ddb7ef6d472799d1d0164b4210b135`; exact-head full Backend CI #41032764754 passed, including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore/evidence retention.
+- Redis quote snapshots use short TTL; version counters use bounded 24-hour default retention and a unique epoch. Atomic Lua allocates epoch/version, stores snapshot and publishes notification. Legacy integer counters migrate on next publish.
+- Consumer compares epoch plus version; counter expiry or Redis data loss starts a new epoch, so a new version 1 is not mistaken for a regression.
+- Real Redis tests passed for snapshot TTL expiry, counter TTL expiry/new epoch, Pub/Sub disconnect recovery, Redis process restart, independent OS-process delivery, two-user isolation and concurrent publishing.
+- Important: consumer service is tested but not yet managed by `app/worker.py`; strategy execution remains candle-based. Scanner and PAPER strategy Redis consumption are not complete. Next implement durable user/instrument subscription discovery and a managed worker consumer lifecycle, then scanner, then PAPER strategy.
+- Multi-user/multi-instrument sustained-load testing remains pending. Do not claim production-scale readiness.
+- Only modify `tarunsharma2610-del/tradepro-improved`; never original `tarunsharma2610-del/Tradepro`. PR #9 remains Draft/unmerged; do not update main or merge without explicit authorization. PAPER mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled. Preserve Phase 3 accounting safeguards and fail-closed freshness/risk controls.
+- Prefer official Upstox Developer Console, API docs, SDKs and protobuf contracts when relevant; audit existing support before adding duplicate services.

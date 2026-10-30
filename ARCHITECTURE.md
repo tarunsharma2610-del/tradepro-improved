@@ -1709,3 +1709,12 @@ Backend CI provisions Redis 7 and PostgreSQL 16. Exact-head Backend CI #41026567
 Exact-head Backend pytest CI #41031153316 passed on `3088e49cf24317f58f7e04a60d6cd54e065143b4`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41031153316. The Redis publisher no longer applies TTL to the version counter; the authoritative quote snapshot continues to expire. A real Redis integration test verifies that deleting/expiring a snapshot and publishing a subsequent tick produces the next version rather than resetting the version sequence.
 
 This addresses ordinary snapshot expiry, not Redis data-loss epochs. A Redis server restart can erase volatile counters and snapshots; consumer-local high-water marks must be reset/reconciled safely and a post-reconnect authoritative snapshot sweep must occur. Persistent version keys also need an explicit bounded-retention/cleanup policy for instruments no longer subscribed. Independent OS-process delivery and sustained multi-tenant load remain pending; scanner and PAPER strategy do not yet consume this transport.
+
+
+## Phase 4 Redis bounded epoch/version lifecycle — 30 October 2026
+
+Exact-head full Backend CI #41032764754 passed on `7268edd6e7ddb7ef6d472799d1d0164b4210b135`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41032764754. Redis quote snapshots retain a short TTL (15 seconds by default); per-user/per-instrument version state has bounded retention (24 hours by default) and includes a unique epoch. A Lua script atomically allocates epoch/version, writes the snapshot and publishes the notification. Legacy integer-only counters are migrated on the next publish.
+
+When a counter expires or Redis loses volatile data, the next publish creates a new epoch and starts at version 1. Consumers compare epoch and version together, allowing a version reset only across epochs. Real Redis tests cover snapshot expiry, counter expiry/new epoch, Pub/Sub disconnect recovery, server process restart, independent OS-process delivery, two-user isolation and concurrent publishing.
+
+Current architectural boundary: `RedisMarketQuoteConsumer` is implemented and tested, but the background worker does not yet manage consumer instances or durable per-user subscription discovery. `app/worker.py` still evaluates strategies through the existing historical/intraday candle path. Scanner and PAPER strategy Redis integrations remain future milestones. Multi-user/multi-instrument scale testing and worker lifecycle/shutdown testing remain pending.

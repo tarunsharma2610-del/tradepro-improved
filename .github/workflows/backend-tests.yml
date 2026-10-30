@@ -76,9 +76,13 @@ jobs:
           alembic downgrade 202610170001
           alembic upgrade head
 
+      - name: Create isolated PostgreSQL 16 migration database
+        env:
+          PGPASSWORD: postgres
+        run: createdb -h localhost -p 5432 -U postgres tradepro_migration_check
       - name: Verify Alembic upgrade, downgrade and re-upgrade on PostgreSQL 16
         env:
-          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
+          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_migration_check"
           MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPoUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: |

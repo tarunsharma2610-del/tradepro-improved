@@ -80,3 +80,7 @@ Implemented the first direct API correction rather than adding more stale-data h
 - Audited Upstox V3 streamer: removed unsafe fallback from missing LTPC last-trade time to packet currentTs. Missing LTT or non-finite/non-positive LTP is no longer cached; latest_tick requires a positive exchange timestamp and validates exchange age plus local monotonic receive age.
 - Added regression tests for non-finite LTP and missing LTT.
 - Current code head 4dd8420d4d787be049c956204e15bfdff9586f3e. CI #41015772900 is running on this test head; prior code/message runs #41015756833 and #41015671461 are also running. No green claim until exact-head result.
+
+## CI result — 30 October 2026
+
+Backend pytest passed on code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e (run #41015772900). The WebSocket code head d7c74a20a4a46741123ebbf4809176e90199643c passed run #41015756833; the rejection-message correction head 90bb1f5bf9d43767043a653e68a55b374bf0c599 passed run #41015671461. Latest documentation head 2589db1e0a6446ea60d12a075d58ce43fa19ed93 is in CI run #41015946896; await exact-head result.

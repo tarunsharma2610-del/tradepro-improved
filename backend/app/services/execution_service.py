@@ -341,7 +341,7 @@ class ExecutionService:
             quote_result.data, instrument_key, side=side, quantity=quantity
         )
         if price is None:
-            return None, "Broker market-depth snapshot was missing, stale, invalid, or lacked enough executable quantity."
+            return None, "Broker market-depth price snapshot was missing, stale, invalid, or lacked enough executable quantity."
         return price, None
 
     def _is_reducing_position(self, portfolio_id: UUID, instrument_id: UUID, side: Side, quantity: int) -> bool:

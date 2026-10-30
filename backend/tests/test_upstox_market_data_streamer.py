@@ -92,6 +92,7 @@ def test_stream_rejects_invalid_keys_and_unsafe_staleness_configuration():
 async def test_stream_reconnects_after_silence_timeout(monkeypatch):
     streamer = _streamer()
     connects = 0
+    sent_requests = []
 
     async def token_provider():
         return "test-access-token"
@@ -111,8 +112,8 @@ async def test_stream_reconnects_after_silence_timeout(monkeypatch):
         async def __aexit__(self, exc_type, exc, tb):
             return False
 
-        async def send(self, _payload):
-            return None
+        async def send(self, payload):
+            sent_requests.append(payload)
 
         async def recv(self):
             raise asyncio.TimeoutError()
@@ -132,6 +133,12 @@ async def test_stream_reconnects_after_silence_timeout(monkeypatch):
 
     assert connects == 2
     assert streamer.connected is False
+    assert sent_requests
+    import json
+    request = json.loads(sent_requests[0])
+    assert request["method"] == "sub"
+    assert request["data"]["mode"] == "full"
+    assert request["data"]["instrumentKeys"] == ["NSE_EQ|INE002A01018"]
 
 
 @pytest.mark.asyncio

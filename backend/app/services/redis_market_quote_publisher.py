@@ -108,6 +108,12 @@ class RedisMarketQuotePublisher:
                 "average_traded_price": tick.average_traded_price,
                 "total_buy_quantity": tick.total_buy_quantity,
                 "total_sell_quantity": tick.total_sell_quantity, "ohlc": tick.ohlc,
+                "indicative_equilibrium_price": tick.indicative_equilibrium_price,
+                "reference_price": tick.reference_price,
+                "indicative_equilibrium_quantity": tick.indicative_equilibrium_quantity,
+                "indicative_interest_quantity_total": tick.indicative_interest_quantity_total,
+                "indicative_interest_quantity_market": tick.indicative_interest_quantity_market,
+                "cas_eligible": tick.cas_eligible,
             }
             encoded = json.dumps(snapshot, separators=(",", ":"), allow_nan=False)
             await self.redis.eval(

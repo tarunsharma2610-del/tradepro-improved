@@ -2213,3 +2213,12 @@ Next: implement the separately encrypted Upstox Analytics Token path for market 
 ## Phase 4 — Upstox SDK/CAS decision (30 October 2026)
 
 The official Upstox Python SDK v2.30.0 has been compared with the current integration. See UPSTOX_SDK_COMPATIBILITY_AUDIT.md. The existing async httpx/websockets adapter and streamer remain preferred; no dependency added. Official SDK protobuf schema matches the local V3 schema. CAS fields previously ignored by the decoder are now propagated through MarketTick, Redis and stream status. Code head fe76751c54a720ffa5fcec7b4f3728b137447090 awaits exact-head CI. After CI acceptance, continue worker-managed Redis consumer lifecycle, then scanner integration. PAPER mandatory; live writes disabled; PR #9 Draft/unmerged; original Tradepro out of scope.
+
+
+## Phase 4 status — Redis consumer recovery — 30 October 2026
+
+Mixed-mode Upstox feed subscriptions, reconnect replay, fresh-token reacquisition, broker-scoped startup restoration and Redis quote delivery primitives are implemented. Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`.
+
+Current head `a5e352bef2c78f27141b61bca5893fdfa0fd049a` adds Redis consumer epoch-rollover and idle Pub/Sub heartbeat regression tests; exact-head CI #41061518847 is pending. Worker-managed consumer lifecycle and scanner/PAPER strategy consumption remain future gates. Strategy worker currently follows its existing candle path; do not claim scanner integration.
+
+Next: pass exact-head CI; implement worker consumer lifecycle with durable subscription discovery, single-owner coordination and graceful shutdown; verify multi-tenant delivery; then integrate scanner/PAPER evaluation. PR #9 Draft/unmerged; PAPER mandatory; live writes disabled; original Tradepro untouched.

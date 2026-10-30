@@ -51,3 +51,12 @@ A deeper source-level comparison of the official v2.30.0 MarketDataStreamerV3 fo
 **Decision: borrow the SDK's per-mode subscription registry and reconnect replay semantics**, while keeping our own asyncio/websockets transport, fresh token-provider call on every reconnect, bounded exponential retry, protobuf parsing, freshness checks and Redis publisher. Persist each instrument/mode identity in the existing durable subscription table. Do not add the SDK package just for this design pattern.
 
 Implementation gate: after CAS field propagation passes exact-head CI, extend the streamer and subscription service to reconcile a mapping of feed mode to instrument keys; replay each mode after reconnect; allow mode-specific subscribe/unsubscribe/change-mode; enforce Upstox limits per mode and any combined connection limit from current official docs; add reconnect, persistence, tenant isolation and API tests before scanner integration.
+
+
+## Implementation follow-through — mixed-mode stream and Redis recovery — 30 October 2026
+
+The per-mode registry and reconnect replay decision above has been implemented in the Tradepro Improved streamer and durable subscription service. Startup restores independent LTPC, Option Greeks and Full mode sets; reconnect fetches a fresh Analytics Token and a new authorized V3 WebSocket URL. Exact-head Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`.
+
+Redis consumer recovery hardening adds tests for volatile-data-loss epoch rollover and idle Pub/Sub PING/PONG heartbeat on head `a5e352bef2c78f27141b61bca5893fdfa0fd049a`; exact-head CI #41061518847 is pending. The official SDK remains an audit/reference, not a runtime dependency.
+
+Remaining: worker-managed Redis consumer lifecycle, durable subscription discovery, single-owner coordination, graceful shutdown and scanner/PAPER integration. These are separate gates; do not claim them complete based on streamer or Redis primitive tests.

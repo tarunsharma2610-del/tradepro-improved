@@ -41,6 +41,12 @@ class MarketTick:
     total_buy_quantity: float | None = None
     total_sell_quantity: float | None = None
     ohlc: tuple[dict, ...] | None = None
+    indicative_equilibrium_price: float | None = None
+    reference_price: float | None = None
+    indicative_equilibrium_quantity: int | None = None
+    indicative_interest_quantity_total: int | None = None
+    indicative_interest_quantity_market: int | None = None
+    cas_eligible: bool = False
 
 
 class UpstoxMarketDataStreamer:
@@ -290,6 +296,12 @@ class UpstoxMarketDataStreamer:
             greeks = None
             open_interest = volume = average_price = total_buy = total_sell = None
             ohlc = None
+            indicative_equilibrium_price = None
+            reference_price = None
+            indicative_equilibrium_quantity = None
+            indicative_interest_quantity_total = None
+            indicative_interest_quantity_market = None
+            cas_eligible = False
             if market_ff is not None:
                 if union == "firstLevelWithGreeks":
                     first = market_ff.firstDepth
@@ -317,6 +329,16 @@ class UpstoxMarketDataStreamer:
                         "close": float(item.close), "volume": int(item.vol),
                         "timestamp_ms": int(item.ts),
                     } for item in market_ff.marketOHLC.ohlc) if market_ff.HasField("marketOHLC") else None
+                    # These fields are part of Upstox's official V3 schema (CAS
+                    # market-data additions). Proto3 scalar zero is treated as
+                    # unavailable for numeric fields, consistent with the other
+                    # optional quote fields in this decoder.
+                    indicative_equilibrium_price = float(market_ff.iep) if market_ff.iep != 0 else None
+                    reference_price = float(market_ff.rp) if market_ff.rp != 0 else None
+                    indicative_equilibrium_quantity = int(market_ff.ieq) if market_ff.ieq != 0 else None
+                    indicative_interest_quantity_total = int(market_ff.iiqTotal) if market_ff.iiqTotal != 0 else None
+                    indicative_interest_quantity_market = int(market_ff.iiqM) if market_ff.iiqM != 0 else None
+                    cas_eligible = bool(market_ff.casEligible)
                 else:
                     greeks_source = market_ff.optionGreeks if market_ff.HasField("optionGreeks") else None
                     open_interest = float(market_ff.oi) if market_ff.oi != 0 else None
@@ -344,6 +366,12 @@ class UpstoxMarketDataStreamer:
                 total_buy_quantity=total_buy,
                 total_sell_quantity=total_sell,
                 ohlc=ohlc,
+                indicative_equilibrium_price=indicative_equilibrium_price,
+                reference_price=reference_price,
+                indicative_equilibrium_quantity=indicative_equilibrium_quantity,
+                indicative_interest_quantity_total=indicative_interest_quantity_total,
+                indicative_interest_quantity_market=indicative_interest_quantity_market,
+                cas_eligible=cas_eligible,
             )
             self._ticks[key] = tick
             if self.on_tick is not None:

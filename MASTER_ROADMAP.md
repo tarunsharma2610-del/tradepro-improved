@@ -2208,3 +2208,8 @@ Next: implement the separately encrypted Upstox Analytics Token path for market 
 - New Analytics Token implementation is accepted at code/test level: separately encrypted per-user token, owner-scoped save/status/clear endpoints, expiry fail-closed retrieval, and routing for market data, strategy candles, paper quote/charge calls and WebSocket reconnects.
 - This does not mean a real user token has been entered or live Upstox connectivity has been validated. User must generate/copy the Analytics Token from Developer Apps > Analytics and configure it in Settings once UI is available.
 - PAPER-only, live writes disabled, PR #8 Draft/unmerged, main untouched, original Tradepro untouched.
+
+
+## Phase 4 — Upstox SDK/CAS decision (30 October 2026)
+
+The official Upstox Python SDK v2.30.0 has been compared with the current integration. See UPSTOX_SDK_COMPATIBILITY_AUDIT.md. The existing async httpx/websockets adapter and streamer remain preferred; no dependency added. Official SDK protobuf schema matches the local V3 schema. CAS fields previously ignored by the decoder are now propagated through MarketTick, Redis and stream status. Code head fe76751c54a720ffa5fcec7b4f3728b137447090 awaits exact-head CI. After CI acceptance, continue worker-managed Redis consumer lifecycle, then scanner integration. PAPER mandatory; live writes disabled; PR #9 Draft/unmerged; original Tradepro out of scope.

@@ -8,7 +8,6 @@ schema-valid responses and never manufactures missing market data.
 """
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-import math
 from typing import Any
 
 from app.services.indicators import Candle

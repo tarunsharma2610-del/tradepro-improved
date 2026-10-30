@@ -222,3 +222,97 @@ def test_two_postgres_workers_can_claim_distinct_quote_versions():
     finally:
         _cleanup_claim_fixture(Session, ids)
         engine.dispose()
+
+
+
+def test_two_postgres_workers_racing_expired_lease_reclaim_only_once():
+    """Concurrent reclaimers rotate one expired claim token exactly once."""
+    from datetime import datetime, timedelta, timezone
+    from app.services.paper_stop_event_lifecycle import PaperStopEventLifecycle
+
+    engine = create_engine(
+        os.environ["TEST_POSTGRES_URL"],
+        pool_size=4,
+        max_overflow=0,
+        pool_pre_ping=True,
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    ids = _seed_claim_fixture(Session, uuid4().hex[:12])
+    user_id, portfolio_id, instrument_id, strategy_id = ids
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    try:
+        with Session.begin() as db:
+            original = PaperStopEventClaimService(db).claim_trailing_stop(
+                user_id=user_id,
+                portfolio_id=portfolio_id,
+                strategy_id=strategy_id,
+                instrument_id=instrument_id,
+                quote_epoch="postgres-reclaim-race",
+                quote_version=1,
+                trigger_price=Decimal("98.25"),
+                lease_seconds=30,
+                now=now - timedelta(minutes=2),
+            )
+            assert original is not None
+            event_id = original.id
+            old_token = original.claim_token
+
+        barrier = threading.Barrier(2)
+        results = []
+        results_lock = threading.Lock()
+
+        def reclaim():
+            with Session() as db:
+                barrier.wait(timeout=10)
+                try:
+                    event = PaperStopEventLifecycle(db).reclaim_expired(
+                        event_id=event_id,
+                        lease_seconds=30,
+                        max_attempts=5,
+                        now=now,
+                    )
+                    db.commit()
+                    result = ("reclaimed", str(event.claim_token)) if event else ("lost", None)
+                except Exception as exc:
+                    db.rollback()
+                    result = ("error", type(exc).__name__, str(exc))
+                with results_lock:
+                    results.append(result)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(reclaim), pool.submit(reclaim)]
+            for future in futures:
+                future.result(timeout=30)
+
+        assert sum(result[0] == "reclaimed" for result in results) == 1, results
+        assert sum(result[0] == "lost" for result in results) == 1, results
+        assert not [result for result in results if result[0] == "error"], results
+
+        with Session() as db:
+            saved = db.get(PaperStopEvent, event_id)
+            assert saved.state == "CLAIMED"
+            assert saved.claim_token != old_token
+            assert saved.attempt_count == 2
+            winning_token = saved.claim_token
+
+        # The former owner cannot advance the event after the token rotation.
+        with Session.begin() as db:
+            stale = PaperStopEventLifecycle(db).begin_execution(
+                event_id=event_id,
+                claim_token=old_token,
+                now=now + timedelta(seconds=1),
+            )
+            assert stale is None
+
+        with Session.begin() as db:
+            current = PaperStopEventLifecycle(db).begin_execution(
+                event_id=event_id,
+                claim_token=winning_token,
+                now=now + timedelta(seconds=1),
+            )
+            assert current is not None
+            assert current.state == "EXECUTING"
+    finally:
+        _cleanup_claim_fixture(Session, ids)
+        engine.dispose()

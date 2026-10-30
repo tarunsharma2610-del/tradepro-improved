@@ -405,8 +405,13 @@ async def test_subscription_lifecycle_sends_binary_v3_sub_unsub_and_change_mode_
     assert sent[-1]["method"] == "unsub"
     assert sent[-1]["data"] == {"instrumentKeys": ["NSE_EQ|ONE"]}
 
+    streamer._ticks["NSE_EQ|TWO"] = MarketTick(
+        instrument_key="NSE_EQ|TWO", ltp=100, exchange_timestamp_ms=1,
+        received_at=datetime.now(timezone.utc), received_monotonic=time.monotonic(),
+    )
     assert await streamer.change_mode(["NSE_EQ|TWO"], "full") == "sent"
     assert streamer.mode == "full"
+    assert "NSE_EQ|TWO" not in streamer._ticks
     assert sent[-1]["method"] == "change_mode"
     assert sent[-1]["data"] == {
         "instrumentKeys": ["NSE_EQ|TWO"], "mode": "full"

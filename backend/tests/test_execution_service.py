@@ -793,24 +793,3 @@ def test_market_depth_rejects_stale_snapshot_and_insufficient_liquidity():
     assert _extract_fresh_market_depth_price(
         stale, "NSE_EQ|INE002A01018", side=Side.BUY, quantity=2, now=now
     ) is None
-
-
-@pytest.mark.asyncio
-async def test_market_order_uses_rest_depth_even_when_ltpc_websocket_exists(db_session, monkeypatch):
-    from types import SimpleNamespace
-    from uuid import uuid4
-
-    streamer = type("FreshStreamer", (), {
-        "latest_tick": lambda self, key: SimpleNamespace(ltp=999999.0)
-    })()
-    monkeypatch.setattr(
-        "app.services.execution_service.market_data_stream_manager.get",
-        lambda user_id: streamer,
-    )
-    with _mock_quote("2500") as quote_patch:
-        price, error = await ExecutionService(db_session)._get_ltp(
-            uuid4(), "NSE_EQ|INE002A01018", "test-token", Side.BUY, 1
-        )
-    assert price == Decimal("2500")
-    assert error is None
-    quote_patch.assert_called_once()

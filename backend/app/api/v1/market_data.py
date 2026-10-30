@@ -158,17 +158,21 @@ async def subscribe_market_data(
     if streamer is None or not streamer.running:
         raise HTTPException(status.HTTP_409_CONFLICT, "Start a market-data stream before adding subscriptions.")
     _validate_active_instruments(db, payload.instrument_keys)
-    active_keys = [row.instrument.instrument_key for row in MarketDataSubscriptionService(db).list_active(user_id=user.id) if row.feed_mode == streamer.mode]
+    feed_mode = payload.mode or streamer.mode
+    active_keys = [row.instrument.instrument_key for row in MarketDataSubscriptionService(db).list_active(user_id=user.id) if row.feed_mode == feed_mode]
     desired_keys = list(dict.fromkeys(active_keys + payload.instrument_keys))
     try:
-        MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=desired_keys, feed_mode=streamer.mode)
-        delivery = await streamer.subscribe(payload.instrument_keys)
+        # Validate and update the in-memory desired state before committing
+        # the durable mode-specific desired set.
+        delivery = await streamer.subscribe(payload.instrument_keys, feed_mode)
+        MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=desired_keys, feed_mode=feed_mode)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     return {
         "subscribed": True,
         "delivery": delivery,
-        "mode": streamer.mode,
+        "mode": feed_mode,
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
         "instrument_count": len(streamer.instrument_keys),
         "instrument_keys": streamer.instrument_keys,
     }
@@ -184,28 +188,37 @@ async def unsubscribe_market_data(
     streamer = market_data_stream_manager.get(user.id)
     if streamer is None or not streamer.running:
         raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
-    active_keys = [row.instrument.instrument_key for row in MarketDataSubscriptionService(db).list_active(user_id=user.id) if row.feed_mode == streamer.mode]
-    requested_removals = set(payload.instrument_keys) & set(streamer.instrument_keys)
-    if requested_removals and len(requested_removals) == len(streamer.instrument_keys):
+    requested = set(payload.instrument_keys) & set(streamer.instrument_keys)
+    if payload.mode:
+        requested &= set(streamer.subscriptions.get(payload.mode, set()))
+    if requested and len(requested) == len(streamer.instrument_keys):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "Cannot remove the final instruments; use DELETE /market-data/stream to stop the stream.",
         )
-    desired_keys = [key for key in active_keys if key not in set(payload.instrument_keys)]
+    removals_by_mode = {
+        mode: requested & mode_keys
+        for mode, mode_keys in streamer.subscriptions.items()
+        if requested & mode_keys
+    }
+    service = MarketDataSubscriptionService(db)
     try:
-        if desired_keys:
-            MarketDataSubscriptionService(db).replace_for_user(user_id=user.id, broker="upstox", instrument_keys=desired_keys, feed_mode=streamer.mode)
-        else:
-            MarketDataSubscriptionService(db).deactivate_mode_for_user(
-                user_id=user.id, broker="upstox", feed_mode=streamer.mode
-            )
-        delivery = await streamer.unsubscribe(payload.instrument_keys)
+        for feed_mode, removals in removals_by_mode.items():
+            active_keys = [
+                row.instrument.instrument_key for row in service.list_active(user_id=user.id)
+                if row.feed_mode == feed_mode and row.instrument.instrument_key not in removals
+            ]
+            if active_keys:
+                service.replace_for_user(user_id=user.id, broker="upstox", instrument_keys=active_keys, feed_mode=feed_mode)
+            else:
+                service.deactivate_mode_for_user(user_id=user.id, broker="upstox", feed_mode=feed_mode)
+        delivery = await streamer.unsubscribe(list(requested))
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     return {
         "unsubscribed": True,
         "delivery": delivery,
-        "mode": streamer.mode,
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
         "instrument_count": len(streamer.instrument_keys),
         "instrument_keys": streamer.instrument_keys,
     }

@@ -34,7 +34,7 @@ def test_option_chain_uses_analytics_token_and_official_adapter(monkeypatch, db_
     class FakeAdapter:
         async def get_option_chain(self, token, instrument_key, expiry_date):
             calls.update(token=token, instrument_key=instrument_key, expiry_date=expiry_date)
-            return type("Result", (), {"ok": True, "data": {"status": "success", "data": []}})()
+            return type("Result", (), {"ok": True, "data": {"status": "success", "data": [{"call_options": {"market_data": {"oi": 1250, "prev_oi": 1000}}, "put_options": {"market_data": {"oi": 800, "prev_oi": None}}}]}})()
 
     monkeypatch.setattr(market_data, "get_broker_adapter", lambda broker: FakeAdapter())
     try:
@@ -43,7 +43,8 @@ def test_option_chain_uses_analytics_token_and_official_adapter(monkeypatch, db_
             params={"instrument_key": "NSE_INDEX|Nifty 50", "expiry_date": "current_week"},
         )
         assert response.status_code == 200, response.text
-        assert response.json() == {"status": "success", "data": []}
+        assert response.json()["data"][0]["call_options"]["market_data"]["change_oi"] == 250
+        assert response.json()["data"][0]["put_options"]["market_data"]["change_oi"] is None
         assert calls == {
             "token": "analytics-token",
             "instrument_key": "NSE_INDEX|Nifty 50",

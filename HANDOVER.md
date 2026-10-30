@@ -2769,3 +2769,15 @@ Audit finding and next task: upstox_market_data_streamer.py already implements t
 Official references: https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ ; https://upstox.com/developer/api-documentation/v3/get-intra-day-candle-data/ ; https://upstox.com/developer/api-documentation/installing-sdk/.
 
 Safeguards: only tarunsharma2610-del/tradepro-improved; original Tradepro is out of scope; PR #8 Draft/unmerged; no main update; PAPER mandatory; live broker writes disabled.
+
+## Handover update — API-backed current-session candles (30 October 2026)
+
+User directive remains: use official Upstox Developer Console/API/SDK/schema where useful, audit existing code, avoid workaround-first changes.
+
+New code: optional BrokerAdapter.get_intraday_data; Upstox adapter calls the documented V3 intraday candle endpoint with encoded instrument key; strategy fetches historical and intraday V3 candles concurrently and merges timestamp-normalized records, preferring intraday on overlap. Exchange-local date boundaries use Asia/Kolkata. If either required source fails, strategy receives no candle set and holds rather than fabricating history. Added endpoint and source-merge tests.
+
+Current head: d7c786fc164ed297df42f26493c994ceacd337a7. CI pending; last green run #41014529152 applies to earlier head 58e6674dab5c02f725f76401af358397fd47c161 only. Verify latest CI before claiming the current code is green.
+
+Next task: check/fix CI, then audit worker process boundaries before wiring WebSocket stream. MarketDataStreamManager is in-process and cannot be assumed to be the same instance as the separate worker container. Consider streaming only for live LTP requirements; continue using V3 REST candles for five-minute indicators. SDK was reviewed but not added because no demonstrated benefit yet. No authenticated Upstox console/account test was performed.
+
+Safeguards: work only in tarunsharma2610-del/tradepro-improved; PR #8 remains Draft/unmerged; no main update; PAPER-only; live broker writes disabled.

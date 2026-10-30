@@ -2341,3 +2341,12 @@ The documentation sync head `5bb6d06e764c00b1ab406409889a2cde9e74dacf` passed Ba
 - **Evidence boundary:** Brokerage Details remains estimate-only; Trade Charges remains aggregate reconciliation-only and never per-fill actual evidence. Null IPFT must not be silently coerced to zero. This fix validates response shape; it does not approve tariffs or promote accounting.
 - **Contract-note continuity:** previously supplied January 2023 Upstox/RKSV contract-note examples remain available as historical regression fixtures; do not ask the user to provide them again. Their scope must be respected when using them for GST totals versus per-fill allocations.
 - **Next:** verify CI on the exact synchronized documentation head. Keep PR #6/#7 Draft and unmerged, PAPER mode mandatory, live broker writes disabled, and the original `tarunsharma2610-del/Tradepro` repository untouched.
+
+
+## Phase 4 latest checkpoint — 30 October 2026
+
+- Exact implementation SHA `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed Backend CI #41080156436: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436.
+- Transactional PAPER stop-event claim service validates user/portfolio/strategy/instrument ownership, locks portfolio → strategy → position, rejects flat positions and ambiguous shared-position ownership, and persists unique quote identity with claim token/lease/attempt metadata. Duplicate claims are safely rejected through a savepoint.
+- This service is storage/claim coordination only; it is not connected to the dispatcher or order execution.
+- Next: PostgreSQL 16 multi-worker race tests, lease reclaim/state transitions, crash recovery, shared-position ownership policy, then gated PAPER integration.
+- PR #9 remains Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. Documentation commits require exact-head CI.

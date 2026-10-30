@@ -2254,3 +2254,12 @@ Before implementing or extending any broker integration, inspect current officia
 ## SDK capability comparison rule — mixed modes
 
 Do not stop an SDK audit at feature-name parity. Compare actual source behaviour and lifecycle. The Upstox SDK v2.30.0 uses per-mode subscription sets and replays them on reconnect; our current single-mode stream is a gap. Borrow this design into our own async implementation after the pending CAS CI passes. Future audits should compare mode combinations, limits, reconnect semantics, token refresh, and error handling—not just method names.
+
+
+## Phase 4 latest checkpoint — 30 October 2026
+
+- Exact implementation SHA `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed Backend CI #41080156436: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436.
+- Transactional PAPER stop-event claim service validates user/portfolio/strategy/instrument ownership, locks portfolio → strategy → position, rejects flat positions and ambiguous shared-position ownership, and persists unique quote identity with claim token/lease/attempt metadata. Duplicate claims are safely rejected through a savepoint.
+- This service is storage/claim coordination only; it is not connected to the dispatcher or order execution.
+- Next: PostgreSQL 16 multi-worker race tests, lease reclaim/state transitions, crash recovery, shared-position ownership policy, then gated PAPER integration.
+- PR #9 remains Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. Documentation commits require exact-head CI.

@@ -14,6 +14,7 @@ would. See ARCHITECTURE.md, "The shared order/position/execution model."
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
@@ -36,6 +37,7 @@ from app.services.transaction_costs import Segment, Side
 _CANDLE_UNIT = "minutes"
 _CANDLE_INTERVAL = "5"
 _CANDLE_LOOKBACK_DAYS = 10  # calendar days — comfortably covers the ~35-period longest indicator lookback
+_MAX_CANDLE_AGE = timedelta(minutes=15)  # fail closed when the newest 5-minute candle is stale
 
 
 @dataclass
@@ -72,6 +74,11 @@ class StrategyExecutionService:
         candles = await self._fetch_candles(access_token, strategy.instrument.instrument_key)
         if candles is None:
             return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Could not fetch candle data.")
+        if not self._latest_candle_is_fresh(candles):
+            return EvaluationResult(
+                str(strategy.id), Signal.HOLD.value,
+                "Latest candle is missing, stale, or has an invalid timestamp; automated evaluation failed closed."
+            )
 
         position = self.positions.get_or_create(portfolio.id, strategy.instrument_id)
         in_position = position.quantity != 0
@@ -204,6 +211,21 @@ class StrategyExecutionService:
         )
         strategy.current_watermark = new_watermark
         return True if hit else None
+
+    @staticmethod
+    def _latest_candle_is_fresh(candles: list[Candle], *, now: datetime | None = None) -> bool:
+        if not candles:
+            return False
+        timestamp = candles[-1].timestamp
+        if timestamp is None:
+            return False
+        # Upstox normally returns offset-aware exchange timestamps. For a
+        # naive timestamp, interpret it as Indian exchange time, never UTC.
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+        current_time = now or datetime.now(timezone.utc)
+        age = current_time - timestamp.astimezone(timezone.utc)
+        return timedelta(seconds=-60) <= age <= _MAX_CANDLE_AGE
 
     async def _fetch_candles(self, access_token: str, instrument_key: str) -> list[Candle] | None:
         to_date = datetime.now(timezone.utc).date()

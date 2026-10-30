@@ -2,6 +2,9 @@
 import asyncio
 import json
 import os
+import subprocess
+import sys
+import textwrap
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -176,6 +179,94 @@ async def test_real_redis_pubsub_connection_loss_resubscribes_and_recovers_lates
     finally:
         await listener.aclose()
         await redis.delete(
+            publisher.snapshot_key(instrument),
+            publisher.snapshot_key(instrument) + ":version",
+        )
+        await admin.aclose()
+        await redis.aclose()
+
+
+
+@pytest.mark.asyncio
+async def test_real_redis_market_quotes_cross_independent_os_processes():
+    """Publisher and consumer processes share snapshots through Redis only."""
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    admin = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(redis, user_id, max_age_seconds=15)
+    env = os.environ.copy()
+    env["REDIS_TEST_URL"] = REDIS_TEST_URL
+    try:
+        # A separate Python interpreter publishes; this process consumes.
+        publish_script = textwrap.dedent("""
+            import asyncio, os
+            from datetime import datetime, timezone
+            from uuid import UUID
+            from redis.asyncio import Redis
+            from app.services.redis_market_quote_publisher import RedisMarketQuotePublisher
+            from app.services.upstox_market_data_streamer import MarketTick
+
+            async def main():
+                redis = Redis.from_url(os.environ["REDIS_TEST_URL"], decode_responses=True)
+                now = datetime.now(timezone.utc)
+                tick = MarketTick(
+                    instrument_key=os.environ["INSTRUMENT_KEY"],
+                    ltp=2750.25,
+                    exchange_timestamp_ms=int(now.timestamp() * 1000),
+                    received_at=now,
+                    received_monotonic=1.0,
+                )
+                publisher = RedisMarketQuotePublisher(redis, UUID(os.environ["USER_ID"]), ttl_seconds=15)
+                try:
+                    assert await publisher.publish(tick)
+                finally:
+                    await redis.aclose()
+
+            asyncio.run(main())
+        """)
+        env.update({"INSTRUMENT_KEY": instrument, "USER_ID": str(user_id)})
+        result = subprocess.run(
+            [sys.executable, "-c", publish_script],
+            env=env, capture_output=True, text=True, timeout=10, check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        from_child = await consumer.get_quote(instrument)
+        assert from_child is not None
+        assert from_child["ltp"] == 2750.25
+
+        # Conversely, a separate interpreter consumes the parent-published snapshot.
+        assert await publisher.publish(make_tick(instrument, 2751.5))
+        consume_script = textwrap.dedent("""
+            import asyncio, json, os
+            from uuid import UUID
+            from redis.asyncio import Redis
+            from app.services.redis_market_quote_consumer import RedisMarketQuoteConsumer
+
+            async def main():
+                redis = Redis.from_url(os.environ["REDIS_TEST_URL"], decode_responses=True)
+                consumer = RedisMarketQuoteConsumer(redis, UUID(os.environ["USER_ID"]), max_age_seconds=15)
+                try:
+                    quote = await consumer.get_quote(os.environ["INSTRUMENT_KEY"])
+                    print(json.dumps(quote))
+                finally:
+                    await redis.aclose()
+
+            asyncio.run(main())
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", consume_script],
+            env=env, capture_output=True, text=True, timeout=10, check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        child_quote = json.loads(result.stdout.strip().splitlines()[-1])
+        assert child_quote["user_id"] == str(user_id)
+        assert child_quote["instrument_key"] == instrument
+        assert child_quote["ltp"] == 2751.5
+        assert child_quote["version"] == 2
+    finally:
+        await admin.delete(
             publisher.snapshot_key(instrument),
             publisher.snapshot_key(instrument) + ":version",
         )

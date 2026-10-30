@@ -11,6 +11,7 @@ cost engine, position accounting, and cash accounting a manual trade
 would. See ARCHITECTURE.md, "The shared order/position/execution model."
 """
 
+import asyncio
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -228,13 +229,49 @@ class StrategyExecutionService:
         return timedelta(seconds=-60) <= age <= _MAX_CANDLE_AGE
 
     async def _fetch_candles(self, access_token: str, instrument_key: str) -> list[Candle] | None:
-        to_date = datetime.now(timezone.utc).date()
-        from_date = to_date - timedelta(days=_CANDLE_LOOKBACK_DAYS)
-
-        result = await get_broker_adapter("upstox").get_historical_data(
-            access_token, instrument_key, _CANDLE_UNIT, _CANDLE_INTERVAL, from_date, to_date
+        # Use exchange-local dates. Upstox has a dedicated current-session
+        # endpoint; historical data alone is not the source of truth for today's
+        # live candles. Fetch both supported endpoints concurrently and merge by
+        # timestamp, preferring the intraday response on overlap.
+        today_ist = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+        from_date = today_ist - timedelta(days=_CANDLE_LOOKBACK_DAYS)
+        adapter = get_broker_adapter("upstox")
+        historical_result, intraday_result = await asyncio.gather(
+            adapter.get_historical_data(
+                access_token, instrument_key, _CANDLE_UNIT, _CANDLE_INTERVAL, from_date, today_ist
+            ),
+            adapter.get_intraday_data(
+                access_token, instrument_key, _CANDLE_UNIT, _CANDLE_INTERVAL
+            ),
         )
-        if not result.ok:
+        if not historical_result.ok or not intraday_result.ok:
             return None
 
-        return parse_candles(result.data)
+        historical = parse_candles(historical_result.data)
+        intraday = parse_candles(intraday_result.data)
+        if historical is None or intraday is None:
+            return None
+
+        merged: dict[datetime, Candle] = {}
+        for candle in historical:
+            timestamp = candle.timestamp
+            if timestamp is None:
+                return None
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            merged[timestamp.astimezone(timezone.utc)] = candle
+        for candle in intraday:
+            timestamp = candle.timestamp
+            if timestamp is None:
+                return None
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            merged[timestamp.astimezone(timezone.utc)] = candle
+
+        def sort_key(candle: Candle) -> datetime:
+            timestamp = candle.timestamp
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            return timestamp.astimezone(timezone.utc)
+
+        return sorted(merged.values(), key=sort_key)

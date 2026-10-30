@@ -998,3 +998,8 @@ Credentialed Upstox OAuth/API smoke testing and real Oracle/database-plus-docume
 - **Evidence boundary:** Brokerage Details remains estimate-only; Trade Charges remains aggregate reconciliation-only and never per-fill actual evidence. Null IPFT must not be silently coerced to zero. This fix validates response shape; it does not approve tariffs or promote accounting.
 - **Contract-note continuity:** previously supplied January 2023 Upstox/RKSV contract-note examples remain available as historical regression fixtures; do not ask the user to provide them again. Their scope must be respected when using them for GST totals versus per-fill allocations.
 - **Next:** verify CI on the exact synchronized documentation head. Keep PR #6/#7 Draft and unmerged, PAPER mode mandatory, live broker writes disabled, and the original `tarunsharma2610-del/Tradepro` repository untouched.
+
+
+## Phase 4 current checkpoint — 30 October 2026
+
+The transactional PAPER stop-event claim implementation at `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. The claim service validates tenant and strategy ownership, uses portfolio → strategy → position locks, rejects ambiguous shared-position ownership and duplicate quote identity, and stores a bounded claim lease. It is not connected to quote dispatch or order execution. Next gates: PostgreSQL 16 multi-worker concurrency, lease reclaim/crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 stays Draft/unmerged; PAPER-only; live broker writes disabled; original Tradepro repository out of scope.

@@ -1727,3 +1727,8 @@ The Redis quote consumer validates user-scoped authoritative snapshots (schema, 
 Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`. New tests on `a5e352bef2c78f27141b61bca5893fdfa0fd049a` cover old epoch version 8 -> new epoch version 1 and idle Pub/Sub heartbeat; exact-head CI #41061518847 is pending.
 
 Important boundary: `backend/app/worker.py` does not yet manage Redis consumer instances; strategy evaluation still uses the existing candle path. Durable subscription discovery, single-owner coordination across worker replicas, graceful consumer cancellation/shutdown, and scanner/PAPER strategy integration remain incomplete. Do not treat publisher/consumer tests as proof of end-to-end scanner delivery or production deployment.
+
+
+## Phase 4 current checkpoint — 30 October 2026
+
+The transactional PAPER stop-event claim implementation at `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. The claim service validates tenant and strategy ownership, uses portfolio → strategy → position locks, rejects ambiguous shared-position ownership and duplicate quote identity, and stores a bounded claim lease. It is not connected to quote dispatch or order execution. Next gates: PostgreSQL 16 multi-worker concurrency, lease reclaim/crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 stays Draft/unmerged; PAPER-only; live broker writes disabled; original Tradepro repository out of scope.

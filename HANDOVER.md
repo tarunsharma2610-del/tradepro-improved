@@ -2747,3 +2747,14 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 - P4-0 static audit saved in `PHASE4_P0_BASELINE_AUDIT.md`. PAPER-only config validation added in `backend/app/core/config.py`; tests added in `backend/tests/test_trading_mode_safety.py`.
 - **Next step on resume:** verify the current branch head and latest CI (documentation updates can trigger a newer head/run); then continue P4-0B broker-write call-path audit and add targeted tests for every route into broker write methods, automated-entry kill switch, stale market data, and risk checks. Fix any failure and re-run before checkpointing green.
 - Safeguards: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; do not update `main` or merge PR #8/#7/#6 without explicit authorization; PAPER mode mandatory; live `place_order`, `modify_order`, `cancel_order` writes disabled; Upstox Brokerage Details remains estimate-only and aggregate Trade Charges remains reconciliation-only; no credentialed live smoke test or production Oracle restore claimed.
+
+## Latest Phase 4 handover — 30 October 2026
+
+Resume from branch `phase4/roadmap-progress-checkpoints`, latest verified code/test commit `24c34dac47e273f9377485dc697f9fa510808a72`. Exact-head Backend CI #41012821073 passed: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41012821073. PR #8 remains Draft and unmerged; do not merge or update `main`.
+
+Completed since the previous checkpoint: P4-0B static AST broker-write guard now detects literal reflective dispatch via `getattr` for `place_order`, `modify_order`, and `cancel_order`. Regression tests cover rejecting write dispatch and permitting a non-write read method. An earlier run #41012807565 failed because test fixture escaping generated invalid Python; the fix is included in the green exact-head commit.
+
+Next task: P4-0C audit/test automated-entry kill switch, confirm strategy exits remain available when new entries are disabled, inspect stale candle/market-data handling and risk enforcement at the execution boundary. Read `PHASE4_LATEST_CI_CHECKPOINT.md`, `PHASE4_PROGRESS.md`, and `PHASE4_ROADMAP.md` before continuing.
+
+Non-negotiables: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` repository is out of scope; PAPER mode mandatory; live broker writes disabled; no main update or PR merge; don't promote charge estimates or aggregate APIs into per-fill actuals; no real Oracle restore or credentialed live smoke test claimed.
+

@@ -119,6 +119,42 @@ class MarketDataSubscriptionService:
         self.db.commit()
         return count
 
+    def deactivate_mode_for_user(
+        self, *, user_id: UUID, broker: str, feed_mode: str
+    ) -> int:
+        """Deactivate only one feed mode; preserve other desired mode sets."""
+        if feed_mode not in {"ltpc", "option_greeks", "full"}:
+            raise ValueError("Unsupported market-data feed mode.")
+        connection = (
+            self.db.query(BrokerConnection)
+            .filter(
+                BrokerConnection.user_id == user_id,
+                BrokerConnection.broker == broker,
+            )
+            .one_or_none()
+        )
+        if connection is None:
+            return 0
+        try:
+            count = (
+                self.db.query(MarketDataSubscription)
+                .filter(
+                    MarketDataSubscription.user_id == user_id,
+                    MarketDataSubscription.broker_connection_id == connection.id,
+                    MarketDataSubscription.feed_mode == feed_mode,
+                    MarketDataSubscription.is_active.is_(True),
+                )
+                .update(
+                    {MarketDataSubscription.is_active: False},
+                    synchronize_session=False,
+                )
+            )
+            self.db.commit()
+            return count
+        except Exception:
+            self.db.rollback()
+            raise
+
     def list_active(self, *, user_id: UUID) -> list[MarketDataSubscription]:
         return (
             self.db.query(MarketDataSubscription)

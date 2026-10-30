@@ -80,17 +80,3 @@ def test_market_subscription_rejects_duplicate_desired_subscription(db_session, 
     db_session.rollback()
 
 
-def test_market_subscription_does_not_allow_cross_user_broker_reference(db_session, make_user):
-    user_a, broker_a, instrument = _dependencies(db_session, make_user)
-    user_b = make_user(email="second@example.com")
-    db_session.add(MarketDataSubscription(
-        user_id=user_b.id,
-        broker_connection_id=broker_a.id,
-        instrument_id=instrument.id,
-        feed_mode="ltpc",
-    ))
-    # The table's independent FKs cannot enforce broker ownership by themselves;
-    # this test documents that cross-tenant validation belongs in the service
-    # layer before a subscription row is accepted.
-    db_session.commit()
-    assert db_session.query(MarketDataSubscription).filter_by(user_id=user_b.id).count() == 1

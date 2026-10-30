@@ -185,6 +185,12 @@ async def unsubscribe_market_data(
     if streamer is None or not streamer.running:
         raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
     active_keys = [row.instrument.instrument_key for row in MarketDataSubscriptionService(db).list_active(user_id=user.id) if row.feed_mode == streamer.mode]
+    requested_removals = set(payload.instrument_keys) & set(streamer.instrument_keys)
+    if requested_removals and len(requested_removals) == len(streamer.instrument_keys):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Cannot remove the final instruments; use DELETE /market-data/stream to stop the stream.",
+        )
     desired_keys = [key for key in active_keys if key not in set(payload.instrument_keys)]
     try:
         if desired_keys:

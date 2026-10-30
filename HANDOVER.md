@@ -2781,3 +2781,14 @@ Current head: d7c786fc164ed297df42f26493c994ceacd337a7. CI pending; last green r
 Next task: check/fix CI, then audit worker process boundaries before wiring WebSocket stream. MarketDataStreamManager is in-process and cannot be assumed to be the same instance as the separate worker container. Consider streaming only for live LTP requirements; continue using V3 REST candles for five-minute indicators. SDK was reviewed but not added because no demonstrated benefit yet. No authenticated Upstox console/account test was performed.
 
 Safeguards: work only in tarunsharma2610-del/tradepro-improved; PR #8 remains Draft/unmerged; no main update; PAPER-only; live broker writes disabled.
+
+## Handover — timestamped Upstox full quotes (30 October 2026)
+
+Prior exact head d2662b05d4910d9bf93e307fb08f10a1609405ee passed backend CI #41014929096 and migration CI #41014916708.
+
+Added Full Market Quotes V3 because LTP V3 has no last-trade timestamp, while Full Market Quotes V3 includes instrument_token, last_price and last_trade_time. ExecutionService._get_ltp now prefers a fresh subscribed WebSocket tick and otherwise calls get_full_quote; REST quote is accepted only for the exact requested instrument, positive finite LTP, and last_trade_time no older than 15 seconds or more than 60 seconds in the future. Stale/missing quote rejects paper execution. Added endpoint and helper tests and updated execution/strategy fixtures.
+
+Latest code head 65f8070e344eaa4cd8cb82c876732662d02cc3a3; exact-head CI queued/running, not yet green. API WebSocket registry remains process-local to API; worker is separate. Since worker paper fills already use REST fallback, don't add a Redis bridge or duplicate worker stream unless a measured requirement justifies it.
+
+Official refs: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ ; https://upstox.com/developer/api-documentation/ltp-v3/
+Safeguards unchanged: only tradepro-improved, PR #8 Draft/unmerged, main untouched, PAPER mandatory, live broker writes disabled.

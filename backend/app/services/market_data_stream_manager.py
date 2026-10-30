@@ -15,7 +15,7 @@ class MarketDataStreamManager:
     def __init__(self):
         self._streams: dict[UUID, UpstoxMarketDataStreamer] = {}
 
-    async def start(self, user_id: UUID, instrument_keys: list[str]) -> UpstoxMarketDataStreamer:
+    async def start(self, user_id: UUID, instrument_keys: list[str], mode: str = "full") -> UpstoxMarketDataStreamer:
         current = self._streams.get(user_id)
         if current is not None:
             await current.stop()
@@ -27,7 +27,7 @@ class MarketDataStreamManager:
             finally:
                 db.close()
 
-        streamer = UpstoxMarketDataStreamer(token_provider, instrument_keys)
+        streamer = UpstoxMarketDataStreamer(token_provider, instrument_keys, mode=mode)
         self._streams[user_id] = streamer
         await streamer.start()
         return streamer

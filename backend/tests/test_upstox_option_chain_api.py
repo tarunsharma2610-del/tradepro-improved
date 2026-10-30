@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from app.core.deps import get_current_user, get_db
 from app.main import app
 from app.models.instrument import Instrument
+from app.models.broker_connection import BrokerConnection
 
 
 def _overrides(db_session, user):
@@ -11,6 +12,18 @@ def _overrides(db_session, user):
         yield db_session
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_current_user] = lambda: user
+
+
+def _ensure_broker_connection(db_session, user):
+    """Provide the persisted broker owner row required by durable subscriptions."""
+    db_session.add(BrokerConnection(
+        user_id=user.id,
+        broker="upstox",
+        api_key_encrypted="test-encrypted-api-key",
+        api_secret_encrypted="test-encrypted-api-secret",
+        redirect_uri="https://example.test/oauth/callback",
+    ))
+    db_session.commit()
 
 
 def _clear():
@@ -98,6 +111,7 @@ def test_stream_start_requires_analytics_token_not_daily_oauth(monkeypatch, db_s
         is_active=True,
     ))
     db_session.commit()
+    _ensure_broker_connection(db_session, user)
     _overrides(db_session, user)
 
     monkeypatch.setattr(
@@ -165,6 +179,7 @@ def test_stream_start_accepts_option_greeks_mode(monkeypatch, db_session, make_u
         is_active=True,
     ))
     db_session.commit()
+    _ensure_broker_connection(db_session, user)
     _overrides(db_session, user)
     monkeypatch.setattr(
         market_data.BrokerCredentialsService,
@@ -227,6 +242,7 @@ def test_stream_lifecycle_routes_use_user_scoped_stream_and_validate_active_keys
             is_active=True,
         ))
     db_session.commit()
+    _ensure_broker_connection(db_session, user)
     _overrides(db_session, user)
     monkeypatch.setattr(
         market_data.BrokerCredentialsService,

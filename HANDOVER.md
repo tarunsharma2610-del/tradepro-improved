@@ -2758,3 +2758,14 @@ Next task: P4-0C audit/test automated-entry kill switch, confirm strategy exits 
 
 Non-negotiables: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` repository is out of scope; PAPER mode mandatory; live broker writes disabled; no main update or PR merge; don't promote charge estimates or aggregate APIs into per-fill actuals; no real Oracle restore or credentialed live smoke test claimed.
 
+## Updated handover — Upstox-first data integration (30 October 2026)
+
+User's standing direction: work smarter, not like a donkey. Use Upstox Developer Console, current official API docs, supported APIs, official SDKs and schemas/proto when they solve the problem. Audit existing code first. Do not add workaround layers or duplicate infrastructure before checking provider-supported capabilities. Any workaround needs a concrete reason and tests. Stale-data checks are safety nets, not the primary freshness solution.
+
+Latest verified prior code head: c8704cf97af3b2a31cd19114ae56f51dd796b08; Backend CI #41013144850 passed on that head. New instruction/docs are not yet CI-verified.
+
+Audit finding and next task: upstox_market_data_streamer.py already implements the V3 WebSocket/protobuf/reconnect path; adapter.py has V3 quote/historical-candle methods; candle_parsing.py still calls itself BEST-EFFORT; strategy execution fetches candles independently and does not yet consume a shared streaming/candle service. Verify official response contracts, then wire the existing V3 stream and REST warm-up/gap-recovery into a shared candle pipeline without changing the strategy's five-minute semantics. Test ordering, timestamps, instrument identity, disconnect/recovery and incomplete candles. Check SDK compatibility before adding dependencies; don't install an SDK just for appearances.
+
+Official references: https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ ; https://upstox.com/developer/api-documentation/v3/get-intra-day-candle-data/ ; https://upstox.com/developer/api-documentation/installing-sdk/.
+
+Safeguards: only tarunsharma2610-del/tradepro-improved; original Tradepro is out of scope; PR #8 Draft/unmerged; no main update; PAPER mandatory; live broker writes disabled.

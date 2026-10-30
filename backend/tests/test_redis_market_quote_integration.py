@@ -1,5 +1,6 @@
 """Integration tests against an actual Redis 7 service (not a fake client)."""
 import asyncio
+import json
 import os
 from datetime import datetime, timezone
 from uuid import uuid4

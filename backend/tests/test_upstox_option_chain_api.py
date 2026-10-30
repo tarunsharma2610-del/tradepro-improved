@@ -126,6 +126,7 @@ def test_stream_start_requires_analytics_token_not_daily_oauth(monkeypatch, db_s
         running = True
         mode = "full"
         instrument_keys = ["NSE_INDEX|Nifty 50"]
+        subscriptions_by_mode = {"full": ["NSE_INDEX|Nifty 50"]}
 
     async def fake_start(user_id, keys, mode="full"):
         assert keys == ["NSE_INDEX|Nifty 50"]
@@ -194,6 +195,7 @@ def test_stream_start_accepts_option_greeks_mode(monkeypatch, db_session, make_u
         running = True
         mode = "option_greeks"
         instrument_keys = ["NSE_FO|12345"]
+        subscriptions_by_mode = {"option_greeks": ["NSE_FO|12345"]}
 
     async def fake_start(user_id, keys, mode="full"):
         assert keys == ["NSE_FO|12345"]

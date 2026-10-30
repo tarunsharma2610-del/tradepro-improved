@@ -268,9 +268,18 @@ def market_data_stream_status(user: User = Depends(get_current_user)):
     for key in streamer.instrument_keys:
         tick = streamer.latest_tick(key)
         quotes[key] = None if tick is None else {
+            "instrument_key": tick.instrument_key,
             "ltp": tick.ltp,
             "exchange_timestamp_ms": tick.exchange_timestamp_ms,
             "received_at": tick.received_at.isoformat(),
+            "depth": tick.depth,
+            "option_greeks": tick.option_greeks,
+            "open_interest": tick.open_interest,
+            "volume_traded_today": tick.volume_traded_today,
+            "average_traded_price": tick.average_traded_price,
+            "total_buy_quantity": tick.total_buy_quantity,
+            "total_sell_quantity": tick.total_sell_quantity,
+            "ohlc": tick.ohlc,
             "stale": False,
         }
     return {

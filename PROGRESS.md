@@ -3562,3 +3562,14 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 - P4-0 static audit saved in `PHASE4_P0_BASELINE_AUDIT.md`. PAPER-only config validation added in `backend/app/core/config.py`; tests added in `backend/tests/test_trading_mode_safety.py`.
 - **Next step on resume:** verify the current branch head and latest CI (documentation updates can trigger a newer head/run); then continue P4-0B broker-write call-path audit and add targeted tests for every route into broker write methods, automated-entry kill switch, stale market data, and risk checks. Fix any failure and re-run before checkpointing green.
 - Safeguards: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; do not update `main` or merge PR #8/#7/#6 without explicit authorization; PAPER mode mandatory; live `place_order`, `modify_order`, `cancel_order` writes disabled; Upstox Brokerage Details remains estimate-only and aggregate Trade Charges remains reconciliation-only; no credentialed live smoke test or production Oracle restore claimed.
+
+## Phase 4 progress checkpoint — 30 October 2026
+
+- Latest code/test head: `24c34dac47e273f9377485dc697f9fa510808a72`.
+- Exact-head Backend CI [#41012821073 passed](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41012821073).
+- P4-0B: added static detection for literal `getattr` broker-write dispatch and regression tests. Corrected an initial test-fixture escaping error after CI #41012807565 failed; corrected exact-head run #41012821073 is green.
+- CI covered backend pytest, broker-write boundary guard, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore drill.
+- P4-0B partial/static guard hardening is checkpointed, not a claim of mathematically complete live-write isolation; dynamic method names remain a static-analysis limitation.
+- Next active work package: P4-0C — automated-entry kill switch, exit availability, stale market data, and risk-check enforcement. Audit before edits; add only targeted regression coverage for confirmed gaps.
+- Continue safeguards: work only in `tarunsharma2610-del/tradepro-improved`; no main update or PR merge; PAPER-only; live broker writes disabled; real Oracle restore and credentialed smoke tests remain deployment-gated.
+

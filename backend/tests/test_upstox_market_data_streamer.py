@@ -662,3 +662,19 @@ async def test_same_instrument_cannot_be_subscribed_in_two_modes_without_change_
     streamer = UpstoxMarketDataStreamer(_no_token, ["NSE_EQ|ONE"], mode="ltpc")
     with pytest.raises(ValueError, match="already subscribed in another mode"):
         await streamer.subscribe(["NSE_EQ|ONE"], "full")
+
+@pytest.mark.asyncio
+async def test_combined_feed_mode_limits_are_applied_to_resulting_subscription_sets():
+    streamer = UpstoxMarketDataStreamer(
+        _no_token, [f"NSE_EQ|{index}" for index in range(1501)], mode="full"
+    )
+    with pytest.raises(ValueError, match="full mode supports at most 1500"):
+        await streamer.subscribe(["NSE_INDEX|NIFTY50"], "ltpc")
+
+    single_mode = UpstoxMarketDataStreamer(
+        _no_token, [f"NSE_EQ|{index}" for index in range(2000)], mode="ltpc"
+    )
+    assert await single_mode.change_mode(single_mode.instrument_keys, "full") == "queued_for_reconnect"
+    assert single_mode.subscriptions_by_mode == {
+        "full": sorted([f"NSE_EQ|{index}" for index in range(2000)])
+    }

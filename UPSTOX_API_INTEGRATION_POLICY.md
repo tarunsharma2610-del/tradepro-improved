@@ -364,3 +364,10 @@ Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradep
 - **Evidence boundary:** Brokerage Details remains estimate-only; Trade Charges remains aggregate reconciliation-only and never per-fill actual evidence. Null IPFT must not be silently coerced to zero. This fix validates response shape; it does not approve tariffs or promote accounting.
 - **Contract-note continuity:** previously supplied January 2023 Upstox/RKSV contract-note examples remain available as historical regression fixtures; do not ask the user to provide them again. Their scope must be respected when using them for GST totals versus per-fill allocations.
 - **Next:** verify CI on the exact synchronized documentation head. Keep PR #6/#7 Draft and unmerged, PAPER mode mandatory, live broker writes disabled, and the original `tarunsharma2610-del/Tradepro` repository untouched.
+
+## Phase 4 API-first market data and token scope — 30 October 2026
+
+- Exact code/test head `3a74fbb788a63ca3b042ceec400dbc7a83f32571` passed Backend CI #41016468736 (1,240 passed, 1 warning), including migration and synthetic restore checks.
+- Paper market order pricing now consumes Upstox Full Market Quotes V3 order-book depth: BUY uses asks, SELL uses bids; quantity-weighted fill; snapshot timestamp, instrument identity, price validity and available depth are validated.
+- Official Upstox docs distinguish the standard OAuth access token (expires at 3:30 AM IST next day) from Analytics Token, intended for market data and real-time streaming without daily reauthorization. API docs: https://upstox.com/developer/api-documentation/get-token/ ; https://upstox.com/developer/api-documentation?f=K110
+- Next implementation: add a separate encrypted Analytics Token field and controlled settings endpoint; route market-data/stream endpoints to Analytics Token only where official docs authorize it. Keep account/portfolio/trading operations on the standard access token as required. Do not expose token values in API responses/logs; do not conflate token types or claim a refresh-token flow.

@@ -135,3 +135,35 @@ def test_deactivate_mode_preserves_other_active_modes(db_session, make_user):
     assert [(row.instrument_id, row.feed_mode) for row in active] == [
         (second.id, "full")
     ]
+
+def test_replace_modes_persists_complete_mixed_mode_state_atomically(db_session, make_user):
+    user, first, second = _setup(db_session, make_user)
+    service = MarketDataSubscriptionService(db_session)
+    service.replace_modes_for_user(
+        user_id=user.id,
+        broker="upstox",
+        subscriptions_by_mode={
+            "ltpc": [first.instrument_key],
+            "full": [second.instrument_key],
+        },
+    )
+    active = service.list_active(user_id=user.id)
+    assert {(row.instrument_id, row.feed_mode) for row in active} == {
+        (first.id, "ltpc"),
+        (second.id, "full"),
+    }
+
+    # A complete desired-state replacement deactivates only the omitted mode
+    # identity and preserves the other mode's active identity.
+    service.replace_modes_for_user(
+        user_id=user.id,
+        broker="upstox",
+        subscriptions_by_mode={"full": [first.instrument_key]},
+    )
+    active = service.list_active(user_id=user.id)
+    assert {(row.instrument_id, row.feed_mode) for row in active} == {
+        (first.id, "full"),
+    }
+    rows = db_session.query(MarketDataSubscription).all()
+    assert len(rows) == 3
+    assert sum(row.is_active for row in rows) == 1

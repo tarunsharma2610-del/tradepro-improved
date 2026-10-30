@@ -28,6 +28,15 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -46,7 +55,8 @@ jobs:
         env:
           DATABASE_URL: "sqlite:///:memory:"
           TEST_POSTGRES_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
-          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
+          REDIS_TEST_URL: "redis://localhost:6379/15"
+          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPoUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
           UPSTOX_CHARGE_ESTIMATES_ENABLED: "false"
         run: python -m pytest -q
@@ -55,7 +65,7 @@ jobs:
       - name: Verify Alembic upgrade, downgrade and re-upgrade on SQLite
         env:
           DATABASE_URL: "sqlite:///./migration-check.db"
-          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
+          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPoUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: |
           alembic upgrade head
@@ -65,7 +75,7 @@ jobs:
       - name: Verify Alembic upgrade, downgrade and re-upgrade on PostgreSQL 16
         env:
           DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
-          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
+          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPoUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: |
           alembic upgrade head

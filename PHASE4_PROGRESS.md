@@ -73,3 +73,10 @@ Implemented the first direct API correction rather than adding more stale-data h
 - Missing, stale or mismatched quote fails closed; no fallback to stale candle close or guessed LTP.
 - Added endpoint and quote-validation tests; updated strategy/execution fixtures.
 - Latest head 65f8070e344eaa4cd8cb82c876732662d02cc3a3; exact-head CI queued/running. Prior exact-head checkpoint d2662b05d4910d9bf93e307fb08f10a1609405ee passed backend and migration CI.
+
+## 30 October 2026 — WebSocket tick integrity
+
+- Diagnosed five CI failures on earlier quote integration: all were test assertions requiring "price" wording; invalid prices were correctly rejected. Clarified message without relaxing validation.
+- Audited Upstox V3 streamer: removed unsafe fallback from missing LTPC last-trade time to packet currentTs. Missing LTT or non-finite/non-positive LTP is no longer cached; latest_tick requires a positive exchange timestamp and validates exchange age plus local monotonic receive age.
+- Added regression tests for non-finite LTP and missing LTT.
+- Current code head 4dd8420d4d787be049c956204e15bfdff9586f3e. CI #41015772900 is running on this test head; prior code/message runs #41015756833 and #41015671461 are also running. No green claim until exact-head result.

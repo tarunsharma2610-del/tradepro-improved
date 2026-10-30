@@ -334,7 +334,7 @@ class ExecutionService:
             return None, f"Could not fetch a timestamped market quote: {quote_result.error}"
         ltp = _extract_fresh_full_quote_ltp(quote_result.data, instrument_key)
         if ltp is None:
-            return None, "Broker full quote was missing the requested instrument, a valid LTP, or a sufficiently recent last-trade timestamp."
+            return None, "Broker full quote had an invalid price, missing requested instrument, or missing/stale last-trade timestamp."
         return ltp, None
 
     def _is_reducing_position(self, portfolio_id: UUID, instrument_id: UUID, side: Side, quantity: int) -> bool:

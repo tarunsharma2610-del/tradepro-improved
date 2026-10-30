@@ -92,12 +92,17 @@ def test_stream_rejects_invalid_keys_and_unsafe_staleness_configuration():
 async def test_stream_reconnects_after_silence_timeout(monkeypatch):
     streamer = _streamer()
     connects = 0
+    token_calls = 0
+    authorized_tokens = []
     sent_requests = []
 
     async def token_provider():
-        return "test-access-token"
+        nonlocal token_calls
+        token_calls += 1
+        return f"test-access-token-{token_calls}"
 
-    async def authorized_url(_token):
+    async def authorized_url(token):
+        authorized_tokens.append(token)
         return "wss://feed.upstox.com/test"
 
     streamer.token_provider = token_provider
@@ -132,6 +137,8 @@ async def test_stream_reconnects_after_silence_timeout(monkeypatch):
     await streamer._run()
 
     assert connects == 2
+    assert token_calls == 2
+    assert authorized_tokens == ["test-access-token-1", "test-access-token-2"]
     assert streamer.connected is False
     assert sent_requests
     import json

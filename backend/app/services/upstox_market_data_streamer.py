@@ -8,6 +8,7 @@ This module does not place or modify orders.
 import asyncio
 import json
 import logging
+import math
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -83,10 +84,11 @@ class UpstoxMarketDataStreamer:
             return None
         if time.monotonic() - tick.received_monotonic > self.stale_after_seconds:
             return None
-        if tick.exchange_timestamp_ms > 0:
-            exchange_age = datetime.now(timezone.utc).timestamp() * 1000 - tick.exchange_timestamp_ms
-            if exchange_age > self.stale_after_seconds * 1000 or exchange_age < -60_000:
-                return None
+        if tick.exchange_timestamp_ms <= 0:
+            return None
+        exchange_age = datetime.now(timezone.utc).timestamp() * 1000 - tick.exchange_timestamp_ms
+        if exchange_age > self.stale_after_seconds * 1000 or exchange_age < -60_000:
+            return None
         return tick
 
     async def start(self) -> None:
@@ -199,12 +201,12 @@ class UpstoxMarketDataStreamer:
             elif union == "firstLevelWithGreeks":
                 ltpc = feed.firstLevelWithGreeks.ltpc
 
-            if ltpc is None or not ltpc.ltp or ltpc.ltp <= 0:
+            if ltpc is None or not math.isfinite(ltpc.ltp) or ltpc.ltp <= 0 or ltpc.ltt <= 0:
                 continue
             tick = MarketTick(
                 instrument_key=key,
                 ltp=float(ltpc.ltp),
-                exchange_timestamp_ms=int(ltpc.ltt or response.currentTs),
+                exchange_timestamp_ms=int(ltpc.ltt),
                 received_at=received_at,
                 received_monotonic=received_monotonic,
             )

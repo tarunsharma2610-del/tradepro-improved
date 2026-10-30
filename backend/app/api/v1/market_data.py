@@ -58,7 +58,9 @@ async def get_option_chain(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Upstox Option Chain API does not currently support MCX.")
     if expiry_date not in {"current_week", "next_week", "far_week", "current_month", "next_month", "far_month"}:
         try:
-            date.fromisoformat(expiry_date)
+            parsed_expiry = date.fromisoformat(expiry_date)
+            if parsed_expiry.isoformat() != expiry_date:
+                raise ValueError("expiry_date must use YYYY-MM-DD.")
         except ValueError:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "expiry_date must be YYYY-MM-DD or a supported Upstox relative expiry keyword.")
     token = BrokerCredentialsService(db).get_analytics_token(user.id, "upstox")

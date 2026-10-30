@@ -51,7 +51,7 @@ def snapshot(expected_user_id, instrument_key="NSE_EQ|INE002A01018", **changes):
     now = datetime.now(timezone.utc)
     data = {
         "schema_version": 1, "user_id": str(expected_user_id),
-        "instrument_key": instrument_key, "version": 1, "ltp": 2500.5,
+        "instrument_key": instrument_key, "epoch": "test-epoch", "version": 1, "ltp": 2500.5,
         "exchange_timestamp_ms": int(now.timestamp() * 1000),
         "received_at": now.isoformat(), "published_at": now.isoformat(),
     }

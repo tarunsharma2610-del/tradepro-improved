@@ -103,6 +103,41 @@ async def test_real_redis_version_counter_survives_quote_snapshot_expiry():
 
 
 @pytest.mark.asyncio
+async def test_real_redis_expired_version_counter_starts_new_epoch_and_consumer_accepts_reset():
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15, version_ttl_seconds=30)
+    consumer = RedisMarketQuoteConsumer(redis, user_id, max_age_seconds=15)
+    version_key = publisher.snapshot_key(instrument) + ":version"
+    try:
+        assert await publisher.publish(make_tick(instrument, 2500.0))
+        first = await consumer.get_quote(instrument)
+        assert first is not None and first["version"] == 1
+
+        assert await publisher.publish(make_tick(instrument, 2500.5))
+        second = await consumer.get_quote(instrument)
+        assert second is not None and second["version"] == 2
+        assert second["epoch"] == first["epoch"]
+
+        # Model the bounded counter reaching its retention limit. The next
+        # publisher creates a new epoch; version 1 is valid in that epoch.
+        await redis.delete(version_key)
+        assert await publisher.publish(make_tick(instrument, 2501.0))
+        third = await consumer.get_quote(instrument)
+        assert third is not None
+        assert third["version"] == 1
+        assert third["epoch"] != second["epoch"]
+        assert await redis.ttl(version_key) > 0
+    finally:
+        await redis.delete(
+            publisher.snapshot_key(instrument),
+            version_key,
+        )
+        await redis.aclose()
+
+
+@pytest.mark.asyncio
 async def test_real_redis_pubsub_notification_then_authoritative_snapshot_read():
     redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
     user_id = uuid4()

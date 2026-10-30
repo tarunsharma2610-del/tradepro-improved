@@ -102,3 +102,53 @@ def test_dispatcher_rejects_invalid_observations():
     assert not dispatcher.publish(object())
     assert not dispatcher.publish(obs(user="", version=0))
     assert dispatcher.rejected_updates == 2
+
+
+
+def test_dispatcher_enforces_single_flight_and_replays_latest_after_ack():
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=2)
+
+    async def scenario():
+        assert dispatcher.publish(obs(version=1, ltp=100.0))
+        first = await dispatcher.get()
+        assert first.version == 1
+        assert dispatcher.inflight_keys == 1
+
+        # A newer observation is retained but not made available to another
+        # worker while the first worker still owns this instrument key.
+        assert dispatcher.publish(obs(version=2, ltp=101.0))
+        assert dispatcher.publish(obs(version=3, ltp=102.0))
+        assert dispatcher.pending_keys == 1
+
+        second_consumer = asyncio.create_task(dispatcher.get())
+        await asyncio.sleep(0)
+        assert not second_consumer.done()
+        assert dispatcher.inflight_keys == 1
+
+        dispatcher.task_done()
+        second = await asyncio.wait_for(second_consumer, timeout=1)
+        assert second.version == 3
+        assert second.observation.ltp == 102.0
+        assert dispatcher.inflight_keys == 1
+        dispatcher.task_done()
+        assert dispatcher.inflight_keys == 0
+        assert dispatcher.pending_keys == 0
+
+    asyncio.run(scenario())
+
+
+def test_dispatcher_capacity_counts_inflight_keys():
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=1)
+
+    async def scenario():
+        assert dispatcher.publish(obs(instrument="NSE_EQ|ONE"))
+        first = await dispatcher.get()
+        assert first.instrument_key == "NSE_EQ|ONE"
+        # An unrelated instrument cannot consume capacity while the first
+        # key is being processed.
+        assert not dispatcher.publish(obs(instrument="NSE_EQ|TWO"))
+        assert dispatcher.dropped_unique_keys == 1
+        dispatcher.task_done()
+        assert dispatcher.inflight_keys == 0
+
+    asyncio.run(scenario())

@@ -85,8 +85,9 @@ async def test_real_redis_version_counter_survives_quote_snapshot_expiry():
         assert counter_state == f"{epoch}:1"
         assert 0 < await redis.ttl(version_key) <= publisher.version_ttl_seconds
 
-        # Simulate a quiet instrument whose quote snapshot expires naturally.
-        await redis.delete(publisher.snapshot_key(instrument))
+        # Let the real Redis TTL expire the quiet instrument's snapshot.
+        await redis.pexpire(publisher.snapshot_key(instrument), 1)
+        await asyncio.sleep(0.02)
         assert await redis.get(publisher.snapshot_key(instrument)) is None
         assert await publisher.publish(make_tick(instrument, 2501.0))
         snapshot = json.loads(await redis.get(publisher.snapshot_key(instrument)))
@@ -122,7 +123,9 @@ async def test_real_redis_expired_version_counter_starts_new_epoch_and_consumer_
 
         # Model the bounded counter reaching its retention limit. The next
         # publisher creates a new epoch; version 1 is valid in that epoch.
-        await redis.delete(version_key)
+        await redis.pexpire(version_key, 1)
+        await asyncio.sleep(0.02)
+        assert await redis.get(version_key) is None
         assert await publisher.publish(make_tick(instrument, 2501.0))
         third = await consumer.get_quote(instrument)
         assert third is not None

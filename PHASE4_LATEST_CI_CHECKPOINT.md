@@ -87,3 +87,13 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - Official docs: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ and https://upstox.com/developer/api-documentation/ltp-v3/
 - Architecture finding: API-started WebSocket manager is process-local; worker has its own process. However, paper order execution already has a REST LTP fallback. Timestamped Full Market Quotes V3 now strengthens that fallback. No Redis bridge or second worker stream is justified yet for the current five-minute strategy cadence; keep WebSocket integration scoped to real-time use cases that demonstrably need it.
 - Safeguards unchanged: only tarunsharma2610-del/tradepro-improved; PR #8 Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled.
+
+## WebSocket tick integrity and CI correction — 30 October 2026
+
+- Investigated CI failures on commit 6212723741425e970fe62b712659d4739dd6df6f. All five failures were assertions expecting the rejection reason to contain "price"; invalid NaN, Infinity, negative and zero prices were already rejected. Updated only the rejection wording in commit 90bb1f5bf9d43767043a653e68a55b374bf0c599; no validation was weakened.
+- Further audit found a real edge case in Upstox WebSocket parsing: it fell back from missing LTPC last-trade time to packet currentTs, which could make an old trade look newly traded. Removed that fallback; a tick is cached only when LTP is finite and positive and exchange LTPC LTT is present/positive. latest_tick now rejects missing exchange timestamps and checks both receive monotonic age and exchange timestamp age/future skew.
+- Added regression coverage for NaN/Infinity LTP and missing LTT. Current code head: 4dd8420d4d787be049c956204e15bfdff9586f3e.
+- CI runs: #41015671461 on message-only correction 90bb1f5; #41015756833 on WebSocket code d7c74a20; #41015772900 on tests 4dd8420d. At checkpoint writing, all were still running; do not mark any as green until completed.
+- Official API docs confirm Full Market Quotes V3 returns instrument_token, last_price, last_trade_time (milliseconds); Market Data Feed V3 LTPC provides ltp and ltt. Sources: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ and https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
+- Stream architecture remains intentionally simple: API process uses fresh WebSocket ticks when available; separate worker process cannot share the in-memory registry and therefore uses timestamped REST full quotes. No Redis bridge added without a concrete need.
+- Safeguards unchanged: only tarunsharma2610-del/tradepro-improved; PR #8 Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled.

@@ -118,3 +118,9 @@ Engineering rule: check provider-supported capability and existing implementatio
 - [x] Validate both monotonic receive age and exchange timestamp age on cached ticks.
 - [x] Add regression tests for NaN/Infinity and missing LTT.
 - [ ] Verify exact-head CI on 4dd8420d4d787be049c956204e15bfdff9586f3e; repair failures before next checkpoint.
+
+## Verification status — 30 October 2026
+
+- [x] Backend pytest passed on market-data code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e (run #41015772900).
+- [x] WebSocket code passed on d7c74a20a4a46741123ebbf4809176e90199643c (run #41015756833).
+- [ ] Verify exact-head CI for latest synchronized documentation head 2589db1e0a6446ea60d12a075d58ce43fa19ed93 (run #41015946896).

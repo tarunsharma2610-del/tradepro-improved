@@ -245,3 +245,13 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - **Not complete:** multi-user/multi-instrument load testing at scale; a managed long-running consumer registry in the worker; scanner integration; PAPER strategy consumption of Redis quotes. The current worker still evaluates strategies through its existing candle path.
 - **Next:** define durable user/instrument subscription discovery and lifecycle for the worker consumer; add cancellation, restart, shutdown and scale tests; then connect scanner; only then evaluate PAPER strategy integration.
 - Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #9 Draft/unmerged; no main update; PAPER mandatory; live broker writes disabled; original Tradepro untouched.
+
+
+
+## 30 October 2026 — durable subscription fixture fix and SDK/CAS audit
+
+- Verified exact-head Backend CI #41036389075: SUCCESS on 2212be0e094bb41423193b4384b6c07511ff3d62. Backend pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document restore and evidence retention all passed.
+- Fixed three market-stream API test failures by seeding the persisted Upstox broker-connection owner row required by durable subscription persistence. No production validation was weakened.
+- SDK audit: UPSTOX_SDK_COMPATIBILITY_AUDIT.md. No SDK dependency added because current async adapter/streamer outperforms the SDK's synchronous/callback interfaces for our lifecycle. Official V3 protobuf schema matches the checked-in schema.
+- Follow-on CAS field propagation code head: fe76751c54a720ffa5fcec7b4f3728b137447090. This adds CAS numeric fields and eligibility to tick parsing, Redis snapshots, stream status and tests. Exact-head CI is pending; the prior successful CI does not certify this newer code.
+- Do not merge PR #9 or update main. PAPER mandatory; live order writes disabled; original Tradepro untouched.

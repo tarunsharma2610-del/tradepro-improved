@@ -109,3 +109,12 @@ Engineering rule: check provider-supported capability and existing implementatio
 - [x] Add endpoint contract and timestamp-validation tests.
 - [ ] Verify exact-head CI for 65f8070e344eaa4cd8cb82c876732662d02cc3a3 and fix any failures.
 - [ ] Revisit worker-owned WebSocket subscriptions only if the five-minute strategy cadence or user requirements need streaming beyond the existing REST fallback; avoid unnecessary Redis or duplicated stream infrastructure.
+
+## Market-data integrity follow-up — 30 October 2026
+
+- [x] Confirm Upstox Full Market Quotes V3 carries exact instrument token, last price and last-trade time.
+- [x] Confirm Upstox Market Data Feed V3 LTPC includes last-trade time (LTT) distinct from packet currentTs.
+- [x] Remove packet-timestamp fallback when exchange LTT is missing; reject invalid LTP and missing exchange timestamp.
+- [x] Validate both monotonic receive age and exchange timestamp age on cached ticks.
+- [x] Add regression tests for NaN/Infinity and missing LTT.
+- [ ] Verify exact-head CI on 4dd8420d4d787be049c956204e15bfdff9586f3e; repair failures before next checkpoint.

@@ -73,6 +73,12 @@ class BrokerAdapter(ABC):
         """Optional full quote snapshot, including exchange timestamps when supported."""
         return BrokerCallResult(ok=False, error=f"{self.broker_name} adapter does not implement full quotes.")
 
+    async def get_option_chain(
+        self, access_token: str, instrument_key: str, expiry_date: str
+    ) -> BrokerCallResult:
+        """Optional option-chain snapshot capability."""
+        return BrokerCallResult(ok=False, error=f"{self.broker_name} adapter does not implement option chains.")
+
     async def get_intraday_data(
         self, access_token: str, instrument_key: str, unit: str, interval: str
     ) -> BrokerCallResult:

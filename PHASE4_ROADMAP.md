@@ -100,3 +100,12 @@ Engineering rule: check provider-supported capability and existing implementatio
 - [ ] Only integrate WebSocket data where it improves a defined requirement (e.g. current LTP for paper valuation/stop decisions); preserve five-minute candle indicator semantics and use official candle endpoints for OHLC history.
 - [ ] Verify current Upstox SDK endpoint coverage/dependencies before deciding whether it adds value. Do not add it just for appearance.
 - [ ] Keep all paper/live safeguards and original repository boundary intact.
+
+## Timestamped paper-execution quotes — 30 October 2026
+
+- [x] Verify official Upstox Full Market Quotes V3 response includes instrument_token, last_price and last_trade_time.
+- [x] Add optional full-quote adapter capability and Upstox V3 endpoint.
+- [x] Require exact instrument identity and a fresh exchange last-trade timestamp for REST paper-fill pricing; prefer fresh subscribed WebSocket tick where available.
+- [x] Add endpoint contract and timestamp-validation tests.
+- [ ] Verify exact-head CI for 65f8070e344eaa4cd8cb82c876732662d02cc3a3 and fix any failures.
+- [ ] Revisit worker-owned WebSocket subscriptions only if the five-minute strategy cadence or user requirements need streaming beyond the existing REST fallback; avoid unnecessary Redis or duplicated stream infrastructure.

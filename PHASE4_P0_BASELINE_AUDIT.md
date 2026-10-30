@@ -47,3 +47,10 @@ Therefore Phase 4 should harden existing functionality rather than rewrite it. T
 - PAPER mode remains mandatory; live `place_order`, `modify_order`, `cancel_order` writes remain disabled.
 - Brokerage Details estimates remain estimates; aggregate Trade Charges responses remain reconciliation-only.
 - No live broker write, credentialed smoke test, production deployment or real Oracle restore was performed.
+
+## User-directed integration principle — 30 October 2026
+
+Use official Upstox APIs/SDKs and Developer Console where applicable, after auditing existing code. Avoid workaround-first design and duplicate integrations. Current source audit indicates the V3 streamer and V3 REST endpoints already exist, while strategy candle retrieval is separate and parser documentation remains BEST-EFFORT. This is an integration/contract-verification gap to address before adding more freshness heuristics. Official references:
+- https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
+- https://upstox.com/developer/api-documentation/v3/get-intra-day-candle-data/
+- https://upstox.com/developer/api-documentation/installing-sdk/

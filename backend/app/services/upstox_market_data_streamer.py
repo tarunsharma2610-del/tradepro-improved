@@ -78,7 +78,13 @@ class UpstoxMarketDataStreamer:
 
         self.token_provider = token_provider
         self.instrument_keys = keys
-        self.mode = mode
+        # Keep a mode-indexed desired-state registry, matching the official
+        # Upstox V3 SDK's subscription model while retaining our async transport.
+        self.mode = mode  # legacy/default mode for callers that omit mode
+        self.subscriptions: dict[str, set[str]] = {
+            "ltpc": set(), "option_greeks": set(), "full": set()
+        }
+        self.subscriptions[mode].update(keys)
         self._instrument_key_set = set(keys)
         self.on_tick = on_tick
         self.stale_after_seconds = stale_after_seconds
@@ -142,17 +148,49 @@ class UpstoxMarketDataStreamer:
             raise ValueError("Provide valid segment-prefixed instrument keys.")
         return keys
 
-    async def subscribe(self, instrument_keys: list[str]) -> str:
+    @property
+    def subscriptions_by_mode(self) -> dict[str, list[str]]:
+        return {mode: sorted(keys) for mode, keys in self.subscriptions.items() if keys}
+
+    def _refresh_instrument_index(self) -> None:
+        self._instrument_key_set = set().union(*self.subscriptions.values())
+        self.instrument_keys = sorted(self._instrument_key_set)
+
+    def _validate_mode_limits(self, mode: str, proposed: set[str]) -> None:
+        individual = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
+        if mode not in individual:
+            raise ValueError("Unsupported mode. Allowed: ltpc, option_greeks, full.")
+        active_modes = {name for name, keys in self.subscriptions.items() if keys}
+        if len(active_modes | {mode}) == 1:
+            limit = individual[mode]
+        else:
+            # Official V3 combined-subscription caps when multiple categories
+            # are active: LTPC/Greeks 2,000 each, Full 1,500.
+            limit = {"ltpc": 2000, "option_greeks": 2000, "full": 1500}[mode]
+        if len(proposed) > limit:
+            raise ValueError(f"{mode} mode supports at most {limit} instrument keys in the current subscription combination.")
+
+    async def subscribe(self, instrument_keys: list[str], mode: str | None = None) -> str:
         keys = self._validate_key_list(instrument_keys)
+        target_mode = mode or self.mode
+        if target_mode not in self.subscriptions:
+            raise ValueError("Unsupported mode. Allowed: ltpc, option_greeks, full.")
         additions = [key for key in keys if key not in self._instrument_key_set]
+        already_in_mode = set(keys) & self.subscriptions[target_mode]
+        if not additions and len(already_in_mode) == len(keys):
+            return "already_subscribed"
+        # A key cannot be simultaneously assigned to two feed modes. Use
+        # change_mode() for an existing key to avoid ambiguous provider state.
+        conflicts = set(keys) & self._instrument_key_set - self.subscriptions[target_mode]
+        if conflicts:
+            raise ValueError("Instrument already subscribed in another mode; use change_mode().")
+        proposed = self.subscriptions[target_mode] | set(additions)
+        self._validate_mode_limits(target_mode, proposed)
+        self.subscriptions[target_mode] = proposed
+        self._refresh_instrument_index()
         if not additions:
             return "already_subscribed"
-        limits = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
-        if len(self.instrument_keys) + len(additions) > limits[self.mode]:
-            raise ValueError(f"{self.mode} mode supports at most {limits[self.mode]} instrument keys per connection.")
-        self.instrument_keys.extend(additions)
-        self._instrument_key_set.update(additions)
-        return await self._send_control("sub", additions, self.mode)
+        return await self._send_control("sub", additions, target_mode)
 
     async def unsubscribe(self, instrument_keys: list[str]) -> str:
         keys = self._validate_key_list(instrument_keys)
@@ -161,24 +199,29 @@ class UpstoxMarketDataStreamer:
             return "not_subscribed"
         if len(removals) == len(self.instrument_keys):
             raise ValueError("Cannot remove the final instruments; use DELETE /market-data/stream to stop the stream.")
-        self.instrument_keys = [key for key in self.instrument_keys if key not in set(removals)]
-        self._instrument_key_set.difference_update(removals)
+        for mode_keys in self.subscriptions.values():
+            mode_keys.difference_update(removals)
+        self._refresh_instrument_index()
         for key in removals:
             self._ticks.pop(key, None)
         return await self._send_control("unsub", removals)
 
     async def change_mode(self, instrument_keys: list[str], mode: str) -> str:
         keys = self._validate_key_list(instrument_keys)
-        if mode not in {"ltpc", "option_greeks", "full"}:
+        if mode not in self.subscriptions:
             raise ValueError("Unsupported mode. Allowed: ltpc, option_greeks, full.")
-        if set(keys) != self._instrument_key_set:
-            raise ValueError("Mode changes must cover the complete user stream; partial mixed-mode subscriptions are not enabled.")
-        limits = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
-        if len(keys) > limits[mode]:
-            raise ValueError(f"{mode} mode supports at most {limits[mode]} instrument keys per connection.")
-        if mode == self.mode:
+        missing = set(keys) - self._instrument_key_set
+        if missing:
+            raise ValueError("All instruments must already be subscribed before changing mode.")
+        current_modes = {name for name, mode_keys in self.subscriptions.items() if set(keys) & mode_keys}
+        if len(current_modes) == 1 and mode in current_modes:
             return "already_in_mode"
-        self.mode = mode
+        proposed = self.subscriptions[mode] | set(keys)
+        self._validate_mode_limits(mode, proposed)
+        for mode_keys in self.subscriptions.values():
+            mode_keys.difference_update(keys)
+        self.subscriptions[mode].update(keys)
+        self._refresh_instrument_index()
         for key in keys:
             self._ticks.pop(key, None)
         return await self._send_control("change_mode", keys, mode)
@@ -240,7 +283,10 @@ class UpstoxMarketDataStreamer:
                     self._socket = socket
                     self._connected = True
                     delay = 1.0
-                    await self._send_message(socket, "sub", list(self.instrument_keys), self.mode)
+                    # Rehydrate each feed-mode set independently after every
+                    # reconnect; never flatten mixed-mode intent into one mode.
+                    for feed_mode, keys in self.subscriptions_by_mode.items():
+                        await self._send_message(socket, "sub", keys, feed_mode)
                     while not self._stop.is_set():
                         # The websockets library handles ping/pong. A silent
                         # application stream is recycled so stale state is not trusted.

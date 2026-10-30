@@ -114,3 +114,24 @@ def test_replacing_one_feed_mode_preserves_other_mode_subscriptions(db_session, 
     active = service.list_active(user_id=user.id)
     active_pairs = {(row.instrument_id, row.feed_mode) for row in active}
     assert active_pairs == {(second.id, "ltpc"), (second.id, "full")}
+
+def test_deactivate_mode_preserves_other_active_modes(db_session, make_user):
+    user, first, second = _setup(db_session, make_user)
+    service = MarketDataSubscriptionService(db_session)
+    service.replace_for_user(
+        user_id=user.id, broker="upstox",
+        instrument_keys=[first.instrument_key], feed_mode="ltpc",
+    )
+    service.replace_for_user(
+        user_id=user.id, broker="upstox",
+        instrument_keys=[second.instrument_key], feed_mode="full",
+    )
+
+    assert service.deactivate_mode_for_user(
+        user_id=user.id, broker="upstox", feed_mode="ltpc"
+    ) == 1
+
+    active = service.list_active(user_id=user.id)
+    assert [(row.instrument_id, row.feed_mode) for row in active] == [
+        (second.id, "full")
+    ]

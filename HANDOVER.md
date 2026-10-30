@@ -2792,3 +2792,11 @@ Latest code head 65f8070e344eaa4cd8cb82c876732662d02cc3a3; exact-head CI queued/
 
 Official refs: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ ; https://upstox.com/developer/api-documentation/ltp-v3/
 Safeguards unchanged: only tradepro-improved, PR #8 Draft/unmerged, main untouched, PAPER mandatory, live broker writes disabled.
+
+## Handover — WebSocket timestamp integrity and CI correction (30 October 2026)
+
+CI on earlier Full Market Quote V3 integration failed five existing assertions because the rejection text omitted "price"; invalid prices were already rejected. Corrected wording only in 90bb1f5bf9d43767043a653e68a55b374bf0c599.
+
+Audited the streamer and fixed a substantive edge case: do not substitute packet currentTs for missing LTPC last-trade time (LTT). Packet receive time is not proof of a recent trade. Streamer now caches only finite positive LTP with positive exchange LTT; latest_tick validates exchange age and monotonic receive age. Added NaN/Infinity/missing-LTT tests. Current code head 4dd8420d4d787be049c956204e15bfdff9586f3e. CI #41015772900 running on this exact test head at handover; previous correction CI #41015671461 passed. Streamer code CI #41015756833 was still running. Check exact-head CI before claiming green.
+
+Official docs: Full Market Quotes V3 https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ ; Market Data Feed V3 https://upstox.com/developer/api-documentation/v3/get-market-data-feed/

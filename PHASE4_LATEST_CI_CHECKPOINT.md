@@ -76,3 +76,14 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - Prior CI run #41014529152 passed on earlier head 58e6674dab5c02f725f76401af358397fd47c161. This does not prove the new API integration.
 - Still not complete: wiring WebSocket tick state into the running strategy worker; live Upstox account/Developer Console verification unavailable in this session. The official Python SDK was reviewed, but not added because the current V3 streamer already uses Upstox protobuf schema and SDK addition has not been shown to improve this path.
 - Safeguards unchanged: only tarunsharma2610-del/tradepro-improved; PR #8 Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled.
+
+## Timestamped quote validation — 30 October 2026
+
+- Exact prior checkpoint verified green: commit d2662b05d4910d9bf93e307fb08f10a1609405ee; backend CI #41014929096 and migration CI #41014916708 both passed.
+- New API-first improvement: Upstox LTP V3 response contains last_price but no last-trade timestamp. The Full Market Quotes V3 endpoint supplies last_price, instrument_token and last_trade_time (epoch milliseconds), so the paper execution price path now prefers a fresh WebSocket tick and otherwise requests the timestamped Full Market Quote V3 endpoint.
+- REST fallback validates exact instrument_token, finite positive price, present last_trade_time, maximum 15-second trade age, and rejects timestamps more than 60 seconds in the future. Missing/mismatched/stale quote rejects the paper market order rather than silently using an old LTP.
+- Added optional broker full-quote capability, Upstox V3 adapter implementation, endpoint contract test, timestamp validation test, and updated execution/strategy fixtures.
+- Latest code head: 65f8070e344eaa4cd8cb82c876732662d02cc3a3. Exact-head CI is queued/running; do not mark green until it completes.
+- Official docs: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ and https://upstox.com/developer/api-documentation/ltp-v3/
+- Architecture finding: API-started WebSocket manager is process-local; worker has its own process. However, paper order execution already has a REST LTP fallback. Timestamped Full Market Quotes V3 now strengthens that fallback. No Redis bridge or second worker stream is justified yet for the current five-minute strategy cadence; keep WebSocket integration scoped to real-time use cases that demonstrably need it.
+- Safeguards unchanged: only tarunsharma2610-del/tradepro-improved; PR #8 Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled.

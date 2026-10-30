@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, ForeignKeyConstraint, String, UniqueConstraint, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
 
@@ -27,6 +27,7 @@ class MarketDataSubscription(BaseModel):
     )
     feed_mode: Mapped[str] = mapped_column(String(24), nullable=False, default="ltpc")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    instrument = relationship("Instrument", lazy="joined")
 
     __table_args__ = (
         UniqueConstraint(

@@ -299,3 +299,17 @@ Keep the existing async httpx/websockets adapter, application OAuth/token lifecy
 ### Safety and repository boundary
 
 Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-publisher. PR #9 remains Draft/unmerged. Do not modify tarunsharma2610-del/Tradepro. No live broker place/modify/cancel calls.
+
+
+## Phase 4 checkpoint — 30 October 2026: independent feed-mode subscription persistence
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only.
+- Branch: `phase4/redis-market-data-publisher`; Draft PR #9 remains open and unmerged.
+- Exact verified code/test head: `ef80d792c4d89abda1850b73f54f7b81bf16bbf7`.
+- Exact-head Backend CI [#41057600440 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41057600440).
+- All required workflow steps passed: backend pytest, Redis restart-recovery integration environment, broker-write boundary guard, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill, and evidence retention.
+- Subscription persistence now replaces the desired instrument set for the requested feed mode only; subscriptions in other modes remain active. Regression tests cover independent `ltpc`/`full` desired sets and reactivation of a prior mode identity.
+- CI run #41057234551 failed because an existing test still expected the old single-active-mode behaviour. The test expectation was updated in `ef80d792c4d89abda1850b73f54f7b81bf16bbf7`; exact-head retry passed.
+- Important scope limit: this verifies persistence semantics only. It does not yet prove mixed-mode Upstox V3 WebSocket subscribe/unsubscribe frames, per-instrument mode tracking, reconnect replay, or end-to-end live feed delivery.
+- Next: audit the current V3 streamer and subscription manager against the official Upstox feed-mode contract; implement mixed-mode WebSocket lifecycle and mode-scoped unsubscribe with regression tests. Then verify Redis consumer lifecycle before scanner/PAPER strategy integration.
+- Safeguards unchanged: PAPER mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes disabled; no PR merge, main update, deployment, live-order test, or production Oracle restore authorized/performed. Original `tarunsharma2610-del/Tradepro` remains out of scope.

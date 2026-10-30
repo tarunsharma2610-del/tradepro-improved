@@ -52,3 +52,15 @@ This checkpoint creates Phase 4 planning/resume records only. It does not claim 
 - Static-analysis limit remains explicit: dynamically computed method names and arbitrary reflection cannot be fully proven safe by this AST guard.
 - Safety invariants unchanged: only `tradepro-improved`; PAPER mandatory; live broker writes disabled; no live order, deployment, credentialed smoke test, or production Oracle restore claimed.
 
+## Engineering directive and next integration correction — 30 October 2026
+
+User direction: work smarter, not by layering workarounds. Prefer Upstox Developer Console, official current API docs, official SDKs, and supplied schemas/proto wherever applicable. Audit existing integration first; explain any custom workaround and why it is needed. Local freshness validation is defense-in-depth, not the primary data-freshness architecture.
+
+Official contracts checked:
+- Market Data Feed V3: https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
+- Intraday Candle Data V3: https://upstox.com/developer/api-documentation/v3/get-intra-day-candle-data/
+- Official SDK installation: https://upstox.com/developer/api-documentation/installing-sdk/
+
+Repo audit finding: backend/app/services/upstox_market_data_streamer.py already implements V3 authorization/reconnect/protobuf tick intake; backend/app/brokers/upstox/adapter.py has V3 quote and historical candle REST calls; backend/app/services/candle_parsing.py still labels response validation BEST-EFFORT; strategy execution fetches candles independently rather than consuming a shared stream/candle pipeline. Next task: verify documented contracts and design a shared data/candle pipeline with REST warm-up/gap recovery and WebSocket updates, not more isolated stale-data workarounds. Do not add/switch SDKs without checking dependency compatibility and actual endpoint coverage.
+
+Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f51dd796b08. Instruction/document changes in this continuation require new exact-head CI before a new green checkpoint is claimed. PR #8 stays Draft/unmerged; main remains untouched; PAPER-only/live-write safeguards remain mandatory.

@@ -125,7 +125,82 @@ async def test_pubsub_notification_causes_snapshot_read_not_payload_trust():
         {"type": "message", "data": json.dumps({"user_id": str(uuid4()), "instrument_key": instrument, "version": 1})},
         {"type": "message", "data": json.dumps({"user_id": str(user_id), "instrument_key": instrument, "version": 1, "ltp": 1})},
     ]
-    results = [q async for q in consumer.listen([instrument])]
+    results = [q async for q in consumer.listen([instrument], max_reconnect_attempts=0)]
     assert len(results) == 2  # startup recovery plus validated notification
     assert all(q["ltp"] == 2500.5 for q in results)
     assert redis.pubsub_instance.closed
+
+
+
+class DisconnectingPubSub(FakePubSub):
+    def __init__(self, *, fail=False, messages=()):
+        super().__init__(messages)
+        self.fail = fail
+
+    async def listen(self):
+        if self.fail:
+            self.fail = False
+            raise ConnectionError("simulated Redis connection drop")
+        async for message in super().listen():
+            yield message
+
+
+class ReconnectingFakeRedis(FakeRedis):
+    def __init__(self, pubsubs):
+        super().__init__()
+        self.pubsubs = list(pubsubs)
+        self.created = 0
+
+    def pubsub(self):
+        self.created += 1
+        if self.pubsubs:
+            return self.pubsubs.pop(0)
+        return FakePubSub()
+
+
+@pytest.mark.asyncio
+async def test_listener_resubscribes_and_recovers_authoritative_snapshot_after_disconnect():
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    first = DisconnectingPubSub(fail=True)
+    second = DisconnectingPubSub()
+    redis = ReconnectingFakeRedis([first, second])
+    consumer = RedisMarketQuoteConsumer(redis, user_id)
+    key = consumer.snapshot_key(instrument)
+    redis.values[key] = (json.dumps(snapshot(user_id, version=1, ltp=2500.5)), 10)
+
+    recovered = [
+        quote async for quote in consumer.listen(
+            [instrument],
+            max_reconnect_attempts=1,
+            min_backoff_seconds=0,
+            max_backoff_seconds=0,
+        )
+    ]
+
+    assert redis.created == 2
+    assert len(recovered) == 2
+    assert [quote["version"] for quote in recovered] == [1, 1]
+    assert first.closed and second.closed
+    assert first.unsubscribed == [consumer.channel]
+    assert second.unsubscribed == [consumer.channel]
+
+
+@pytest.mark.asyncio
+async def test_listener_stops_after_configured_reconnect_limit():
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    redis = ReconnectingFakeRedis([DisconnectingPubSub(fail=True)])
+    consumer = RedisMarketQuoteConsumer(redis, user_id)
+
+    results = [
+        quote async for quote in consumer.listen(
+            [instrument],
+            max_reconnect_attempts=0,
+            min_backoff_seconds=0,
+            max_backoff_seconds=0,
+        )
+    ]
+
+    assert results == []
+    assert redis.created == 1

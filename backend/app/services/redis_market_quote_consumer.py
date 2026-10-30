@@ -1,8 +1,12 @@
 """Fail-closed Redis quote consumer for scanner and paper-evaluation workers."""
+import asyncio
 import json
+import logging
 import math
 from datetime import datetime, timezone
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 
 class RedisMarketQuoteConsumer:
@@ -36,9 +40,7 @@ class RedisMarketQuoteConsumer:
             snapshot = json.loads(raw)
             if not isinstance(snapshot, dict):
                 return None
-            if snapshot.get("schema_version") != 1:
-                return None
-            if snapshot.get("user_id") != self.user_id:
+            if snapshot.get("schema_version") != 1 or snapshot.get("user_id") != self.user_id:
                 return None
             if snapshot.get("instrument_key") != instrument_key:
                 return None
@@ -80,32 +82,73 @@ class RedisMarketQuoteConsumer:
                 recovered[instrument_key] = quote
         return recovered
 
-    async def listen(self, instrument_keys: list[str]):
-        """Yield validated latest snapshots after subscription and each notification."""
-        pubsub = self.redis.pubsub()
-        await pubsub.subscribe(self.channel)
-        try:
-            # Initial snapshot sweep closes the subscribe/startup race.
-            for quote in (await self.recover(instrument_keys)).values():
-                yield quote
-            async for message in pubsub.listen():
-                if message.get("type") != "message":
-                    continue
-                try:
-                    event = json.loads(message.get("data", "{}"))
-                    if not isinstance(event, dict) or event.get("user_id") != self.user_id:
-                        continue
-                    instrument_key = event.get("instrument_key")
-                    event_version = event.get("version")
-                    if instrument_key not in instrument_keys:
-                        continue
-                    if isinstance(event_version, bool) or not isinstance(event_version, int) or event_version <= 0:
-                        continue
-                except (TypeError, ValueError, json.JSONDecodeError):
-                    continue
-                quote = await self.get_quote(instrument_key)
-                if quote is not None and quote["version"] >= event_version:
+    async def listen(
+        self,
+        instrument_keys: list[str],
+        *,
+        max_reconnect_attempts: int | None = None,
+        min_backoff_seconds: float = 0.25,
+        max_backoff_seconds: float = 5.0,
+    ):
+        """Continuously resubscribe after Redis failures and sweep snapshots.
+
+        Production callers leave max_reconnect_attempts unset for indefinite
+        recovery. The limit and backoff bounds also make failure tests bounded.
+        """
+        if max_reconnect_attempts is not None and max_reconnect_attempts < 0:
+            raise ValueError("Maximum reconnect attempts cannot be negative.")
+        if min_backoff_seconds < 0 or max_backoff_seconds < min_backoff_seconds:
+            raise ValueError("Invalid Redis reconnect backoff bounds.")
+
+        reconnect_attempts = 0
+        backoff = min_backoff_seconds
+        while True:
+            pubsub = self.redis.pubsub()
+            try:
+                await pubsub.subscribe(self.channel)
+                # Close the startup/reconnect race using authoritative snapshots.
+                for quote in (await self.recover(instrument_keys)).values():
                     yield quote
-        finally:
-            await pubsub.unsubscribe(self.channel)
-            await pubsub.aclose()
+
+                async for message in pubsub.listen():
+                    if message.get("type") != "message":
+                        continue
+                    try:
+                        event = json.loads(message.get("data", "{}"))
+                        if not isinstance(event, dict) or event.get("user_id") != self.user_id:
+                            continue
+                        instrument_key = event.get("instrument_key")
+                        event_version = event.get("version")
+                        if instrument_key not in instrument_keys:
+                            continue
+                        if isinstance(event_version, bool) or not isinstance(event_version, int) or event_version <= 0:
+                            continue
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        continue
+                    quote = await self.get_quote(instrument_key)
+                    if quote is not None and quote["version"] >= event_version:
+                        yield quote
+
+                raise ConnectionError("Redis Pub/Sub stream ended unexpectedly")
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                reconnect_attempts += 1
+                logger.warning(
+                    "Redis quote consumer disconnected; reconnect attempt %s (%s).",
+                    reconnect_attempts, type(exc).__name__,
+                )
+                if max_reconnect_attempts is not None and reconnect_attempts > max_reconnect_attempts:
+                    return
+                if max_backoff_seconds:
+                    await asyncio.sleep(backoff)
+                backoff = min(max(backoff * 2, min_backoff_seconds), max_backoff_seconds)
+            finally:
+                try:
+                    await pubsub.unsubscribe(self.channel)
+                except Exception:
+                    pass
+                try:
+                    await pubsub.aclose()
+                except Exception:
+                    pass

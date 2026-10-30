@@ -414,3 +414,67 @@ def test_postgres_expired_executing_lease_recovers_and_fences_old_worker():
     finally:
         _cleanup_claim_fixture(Session, ids)
         engine.dispose()
+
+
+
+def test_two_postgres_workers_cannot_exceed_retry_limit():
+    """Concurrent reclaimers terminalize an exhausted event without extra attempts."""
+    from datetime import datetime, timedelta, timezone
+    from app.services.paper_stop_event_lifecycle import PaperStopEventLifecycle
+
+    engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_size=4, max_overflow=0, pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    ids = _seed_claim_fixture(Session, uuid4().hex[:12])
+    user_id, portfolio_id, instrument_id, strategy_id = ids
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    try:
+        with Session.begin() as db:
+            event = PaperStopEventClaimService(db).claim_trailing_stop(
+                user_id=user_id, portfolio_id=portfolio_id, strategy_id=strategy_id,
+                instrument_id=instrument_id, quote_epoch="postgres-retry-limit-race",
+                quote_version=1, trigger_price=Decimal("98.25"),
+                lease_seconds=30, now=now - timedelta(minutes=2),
+            )
+            assert event is not None
+            event_id = event.id
+            original_token = event.claim_token
+            # The original claim consumed the sole permitted attempt.
+            event.attempt_count = 1
+
+        barrier = threading.Barrier(2)
+        results = []
+        results_lock = threading.Lock()
+
+        def reclaim():
+            with Session() as db:
+                barrier.wait(timeout=10)
+                try:
+                    result = PaperStopEventLifecycle(db).reclaim_expired(
+                        event_id=event_id, lease_seconds=30, max_attempts=1, now=now
+                    )
+                    db.commit()
+                    outcome = "reclaimed" if result is not None else "exhausted"
+                except Exception as exc:
+                    db.rollback()
+                    outcome = ("error", type(exc).__name__, str(exc))
+                with results_lock:
+                    results.append(outcome)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(reclaim), pool.submit(reclaim)]
+            for future in futures:
+                future.result(timeout=30)
+
+        assert results.count("exhausted") == 2, results
+        assert not [result for result in results if isinstance(result, tuple)], results
+
+        with Session() as db:
+            saved = db.get(PaperStopEvent, event_id)
+            assert saved.state == "FAILED"
+            assert saved.last_error_code == "MAX_ATTEMPTS_EXCEEDED"
+            assert saved.attempt_count == 1
+            assert saved.claim_token == original_token
+    finally:
+        _cleanup_claim_fixture(Session, ids)
+        engine.dispose()

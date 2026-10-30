@@ -473,5 +473,6 @@ async def test_subscription_lifecycle_enforces_limits_and_keeps_one_key():
         await streamer.unsubscribe(["NSE_EQ|ONE"])
     with pytest.raises(ValueError, match="2000"):
         await streamer.subscribe([f"NSE_EQ|{index}" for index in range(2000)])
+    await streamer.subscribe(["NSE_EQ|TWO"])
     with pytest.raises(ValueError, match="complete user stream"):
         await streamer.change_mode(["NSE_EQ|ONE"], "ltpc")

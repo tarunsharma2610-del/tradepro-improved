@@ -105,6 +105,16 @@ class UpstoxAdapter(BrokerAdapter):
         path = f"{API_V3}/historical-candle/{instrument_key}/{unit}/{interval}/{to_date.isoformat()}/{from_date.isoformat()}"
         return await self._get(path, access_token)
 
+    async def get_option_chain(
+        self, access_token: str, instrument_key: str, expiry_date: str
+    ) -> BrokerCallResult:
+        """Fetch the official option-chain snapshot using the Analytics Token."""
+        return await self._get(
+            f"{API_V2}/option/chain",
+            access_token,
+            params={"instrument_key": instrument_key, "expiry_date": expiry_date},
+        )
+
     async def get_intraday_data(
         self, access_token: str, instrument_key: str, unit: str, interval: str
     ) -> BrokerCallResult:

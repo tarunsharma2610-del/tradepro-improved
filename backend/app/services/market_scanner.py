@@ -7,6 +7,7 @@ remain the source for technical indicators until the PAPER integration gate.
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from math import isfinite
+import time
 from uuid import UUID
 
 
@@ -39,8 +40,12 @@ class MarketScanObservation:
 class MarketScanner:
     """Build per-user, per-instrument observations from validated snapshots."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_age_seconds: float = 15.0) -> None:
+        if max_age_seconds <= 0:
+            raise ValueError("Scanner observation TTL must be positive.")
+        self.max_age_seconds = max_age_seconds
         self._latest: dict[tuple[str, str], MarketScanObservation] = {}
+        self._latest_seen: dict[tuple[str, str], float] = {}
 
     def process_quote(self, user_id: UUID | str, quote: dict) -> MarketScanObservation | None:
         owner = str(user_id)
@@ -106,12 +111,20 @@ class MarketScanner:
             exchange_timestamp_ms=exchange_timestamp_ms, received_at=received_at,
         )
         self._latest[identity] = observation
+        self._latest_seen[identity] = time.monotonic()
         return observation
 
     def latest(self, user_id: UUID | str, instrument_key: str) -> MarketScanObservation | None:
-        return self._latest.get((str(user_id), instrument_key))
+        identity = (str(user_id), instrument_key)
+        seen = self._latest_seen.get(identity)
+        if seen is None or time.monotonic() - seen > self.max_age_seconds:
+            self._latest.pop(identity, None)
+            self._latest_seen.pop(identity, None)
+            return None
+        return self._latest.get(identity)
 
     def clear_user(self, user_id: UUID | str) -> None:
         owner = str(user_id)
         for identity in [key for key in self._latest if key[0] == owner]:
             self._latest.pop(identity, None)
+            self._latest_seen.pop(identity, None)

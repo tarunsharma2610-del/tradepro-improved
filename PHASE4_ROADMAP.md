@@ -286,3 +286,13 @@ Do not claim scanner or strategy integration: `app/worker.py` currently uses its
 6. [ ] Add a later scanner/research design review for official Fundamentals and Market Information APIs introduced in SDK v2.27.0. Prefer official endpoints where useful; do not add SDK runtime dependency by default.
 
 No live broker writes. PAPER remains mandatory; PR #9 remains Draft/unmerged.
+
+
+### SDK-derived implementation improvement — mixed feed modes
+
+- [x] Compare SDK v2.30.0 subscription implementation against our streamer.
+- [x] Identify missing capability: mixed per-instrument LTPC/full/option_greeks modes on one user stream.
+- [ ] After CAS exact-head CI passes, borrow the SDK's per-mode subscription-set design and reconnect replay semantics in our async streamer.
+- [ ] Update durable subscription service/API to reconcile multiple feed modes without deactivating unrelated modes.
+- [ ] Enforce current official per-mode and combined connection limits; add mode transition, reconnect, startup restore and user-isolation tests.
+- [ ] Only then wire scanner consumers.

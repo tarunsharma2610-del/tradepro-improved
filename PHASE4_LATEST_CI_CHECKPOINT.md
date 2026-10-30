@@ -104,3 +104,14 @@ Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f
 - WebSocket implementation head d7c74a20a4a46741123ebbf4809176e90199643c passed Backend pytest in run #41015756833.
 - Rejection-message correction head 90bb1f5bf9d43767043a653e68a55b374bf0c599 passed Backend pytest in run #41015671461.
 - Latest documentation head at this update: 2589db1e0a6446ea60d12a075d58ce43fa19ed93; exact-head CI #41015946896 is running. Older doc-head runs #41015887638 and #41015931607 are also running; only the newest exact head should be used for final green status.
+
+## Exact-head correction and market-depth pricing — 30 October 2026
+
+- Latest code/test head: `3a74fbb788a63ca3b042ceec400dbc7a83f32571`.
+- Exact-head Backend CI run **#41016468736 passed**: 1,240 tests passed, 1 warning. The run also passed broker-write boundary enforcement, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trips, and the isolated synthetic PostgreSQL/document-volume restore drill.
+- Earlier failing runs were traced to obsolete LTPC-only test monkeypatches, strategy fixtures missing the new V3 market-depth shape, and rejection wording. These were corrected; no production safety validation was weakened.
+- Paper market orders now price from fresh Full Market Quotes V3 snapshot depth: BUY consumes ask levels, SELL consumes bid levels, and the fill price is volume-weighted across levels. The snapshot timestamp is validated independently of last_trade_time; an old last trade alone does not invalidate a fresh book. Insufficient depth, stale snapshot, mismatched instrument or invalid price fails closed.
+- Strategy execution fixtures now include the documented market-depth response. Removed obsolete test monkeypatch for the old LTPC stream path.
+- New Upstox authentication finding: official docs distinguish daily standard access tokens from Analytics Tokens, which are intended for market data and real-time streaming without daily reauthorization. Next package: add separately encrypted Analytics Token storage and route only supported market-data/stream calls through it; keep standard OAuth access token for account/trading permissions. Do not reuse either token across scopes.
+- Official docs: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ ; https://upstox.com/developer/api-documentation/get-token/ ; https://upstox.com/developer/api-documentation?f=K110
+- Safeguards unchanged: only `tarunsharma2610-del/tradepro-improved`; PR #8 Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled.

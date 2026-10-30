@@ -64,3 +64,7 @@ Official reference: https://upstox.com/developer/api-documentation/v3/get-intra-
 
 LTP V3 returns last_price, ltq, volume and cp but no last_trade_time. Full Market Quotes V3 returns last_price, instrument_token and last_trade_time. Paper execution's REST fallback now uses the latter, validates exact instrument identity and exchange trade age, and rejects missing/stale/future-invalid quotes. Fresh WebSocket ticks remain preferred when present in the same process. Current head 65f8070e344eaa4cd8cb82c876732662d02cc3a3 is awaiting exact-head CI.
 Official docs: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ ; https://upstox.com/developer/api-documentation/ltp-v3/
+
+## Exchange timestamp source audit — 30 October 2026
+
+Official Upstox docs distinguish exchange last-trade time (LTPC LTT) from packet currentTs. The streamer previously substituted currentTs if LTT was absent; this could make stale last-trade price appear fresh. Removed the fallback, require finite positive LTP and positive LTT, and validate exchange and receive age. Full Market Quotes V3 REST fallback independently checks last_trade_time and exact instrument_token. Current test head 4dd8420d4d787be049c956204e15bfdff9586f3e is awaiting CI.

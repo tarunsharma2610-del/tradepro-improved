@@ -203,7 +203,10 @@ def test_analytics_token_is_encrypted_and_independent_of_oauth_connection(db_ses
 
     assert conn.analytics_token_encrypted != "console-generated-analytics-token"
     assert decrypt_value(conn.analytics_token_encrypted) == "console-generated-analytics-token"
-    assert conn.analytics_token_expires_at > datetime.now(timezone.utc)
+    expires_at = conn.analytics_token_expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    assert expires_at > datetime.now(timezone.utc)
     assert conn.is_connected is False
     assert service.get_analytics_token(user.id, "upstox") == "console-generated-analytics-token"
 

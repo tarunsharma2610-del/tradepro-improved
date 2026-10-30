@@ -49,3 +49,8 @@ This commit adds the isolated dispatcher and unit tests only. It does not yet co
 - This is schema/model groundwork only: no dispatcher consumer creates events, no stop event can authorize an order, and no live broker write path was added.
 - Unit tests cover persistence, duplicate quote-event rejection and database check constraints.
 - Remaining before any event consumer: enforce strategy↔portfolio↔instrument and user↔portfolio consistency transactionally; define one owner for shared portfolio/instrument positions; add PostgreSQL row-lock/claim concurrency tests; define recovery for CLAIMED/EXECUTING after process death; connect only to existing PAPER execution after those gates.
+
+
+## Latest follow-up — 30 October 2026
+
+Transactional PAPER stop-event claim service commit `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. Claims validate tenant/strategy/instrument ownership, lock portfolio → strategy → position, reject ambiguous shared-position ownership and duplicate quote identity, and store a bounded lease. The dispatcher remains disconnected from the claim service and order execution. Next gates are PostgreSQL 16 multi-worker concurrency, event transitions/lease reclaim, crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled.

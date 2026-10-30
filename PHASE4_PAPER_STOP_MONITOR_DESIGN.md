@@ -60,3 +60,8 @@ Do **not** implement tick-triggered exits by simply calling `StrategyExecutionSe
 - Scanner TTL, Redis worker lifecycle and first scanner-to-PAPER trailing-stop evaluation slice: implemented and CI-verified at the baseline above.
 - True quote-driven/tick-by-tick PAPER stop monitor: not implemented; design and concurrency gates remain.
 - Production deployment, sustained-load testing and credentialed Upstox smoke tests: deferred.
+
+
+## Latest follow-up — 30 October 2026
+
+Transactional PAPER stop-event claim service commit `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. Claims validate tenant/strategy/instrument ownership, lock portfolio → strategy → position, reject ambiguous shared-position ownership and duplicate quote identity, and store a bounded lease. The dispatcher remains disconnected from the claim service and order execution. Next gates are PostgreSQL 16 multi-worker concurrency, event transitions/lease reclaim, crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled.

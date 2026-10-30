@@ -62,3 +62,8 @@
 - A tick-driven stop monitor is intentionally not enabled yet. The audit identified missing durable event idempotency, strategy/position concurrency locks, ambiguous ownership when multiple strategies share one portfolio/instrument, exchange-timestamp freshness enforcement, and bounded quote dispatch/backpressure.
 - LTPC WebSocket messages remain trigger/valuation data only; PAPER fills must continue through the existing shared ExecutionService and fresh Full Market Quotes V3 depth. No live broker order writes.
 - Next work: implement/test a bounded coalescing dispatcher and durable stop-event claim/ownership model before connecting quote events to PAPER exits.
+
+
+## Latest follow-up — 30 October 2026
+
+Transactional PAPER stop-event claim service commit `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. Claims validate tenant/strategy/instrument ownership, lock portfolio → strategy → position, reject ambiguous shared-position ownership and duplicate quote identity, and store a bounded lease. The dispatcher remains disconnected from the claim service and order execution. Next gates are PostgreSQL 16 multi-worker concurrency, event transitions/lease reclaim, crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled.

@@ -65,3 +65,11 @@ Implemented the first direct API correction rather than adding more stale-data h
 - Added tests for the exact endpoint/auth contract, historical+intraday merge, source failure, and strategy fixture compatibility.
 - Exact current code head: d7c786fc164ed297df42f26493c994ceacd337a7. CI pending for this head; previous successful run #41014529152 was on the earlier head 58e6674dab5c02f725f76401af358397fd47c161.
 - Next: verify exact-head CI, fix failures, then assess WebSocket integration into the worker. Don't aggregate these as complete yet. No live account test has been performed.
+
+## 30 October 2026 — timestamped quote validation
+
+- Confirmed Upstox LTP V3 supplies last_price but not last_trade_time; Full Market Quotes V3 supplies both last_price and last_trade_time plus instrument_token.
+- Added optional full-quote broker capability and Upstox V3 endpoint. Paper execution now prefers a fresh subscribed WebSocket tick, otherwise uses Full Market Quotes V3 and validates instrument identity and exchange last-trade time (<=15 seconds old; <=60 seconds future skew).
+- Missing, stale or mismatched quote fails closed; no fallback to stale candle close or guessed LTP.
+- Added endpoint and quote-validation tests; updated strategy/execution fixtures.
+- Latest head 65f8070e344eaa4cd8cb82c876732662d02cc3a3; exact-head CI queued/running. Prior exact-head checkpoint d2662b05d4910d9bf93e307fb08f10a1609405ee passed backend and migration CI.

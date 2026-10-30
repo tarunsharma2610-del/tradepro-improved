@@ -111,8 +111,9 @@ def test_stream_start_requires_analytics_token_not_daily_oauth(monkeypatch, db_s
         mode = "full"
         instrument_keys = ["NSE_INDEX|Nifty 50"]
 
-    async def fake_start(user_id, keys):
+    async def fake_start(user_id, keys, mode="full"):
         assert keys == ["NSE_INDEX|Nifty 50"]
+        assert mode == "full"
         return FakeStreamer()
 
     monkeypatch.setattr(market_data.market_data_stream_manager, "start", fake_start)
@@ -146,3 +147,64 @@ def test_stream_start_fails_closed_without_analytics_token(monkeypatch, db_sessi
         assert "Analytics Token" in response.text
     finally:
         _clear()
+
+
+
+def test_stream_start_accepts_option_greeks_mode(monkeypatch, db_session, make_user):
+    from app.api.v1 import market_data
+
+    user = make_user()
+    db_session.add(Instrument(
+        instrument_key="NSE_FO|12345",
+        exchange="NSE",
+        segment="NSE_FO",
+        instrument_type="OPTIONS",
+        trading_symbol="NIFTY-TEST-CE",
+        name="Nifty test call",
+        is_active=True,
+    ))
+    db_session.commit()
+    _overrides(db_session, user)
+    monkeypatch.setattr(
+        market_data.BrokerCredentialsService,
+        "get_analytics_token",
+        lambda self, user_id, broker: "analytics-token",
+    )
+
+    class FakeStreamer:
+        connected = True
+        running = True
+        mode = "option_greeks"
+        instrument_keys = ["NSE_FO|12345"]
+
+    async def fake_start(user_id, keys, mode="full"):
+        assert keys == ["NSE_FO|12345"]
+        assert mode == "option_greeks"
+        return FakeStreamer()
+
+    monkeypatch.setattr(market_data.market_data_stream_manager, "start", fake_start)
+    try:
+        response = TestClient(app).post(
+            "/api/v1/market-data/stream",
+            json={"instrument_keys": ["NSE_FO|12345"], "mode": "option_greeks"},
+        )
+        assert response.status_code == 202, response.text
+        assert response.json()["mode"] == "option_greeks"
+    finally:
+        _clear()
+
+
+def test_stream_schema_enforces_mode_specific_limits():
+    from app.schemas.market_data import MarketDataStreamStart
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="2000"):
+        MarketDataStreamStart(
+            instrument_keys=[f"NSE_FO|{index}" for index in range(2001)],
+            mode="full",
+        )
+    with pytest.raises(ValidationError, match="3000"):
+        MarketDataStreamStart(
+            instrument_keys=[f"NSE_FO|{index}" for index in range(3001)],
+            mode="option_greeks",
+        )

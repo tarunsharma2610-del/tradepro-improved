@@ -77,3 +77,14 @@ Phase 4 is complete only when each applicable work-package exit criterion is sup
 - [ ] P4-0C: test kill switch blocks new strategy entries while exits remain possible; inspect stale market-data/candle handling and risk checks at shared execution boundary.
 - [ ] P4-1: continue order lifecycle, partial/rejected/replay/restart tests only after the P4-0C findings are addressed.
 
+## Revised data-integration priority — 30 October 2026
+
+- [x] Record user directive: use Upstox Developer Console, official APIs, SDKs, and schemas when useful; avoid unnecessary workaround-first engineering.
+- [x] Check official docs for Market Data Feed V3, Intraday Candle Data V3, and SDK installation.
+- [ ] Audit actual response contracts and installed dependency compatibility; replace unsupported BEST-EFFORT assumptions with schema-backed tests.
+- [ ] Connect existing V3 WebSocket streamer to the shared strategy market-data/candle pipeline; retain REST intraday/historical endpoints for warm-up and gap recovery.
+- [ ] Preserve five-minute strategy semantics; test candle timestamp/order, instrument-key matching, partial/current candle handling, reconnect and missing-candle recovery.
+- [ ] Keep freshness/invalid-data checks as defense-in-depth only; they must not replace correct API integration.
+- [ ] Run exact-head backend CI after code/docs changes and checkpoint only the exact passing head.
+
+Engineering rule: check provider-supported capability and existing implementation before writing custom workarounds. Explain and justify any remaining workaround. PAPER/live-write/repository boundaries remain unchanged.

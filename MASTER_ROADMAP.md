@@ -2208,3 +2208,45 @@ Next: implement the separately encrypted Upstox Analytics Token path for market 
 - New Analytics Token implementation is accepted at code/test level: separately encrypted per-user token, owner-scoped save/status/clear endpoints, expiry fail-closed retrieval, and routing for market data, strategy candles, paper quote/charge calls and WebSocket reconnects.
 - This does not mean a real user token has been entered or live Upstox connectivity has been validated. User must generate/copy the Analytics Token from Developer Apps > Analytics and configure it in Settings once UI is available.
 - PAPER-only, live writes disabled, PR #8 Draft/unmerged, main untouched, original Tradepro untouched.
+
+
+## Phase 4 — Upstox SDK/CAS decision (30 October 2026)
+
+The official Upstox Python SDK v2.30.0 has been compared with the current integration. See UPSTOX_SDK_COMPATIBILITY_AUDIT.md. The existing async httpx/websockets adapter and streamer remain preferred; no dependency added. Official SDK protobuf schema matches the local V3 schema. CAS fields previously ignored by the decoder are now propagated through MarketTick, Redis and stream status. Code head fe76751c54a720ffa5fcec7b4f3728b137447090 awaits exact-head CI. After CI acceptance, continue worker-managed Redis consumer lifecycle, then scanner integration. PAPER mandatory; live writes disabled; PR #9 Draft/unmerged; original Tradepro out of scope.
+
+
+## Phase 4 status — Redis consumer recovery — 30 October 2026
+
+Mixed-mode Upstox feed subscriptions, reconnect replay, fresh-token reacquisition, broker-scoped startup restoration and Redis quote delivery primitives are implemented. Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`.
+
+Current head `a5e352bef2c78f27141b61bca5893fdfa0fd049a` adds Redis consumer epoch-rollover and idle Pub/Sub heartbeat regression tests; exact-head CI #41061518847 is pending. Worker-managed consumer lifecycle and scanner/PAPER strategy consumption remain future gates. Strategy worker currently follows its existing candle path; do not claim scanner integration.
+
+Next: pass exact-head CI; implement worker consumer lifecycle with durable subscription discovery, single-owner coordination and graceful shutdown; verify multi-tenant delivery; then integrate scanner/PAPER evaluation. PR #9 Draft/unmerged; PAPER mandatory; live writes disabled; original Tradepro untouched.
+
+
+## Phase 4 checkpoint — Redis consumer epoch and heartbeat recovery — 30 October 2026
+
+- Latest implementation/test head: `a5e352bef2c78f27141b61bca5893fdfa0fd049a`.
+- Exact-head Backend CI [#41061518847 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41061518847). The Backend pytest job, Redis restart-recovery integration environment, broker-write boundary guard, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore, and evidence retention all completed successfully.
+- Regression coverage verifies recovery from Redis volatile-data loss when the new epoch restarts at version 1 after the prior epoch reached version 8, and verifies Pub/Sub PING/PONG on an idle listener connection.
+- The preceding token-refresh test remains covered by exact-head CI #41060945704 on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`: each reconnect calls the token provider again and obtains a fresh authorized V3 WebSocket URL.
+- Redis consumer validates authoritative snapshots and supports reconnect/resubscribe, snapshot sweep, heartbeat, tenant isolation and fail-closed freshness checks. These tests do not certify production Redis deployment or sustained production load.
+- Not complete: managed worker consumer lifecycle, durable subscription discovery/ownership coordination, scanner integration, and PAPER strategy consumption of Redis quotes. Existing strategy execution still uses its candle path.
+- Next: design and test worker-managed consumer lifecycle (single-owner/lease semantics, startup discovery, cancellation, graceful shutdown, replica coordination and isolated failure handling). Only after that gate passes, connect the scanner, then evaluate PAPER strategy consumption.
+- Safety unchanged: PR #9 remains Draft/open/unmerged; PAPER mandatory; live broker order writes disabled; no deployment or credentialed live smoke test claimed; original `tarunsharma2610-del/Tradepro` remains out of scope.
+
+
+## Phase 4 resume checkpoint — 30 October 2026
+
+- Latest verified implementation head: `6ac3882a98f3c66abb4cd62848971b6277ab3be7`; Backend CI [#41080156436 SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436), exact SHA, pytest passed with no failed steps.
+- Added transactional PAPER stop-event claims: active user-owned portfolio and strategy/instrument relationship validation; portfolio → strategy → position locks; non-flat position required; shared portfolio/instrument position with multiple active strategies fails closed.
+- Claim identity is unique by strategy/event/quote epoch/version; stores claim token, bounded lease and attempt count. Duplicate claim uses nested savepoint and returns no claim; caller owns commit/rollback.
+- Tests cover duplicate claims, cross-user access, mismatched strategy/instrument, ambiguous shared position, flat/missing position and invalid inputs.
+- Existing dispatcher remains isolated; it is not connected to claim service or order execution.
+- Next: PostgreSQL 16 simultaneous-claim tests; event state transitions and lease reclaim; crash recovery tests; explicit shared-position allocation; only then connect dispatcher to existing PAPER execution with fresh depth, risk, kill switch and accounting.
+- PR #9 remains Draft/unmerged. PAPER mandatory; live broker writes disabled. Original `tarunsharma2610-del/Tradepro` is out of scope. Documentation sync itself needs exact-head CI.
+
+
+## Phase 4 verified checkpoint — 30 October 2026
+
+Implementation commit `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358) on the exact SHA. Backend pytest (including PostgreSQL 16 independent-session stop-claim races), broker-write boundary enforcement, SQLite migrations, isolated PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore all passed. Migration validation now uses separate `tradepro_migration_check` DB; concurrency tests use `tradepro_test`. Next: claim-token-owned event lifecycle transitions, then lease reclamation and crash recovery. PR #9 remains Draft/unmerged; PAPER mandatory; all live broker writes disabled; only `tradepro-improved` is in scope.

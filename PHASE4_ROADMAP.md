@@ -202,3 +202,168 @@ Engineering rule: check provider-supported capability and existing implementatio
 - Next work: audit current Redis configuration and Redis Python package APIs; define a small versioned quote envelope and namespaced user/instrument keys; implement publisher + cache write in the existing stream lifecycle; implement worker/API consumer with TTL and timestamp validation; test outage, reconnect, expiry, ownership isolation and process restart; only then connect scanner and paper strategy consumers.
 - This checkpoint does not certify Redis fan-out, scanner integration or strategy integration as complete. No live broker order capability was introduced.
 - Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original `Tradepro` untouched; PAPER mode mandatory; live broker order submission/modification/cancellation disabled; no credentials in code, logs, docs or chat.
+
+
+## Roadmap checkpoint update — 30 October 2026
+
+### Completed
+- [x] Add user-isolated Redis quote publisher with versioned latest snapshots and TTL.
+- [x] Validate instrument key, finite positive LTP, exchange timestamp and receive timestamp before publishing.
+- [x] Publish per-user Pub/Sub notifications after writing the latest snapshot.
+- [x] Connect Upstox V3 stream manager's `on_tick` callback to Redis publisher.
+- [x] Add publisher tests and pass exact-head Backend CI #41024607462 on `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`.
+
+### Remaining sequence
+1. Synchronize the seven Phase 4 checkpoint documents and pass docs-triggered CI on the exact resulting commit.
+2. Implement an independent Redis quote consumer. Pub/Sub is notification only; read authoritative snapshot from Redis.
+3. Enforce user isolation, schema/version checks, TTL, exchange timestamp freshness, and monotonic version handling in consumer.
+4. Implement startup/reconnect recovery by re-reading latest snapshots; add missed-notification and Redis outage tests.
+5. Add real Redis integration tests (including separate publisher/consumer processes) before declaring cross-process delivery complete.
+6. Integrate scanner only after consumer acceptance.
+7. Integrate PAPER strategy evaluation only after scanner and consumer acceptance; preserve existing candle freshness and risk gates.
+
+No step is complete merely because a service or test double exists. Do not enable live trading or merge Draft PRs.
+
+
+## Redis delivery milestone update — 30 October 2026
+
+- [x] Redis quote consumer and unit tests; exact-head CI #41025805338 passed.
+- [x] Redis 7 service in backend CI and real Redis integration tests.
+- [x] Atomic publisher version/snapshot/notification sequence using Redis Lua.
+- [x] Concurrent publish test and corrected integration-test import.
+- [x] Exact-head CI #41026567279 passed on `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`.
+- [ ] Consumer reconnect and resubscribe after Redis connection loss.
+- [ ] Recovery sweep after Redis server restart; prove expired/missed quotes fail closed.
+- [ ] Independent publisher/consumer OS-process integration tests.
+- [ ] Scanner consumes only validated user-scoped fresh quotes.
+- [ ] PAPER strategy evaluation consumes validated quotes and retains candle/risk freshness checks.
+- [ ] Update checkpoint after each exact-head CI pass.
+
+Do not skip gates or mark downstream integrations complete based on publisher/consumer unit tests. Keep PR #9 Draft/unmerged and live broker writes disabled.
+
+
+## Redis version-counter lifecycle update — 30 October 2026
+
+- [x] Keep Redis version counters persistent across ordinary quote snapshot expiry.
+- [x] Real Redis integration test: delete/expire snapshot, publish next quote, verify version increments rather than resetting.
+- [x] Exact-head Backend pytest CI #41031153316 passed on `3088e49cf24317f58f7e04a60d6cd54e065143b4`.
+- [ ] Audit consumer startup/reconnect authoritative snapshot sweep and fail-closed behaviour.
+- [ ] Verify dedicated worker lifecycle, cancellation and graceful shutdown.
+- [ ] Add independent publisher/consumer OS-process integration tests.
+- [ ] Add multi-user/multi-instrument concurrency, isolation and recovery tests.
+- [ ] Integrate scanner only after transport gates pass.
+- [ ] Integrate PAPER strategy only after scanner acceptance; retain candle freshness and risk gates.
+
+Persistent version keys require an explicit retention/cleanup policy for instruments no longer subscribed; do not reintroduce TTL-based counter resets without an epoch-safe design. Keep PR #9 Draft/unmerged and live broker writes disabled.
+
+
+## Redis bounded epoch/version lifecycle update — 30 October 2026
+
+- [x] Add bounded version-counter retention (24-hour default) and unique epoch identifier.
+- [x] Atomically allocate epoch/version, write snapshot and publish notification through Lua.
+- [x] Migrate existing integer-only counters on next publish.
+- [x] Verify actual quote snapshot expiry while version remains in the same epoch.
+- [x] Verify actual counter expiry starts a new epoch and an existing consumer accepts the reset safely.
+- [x] Verify Pub/Sub connection kill/reconnect and real Redis process restart.
+- [x] Verify independent OS-process publisher/consumer delivery, two-user isolation and concurrent atomic version order.
+- [x] Exact-head full Backend CI #41032764754 passed on `7268edd6e7ddb7ef6d472799d1d0164b4210b135`.
+- [ ] Multi-user/multi-instrument scale and sustained-load testing.
+- [ ] Implement worker-managed consumer registry with durable subscription discovery, dynamic add/remove, cancellation, graceful shutdown and restart recovery.
+- [ ] Integrate scanner only after worker consumer lifecycle acceptance.
+- [ ] Integrate PAPER strategy evaluation only after scanner acceptance; retain candle freshness and risk gates unless a separately reviewed quote-based execution design is approved.
+
+Do not claim scanner or strategy integration: `app/worker.py` currently uses its existing candle-based strategy path and does not run a Redis quote-consumer registry. Keep PR #9 Draft/unmerged and live broker writes disabled.
+
+
+
+## SDK compatibility audit and next implementation gate — 30 October 2026
+
+1. [x] Compare official Upstox Python SDK v2.30.0 with the existing REST adapter, OAuth flow, V3 streamer, protobuf, Redis publisher/consumer and instrument master.
+2. [x] Record decision not to add the SDK as a dependency: generated synchronous REST client and callback WebSocket feeder do not improve our async architecture; existing token refresh, reconnect, validation and Redis handling remain application-owned.
+3. [x] Compare official SDK V3 protobuf with local schema; schemas match.
+4. [ ] Verify exact-head CI for CAS-field propagation (fe76751c54a720ffa5fcec7b4f3728b137447090). The decoder now carries IEP/reference price/indicative quantities/CAS eligibility into MarketTick, Redis snapshots and stream status.
+5. [ ] After CAS CI passes, proceed with the worker-managed Redis consumer lifecycle and durable subscription recovery/validation before scanner integration.
+6. [ ] Add a later scanner/research design review for official Fundamentals and Market Information APIs introduced in SDK v2.27.0. Prefer official endpoints where useful; do not add SDK runtime dependency by default.
+
+No live broker writes. PAPER remains mandatory; PR #9 remains Draft/unmerged.
+
+
+### SDK-derived implementation improvement — mixed feed modes
+
+- [x] Compare SDK v2.30.0 subscription implementation against our streamer.
+- [x] Identify missing capability: mixed per-instrument LTPC/full/option_greeks modes on one user stream.
+- [ ] After CAS exact-head CI passes, borrow the SDK's per-mode subscription-set design and reconnect replay semantics in our async streamer.
+- [ ] Update durable subscription service/API to reconcile multiple feed modes without deactivating unrelated modes.
+- [ ] Enforce current official per-mode and combined connection limits; add mode transition, reconnect, startup restore and user-isolation tests.
+- [ ] Only then wire scanner consumers.
+
+
+## PAUSED — next implementation plan to resume here (30 October 2026)
+
+**Do not restart from an older checkpoint. Resume from the latest Phase 4 branch head and the sequence below.**
+
+### Gate 0 — repair the current exact-head CI failure
+
+- Latest code head: 0cd3e2273f831b9e7d4968899ef8fc6a5d14a59d.
+- Workflow #41037359835 FAILED in pytest: 1,304 passed, 2 failed. Both failures are in tests/test_upstox_option_chain_api.py because the test FakeStreamer fixture does not define the newly exposed market_info attribute. Production parser/API work is not the failure identified by CI.
+- On resume, inspect the FakeStreamer fixture and add a safe default market_info=None (and a focused assertion if appropriate). Do not weaken/remove the production market status field or its tests.
+- Rerun full backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore drill. Only checkpoint after all exact-head checks pass.
+
+### Gate 1 — mixed feed-mode subscription implementation (next feature)
+
+Borrow the useful design from official Upstox Python SDK v2.30.0, not its transport:
+
+1. Replace the current one-mode-per-user stream assumption with a mode-indexed subscription registry for LTPC, full, option_greeks and full_d30 where officially supported.
+2. Permit a user connection to carry different instruments in different feed modes concurrently, subject to current official Upstox limits.
+3. Replay each mode's instrument set after every reconnect, using our own asyncio streamer and fresh token-provider call on reconnect.
+4. Update durable subscription service/API reconciliation so subscribing, unsubscribing or changing one instrument's mode does not deactivate unrelated mode subscriptions.
+5. Preserve user/broker ownership isolation, validate instrument keys and feed modes, and enforce per-mode plus combined connection limits from current official docs.
+6. Restore mixed-mode desired subscriptions after API/worker restart.
+7. Add tests for mixed modes, mode-specific changes, duplicate requests, limits, reconnect replay, token refresh, startup recovery, Redis delivery and tenant isolation.
+8. Benchmark/verify against the official SDK's behaviour and record the comparison; do not add SDK dependency unless a separately proven benefit emerges.
+
+### Gate 2 — only after mixed-mode tests and CI are green
+
+- Integrate Redis quote consumers with the scanner's broad LTPC universe, selected full-depth instruments and selected option-Greeks contracts.
+- Validate freshness, stream silence, mode correctness and missing-field behaviour at the scanner boundary.
+- Keep PAPER mode mandatory and all live broker order writes disabled.
+
+### Preserved architecture decision
+
+Keep the existing async httpx/websockets adapter, application OAuth/token lifecycle, V3 protobuf decoder, Redis snapshot/version/epoch delivery, freshness validation and domain-level safeguards. Do not add upstox-python-sdk as a runtime dependency merely for parity; selectively borrow proven SDK capabilities. See UPSTOX_SDK_COMPATIBILITY_AUDIT.md.
+
+### Safety and repository boundary
+
+Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-publisher. PR #9 remains Draft/unmerged. Do not modify tarunsharma2610-del/Tradepro. No live broker place/modify/cancel calls.
+
+
+## Current Phase 4 checkpoint — 30 October 2026
+
+The older Gate 0/Gate 1 notes above are historical. Mixed-mode persistence, V3 WebSocket lifecycle/reconnect replay, startup recovery and token refresh have since been implemented and have passing exact-head CI checkpoints. See `PHASE4_LATEST_CI_CHECKPOINT.md`.
+
+- Latest code/test head: `a5e352bef2c78f27141b61bca5893fdfa0fd049a`; Backend CI #41061518847 is running, not yet accepted.
+- Added tests for Redis consumer epoch rollover after volatile data loss and idle Pub/Sub heartbeat. Prior exact-head head `f7c863977ed17a3d705b83db8dcc6b7ba421cccf` passed Backend CI #41060945704.
+- Next: (1) exact-head CI pass; (2) worker-managed Redis consumer lifecycle with durable per-user subscription discovery, single-owner/lease coordination, cancellation and shutdown; (3) multi-user/multi-instrument delivery and recovery; (4) scanner and PAPER strategy integration only after those gates.
+- Do not interpret Redis publisher/consumer unit tests as scanner integration or production deployment validation.
+- PR #9 remains Draft/unmerged. PAPER mandatory; live order writes disabled; original Tradepro out of scope.
+
+
+## Latest verified checkpoint — 30 October 2026
+
+- Implementation commit `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI [#41080156436](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436); Backend pytest success, no failed steps.
+- Added transactional `PaperStopEventClaimService`: ownership validation; portfolio → strategy → position locks; open position requirement; ambiguous shared portfolio/instrument ownership fails closed; unique quote-event identity; claim token/lease/attempt metadata; duplicate insert protected by nested savepoint.
+- Claim service is not connected to dispatcher or order execution. Caller owns transaction commit/rollback.
+- Next: PostgreSQL 16 multi-session claim race tests; explicit state transitions and lease reclaim; crash recovery; shared-position allocation decision; only then controlled dispatcher-to-PAPER execution.
+- Do not enable live writes, merge PR #9, or deploy. PR #9 remains Draft/unmerged; PAPER mandatory.
+- The documentation synchronization commit is separate and requires exact-head CI.
+
+
+## Verified checkpoint — PostgreSQL 16 PAPER stop-event claim concurrency (30 October 2026)
+
+- **Implementation SHA:** `0d3700f0a12add3239457bc4009eb019d77c78a0`
+- **Backend CI:** [#41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358) — **SUCCESS**, exact SHA.
+- Full workflow passed: backend pytest, broker-write boundary, SQLite migration upgrade/downgrade/re-upgrade, isolated PostgreSQL 16 migration database upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore drill with retained evidence.
+- PostgreSQL 16 concurrency tests cover same quote identity races (one durable claim, one duplicate) and distinct quote versions (both accepted). Strategy and Position locks are scoped to their respective tables to avoid nullable-side outer-join locking errors.
+- PostgreSQL migration validation now uses isolated `tradepro_migration_check`; the concurrency suite retains `tradepro_test`.
+- **Next:** implement and test claim-token-owned event lifecycle transitions (CLAIMED → EXECUTING → COMPLETED; explicit RETRYABLE/FAILED), then lease expiry/reclamation and crash recovery. Do not connect to PAPER order execution until lifecycle/idempotency gates pass.
+- **Safety:** only `tarunsharma2610-del/tradepro-improved`; PR #9 remains Draft/open/unmerged; PAPER mandatory; live broker order writes disabled; no deployment or live trading.

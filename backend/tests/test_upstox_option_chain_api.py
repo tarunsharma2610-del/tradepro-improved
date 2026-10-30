@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from app.core.deps import get_current_user, get_db
 from app.main import app
 from app.models.instrument import Instrument
+from app.models.broker_connection import BrokerConnection
 
 
 def _overrides(db_session, user):
@@ -11,6 +12,18 @@ def _overrides(db_session, user):
         yield db_session
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_current_user] = lambda: user
+
+
+def _ensure_broker_connection(db_session, user):
+    """Provide the persisted broker owner row required by durable subscriptions."""
+    db_session.add(BrokerConnection(
+        user_id=user.id,
+        broker="upstox",
+        api_key_encrypted="test-encrypted-api-key",
+        api_secret_encrypted="test-encrypted-api-secret",
+        redirect_uri="https://example.test/oauth/callback",
+    ))
+    db_session.commit()
 
 
 def _clear():
@@ -98,6 +111,7 @@ def test_stream_start_requires_analytics_token_not_daily_oauth(monkeypatch, db_s
         is_active=True,
     ))
     db_session.commit()
+    _ensure_broker_connection(db_session, user)
     _overrides(db_session, user)
 
     monkeypatch.setattr(
@@ -107,10 +121,12 @@ def test_stream_start_requires_analytics_token_not_daily_oauth(monkeypatch, db_s
     )
 
     class FakeStreamer:
+        market_info = None
         connected = True
         running = True
         mode = "full"
         instrument_keys = ["NSE_INDEX|Nifty 50"]
+        subscriptions_by_mode = {"full": ["NSE_INDEX|Nifty 50"]}
 
     async def fake_start(user_id, keys, mode="full"):
         assert keys == ["NSE_INDEX|Nifty 50"]
@@ -165,6 +181,7 @@ def test_stream_start_accepts_option_greeks_mode(monkeypatch, db_session, make_u
         is_active=True,
     ))
     db_session.commit()
+    _ensure_broker_connection(db_session, user)
     _overrides(db_session, user)
     monkeypatch.setattr(
         market_data.BrokerCredentialsService,
@@ -173,10 +190,12 @@ def test_stream_start_accepts_option_greeks_mode(monkeypatch, db_session, make_u
     )
 
     class FakeStreamer:
+        market_info = None
         connected = True
         running = True
         mode = "option_greeks"
         instrument_keys = ["NSE_FO|12345"]
+        subscriptions_by_mode = {"option_greeks": ["NSE_FO|12345"]}
 
     async def fake_start(user_id, keys, mode="full"):
         assert keys == ["NSE_FO|12345"]
@@ -227,6 +246,7 @@ def test_stream_lifecycle_routes_use_user_scoped_stream_and_validate_active_keys
             is_active=True,
         ))
     db_session.commit()
+    _ensure_broker_connection(db_session, user)
     _overrides(db_session, user)
     monkeypatch.setattr(
         market_data.BrokerCredentialsService,
@@ -235,20 +255,33 @@ def test_stream_lifecycle_routes_use_user_scoped_stream_and_validate_active_keys
     )
 
     class FakeStreamer:
+        market_info = None
         running = True
         mode = "full"
         instrument_keys = ["NSE_INDEX|Nifty 50"]
+        subscriptions = {"ltpc": set(), "option_greeks": set(), "full": {"NSE_INDEX|Nifty 50"}}
 
-        async def subscribe(self, keys):
-            self.instrument_keys.extend(key for key in keys if key not in self.instrument_keys)
+        @property
+        def subscriptions_by_mode(self):
+            return {mode: sorted(keys) for mode, keys in self.subscriptions.items() if keys}
+
+        async def subscribe(self, keys, mode=None):
+            target = mode or self.mode
+            self.subscriptions[target].update(keys)
+            self.instrument_keys = sorted(set().union(*self.subscriptions.values()))
             return "sent"
 
         async def unsubscribe(self, keys):
-            self.instrument_keys = [key for key in self.instrument_keys if key not in keys]
+            for mode_keys in self.subscriptions.values():
+                mode_keys.difference_update(keys)
+            self.instrument_keys = sorted(set().union(*self.subscriptions.values()))
             return "sent"
 
         async def change_mode(self, keys, mode):
-            assert set(keys) == set(self.instrument_keys)
+            for mode_keys in self.subscriptions.values():
+                mode_keys.difference_update(keys)
+            self.subscriptions[mode].update(keys)
+            self.instrument_keys = sorted(set().union(*self.subscriptions.values()))
             self.mode = mode
             return "sent"
 
@@ -398,10 +431,12 @@ def test_stream_status_exposes_fresh_full_feed_fields_for_scanner_consumers(monk
     )
 
     class FakeStreamer:
+        market_info = None
         running = True
         connected = True
         mode = "full"
         instrument_keys = ["NSE_INDEX|Nifty 50"]
+        subscriptions_by_mode = {"full": ["NSE_INDEX|Nifty 50"]}
 
         def latest_tick(self, key):
             return tick if key == tick.instrument_key else None
@@ -431,10 +466,12 @@ def test_stream_status_represents_stale_or_missing_quotes_as_unavailable(monkeyp
     user = make_user()
 
     class FakeStreamer:
+        market_info = None
         running = True
         connected = True
         mode = "full"
         instrument_keys = ["NSE_INDEX|India VIX"]
+        subscriptions_by_mode = {"full": ["NSE_INDEX|India VIX"]}
 
         def latest_tick(self, key):
             return None

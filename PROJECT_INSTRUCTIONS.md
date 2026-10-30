@@ -2206,3 +2206,65 @@ Use the official Upstox Analytics Token for supported market-data and real-time 
 - Next work: audit current Redis configuration and Redis Python package APIs; define a small versioned quote envelope and namespaced user/instrument keys; implement publisher + cache write in the existing stream lifecycle; implement worker/API consumer with TTL and timestamp validation; test outage, reconnect, expiry, ownership isolation and process restart; only then connect scanner and paper strategy consumers.
 - This checkpoint does not certify Redis fan-out, scanner integration or strategy integration as complete. No live broker order capability was introduced.
 - Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original `Tradepro` untouched; PAPER mode mandatory; live broker order submission/modification/cancellation disabled; no credentials in code, logs, docs or chat.
+
+
+## Phase 4 continuation instruction — Redis publisher checkpoint (30 October 2026)
+
+Resume from exact verified code head `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`, Backend CI #41024607462 SUCCESS. Do not restart or repeat publisher work. Publisher and Upstox stream callback wiring are complete; Redis consumer, reconnect recovery, cross-process tests, scanner and PAPER strategy integration are not. First verify the latest docs-sync commit and exact-head CI. Then implement consumer using Redis snapshot as source of truth and Pub/Sub only as notification. Validate tenant/user scope, schema version, monotonic version, TTL and exchange timestamp; recover after missed notifications/restarts by reading latest snapshot. Fail closed on unavailable/stale data. Work only in `tarunsharma2610-del/tradepro-improved`; no main update/merge; PR #8/#9 Draft; PAPER mandatory; live broker writes disabled; original Tradepro out of scope.
+
+
+## Phase 4 continuation rules — Redis checkpoint (30 October 2026)
+
+- Continue only in `tarunsharma2610-del/tradepro-improved`; never modify original `tarunsharma2610-del/Tradepro`.
+- Latest verified Phase 4 code head: `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`; Backend CI #41026567279 passed on exact head. Treat subsequent commits as unverified until their own CI completes.
+- Redis quote publisher uses atomic Lua for version increment, authoritative snapshot/expiry, and Pub/Sub notification. Consumers must always fetch/validate the snapshot.
+- Next gates: reconnect/resubscribe and recovery after Redis outage; actual Redis server restart test; independent process test; scanner integration; PAPER strategy integration. Do not skip gates or claim integration prematurely.
+- PAPER mode mandatory. Live `place_order`, `modify_order`, and `cancel_order` writes remain disabled. Do not merge PR #8/#9 or update main without explicit authorization. Preserve Phase 3 accounting safeguards and all fail-closed freshness/risk controls.
+- Use official Upstox Developer Console, API docs, SDKs and supplied protobuf schemas when appropriate; audit existing capabilities before adding duplicate services or workaround layers.
+
+
+## Phase 4 continuation checkpoint — 30 October 2026
+
+- Latest verified code head: `3088e49cf24317f58f7e04a60d6cd54e065143b4`; exact-head Backend pytest CI #41031153316 passed.
+- Redis quote snapshots retain TTL; per-instrument version counters no longer expire, preventing version regression after ordinary snapshot expiry. Real Redis integration coverage was added.
+- Do not interpret this as proof of independent OS-process delivery or complete production readiness. Next audit startup/reconnect authoritative snapshot sweep, consumer/worker lifecycle and shutdown; add independent-process and multi-user/multi-instrument tests.
+- Persistent version keys need an explicit retention/cleanup policy; do not add counter TTL back without epoch-safe version semantics.
+- Only modify `tarunsharma2610-del/tradepro-improved`; never original `tarunsharma2610-del/Tradepro`. PR #9 remains Draft/unmerged; do not update main or merge without explicit authorization. PAPER mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled. Preserve Phase 3 accounting safeguards and fail-closed freshness/risk controls.
+- Prefer official Upstox Developer Console, API docs, SDKs and protobuf contracts when relevant; audit existing support before adding duplicate services.
+
+
+## Phase 4 continuation checkpoint — 30 October 2026
+
+- Latest verified code head: `7268edd6e7ddb7ef6d472799d1d0164b4210b135`; exact-head full Backend CI #41032764754 passed, including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore/evidence retention.
+- Redis quote snapshots use short TTL; version counters use bounded 24-hour default retention and a unique epoch. Atomic Lua allocates epoch/version, stores snapshot and publishes notification. Legacy integer counters migrate on next publish.
+- Consumer compares epoch plus version; counter expiry or Redis data loss starts a new epoch, so a new version 1 is not mistaken for a regression.
+- Real Redis tests passed for snapshot TTL expiry, counter TTL expiry/new epoch, Pub/Sub disconnect recovery, Redis process restart, independent OS-process delivery, two-user isolation and concurrent publishing.
+- Important: consumer service is tested but not yet managed by `app/worker.py`; strategy execution remains candle-based. Scanner and PAPER strategy Redis consumption are not complete. Next implement durable user/instrument subscription discovery and a managed worker consumer lifecycle, then scanner, then PAPER strategy.
+- Multi-user/multi-instrument sustained-load testing remains pending. Do not claim production-scale readiness.
+- Only modify `tarunsharma2610-del/tradepro-improved`; never original `tarunsharma2610-del/Tradepro`. PR #9 remains Draft/unmerged; do not update main or merge without explicit authorization. PAPER mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled. Preserve Phase 3 accounting safeguards and fail-closed freshness/risk controls.
+- Prefer official Upstox Developer Console, API docs, SDKs and protobuf contracts when relevant; audit existing support before adding duplicate services.
+
+
+
+## Official SDK/API reuse rule — reinforced 30 October 2026
+
+Before implementing or extending any broker integration, inspect current official Developer Console capabilities, API docs, SDK package/release notes, protobuf schemas, examples and known issues/forums. Compare each capability against the current repo implementation before writing code. Reuse an official component only when it materially improves correctness, coverage or maintainability; do not add dependencies ceremonially. Keep our domain adapter, async lifecycle, validation, tenant isolation, Redis delivery, freshness and risk/accounting controls when they are stronger. Record the comparison and explicit adopt/retain decision in a maintained audit note. The Upstox v2.30.0 audit is in UPSTOX_SDK_COMPATIBILITY_AUDIT.md.
+
+
+## SDK capability comparison rule — mixed modes
+
+Do not stop an SDK audit at feature-name parity. Compare actual source behaviour and lifecycle. The Upstox SDK v2.30.0 uses per-mode subscription sets and replays them on reconnect; our current single-mode stream is a gap. Borrow this design into our own async implementation after the pending CAS CI passes. Future audits should compare mode combinations, limits, reconnect semantics, token refresh, and error handling—not just method names.
+
+
+## Phase 4 latest checkpoint — 30 October 2026
+
+- Exact implementation SHA `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed Backend CI #41080156436: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436.
+- Transactional PAPER stop-event claim service validates user/portfolio/strategy/instrument ownership, locks portfolio → strategy → position, rejects flat positions and ambiguous shared-position ownership, and persists unique quote identity with claim token/lease/attempt metadata. Duplicate claims are safely rejected through a savepoint.
+- This service is storage/claim coordination only; it is not connected to the dispatcher or order execution.
+- Next: PostgreSQL 16 multi-worker race tests, lease reclaim/state transitions, crash recovery, shared-position ownership policy, then gated PAPER integration.
+- PR #9 remains Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. Documentation commits require exact-head CI.
+
+
+## Phase 4 checkpoint — 30 October 2026
+
+The exact implementation SHA `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358). Coverage includes PostgreSQL 16 concurrent PAPER stop-event claims (same-identity duplicate suppression and distinct quote versions), broker-write boundary enforcement, SQLite and isolated PostgreSQL migration round trips, and synthetic restore. The migration database is separate from the concurrency test database. Follow-up: implement claim-token-guarded state transitions and lease expiry/reclamation tests before dispatcher-to-PAPER integration. Preserve scope: only `tarunsharma2610-del/tradepro-improved`; PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled; no deployment.

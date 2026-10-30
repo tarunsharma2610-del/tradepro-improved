@@ -50,8 +50,11 @@ class EvaluationResult:
 
 
 class StrategyExecutionService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, *, scanner=None):
         self.db = db
+        # Worker evaluations share the in-process scanner fed by validated Redis snapshots.
+        # API/manual evaluations may omit it; candle-based indicator evaluation remains unchanged.
+        self.scanner = scanner
         self.portfolios = PortfolioRepository(db)
         self.positions = PositionRepository(db)
         self.broker_credentials = BrokerCredentialsService(db)
@@ -106,8 +109,15 @@ class StrategyExecutionService:
         # current price (avoids a second network round-trip for an LTP
         # that a 5-minute-old candle already approximates closely enough
         # for a stop check).
-        current_price = candles[-1].close
-        if in_position and signal == Signal.HOLD:
+        observation = (
+            self.scanner.latest(portfolio.user_id, strategy.instrument.instrument_key)
+            if self.scanner is not None else None
+        )
+        current_price = Decimal(str(observation.ltp)) if observation is not None else candles[-1].close
+        if in_position and signal == Signal.HOLD and observation is not None:
+            # A worker-managed trailing stop requires a fresh, user/instrument-scoped
+            # scanner observation. Never substitute an old candle close when the
+            # live observation is unavailable; indicator-driven exits remain intact.
             stop_result = self._check_trailing_stop(strategy, position.quantity, current_price)
             if stop_result is not None:
                 signal = Signal.EXIT

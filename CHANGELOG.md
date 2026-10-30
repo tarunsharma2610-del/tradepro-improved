@@ -766,3 +766,17 @@ Credentialed Upstox OAuth/API smoke testing and real Oracle/database-plus-docume
 - **Evidence boundary:** Brokerage Details remains estimate-only; Trade Charges remains aggregate reconciliation-only and never per-fill actual evidence. Null IPFT must not be silently coerced to zero. This fix validates response shape; it does not approve tariffs or promote accounting.
 - **Contract-note continuity:** previously supplied January 2023 Upstox/RKSV contract-note examples remain available as historical regression fixtures; do not ask the user to provide them again. Their scope must be respected when using them for GST totals versus per-fill allocations.
 - **Next:** verify CI on the exact synchronized documentation head. Keep PR #6/#7 Draft and unmerged, PAPER mode mandatory, live broker writes disabled, and the original `tarunsharma2610-del/Tradepro` repository untouched.
+
+
+## Phase 4 latest checkpoint — 30 October 2026
+
+- Exact implementation SHA `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed Backend CI #41080156436: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41080156436.
+- Transactional PAPER stop-event claim service validates user/portfolio/strategy/instrument ownership, locks portfolio → strategy → position, rejects flat positions and ambiguous shared-position ownership, and persists unique quote identity with claim token/lease/attempt metadata. Duplicate claims are safely rejected through a savepoint.
+- This service is storage/claim coordination only; it is not connected to the dispatcher or order execution.
+- Next: PostgreSQL 16 multi-worker race tests, lease reclaim/state transitions, crash recovery, shared-position ownership policy, then gated PAPER integration.
+- PR #9 remains Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. Documentation commits require exact-head CI.
+
+
+## 2026-10-30 — Phase 4 PostgreSQL 16 stop-claim concurrency checkpoint
+
+Exact implementation SHA `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358). Verified: backend pytest with PostgreSQL 16 multi-session claim-race coverage, broker-write boundary, SQLite and isolated PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore. Migration validation is isolated in `tradepro_migration_check`. Next work is lifecycle transition and lease recovery design/testing; no broker order submission is in scope. PR #9 remains Draft/unmerged, PAPER mandatory, live writes disabled, and only Tradepro Improved is authorized.

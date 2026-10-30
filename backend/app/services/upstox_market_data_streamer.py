@@ -41,6 +41,12 @@ class MarketTick:
     total_buy_quantity: float | None = None
     total_sell_quantity: float | None = None
     ohlc: tuple[dict, ...] | None = None
+    indicative_equilibrium_price: float | None = None
+    reference_price: float | None = None
+    indicative_equilibrium_quantity: int | None = None
+    indicative_interest_quantity_total: int | None = None
+    indicative_interest_quantity_market: int | None = None
+    cas_eligible: bool = False
 
 
 class UpstoxMarketDataStreamer:
@@ -72,13 +78,20 @@ class UpstoxMarketDataStreamer:
 
         self.token_provider = token_provider
         self.instrument_keys = keys
-        self.mode = mode
+        # Keep a mode-indexed desired-state registry, matching the official
+        # Upstox V3 SDK's subscription model while retaining our async transport.
+        self.mode = mode  # legacy/default mode for callers that omit mode
+        self.subscriptions: dict[str, set[str]] = {
+            "ltpc": set(), "option_greeks": set(), "full": set()
+        }
+        self.subscriptions[mode].update(keys)
         self._instrument_key_set = set(keys)
         self.on_tick = on_tick
         self.stale_after_seconds = stale_after_seconds
         self.silence_timeout_seconds = silence_timeout_seconds
         self.reconnect_max_seconds = reconnect_max_seconds
         self._ticks: dict[str, MarketTick] = {}
+        self._market_info: dict | None = None
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
         self._connected = False
@@ -92,6 +105,10 @@ class UpstoxMarketDataStreamer:
     @property
     def running(self) -> bool:
         return self._task is not None and not self._task.done()
+
+    @property
+    def market_info(self) -> dict | None:
+        return self._market_info
 
     def latest_tick(self, instrument_key: str) -> MarketTick | None:
         """Return only fresh data; callers must fail closed when this is None."""
@@ -131,17 +148,48 @@ class UpstoxMarketDataStreamer:
             raise ValueError("Provide valid segment-prefixed instrument keys.")
         return keys
 
-    async def subscribe(self, instrument_keys: list[str]) -> str:
+    @property
+    def subscriptions_by_mode(self) -> dict[str, list[str]]:
+        return {mode: sorted(keys) for mode, keys in self.subscriptions.items() if keys}
+
+    def _refresh_instrument_index(self) -> None:
+        self._instrument_key_set = set().union(*self.subscriptions.values())
+        self.instrument_keys = sorted(self._instrument_key_set)
+
+    def _validate_mode_limits(self, proposed: dict[str, set[str]]) -> None:
+        individual = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
+        combined = {"ltpc": 2000, "option_greeks": 2000, "full": 1500}
+        active_modes = [name for name, keys in proposed.items() if keys]
+        for feed_mode in active_modes:
+            limit = individual[feed_mode] if len(active_modes) == 1 else combined[feed_mode]
+            if len(proposed[feed_mode]) > limit:
+                raise ValueError(
+                    f"{feed_mode} mode supports at most {limit} instrument keys "
+                    "in the current subscription combination."
+                )
+
+    async def subscribe(self, instrument_keys: list[str], mode: str | None = None) -> str:
         keys = self._validate_key_list(instrument_keys)
+        target_mode = mode or self.mode
+        if target_mode not in self.subscriptions:
+            raise ValueError("Unsupported mode. Allowed: ltpc, option_greeks, full.")
         additions = [key for key in keys if key not in self._instrument_key_set]
+        already_in_mode = set(keys) & self.subscriptions[target_mode]
+        if not additions and len(already_in_mode) == len(keys):
+            return "already_subscribed"
+        # A key cannot be simultaneously assigned to two feed modes. Use
+        # change_mode() for an existing key to avoid ambiguous provider state.
+        conflicts = set(keys) & self._instrument_key_set - self.subscriptions[target_mode]
+        if conflicts:
+            raise ValueError("Instrument already subscribed in another mode; use change_mode().")
+        proposed = {name: set(mode_keys) for name, mode_keys in self.subscriptions.items()}
+        proposed[target_mode].update(additions)
+        self._validate_mode_limits(proposed)
+        self.subscriptions = proposed
+        self._refresh_instrument_index()
         if not additions:
             return "already_subscribed"
-        limits = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
-        if len(self.instrument_keys) + len(additions) > limits[self.mode]:
-            raise ValueError(f"{self.mode} mode supports at most {limits[self.mode]} instrument keys per connection.")
-        self.instrument_keys.extend(additions)
-        self._instrument_key_set.update(additions)
-        return await self._send_control("sub", additions, self.mode)
+        return await self._send_control("sub", additions, target_mode)
 
     async def unsubscribe(self, instrument_keys: list[str]) -> str:
         keys = self._validate_key_list(instrument_keys)
@@ -150,24 +198,31 @@ class UpstoxMarketDataStreamer:
             return "not_subscribed"
         if len(removals) == len(self.instrument_keys):
             raise ValueError("Cannot remove the final instruments; use DELETE /market-data/stream to stop the stream.")
-        self.instrument_keys = [key for key in self.instrument_keys if key not in set(removals)]
-        self._instrument_key_set.difference_update(removals)
+        for mode_keys in self.subscriptions.values():
+            mode_keys.difference_update(removals)
+        self._refresh_instrument_index()
         for key in removals:
             self._ticks.pop(key, None)
         return await self._send_control("unsub", removals)
 
     async def change_mode(self, instrument_keys: list[str], mode: str) -> str:
         keys = self._validate_key_list(instrument_keys)
-        if mode not in {"ltpc", "option_greeks", "full"}:
+        if mode not in self.subscriptions:
             raise ValueError("Unsupported mode. Allowed: ltpc, option_greeks, full.")
-        if set(keys) != self._instrument_key_set:
-            raise ValueError("Mode changes must cover the complete user stream; partial mixed-mode subscriptions are not enabled.")
-        limits = {"ltpc": 5000, "option_greeks": 3000, "full": 2000}
-        if len(keys) > limits[mode]:
-            raise ValueError(f"{mode} mode supports at most {limits[mode]} instrument keys per connection.")
-        if mode == self.mode:
+        missing = set(keys) - self._instrument_key_set
+        if missing:
+            raise ValueError("All instruments must already be subscribed before changing mode.")
+        current_modes = {name for name, mode_keys in self.subscriptions.items() if set(keys) & mode_keys}
+        if len(current_modes) == 1 and mode in current_modes:
             return "already_in_mode"
-        self.mode = mode
+        proposed = {name: set(mode_keys) - set(keys) for name, mode_keys in self.subscriptions.items()}
+        proposed[mode].update(keys)
+        self._validate_mode_limits(proposed)
+        self.subscriptions = proposed
+        self._refresh_instrument_index()
+        active_modes = [name for name, mode_keys in self.subscriptions.items() if mode_keys]
+        if len(active_modes) == 1:
+            self.mode = mode
         for key in keys:
             self._ticks.pop(key, None)
         return await self._send_control("change_mode", keys, mode)
@@ -229,7 +284,10 @@ class UpstoxMarketDataStreamer:
                     self._socket = socket
                     self._connected = True
                     delay = 1.0
-                    await self._send_message(socket, "sub", list(self.instrument_keys), self.mode)
+                    # Rehydrate each feed-mode set independently after every
+                    # reconnect; never flatten mixed-mode intent into one mode.
+                    for feed_mode, keys in self.subscriptions_by_mode.items():
+                        await self._send_message(socket, "sub", keys, feed_mode)
                     while not self._stop.is_set():
                         # The websockets library handles ping/pong. A silent
                         # application stream is recycled so stale state is not trusted.
@@ -263,6 +321,23 @@ class UpstoxMarketDataStreamer:
         response.ParseFromString(payload)
         received_at = datetime.now(timezone.utc)
         received_monotonic = time.monotonic()
+        if response.HasField("marketInfo"):
+            info = response.marketInfo
+            self._market_info = {
+                "current_timestamp_ms": int(response.currentTs),
+                "segment_status": {
+                    segment: market_data_pb.MarketStatus.Name(value)
+                    for segment, value in info.segmentStatus.items()
+                },
+                "cas_market_status": {
+                    segment: {"status": value.status, "updated_time_ms": int(value.updatedTime)}
+                    for segment, value in info.casMarketStatus.items()
+                },
+                "pre_open_session_status": {
+                    segment: {"status": value.status, "updated_time_ms": int(value.updatedTime)}
+                    for segment, value in info.preOpenSessionStatus.items()
+                },
+            }
         for key, feed in response.feeds.items():
             if key not in self._instrument_key_set:
                 continue
@@ -290,6 +365,14 @@ class UpstoxMarketDataStreamer:
             greeks = None
             open_interest = volume = average_price = total_buy = total_sell = None
             ohlc = None
+            indicative_equilibrium_price = (
+                float(ltpc.iep.value) if ltpc is not None and ltpc.HasField("iep") else None
+            )
+            reference_price = None
+            indicative_equilibrium_quantity = None
+            indicative_interest_quantity_total = None
+            indicative_interest_quantity_market = None
+            cas_eligible = False
             if market_ff is not None:
                 if union == "firstLevelWithGreeks":
                     first = market_ff.firstDepth
@@ -317,6 +400,17 @@ class UpstoxMarketDataStreamer:
                         "close": float(item.close), "volume": int(item.vol),
                         "timestamp_ms": int(item.ts),
                     } for item in market_ff.marketOHLC.ohlc) if market_ff.HasField("marketOHLC") else None
+                    # These fields are part of Upstox's official V3 schema (CAS
+                    # market-data additions). Proto3 scalar zero is treated as
+                    # unavailable for numeric fields, consistent with the other
+                    # optional quote fields in this decoder.
+                    if market_ff.iep != 0:
+                        indicative_equilibrium_price = float(market_ff.iep)
+                    reference_price = float(market_ff.rp) if market_ff.rp != 0 else None
+                    indicative_equilibrium_quantity = int(market_ff.ieq) if market_ff.ieq != 0 else None
+                    indicative_interest_quantity_total = int(market_ff.iiqTotal) if market_ff.iiqTotal != 0 else None
+                    indicative_interest_quantity_market = int(market_ff.iiqM) if market_ff.iiqM != 0 else None
+                    cas_eligible = bool(market_ff.casEligible)
                 else:
                     greeks_source = market_ff.optionGreeks if market_ff.HasField("optionGreeks") else None
                     open_interest = float(market_ff.oi) if market_ff.oi != 0 else None
@@ -344,6 +438,12 @@ class UpstoxMarketDataStreamer:
                 total_buy_quantity=total_buy,
                 total_sell_quantity=total_sell,
                 ohlc=ohlc,
+                indicative_equilibrium_price=indicative_equilibrium_price,
+                reference_price=reference_price,
+                indicative_equilibrium_quantity=indicative_equilibrium_quantity,
+                indicative_interest_quantity_total=indicative_interest_quantity_total,
+                indicative_interest_quantity_market=indicative_interest_quantity_market,
+                cas_eligible=cas_eligible,
             )
             self._ticks[key] = tick
             if self.on_tick is not None:

@@ -43,4 +43,4 @@ class BrokerConnection(BaseModel):
     last_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    __table_args__ = (UniqueConstraint("user_id", "broker", name="uq_broker_connection_user_broker"),)
+    __table_args__ = (UniqueConstraint("user_id", "broker", name="uq_broker_connection_user_broker"), UniqueConstraint("id", "user_id", name="uq_broker_connection_id_user"))

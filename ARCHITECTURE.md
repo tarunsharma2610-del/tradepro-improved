@@ -1690,3 +1690,50 @@ Token scopes are distinct: Analytics Token for officially supported market-data/
 - Next work: audit current Redis configuration and Redis Python package APIs; define a small versioned quote envelope and namespaced user/instrument keys; implement publisher + cache write in the existing stream lifecycle; implement worker/API consumer with TTL and timestamp validation; test outage, reconnect, expiry, ownership isolation and process restart; only then connect scanner and paper strategy consumers.
 - This checkpoint does not certify Redis fan-out, scanner integration or strategy integration as complete. No live broker order capability was introduced.
 - Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original `Tradepro` untouched; PAPER mode mandatory; live broker order submission/modification/cancellation disabled; no credentials in code, logs, docs or chat.
+
+
+## Phase 4 architecture addendum — Redis market quote publication (30 October 2026)
+
+The Upstox V3 stream manager now routes its per-user asynchronous tick callback to `RedisMarketQuotePublisher`. The publisher writes a versioned latest-quote snapshot under a user-scoped key with TTL and publishes a per-user Pub/Sub notification. The snapshot is authoritative; Pub/Sub is only a wake-up signal. The publisher validates instrument-key shape, finite positive LTP, positive exchange timestamp, timezone-aware receive timestamp, and configured freshness bounds. Redis failure is logged and the tick is unavailable to downstream consumers; no in-memory fallback is permitted. The version counter also expires to avoid unbounded key retention. Exact-head Backend CI #41024607462 passed on `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`. Consumer-side validation/recovery and real cross-process tests are not yet implemented; scanner and strategy do not yet consume Redis snapshots.
+
+
+## Phase 4 market-data delivery — Redis checkpoint (30 October 2026)
+
+The Upstox V3 streamer remains the process-local WebSocket ingress and its existing async tick callback publishes validated ticks through `RedisMarketQuotePublisher`. Redis is the cross-process quote transport/cache; it is not a second market-data provider. The publisher uses a Lua script to atomically allocate per-user/per-instrument versions, write expiring authoritative snapshots, and publish lightweight wake-up notifications. Consumers must read and validate snapshots; Pub/Sub payloads are never trusted as quote values.
+
+Backend CI provisions Redis 7 and PostgreSQL 16. Exact-head Backend CI #41026567279 passed on `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`. Current limits: consumer reconnect/resubscribe after Redis outage, actual Redis server restart recovery, and independent OS-process tests remain pending. Scanner and strategy do not yet consume this shared quote stream. Downstream components must enforce user isolation, TTL, exchange timestamp, schema/version checks, and fail-closed stale-data handling.
+
+
+## Phase 4 Redis version-counter lifecycle — 30 October 2026
+
+Exact-head Backend pytest CI #41031153316 passed on `3088e49cf24317f58f7e04a60d6cd54e065143b4`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41031153316. The Redis publisher no longer applies TTL to the version counter; the authoritative quote snapshot continues to expire. A real Redis integration test verifies that deleting/expiring a snapshot and publishing a subsequent tick produces the next version rather than resetting the version sequence.
+
+This addresses ordinary snapshot expiry, not Redis data-loss epochs. A Redis server restart can erase volatile counters and snapshots; consumer-local high-water marks must be reset/reconciled safely and a post-reconnect authoritative snapshot sweep must occur. Persistent version keys also need an explicit bounded-retention/cleanup policy for instruments no longer subscribed. Independent OS-process delivery and sustained multi-tenant load remain pending; scanner and PAPER strategy do not yet consume this transport.
+
+
+## Phase 4 Redis bounded epoch/version lifecycle — 30 October 2026
+
+Exact-head full Backend CI #41032764754 passed on `7268edd6e7ddb7ef6d472799d1d0164b4210b135`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41032764754. Redis quote snapshots retain a short TTL (15 seconds by default); per-user/per-instrument version state has bounded retention (24 hours by default) and includes a unique epoch. A Lua script atomically allocates epoch/version, writes the snapshot and publishes the notification. Legacy integer-only counters are migrated on the next publish.
+
+When a counter expires or Redis loses volatile data, the next publish creates a new epoch and starts at version 1. Consumers compare epoch and version together, allowing a version reset only across epochs. Real Redis tests cover snapshot expiry, counter expiry/new epoch, Pub/Sub disconnect recovery, server process restart, independent OS-process delivery, two-user isolation and concurrent publishing.
+
+Current architectural boundary: `RedisMarketQuoteConsumer` is implemented and tested, but the background worker does not yet manage consumer instances or durable per-user subscription discovery. `app/worker.py` still evaluates strategies through the existing historical/intraday candle path. Scanner and PAPER strategy Redis integrations remain future milestones. Multi-user/multi-instrument scale testing and worker lifecycle/shutdown testing remain pending.
+
+
+## Phase 4 Redis consumer recovery and integration boundary — 30 October 2026
+
+The Redis quote consumer validates user-scoped authoritative snapshots (schema, instrument, TTL, received/exchange timestamps, epoch and version), treats Pub/Sub events only as wake-up signals, sweeps snapshots after subscribe/reconnect, and uses Pub/Sub PING/PONG to detect idle dead connections. On connection failure it clears process-local epoch/version high-water marks before re-reading the authoritative snapshot, allowing a new Redis epoch to restart at version 1 after volatile data loss.
+
+Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`. New tests on `a5e352bef2c78f27141b61bca5893fdfa0fd049a` cover old epoch version 8 -> new epoch version 1 and idle Pub/Sub heartbeat; exact-head CI #41061518847 is pending.
+
+Important boundary: `backend/app/worker.py` does not yet manage Redis consumer instances; strategy evaluation still uses the existing candle path. Durable subscription discovery, single-owner coordination across worker replicas, graceful consumer cancellation/shutdown, and scanner/PAPER strategy integration remain incomplete. Do not treat publisher/consumer tests as proof of end-to-end scanner delivery or production deployment.
+
+
+## Phase 4 current checkpoint — 30 October 2026
+
+The transactional PAPER stop-event claim implementation at `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. The claim service validates tenant and strategy ownership, uses portfolio → strategy → position locks, rejects ambiguous shared-position ownership and duplicate quote identity, and stores a bounded claim lease. It is not connected to quote dispatch or order execution. Next gates: PostgreSQL 16 multi-worker concurrency, lease reclaim/crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 stays Draft/unmerged; PAPER-only; live broker writes disabled; original Tradepro repository out of scope.
+
+
+## 2026-10-30 — Phase 4 PostgreSQL 16 stop-claim concurrency checkpoint
+
+Exact implementation SHA `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358). Verified: backend pytest with PostgreSQL 16 multi-session claim-race coverage, broker-write boundary, SQLite and isolated PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore. Migration validation is isolated in `tradepro_migration_check`. Next work is lifecycle transition and lease recovery design/testing; no broker order submission is in scope. PR #9 remains Draft/unmerged, PAPER mandatory, live writes disabled, and only Tradepro Improved is authorized.

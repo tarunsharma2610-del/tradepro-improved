@@ -438,3 +438,29 @@ Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradep
 - Next work: audit current Redis configuration and Redis Python package APIs; define a small versioned quote envelope and namespaced user/instrument keys; implement publisher + cache write in the existing stream lifecycle; implement worker/API consumer with TTL and timestamp validation; test outage, reconnect, expiry, ownership isolation and process restart; only then connect scanner and paper strategy consumers.
 - This checkpoint does not certify Redis fan-out, scanner integration or strategy integration as complete. No live broker order capability was introduced.
 - Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original `Tradepro` untouched; PAPER mode mandatory; live broker order submission/modification/cancellation disabled; no credentials in code, logs, docs or chat.
+
+
+## Phase 4 Redis market-data bridge checkpoint — 30 October 2026
+
+The existing Upstox Market Data Feed V3 streamer remains the provider-facing WebSocket implementation. Its asynchronous tick callback is now connected to a Redis publisher, rather than introducing another market-data service or duplicating the WebSocket connection. Redis stores per-user versioned latest snapshots with TTL; Pub/Sub carries notification metadata only. Downstream consumers must fetch the snapshot and independently validate user scope, schema/version, TTL and exchange timestamp. The stream callback is not permission to trigger broker orders; all evaluation remains PAPER-only. Exact-head Backend CI #41024607462 passed on `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`. Consumer, reconnect recovery and cross-process integration remain pending. Continue to prefer official Upstox V3 docs/protobuf/SDK where applicable; do not add a second data service or redundant SDK without a demonstrated need.
+
+
+## Phase 4 shared market-data transport checkpoint — 30 October 2026
+
+The Upstox V3 WebSocket remains the provider ingress. The existing streamer callback publishes validated ticks to Redis through the user-scoped publisher. Redis Pub/Sub is a notification channel only; the authoritative quote is the versioned, expiring Redis snapshot. The Lua publisher atomically increments version, stores snapshot/TTL, and publishes notification to prevent concurrent write reordering.
+
+Exact-head Backend CI #41026567279 passed on `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`, including real Redis 7 integration tests. Still pending: automatic Redis reconnect/resubscription, recovery after Redis server restart, independent-process delivery tests, scanner integration and PAPER strategy integration. No live order API is enabled. Prefer official Upstox APIs/protobuf/SDK contracts; do not introduce a duplicate market-data service.
+
+
+## Phase 4 Redis version-counter lifecycle checkpoint — 30 October 2026
+
+Exact-head Backend pytest CI #41031153316 passed on `3088e49cf24317f58f7e04a60d6cd54e065143b4`. The Upstox V3 provider ingress remains unchanged. The Redis publisher keeps per-user/per-instrument version counters persistent while quote snapshots retain TTL; real Redis integration coverage verifies the next tick after snapshot expiry receives the next version. Redis remains a cross-process cache/notification transport, not another market-data provider.
+
+This change addresses ordinary snapshot expiry only. Consumer startup/reconnect snapshot reconciliation, Redis restart epochs, independent OS-process delivery, worker lifecycle and multi-user load still require explicit acceptance tests. Persistent counters need an explicit retention policy. Scanner and PAPER strategy integration remain pending; no live order writes are enabled. Prefer the official Upstox V3 API/SDK/protobuf contracts and do not duplicate provider services.
+
+
+## Phase 4 Redis bounded epoch/version checkpoint — 30 October 2026
+
+Exact-head full Backend CI #41032764754 passed on `7268edd6e7ddb7ef6d472799d1d0164b4210b135`. Upstox V3 remains the provider-facing WebSocket ingress. Redis remains the cross-process quote transport, not a second market-data provider. Snapshots use short TTL; version counters use bounded 24-hour default retention with unique epochs. Atomic Lua allocates epoch/version, writes snapshot and publishes notification. Counter expiry or Redis data loss starts a new epoch; consumers validate epoch plus version. Existing integer-only counter values migrate on the next publish.
+
+Real Redis tests passed for snapshot/counter TTL expiry, new-epoch acceptance, Pub/Sub reconnect, Redis process restart, independent OS-process delivery, two-user isolation and concurrent publishing. The consumer is not yet managed by the background worker; scanner and PAPER strategy do not yet consume Redis quotes. Strategy evaluation still uses the existing candle-based API path. Next implement worker subscription discovery/lifecycle and test load/shutdown before scanner integration. Continue preferring official Upstox V3 APIs, SDK and protobuf schemas; do not introduce duplicate market-data services. Live order writes remain disabled.

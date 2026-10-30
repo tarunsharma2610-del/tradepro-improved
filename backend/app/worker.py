@@ -6,7 +6,7 @@ and docker-compose.yml's `worker` service) -- this file is a different
 entrypoint into the same codebase, not a second implementation of
 anything.
 
-Three independent cadences share one process rather than three separate
+Four independent cadences share one process rather than three separate
 containers, since none of them is expensive enough alone to justify its
 own container + healthcheck + restart policy:
 - run_once(): strategy evaluation, every 5 min, market hours only.
@@ -29,6 +29,8 @@ from app.models.strategy import Strategy
 from app.repositories.strategy_repository import StrategyRepository
 from app.services.execution_service import ExecutionService
 from app.services.news_service import NewsService
+from app.services.market_scanner import MarketScanner
+from app.services.redis_market_quote_worker import RedisMarketQuoteWorker
 from app.services.strategy_execution_service import StrategyExecutionService
 from app.services.telegram_service import TelegramService
 
@@ -55,7 +57,7 @@ def _is_market_hours(now: datetime | None = None) -> bool:
     return market_open <= now <= market_close
 
 
-async def run_once() -> int:
+async def run_once(*, scanner: MarketScanner | None = None) -> int:
     """Match pending paper limits, then evaluate every active strategy.
 
     Returns the number of strategies evaluated. Matcher failure is isolated
@@ -81,7 +83,7 @@ async def run_once() -> int:
             strategy = session.get(Strategy, strategy_id)
             if strategy is None or not strategy.is_active:
                 continue  # deleted or deactivated between the list and now
-            result = await StrategyExecutionService(session).evaluate(strategy)
+            result = await StrategyExecutionService(session, scanner=scanner).evaluate(strategy)
             logger.info("strategy=%s signal=%s reason=%s", strategy_id, result.signal, result.reason)
             count += 1
         except Exception:
@@ -122,30 +124,40 @@ async def main() -> None:
     )
     last_strategy_eval = 0.0
     last_news_ingest = 0.0
+    scanner = MarketScanner()
+    quote_worker = RedisMarketQuoteWorker(on_quote=scanner.process_quote)
+    quote_worker_task = asyncio.create_task(
+        quote_worker.run_forever(), name="redis-market-quote-worker"
+    )
 
-    while True:
-        now = time.monotonic()
+    try:
+        while True:
+            now = time.monotonic()
 
-        completed_links = await run_telegram_poll()
-        if completed_links:
-            logger.info("Completed %s Telegram link(s) this tick.", completed_links)
+            completed_links = await run_telegram_poll()
+            if completed_links:
+                logger.info("Completed %s Telegram link(s) this tick.", completed_links)
 
-        if now - last_strategy_eval >= STRATEGY_EVAL_INTERVAL_SECONDS:
-            if _is_market_hours():
-                evaluated = await run_once()
-                if evaluated:
-                    logger.info("Evaluated %s active strategy(ies) this pass.", evaluated)
-            else:
-                logger.debug("Outside market hours -- skipping strategy evaluation this pass.")
-            last_strategy_eval = now
+            if now - last_strategy_eval >= STRATEGY_EVAL_INTERVAL_SECONDS:
+                if _is_market_hours():
+                    evaluated = await run_once(scanner=scanner)
+                    if evaluated:
+                        logger.info("Evaluated %s active strategies this pass.", evaluated)
+                else:
+                    logger.debug("Outside market hours -- skipping strategy evaluation this pass.")
+                last_strategy_eval = now
 
-        if now - last_news_ingest >= NEWS_INGEST_INTERVAL_SECONDS:
-            results = await run_news_ingest()
-            if results:
-                logger.info("News ingestion: %s", results)
-            last_news_ingest = now
+            if now - last_news_ingest >= NEWS_INGEST_INTERVAL_SECONDS:
+                results = await run_news_ingest()
+                if results:
+                    logger.info("News ingestion: %s", results)
+                last_news_ingest = now
 
-        await asyncio.sleep(TELEGRAM_POLL_INTERVAL_SECONDS)
+            await asyncio.sleep(TELEGRAM_POLL_INTERVAL_SECONDS)
+    finally:
+        quote_worker_task.cancel()
+        await asyncio.gather(quote_worker_task, return_exceptions=True)
+        await quote_worker.close()
 
 
 if __name__ == "__main__":

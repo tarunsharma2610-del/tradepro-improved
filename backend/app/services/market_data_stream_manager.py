@@ -1,24 +1,35 @@
-"""In-process registry for per-user Upstox market streams.
-
-Streams are ephemeral and restart with the API process. Analytics Tokens are
-looked up from the encrypted connection store for each reconnect; they are
-never sent to clients or logged.
-"""
+"""Per-user Upstox stream registry with Redis-backed cross-process tick delivery."""
+import logging
 from uuid import UUID
 
+from redis.asyncio import Redis, from_url
+
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.services.broker_credentials_service import BrokerCredentialsService
+from app.services.redis_market_quote_publisher import RedisMarketQuotePublisher
 from app.services.upstox_market_data_streamer import MarketTick, UpstoxMarketDataStreamer
+
+logger = logging.getLogger(__name__)
 
 
 class MarketDataStreamManager:
     def __init__(self):
         self._streams: dict[UUID, UpstoxMarketDataStreamer] = {}
+        self._redis: Redis | None = None
+
+    def _redis_client(self) -> Redis:
+        if self._redis is None:
+            self._redis = from_url(settings.REDIS_URL, decode_responses=True)
+        return self._redis
 
     async def start(self, user_id: UUID, instrument_keys: list[str], mode: str = "full") -> UpstoxMarketDataStreamer:
         current = self._streams.get(user_id)
-        if current is not None:
-            await current.stop()
+        if current is not None and current.running:
+            # A second start request adds/reconciles another feed-mode set on
+            # the existing user socket instead of disrupting healthy feeds.
+            await current.subscribe(instrument_keys, mode)
+            return current
 
         async def token_provider() -> str | None:
             db = SessionLocal()
@@ -27,7 +38,16 @@ class MarketDataStreamManager:
             finally:
                 db.close()
 
-        streamer = UpstoxMarketDataStreamer(token_provider, instrument_keys, mode=mode)
+        publisher = RedisMarketQuotePublisher(self._redis_client(), user_id)
+
+        async def publish_tick(tick: MarketTick) -> None:
+            # Redis outages must not tear down a healthy Upstox socket. The
+            # publisher logs and fails closed; consumers see no usable quote.
+            await publisher.publish(tick)
+
+        streamer = UpstoxMarketDataStreamer(
+            token_provider, instrument_keys, on_tick=publish_tick, mode=mode,
+        )
         self._streams[user_id] = streamer
         await streamer.start()
         return streamer
@@ -47,6 +67,9 @@ class MarketDataStreamManager:
         self._streams.clear()
         for _, streamer in streams:
             await streamer.stop()
+        if self._redis is not None:
+            await self._redis.aclose()
+            self._redis = None
 
 
 market_data_stream_manager = MarketDataStreamManager()

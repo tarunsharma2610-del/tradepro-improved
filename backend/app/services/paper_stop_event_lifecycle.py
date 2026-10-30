@@ -68,12 +68,16 @@ class PaperStopEventLifecycle:
 
     def begin_execution(
         self, *, event_id: UUID, claim_token: UUID,
-        now: datetime | None = None,
+        lease_seconds: int = 30, now: datetime | None = None,
     ) -> PaperStopEvent | None:
-        """CLAIMED -> EXECUTING, only for the current unexpired owner."""
+        """CLAIMED -> EXECUTING and renew the lease for the active worker."""
+        current = self._now(now)
+        if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 1 <= lease_seconds <= 300:
+            raise ValueError("Execution lease must be between 1 and 300 seconds.")
         return self._transition(
             event_id=event_id, claim_token=claim_token,
-            expected_state="CLAIMED", new_state="EXECUTING", now=now,
+            expected_state="CLAIMED", new_state="EXECUTING", now=current,
+            claimed_until=current + timedelta(seconds=lease_seconds),
         )
 
     def complete(

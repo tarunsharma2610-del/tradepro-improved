@@ -59,3 +59,8 @@ Use official Upstox APIs/SDKs and Developer Console where applicable, after audi
 
 Confirmed the supported V3 current-session candle endpoint from official documentation. The strategy previously requested only the historical-candle endpoint for a date range that included today. Added a direct Upstox V3 intraday candle call and combined its parsed output with historical candles, deduplicated by UTC-normalized timestamp with intraday preferred on overlap. Both sources must succeed; no synthetic candle fallback is used. Added API URL/auth and merge/failure tests. Current head d7c786fc164ed297df42f26493c994ceacd337a7 is pending CI. WebSocket is still not wired to the worker; its API-process registry is process-local, so the process boundary must be handled intentionally rather than assumed away.
 Official reference: https://upstox.com/developer/api-documentation/v3/get-intra-day-candle-data/
+
+## Quote freshness/API contract audit — 30 October 2026
+
+LTP V3 returns last_price, ltq, volume and cp but no last_trade_time. Full Market Quotes V3 returns last_price, instrument_token and last_trade_time. Paper execution's REST fallback now uses the latter, validates exact instrument identity and exchange trade age, and rejects missing/stale/future-invalid quotes. Fresh WebSocket ticks remain preferred when present in the same process. Current head 65f8070e344eaa4cd8cb82c876732662d02cc3a3 is awaiting exact-head CI.
+Official docs: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ ; https://upstox.com/developer/api-documentation/ltp-v3/

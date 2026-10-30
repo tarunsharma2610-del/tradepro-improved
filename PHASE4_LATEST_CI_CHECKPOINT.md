@@ -64,3 +64,15 @@ Official contracts checked:
 Repo audit finding: backend/app/services/upstox_market_data_streamer.py already implements V3 authorization/reconnect/protobuf tick intake; backend/app/brokers/upstox/adapter.py has V3 quote and historical candle REST calls; backend/app/services/candle_parsing.py still labels response validation BEST-EFFORT; strategy execution fetches candles independently rather than consuming a shared stream/candle pipeline. Next task: verify documented contracts and design a shared data/candle pipeline with REST warm-up/gap recovery and WebSocket updates, not more isolated stale-data workarounds. Do not add/switch SDKs without checking dependency compatibility and actual endpoint coverage.
 
 Prior exact-head Backend CI #41013144850 passed on c8704cf97af3b2a31cd19114ae56f51dd796b08. Instruction/document changes in this continuation require new exact-head CI before a new green checkpoint is claimed. PR #8 stays Draft/unmerged; main remains untouched; PAPER-only/live-write safeguards remain mandatory.
+
+## Upstox candle API integration continuation — 30 October 2026
+
+- Verified official Upstox V3 intraday candle endpoint and schema: https://upstox.com/developer/api-documentation/v3/get-intra-day-candle-data/
+- Added optional BrokerAdapter.get_intraday_data(...) capability with an explicit unsupported result for adapters that do not implement it.
+- Implemented Upstox V3 /historical-candle/intraday/{instrument_key}/{unit}/{interval} call with encoded instrument key and bearer authorization.
+- Strategy candle loading now requests historical and current-session intraday candles concurrently, uses exchange-local (Asia/Kolkata) date boundaries, merges by UTC-normalized timestamp, and prefers intraday candles on overlap. If either source fails or returns malformed/empty candle data, it fails closed instead of inventing partial history.
+- Added endpoint contract test and candle-source merge/failure regression tests; updated strategy test adapter fixture to model both endpoints.
+- Current code head after this work: d7c786fc164ed297df42f26493c994ceacd337a7. CI for this exact head and subsequent docs is pending; do not label it green until verified.
+- Prior CI run #41014529152 passed on earlier head 58e6674dab5c02f725f76401af358397fd47c161. This does not prove the new API integration.
+- Still not complete: wiring WebSocket tick state into the running strategy worker; live Upstox account/Developer Console verification unavailable in this session. The official Python SDK was reviewed, but not added because the current V3 streamer already uses Upstox protobuf schema and SDK addition has not been shown to improve this path.
+- Safeguards unchanged: only tarunsharma2610-del/tradepro-improved; PR #8 Draft/unmerged; main untouched; PAPER mandatory; live broker writes disabled.

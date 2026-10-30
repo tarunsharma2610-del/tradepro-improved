@@ -168,6 +168,8 @@ class UpstoxMarketDataStreamer:
         if mode == self.mode:
             return "already_in_mode"
         self.mode = mode
+        for key in keys:
+            self._ticks.pop(key, None)
         return await self._send_control("change_mode", keys, mode)
 
     async def start(self) -> None:

@@ -113,7 +113,7 @@ def market_data_stream_status(user: User = Depends(get_current_user)):
     return {
         "running": streamer.running,
         "connected": streamer.connected,
-        "mode": "ltpc",
+        "mode": streamer.mode,
         "instrument_count": len(streamer.instrument_keys),
         "quotes": quotes,
     }

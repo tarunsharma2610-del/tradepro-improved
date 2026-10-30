@@ -121,6 +121,7 @@ def test_stream_start_requires_analytics_token_not_daily_oauth(monkeypatch, db_s
     )
 
     class FakeStreamer:
+        market_info = None
         connected = True
         running = True
         mode = "full"
@@ -188,6 +189,7 @@ def test_stream_start_accepts_option_greeks_mode(monkeypatch, db_session, make_u
     )
 
     class FakeStreamer:
+        market_info = None
         connected = True
         running = True
         mode = "option_greeks"
@@ -251,6 +253,7 @@ def test_stream_lifecycle_routes_use_user_scoped_stream_and_validate_active_keys
     )
 
     class FakeStreamer:
+        market_info = None
         running = True
         mode = "full"
         instrument_keys = ["NSE_INDEX|Nifty 50"]
@@ -414,6 +417,7 @@ def test_stream_status_exposes_fresh_full_feed_fields_for_scanner_consumers(monk
     )
 
     class FakeStreamer:
+        market_info = None
         running = True
         connected = True
         mode = "full"
@@ -447,6 +451,7 @@ def test_stream_status_represents_stale_or_missing_quotes_as_unavailable(monkeyp
     user = make_user()
 
     class FakeStreamer:
+        market_info = None
         running = True
         connected = True
         mode = "full"

@@ -313,3 +313,16 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Important scope limit: this verifies persistence semantics only. It does not yet prove mixed-mode Upstox V3 WebSocket subscribe/unsubscribe frames, per-instrument mode tracking, reconnect replay, or end-to-end live feed delivery.
 - Next: audit the current V3 streamer and subscription manager against the official Upstox feed-mode contract; implement mixed-mode WebSocket lifecycle and mode-scoped unsubscribe with regression tests. Then verify Redis consumer lifecycle before scanner/PAPER strategy integration.
 - Safeguards unchanged: PAPER mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes disabled; no PR merge, main update, deployment, live-order test, or production Oracle restore authorized/performed. Original `tarunsharma2610-del/Tradepro` remains out of scope.
+
+
+## Phase 4 checkpoint — Redis consumer recovery hardening — 30 October 2026
+
+- Repository/branch: `tarunsharma2610-del/tradepro-improved`, `phase4/redis-market-data-publisher`; Draft PR #9 remains open and unmerged.
+- Latest implementation head: `a5e352bef2c78f27141b61bca5893fdfa0fd049a`.
+- Exact-head Backend CI #41061518847 is running; no pass is claimed for this head yet.
+- Prior exact-head Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`, including fresh Upstox Analytics Token retrieval and fresh authorized V3 WebSocket URL on reconnect.
+- Added Redis consumer regression coverage for Redis volatile-data loss: a new epoch may restart at version 1 after the prior epoch reached a higher version. Added idle Pub/Sub PING/PONG heartbeat coverage.
+- Existing Redis consumer behaviour audited: authoritative snapshot reads, TTL/freshness validation, user isolation, reconnect/resubscribe, snapshot sweep after reconnect, Pub/Sub heartbeat, and fail-closed handling. Existing real-Redis CI integration covers server restart and independent process delivery; newly added tests specifically cover consumer epoch rollover and idle heartbeat.
+- Worker-managed Redis consumer lifecycle and scanner/PAPER strategy consumption remain incomplete. Do not claim end-to-end scanner delivery.
+- Next: wait for exact-head CI; then design worker lifecycle with single-owner/lease semantics, graceful cancellation and durable per-user subscription discovery before enabling consumers. Keep scanner integration behind that gate.
+- Safety: PAPER mandatory; live broker order writes disabled; no PR merge/deployment/live credential test; original `tarunsharma2610-del/Tradepro` remains out of scope.

@@ -142,3 +142,42 @@ async def test_real_redis_concurrent_publishes_preserve_atomic_version_order():
             publisher.snapshot_key(instrument) + ":version",
         )
         await redis.aclose()
+
+
+
+@pytest.mark.asyncio
+async def test_real_redis_pubsub_connection_loss_resubscribes_and_recovers_latest_snapshot():
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    admin = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(redis, user_id, max_age_seconds=15)
+    listener = consumer.listen(
+        [instrument],
+        max_reconnect_attempts=1,
+        min_backoff_seconds=0.01,
+        max_backoff_seconds=0.02,
+    )
+    try:
+        assert await publisher.publish(make_tick(instrument, 2500.0))
+        initial = await asyncio.wait_for(anext(listener), timeout=3)
+        assert initial["ltp"] == 2500.0
+
+        # Redis 7 closes the consumer's real Pub/Sub TCP connection. The
+        # listener must create a new subscription and sweep the latest snapshot.
+        killed = await admin.execute_command("CLIENT", "KILL", "TYPE", "PUBSUB")
+        assert killed >= 1
+        assert await publisher.publish(make_tick(instrument, 2501.0))
+
+        recovered = await asyncio.wait_for(anext(listener), timeout=3)
+        assert recovered["ltp"] == 2501.0
+        assert recovered["version"] == 2
+    finally:
+        await listener.aclose()
+        await redis.delete(
+            publisher.snapshot_key(instrument),
+            publisher.snapshot_key(instrument) + ":version",
+        )
+        await admin.aclose()
+        await redis.aclose()

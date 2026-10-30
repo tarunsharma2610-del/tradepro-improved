@@ -316,3 +316,101 @@ def test_two_postgres_workers_racing_expired_lease_reclaim_only_once():
     finally:
         _cleanup_claim_fixture(Session, ids)
         engine.dispose()
+
+
+
+def test_postgres_lifecycle_transition_rolls_back_atomically():
+    """A caller rollback restores the prior durable state and claim token."""
+    from datetime import datetime, timedelta, timezone
+    from app.services.paper_stop_event_lifecycle import PaperStopEventLifecycle
+
+    engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_size=3, max_overflow=0, pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    ids = _seed_claim_fixture(Session, uuid4().hex[:12])
+    user_id, portfolio_id, instrument_id, strategy_id = ids
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    try:
+        with Session.begin() as db:
+            event = PaperStopEventClaimService(db).claim_trailing_stop(
+                user_id=user_id, portfolio_id=portfolio_id, strategy_id=strategy_id,
+                instrument_id=instrument_id, quote_epoch="postgres-rollback",
+                quote_version=1, trigger_price=Decimal("98.25"),
+                lease_seconds=30, now=now,
+            )
+            assert event is not None
+            event_id, token = event.id, event.claim_token
+
+        db = Session()
+        try:
+            advanced = PaperStopEventLifecycle(db).begin_execution(
+                event_id=event_id, claim_token=token, now=now + timedelta(seconds=1)
+            )
+            assert advanced is not None and advanced.state == "EXECUTING"
+            db.rollback()
+        finally:
+            db.close()
+
+        with Session() as verify:
+            saved = verify.get(PaperStopEvent, event_id)
+            assert saved.state == "CLAIMED"
+            assert saved.claim_token == token
+            assert saved.attempt_count == 1
+    finally:
+        _cleanup_claim_fixture(Session, ids)
+        engine.dispose()
+
+
+def test_postgres_expired_executing_lease_recovers_and_fences_old_worker():
+    """A crashed EXECUTING worker is recoverable, but cannot complete later."""
+    from datetime import datetime, timedelta, timezone
+    from app.services.paper_stop_event_lifecycle import PaperStopEventLifecycle
+
+    engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_size=3, max_overflow=0, pool_pre_ping=True)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    ids = _seed_claim_fixture(Session, uuid4().hex[:12])
+    user_id, portfolio_id, instrument_id, strategy_id = ids
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    try:
+        with Session.begin() as db:
+            event = PaperStopEventClaimService(db).claim_trailing_stop(
+                user_id=user_id, portfolio_id=portfolio_id, strategy_id=strategy_id,
+                instrument_id=instrument_id, quote_epoch="postgres-executing-recovery",
+                quote_version=1, trigger_price=Decimal("98.25"),
+                lease_seconds=30, now=now,
+            )
+            assert event is not None
+            event_id, original_token = event.id, event.claim_token
+            executing = PaperStopEventLifecycle(db).begin_execution(
+                event_id=event_id, claim_token=original_token,
+                lease_seconds=10, now=now + timedelta(seconds=1),
+            )
+            assert executing is not None
+
+        recovery_time = now + timedelta(seconds=12)
+        with Session.begin() as db:
+            recovered = PaperStopEventLifecycle(db).reclaim_expired(
+                event_id=event_id, lease_seconds=30, max_attempts=5, now=recovery_time
+            )
+            assert recovered is not None
+            replacement_token = recovered.claim_token
+            assert replacement_token != original_token
+            assert recovered.attempt_count == 2
+
+        with Session.begin() as db:
+            stale_completion = PaperStopEventLifecycle(db).complete(
+                event_id=event_id, claim_token=original_token,
+                now=recovery_time + timedelta(seconds=1),
+            )
+            assert stale_completion is None
+
+        with Session.begin() as db:
+            current = PaperStopEventLifecycle(db).begin_execution(
+                event_id=event_id, claim_token=replacement_token,
+                now=recovery_time + timedelta(seconds=1),
+            )
+            assert current is not None and current.state == "EXECUTING"
+    finally:
+        _cleanup_claim_fixture(Session, ids)
+        engine.dispose()

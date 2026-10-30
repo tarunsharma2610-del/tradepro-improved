@@ -335,6 +335,11 @@ async def test_real_redis_server_process_restart_recovers_without_reusing_stale_
         assert first_quote["ltp"] == 2800.0
         assert first_quote["version"] == 1
 
+        # Async generators are demand-driven: keep an outstanding read so the
+        # listener continues polling Pub/Sub while Redis is stopped/restarted.
+        recovery_waiter = asyncio.create_task(anext(listener))
+        await asyncio.sleep(0.05)
+
         # Terminate the Redis server process, not merely one client connection.
         server.terminate()
         await asyncio.to_thread(server.wait, 5)
@@ -364,9 +369,8 @@ async def test_real_redis_server_process_restart_recovers_without_reusing_stale_
 
         # The restart erased volatile cache and version keys. Publish a new,
         # fresh quote and require the listener to deliver that quote, not v1.
-        recovered_waiter = asyncio.create_task(anext(listener))
         assert await publisher.publish(make_tick(instrument, 2801.25))
-        recovered = await asyncio.wait_for(recovered_waiter, timeout=3)
+        recovered = await asyncio.wait_for(recovery_waiter, timeout=8)
         assert recovered["ltp"] == 2801.25
         assert recovered["received_at"] != first_quote["received_at"]
         assert recovered["exchange_timestamp_ms"] >= first_quote["exchange_timestamp_ms"]

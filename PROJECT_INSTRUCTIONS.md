@@ -2249,3 +2249,8 @@ Resume from exact verified code head `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`,
 ## Official SDK/API reuse rule — reinforced 30 October 2026
 
 Before implementing or extending any broker integration, inspect current official Developer Console capabilities, API docs, SDK package/release notes, protobuf schemas, examples and known issues/forums. Compare each capability against the current repo implementation before writing code. Reuse an official component only when it materially improves correctness, coverage or maintainability; do not add dependencies ceremonially. Keep our domain adapter, async lifecycle, validation, tenant isolation, Redis delivery, freshness and risk/accounting controls when they are stronger. Record the comparison and explicit adopt/retain decision in a maintained audit note. The Upstox v2.30.0 audit is in UPSTOX_SDK_COMPATIBILITY_AUDIT.md.
+
+
+## SDK capability comparison rule — mixed modes
+
+Do not stop an SDK audit at feature-name parity. Compare actual source behaviour and lifecycle. The Upstox SDK v2.30.0 uses per-mode subscription sets and replays them on reconnect; our current single-mode stream is a gap. Borrow this design into our own async implementation after the pending CAS CI passes. Future audits should compare mode combinations, limits, reconnect semantics, token refresh, and error handling—not just method names.

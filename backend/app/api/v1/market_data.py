@@ -8,12 +8,35 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.models.instrument import Instrument
 from app.models.user import User
-from app.schemas.market_data import MarketDataStreamStart
+from app.schemas.market_data import MarketDataStreamChangeMode, MarketDataStreamKeys, MarketDataStreamStart
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.market_data_stream_manager import market_data_stream_manager
 from app.brokers.registry import get_broker_adapter
 
 router = APIRouter(prefix="/market-data", tags=["market-data"])
+
+def _validate_active_instruments(db: Session, instrument_keys: list[str]) -> None:
+    found = {
+        row.instrument_key
+        for row in db.query(Instrument.instrument_key)
+        .filter(Instrument.is_active.is_(True), Instrument.instrument_key.in_(instrument_keys))
+        .all()
+    }
+    missing = sorted(set(instrument_keys) - found)
+    if missing:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Unknown or inactive instrument_key(s): {', '.join(missing[:10])}",
+        )
+
+
+def _require_analytics_token(db: Session, user: User) -> None:
+    if BrokerCredentialsService(db).get_analytics_token(user.id, "upstox") is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Configure a valid Upstox Analytics Token in Settings before managing a market stream.",
+        )
+
 
 
 @router.post("/stream", status_code=status.HTTP_202_ACCEPTED)
@@ -22,21 +45,8 @@ async def start_market_data_stream(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if BrokerCredentialsService(db).get_analytics_token(user.id, "upstox") is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Configure a valid Upstox Analytics Token in Settings before starting a market stream.")
-
-    found = {
-        row.instrument_key
-        for row in db.query(Instrument.instrument_key)
-        .filter(Instrument.is_active.is_(True), Instrument.instrument_key.in_(payload.instrument_keys))
-        .all()
-    }
-    missing = sorted(set(payload.instrument_keys) - found)
-    if missing:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            f"Unknown or inactive instrument_key(s): {', '.join(missing[:10])}",
-        )
+    _require_analytics_token(db, user)
+    _validate_active_instruments(db, payload.instrument_keys)
 
     streamer = await market_data_stream_manager.start(user.id, payload.instrument_keys, mode=payload.mode)
     return {
@@ -45,6 +55,76 @@ async def start_market_data_stream(
         "instrument_count": len(streamer.instrument_keys),
         "mode": streamer.mode,
         "message": "Stream task started. Check GET /market-data/stream for connection and fresh-quote status.",
+    }
+
+
+@router.post("/stream/subscribe", status_code=status.HTTP_202_ACCEPTED)
+async def subscribe_market_data(
+    payload: MarketDataStreamKeys,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _require_analytics_token(db, user)
+    _validate_active_instruments(db, payload.instrument_keys)
+    streamer = market_data_stream_manager.get(user.id)
+    if streamer is None or not streamer.running:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Start a market-data stream before adding subscriptions.")
+    try:
+        delivery = await streamer.subscribe(payload.instrument_keys)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+    return {
+        "subscribed": True,
+        "delivery": delivery,
+        "mode": streamer.mode,
+        "instrument_count": len(streamer.instrument_keys),
+        "instrument_keys": streamer.instrument_keys,
+    }
+
+
+@router.post("/stream/unsubscribe", status_code=status.HTTP_202_ACCEPTED)
+async def unsubscribe_market_data(
+    payload: MarketDataStreamKeys,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _require_analytics_token(db, user)
+    streamer = market_data_stream_manager.get(user.id)
+    if streamer is None or not streamer.running:
+        raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
+    try:
+        delivery = await streamer.unsubscribe(payload.instrument_keys)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+    return {
+        "unsubscribed": True,
+        "delivery": delivery,
+        "mode": streamer.mode,
+        "instrument_count": len(streamer.instrument_keys),
+        "instrument_keys": streamer.instrument_keys,
+    }
+
+
+@router.post("/stream/change-mode", status_code=status.HTTP_202_ACCEPTED)
+async def change_market_data_stream_mode(
+    payload: MarketDataStreamChangeMode,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _require_analytics_token(db, user)
+    streamer = market_data_stream_manager.get(user.id)
+    if streamer is None or not streamer.running:
+        raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
+    try:
+        delivery = await streamer.change_mode(payload.instrument_keys, payload.mode)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+    return {
+        "mode_changed": True,
+        "delivery": delivery,
+        "mode": streamer.mode,
+        "instrument_count": len(streamer.instrument_keys),
+        "instrument_keys": streamer.instrument_keys,
     }
 
 
@@ -115,6 +195,7 @@ def market_data_stream_status(user: User = Depends(get_current_user)):
         "connected": streamer.connected,
         "mode": streamer.mode,
         "instrument_count": len(streamer.instrument_keys),
+        "instrument_keys": streamer.instrument_keys,
         "quotes": quotes,
     }
 

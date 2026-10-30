@@ -1718,3 +1718,12 @@ Exact-head full Backend CI #41032764754 passed on `7268edd6e7ddb7ef6d472799d1d01
 When a counter expires or Redis loses volatile data, the next publish creates a new epoch and starts at version 1. Consumers compare epoch and version together, allowing a version reset only across epochs. Real Redis tests cover snapshot expiry, counter expiry/new epoch, Pub/Sub disconnect recovery, server process restart, independent OS-process delivery, two-user isolation and concurrent publishing.
 
 Current architectural boundary: `RedisMarketQuoteConsumer` is implemented and tested, but the background worker does not yet manage consumer instances or durable per-user subscription discovery. `app/worker.py` still evaluates strategies through the existing historical/intraday candle path. Scanner and PAPER strategy Redis integrations remain future milestones. Multi-user/multi-instrument scale testing and worker lifecycle/shutdown testing remain pending.
+
+
+## Phase 4 Redis consumer recovery and integration boundary — 30 October 2026
+
+The Redis quote consumer validates user-scoped authoritative snapshots (schema, instrument, TTL, received/exchange timestamps, epoch and version), treats Pub/Sub events only as wake-up signals, sweeps snapshots after subscribe/reconnect, and uses Pub/Sub PING/PONG to detect idle dead connections. On connection failure it clears process-local epoch/version high-water marks before re-reading the authoritative snapshot, allowing a new Redis epoch to restart at version 1 after volatile data loss.
+
+Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`. New tests on `a5e352bef2c78f27141b61bca5893fdfa0fd049a` cover old epoch version 8 -> new epoch version 1 and idle Pub/Sub heartbeat; exact-head CI #41061518847 is pending.
+
+Important boundary: `backend/app/worker.py` does not yet manage Redis consumer instances; strategy evaluation still uses the existing candle path. Durable subscription discovery, single-owner coordination across worker replicas, graceful consumer cancellation/shutdown, and scanner/PAPER strategy integration remain incomplete. Do not treat publisher/consumer tests as proof of end-to-end scanner delivery or production deployment.

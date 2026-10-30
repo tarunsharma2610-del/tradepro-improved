@@ -68,3 +68,7 @@ Official docs: https://upstox.com/developer/api-documentation/get-full-market-qu
 ## Exchange timestamp source audit — 30 October 2026
 
 Official Upstox docs distinguish exchange last-trade time (LTPC LTT) from packet currentTs. The streamer previously substituted currentTs if LTT was absent; this could make stale last-trade price appear fresh. Removed the fallback, require finite positive LTP and positive LTT, and validate exchange and receive age. Full Market Quotes V3 REST fallback independently checks last_trade_time and exact instrument_token. Current test head 4dd8420d4d787be049c956204e15bfdff9586f3e is awaiting CI.
+
+## Verification status correction — 30 October 2026
+
+WebSocket timestamp validation and its regression tests passed Backend pytest on exact code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e (run #41015772900). Latest synchronized documentation head 2589db1e0a6446ea60d12a075d58ce43fa19ed93 is awaiting exact-head CI #41015946896.

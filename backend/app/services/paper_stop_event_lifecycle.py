@@ -175,4 +175,5 @@ class PaperStopEventLifecycle:
             synchronize_session=False,
         )
         self.db.flush()
+        self.db.expire_all()
         return None

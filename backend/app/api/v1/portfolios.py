@@ -14,11 +14,12 @@ from app.models.broker_connection import BrokerConnection
 from app.models.broker_portfolio_allocation import BrokerPortfolioAllocation
 from app.models.broker_funds_snapshot import BrokerFundsSnapshot
 from app.models.broker_position_snapshot import BrokerPositionSnapshot
+from app.models.broker_holding_snapshot import BrokerHoldingSnapshot
 from app.models.position import Position
 from app.models.user import User
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.repositories.order_repository import OrderRepository
-from app.schemas.broker import BrokerPortfolioAllocationCreate, BrokerPortfolioAllocationOut, BrokerFundsSnapshotOut, BrokerPositionSnapshotOut
+from app.schemas.broker import BrokerPortfolioAllocationCreate, BrokerPortfolioAllocationOut, BrokerFundsSnapshotOut, BrokerPositionSnapshotOut, BrokerHoldingSnapshotOut
 from app.schemas.analytics import PortfolioAnalyticsOut, StrategyAnalyticsOut
 from app.schemas.assistant import AssistantAskRequest, AssistantAskResponse
 from app.schemas.order import ExecutionOut, OrderOut, PlaceOrderRequest, PositionOut
@@ -32,6 +33,7 @@ from app.services.broker_credentials_service import BrokerCredentialsService
 from app.brokers.registry import get_broker_adapter
 from app.services.broker_funds_service import normalize_upstox_funds_v3
 from app.services.broker_position_service import normalize_upstox_positions
+from app.services.broker_holding_service import normalize_upstox_holdings
 from sqlalchemy.exc import IntegrityError
 
 router = APIRouter(prefix="/portfolios", tags=["portfolios"])
@@ -383,6 +385,91 @@ def get_latest_broker_positions(
     ).order_by(desc(BrokerPositionSnapshot.created_at)).first()
     if snapshot is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No verified broker positions snapshot is available for the currently allocated account.")
+    return snapshot
+
+
+@router.post(
+    "/{portfolio_id}/broker-holdings/sync",
+    response_model=BrokerHoldingSnapshotOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def sync_broker_holdings(
+    portfolio_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    portfolio = _get_owned_portfolio(db, user, portfolio_id)
+    if portfolio.trading_mode != "LIVE":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Broker holdings can only be synchronized to a LIVE portfolio.")
+    allocation = db.query(BrokerPortfolioAllocation).filter(
+        BrokerPortfolioAllocation.portfolio_id == portfolio.id,
+        BrokerPortfolioAllocation.user_id == user.id,
+    ).one_or_none()
+    if allocation is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Allocate a verified broker connection before synchronizing holdings.")
+    connection = db.query(BrokerConnection).filter(
+        BrokerConnection.id == allocation.broker_connection_id,
+        BrokerConnection.user_id == user.id,
+    ).one_or_none()
+    if connection is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Allocated broker connection is unavailable.")
+    access_token = BrokerCredentialsService(db).get_access_token(user.id, connection.broker)
+    if not access_token:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Broker OAuth session is unavailable or expired. Reconnect the broker.")
+    result = await get_broker_adapter(connection.broker).get_holdings(access_token)
+    if not result.ok:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Broker holdings service is unavailable; the previous snapshot was retained.")
+    try:
+        holdings = normalize_upstox_holdings(result.data)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Broker returned an invalid holdings response; no snapshot was saved.") from exc
+
+    snapshot = BrokerHoldingSnapshot(
+        broker_connection_id=connection.id,
+        portfolio_id=portfolio.id,
+        user_id=user.id,
+        holdings=holdings,
+        raw_response=result.data,
+    )
+    db.add(snapshot)
+    db.add(AuditLog(
+        user_id=user.id,
+        action="broker_holding_snapshot.created",
+        resource_type="broker_holding_snapshot",
+        resource_id=str(snapshot.id),
+        ip_address=request.client.host if request.client else None,
+        event_metadata={"portfolio_id": str(portfolio.id), "broker_connection_id": str(connection.id), "holding_count": len(holdings)},
+    ))
+    db.commit()
+    db.refresh(snapshot)
+    # Demat holdings remain a separate broker snapshot. They never mutate
+    # PAPER positions, execution rows, cash balance or the realized-P&L ledger.
+    return snapshot
+
+
+@router.get("/{portfolio_id}/broker-holdings/latest", response_model=BrokerHoldingSnapshotOut)
+def get_latest_broker_holdings(
+    portfolio_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    portfolio = _get_owned_portfolio(db, user, portfolio_id)
+    if portfolio.trading_mode != "LIVE":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Broker holdings are only available for LIVE portfolios.")
+    allocation = db.query(BrokerPortfolioAllocation).filter(
+        BrokerPortfolioAllocation.portfolio_id == portfolio.id,
+        BrokerPortfolioAllocation.user_id == user.id,
+    ).one_or_none()
+    if allocation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No broker account is currently allocated to this portfolio.")
+    snapshot = db.query(BrokerHoldingSnapshot).filter(
+        BrokerHoldingSnapshot.portfolio_id == portfolio.id,
+        BrokerHoldingSnapshot.user_id == user.id,
+        BrokerHoldingSnapshot.broker_connection_id == allocation.broker_connection_id,
+    ).order_by(desc(BrokerHoldingSnapshot.created_at)).first()
+    if snapshot is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No verified broker holdings snapshot is available for the currently allocated account.")
     return snapshot
 
 

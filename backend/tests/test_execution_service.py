@@ -968,23 +968,61 @@ async def test_paper_execution_fails_closed_for_live_mode_portfolio(db_session, 
     assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == 0
 
 
-def test_database_rejects_order_mode_that_differs_from_portfolio(db_session, portfolio, instrument):
-    from app.models.order import Order
+def test_database_rejects_order_mode_that_differs_from_portfolio():
+    """Exercise the composite FK with SQLite enforcement enabled in isolation."""
+    import uuid
 
-    _, p = portfolio
-    mismatched = Order(
-        portfolio_id=p.id,
-        instrument_id=instrument.id,
-        side="BUY",
-        order_type="LIMIT",
-        segment="EQUITY_DELIVERY",
-        quantity=1,
-        status="PENDING",
-        trading_mode="LIVE",
-        execution_reason="MANUAL",
-        placed_at=datetime.now(timezone.utc),
-    )
-    db_session.add(mismatched)
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.core.database import Base
+    from app.core.security import hash_password
+    from app.models.user import User
+    from app.repositories.portfolio_repository import PortfolioRepository
+
+    engine = create_engine("sqlite:///:memory:", poolclass=StaticPool)
+
+    @event.listens_for(engine, "connect")
+    def _enable_foreign_keys(connection, _record):
+        connection.execute("PRAGMA foreign_keys=ON")
+
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+    try:
+        user = User(
+            id=uuid.uuid4(),
+            email="mode-isolation@example.com",
+            password_hash=hash_password("test-password"),
+            full_name="Mode Isolation Test",
+            is_admin=False,
+        )
+        session.add(user)
+        session.commit()
+        portfolio = PortfolioRepository(session).create(
+            user_id=user.id,
+            name="PAPER",
+            virtual_capital=Decimal("100000"),
+        )
+        InstrumentService(session).seed_defaults()
+        from app.repositories.instrument_repository import InstrumentRepository
+        instrument = InstrumentRepository(session).search("RELIANCE")[0]
+
+        session.add(Order(
+            portfolio_id=portfolio.id,
+            instrument_id=instrument.id,
+            side="BUY",
+            order_type="LIMIT",
+            segment="EQUITY_DELIVERY",
+            quantity=1,
+            status="PENDING",
+            trading_mode="LIVE",
+            execution_reason="MANUAL",
+            placed_at=datetime.now(timezone.utc),
+        ))
+        with pytest.raises(IntegrityError):
+            session.commit()
+        session.rollback()
+    finally:
+        session.close()
+        engine.dispose()

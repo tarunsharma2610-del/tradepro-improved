@@ -420,6 +420,7 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
             db.flush()
             db.add(Portfolio(
                 id=portfolio_id, user_id=owner_id, name=f"live-race-{suffix}",
+                trading_mode="LIVE",
                 virtual_capital=Decimal("10000.00"), cash_balance=Decimal("10000.00"),
             ))
             db.add(Instrument(

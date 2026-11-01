@@ -143,6 +143,11 @@ class PaperStopEventExecutionService:
                 self.db.query(PaperStopEvent)
                 .filter(PaperStopEvent.id == event_id)
                 .with_for_update()
+                # The initial unlocked snapshot above may already be present
+                # in this Session's identity map. Force PostgreSQL's locked
+                # row values to replace that potentially stale CLAIMED state
+                # after another worker commits COMPLETED while we wait.
+                .populate_existing()
                 .first()
             )
             if (

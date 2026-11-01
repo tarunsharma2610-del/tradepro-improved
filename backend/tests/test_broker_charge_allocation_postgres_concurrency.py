@@ -421,7 +421,8 @@ def test_live_fill_promotion_races_with_component_ledger_verification(tmp_path, 
             db.add(Portfolio(
                 id=portfolio_id, user_id=owner_id, name=f"live-race-{suffix}",
                 trading_mode="LIVE",
-                virtual_capital=Decimal("10000.00"), cash_balance=Decimal("10000.00"),
+                virtual_capital=Decimal("0"), cash_balance=Decimal("0"),
+                balance_source="UNAVAILABLE",
             ))
             db.add(Instrument(
                 id=instrument_id, instrument_key=f"TEST|LIVE|{suffix}", exchange="NSE",

@@ -163,3 +163,20 @@ Additional independent-session PostgreSQL tests are now submitted in commit `a15
 - Inject a stop-claim persistence failure, roll back the transaction, and verify through a separate database session that quote identity, watermark and stop events were not partially committed.
 
 These new tests are not yet CI-verified. Await the exact-head Backend CI result before treating epoch-race and PostgreSQL rollback coverage as complete.
+
+
+## PostgreSQL epoch-race and rollback CI verified — 1 November 2026
+
+The independent-session delayed-old-epoch race and injected PostgreSQL transaction rollback tests passed in Backend CI #41296851101 on exact test commit `a15f55919f5393080654f7d996da182e7b39665d`. The documentation-head Backend CI #41296869835 also passed on `7ba2782e36f69d2109a2b1fdde814e06e5a04366`. Both completed the full backend suite, broker-write boundary, SQLite and PostgreSQL 16 migration cycle, and synthetic restore drill.
+
+## Supervised quote-dispatch worker — submitted, CI pending
+
+A PAPER-only async dispatch worker was added:
+- Handles one user/instrument key at a time through the existing bounded single-flight dispatcher.
+- Retries handler exceptions with exponential backoff capped by configuration.
+- Retains key ownership during retry so a second worker cannot race the same key; newer quotes coalesce behind the in-flight item.
+- Cancellation during handler work or retry delay releases the in-flight item, preferring a newer coalesced quote.
+- Exposes processed and failure counters.
+- Does not submit broker orders and is not wired into the application lifespan or scanner yet.
+
+Implementation and tests are being added on the Phase 4 branch. Tests cover transient failure/retry, cancellation/requeue, newer-quote preference at shutdown, and invalid backoff bounds. Exact-head CI must pass before this worker is considered verified or integrated.

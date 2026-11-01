@@ -4,7 +4,6 @@ Only exact broker instrument keys are authoritative. Symbols are validation
 attributes, never fallback identifiers; ambiguous or unknown rows are surfaced
 for review and are not silently mapped.
 """
-from collections import Counter
 from typing import Any, Iterable
 
 
@@ -20,8 +19,6 @@ def reconcile_broker_instruments(
         master.setdefault(key.strip(), []).append(instrument)
 
     source_rows = list(rows)
-    keys = [row.get("instrument_key") for row in source_rows if isinstance(row, dict)]
-    counts = Counter(key for key in keys if isinstance(key, str))
 
     results = []
     for index, row in enumerate(source_rows):
@@ -34,7 +31,7 @@ def reconcile_broker_instruments(
             continue
         key = key.strip()
         candidates = master.get(key, [])
-        if counts[key] > 1 or len(candidates) > 1:
+        if len(candidates) > 1:
             results.append({"row_index": index, "instrument_key": key, "status": "AMBIGUOUS", "instrument_id": None})
             continue
         if not candidates:

@@ -224,6 +224,7 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows(monk
                 id=portfolio_id,
                 user_id=owner_id,
                 name="Live fill lock test",
+                trading_mode="LIVE",
                 virtual_capital=Decimal("100000"),
                 cash_balance=Decimal("100000"),
                 is_active=True,
@@ -426,6 +427,7 @@ def test_concurrent_child_orders_cannot_overfill_one_local_order(monkeypatch):
             session.commit()
             portfolio = Portfolio(
                 id=portfolio_id, user_id=owner_id, name="Cross child overfill",
+                trading_mode="LIVE",
                 virtual_capital=Decimal("100000"), cash_balance=Decimal("100000"), is_active=True,
             )
             connection = BrokerConnection(

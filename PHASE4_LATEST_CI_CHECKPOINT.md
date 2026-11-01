@@ -610,3 +610,18 @@ This section is the current-status authority as of 2026-11-01 and supersedes old
 - PR #9 remains Draft and unmerged. Work is restricted to `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository remains out of scope and must not be modified.
 - Next implementation sequence: holdings synchronization; broker instrument identity reconciliation; separate realized P&L ledger; freshness-gated unrealized P&L using market prices; stale-data detection; multi-worker synchronization recovery; end-to-end security/isolation and operational review.
 - Documentation update itself must pass exact-head Backend CI before this documentation checkpoint is considered green.
+
+
+## 1 November 2026 — LIVE portfolio unrealized P&L projection checkpoint
+
+- Current Phase 4 branch: `phase4/redis-market-data-publisher`.
+- Latest code/test head: `18588c18f550f6dc5a4953f90229e05f31e14269`.
+- Exact-head Backend CI [#41328649301 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41328649301). The immediately preceding service-only commit `290bae0fb963ddb37382d91d6f961fbfd5db27b2` also passed CI #41328642939. The final CI #41328649301 covers the latest head including duplicate-position regression tests.
+- Fresh-quote LIVE unrealized P&L calculation is implemented in `backend/app/services/live_unrealized_pnl_service.py`; tests cover long/short profit and loss, flat positions, stale/future quotes, invalid/non-finite values and paise rounding. This calculation service passed exact-head CI #41327228865 on `f84834a163e9f8acdd59898e07865f7b226db07d`.
+- Read-only portfolio projection is implemented in `backend/app/services/live_portfolio_pnl_view_service.py`; tests cover combined long/short results, missing/stale quotes, flat rows, malformed broker rows, unknown instrument identities and duplicate broker position identity handling.
+- The projection requires exact broker instrument keys, uses fresh quote timestamps (default maximum age 15 seconds), and withholds the portfolio total if any open position cannot be valued. Duplicate (instrument, product) rows fail closed; same instrument across distinct products remains separate.
+- Important integration boundary: this is a tested pure projection service, not yet connected to the authenticated portfolio API or Redis quote consumer. No frontend integration or broker/internal realized-P&L reconciliation is complete. Do not claim it is end-to-end LIVE portfolio P&L.
+- Main-branch cleanup after two accidentally placed files was completed; latest cleanup CI #41328271380 passed on main. The Phase 4 files are present on the intended Phase 4 branch.
+- Next session: (1) inspect Redis consumer snapshot schema and exact instrument-key mapping; (2) add a read-only adapter that reads authoritative Redis snapshots and converts timestamps/prices safely; (3) integrate the projection behind owner-scoped LIVE portfolio authorization and LIVE snapshot availability checks; (4) add API tests for stale/missing quotes, duplicate rows, ownership and PAPER isolation; (5) keep realized and unrealized P&L separate; (6) add broker-vs-internal reconciliation only after authoritative fill/ledger mapping is established; (7) update frontend only after API contract is stable.
+- After next code milestone, synchronize all maintained docs and run Backend CI on the exact final documentation head before marking the documentation checkpoint green.
+- Safety: PAPER execution remains the only enabled execution path. LIVE broker place/modify/cancel remain disabled. PR #9 remains Draft/open/unmerged. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `tarunsharma2610-del/Tradepro` must remain untouched.

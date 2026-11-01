@@ -47,6 +47,9 @@ def db_session():
     @event.listens_for(engine, "connect")
     def _configure_sqlite_transaction_boundaries(dbapi_connection, _connection_record):
         dbapi_connection.isolation_level = None
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
     @event.listens_for(engine, "begin")
     def _begin_sqlite_transaction(connection):

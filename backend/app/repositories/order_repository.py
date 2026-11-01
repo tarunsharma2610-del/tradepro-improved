@@ -27,14 +27,22 @@ class OrderRepository:
     def get_for_portfolio(self, portfolio_id: UUID, order_id: UUID) -> Order | None:
         return self.db.query(Order).filter(Order.id == order_id, Order.portfolio_id == portfolio_id).first()
 
-    def create(self, order: Order) -> Order:
+    def create(self, order: Order, *, commit: bool = True) -> Order:
+        """Persist an order; callers may retain transaction ownership."""
         self.db.add(order)
-        self.db.commit()
-        self.db.refresh(order)
+        if commit:
+            self.db.commit()
+            self.db.refresh(order)
+        else:
+            self.db.flush()
         return order
 
-    def save(self, order: Order) -> Order:
+    def save(self, order: Order, *, commit: bool = True) -> Order:
+        """Persist an order; callers may retain transaction ownership."""
         self.db.add(order)
-        self.db.commit()
-        self.db.refresh(order)
+        if commit:
+            self.db.commit()
+            self.db.refresh(order)
+        else:
+            self.db.flush()
         return order

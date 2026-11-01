@@ -57,8 +57,12 @@ class PortfolioRepository:
         self.db.refresh(portfolio)
         return portfolio
 
-    def save(self, portfolio: Portfolio) -> Portfolio:
+    def save(self, portfolio: Portfolio, *, commit: bool = True) -> Portfolio:
+        """Persist a portfolio; callers may retain transaction ownership."""
         self.db.add(portfolio)
-        self.db.commit()
-        self.db.refresh(portfolio)
+        if commit:
+            self.db.commit()
+            self.db.refresh(portfolio)
+        else:
+            self.db.flush()
         return portfolio

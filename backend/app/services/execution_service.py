@@ -67,7 +67,8 @@ class ExecutionService:
         self.instruments = InstrumentRepository(db)
         self.broker_credentials = BrokerCredentialsService(db)
 
-    async def place_order(self, user_id: UUID, req: PlaceOrderRequest) -> Order:
+    async def place_order(self, user_id: UUID, req: PlaceOrderRequest, *, commit: bool = True) -> Order:
+        """Place a PAPER order; internal orchestrators may retain transaction ownership."""
         # Validate at the service boundary as well as the HTTP schema: strategy
         # automation and future internal callers do not pass through Pydantic.
         if req.quantity <= 0:
@@ -111,17 +112,17 @@ class ExecutionService:
                 reducing_position=self._is_reducing_position(portfolio.id, instrument.id, req.side, req.quantity),
             )
             if risk_reason:
-                return self._reject(order, risk_reason)
+                return self._reject(order, risk_reason, commit=commit)
             # The worker rechecks relevant limits before filling the order.
-            return self.orders.create(order)
+            return self.orders.create(order, commit=commit)
 
         access_token = self.broker_credentials.get_analytics_token(user_id, "upstox")
         if access_token is None:
-            return self._reject(order, "No valid Upstox broker Analytics Token is configured in Settings.")
+            return self._reject(order, "No valid Upstox broker Analytics Token is configured in Settings.", commit=commit)
 
         ltp, quote_error = await self._get_ltp(portfolio.user_id, instrument.instrument_key, access_token, req.side, req.quantity)
         if ltp is None:
-            return self._reject(order, quote_error or "No fresh market price is available.")
+            return self._reject(order, quote_error or "No fresh market price is available.", commit=commit)
 
         risk_reason = check_portfolio_order(
             self.db, portfolio, instrument, side=req.side.value, quantity=req.quantity,
@@ -129,7 +130,7 @@ class ExecutionService:
             reducing_position=self._is_reducing_position(portfolio.id, instrument.id, req.side, req.quantity),
         )
         if risk_reason:
-            return self._reject(order, risk_reason)
+            return self._reject(order, risk_reason, commit=commit)
 
         estimate = await self._estimate_paper_costs(
             access_token, instrument.instrument_key, req.segment, req.side, req.quantity, ltp
@@ -140,17 +141,18 @@ class ExecutionService:
         if req.side == Side.BUY:
             required_cash = costs.gross_value + costs.total_charges
             if Decimal(str(portfolio.cash_balance)) < required_cash:
-                return self._reject(order, f"Insufficient virtual capital: need {required_cash}, have {portfolio.cash_balance}.")
+                return self._reject(order, f"Insufficient virtual capital: need {required_cash}, have {portfolio.cash_balance}.", commit=commit)
 
         if req.side == Side.SELL and req.segment == Segment.EQUITY_DELIVERY:
-            position = self.positions.get_or_create(portfolio.id, instrument.id)
+            position = self.positions.get_or_create(portfolio.id, instrument.id, commit=False)
             if position.quantity < req.quantity:
                 return self._reject(
                     order,
                     f"Insufficient holdings for a delivery sell: hold {position.quantity}, tried to sell {req.quantity}.",
+                    commit=commit,
                 )
 
-        return self._fill(order, portfolio, instrument, req, ltp, costs, charge_source=charge_source)
+        return self._fill(order, portfolio, instrument, req, ltp, costs, charge_source=charge_source, commit=commit)
 
     def cancel_order(self, user_id: UUID, portfolio_id: UUID, order_id: UUID) -> Order:
         """Cancel a user's pending paper order; filled/rejected orders are immutable."""
@@ -356,18 +358,23 @@ class ExecutionService:
             return position.quantity > 0 and quantity <= position.quantity
         return position.quantity < 0 and quantity <= abs(position.quantity)
 
-    def _reject(self, order: Order, reason: str) -> Order:
+    def _reject(self, order: Order, reason: str, *, commit: bool = True) -> Order:
         order.status = "REJECTED"
         order.rejection_reason = reason
-        return self.orders.create(order)
+        return self.orders.create(order, commit=commit)
 
-    def _fill(self, order: Order, portfolio: Portfolio, instrument: Instrument, req: PlaceOrderRequest, ltp: Decimal, costs, *, charge_source: str = "PAPER_ESTIMATE") -> Order:
+    def _fill(
+        self, order: Order, portfolio: Portfolio, instrument: Instrument,
+        req: PlaceOrderRequest, ltp: Decimal, costs, *,
+        charge_source: str = "PAPER_ESTIMATE", commit: bool = True,
+    ) -> Order:
+        """Apply one PAPER fill; all ledger writes share one transaction."""
         now = datetime.now(timezone.utc)
         order.status = "FILLED"
         order.filled_at = now
-        order = self.orders.create(order)
+        order = self.orders.create(order, commit=False)
 
-        position = self.positions.get_or_create(portfolio.id, instrument.id)
+        position = self.positions.get_or_create(portfolio.id, instrument.id, commit=False)
         update = apply_fill(
             position_quantity=position.quantity,
             position_avg_price=Decimal(str(position.avg_price)),
@@ -378,10 +385,10 @@ class ExecutionService:
         position.quantity = update.new_quantity
         position.avg_price = update.new_avg_price
         position.realized_pnl = Decimal(str(position.realized_pnl)) + update.realized_pnl
-        self.positions.save(position)
+        self.positions.save(position, commit=False)
 
         portfolio.cash_balance = Decimal(str(portfolio.cash_balance)) + costs.net_cash_impact
-        self.portfolios.save(portfolio)
+        self.portfolios.save(portfolio, commit=False)
 
         execution = Execution(
             order_id=order.id,
@@ -412,7 +419,11 @@ class ExecutionService:
         # field null when not sourced, and includes it only when explicitly present.
         recompute_execution_total_charges(execution)
         self.db.add(execution)
-        self.db.commit()
+        if commit:
+            self.db.commit()
+            self.db.refresh(order)
+        else:
+            self.db.flush()
 
         return order
 

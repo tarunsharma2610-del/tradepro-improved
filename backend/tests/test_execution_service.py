@@ -795,3 +795,39 @@ def test_market_depth_rejects_stale_snapshot_and_insufficient_liquidity():
     assert _extract_fresh_market_depth_price(
         stale, "NSE_EQ|INE002A01018", side=Side.BUY, quantity=2, now=now
     ) is None
+
+
+@pytest.mark.asyncio
+async def test_paper_fill_can_remain_in_caller_owned_transaction(db_session, portfolio, instrument):
+    """A caller can roll back order, position, cash and execution as one unit."""
+    from app.models.position import Position
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    initial_cash = Decimal(str(p.cash_balance))
+    initial_orders = db_session.query(Order).count()
+    initial_executions = db_session.query(Execution).count()
+
+    with patch("app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED", False), _mock_quote("2500.00"):
+        order = await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=2,
+            ),
+            commit=False,
+        )
+
+    assert order.status == "FILLED"
+    assert db_session.query(Execution).filter(Execution.order_id == order.id).count() == 1
+    position = db_session.query(Position).filter_by(portfolio_id=p.id, instrument_id=instrument.id).one()
+    assert position.quantity == 2
+    assert Decimal(str(p.cash_balance)) < initial_cash
+
+    db_session.rollback()
+
+    assert db_session.query(Order).count() == initial_orders
+    assert db_session.query(Execution).count() == initial_executions
+    assert db_session.query(Position).filter_by(portfolio_id=p.id, instrument_id=instrument.id).count() == 0
+    db_session.refresh(p)
+    assert Decimal(str(p.cash_balance)) == initial_cash

@@ -130,3 +130,11 @@ Product direction: Tradepro Improved is intended to support both PAPER and LIVE 
 - Run full exact-head CI: pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore evidence.
 - Only after green CI, continue PostgreSQL 16 concurrent PAPER stop-event tests.
 - In parallel, audit existing live-intent and broker-adapter call paths against the stages above. Record gaps; do not enable writes during this audit.
+
+
+## 1 November 2026 — PostgreSQL concurrent redelivery identity-map correction
+
+- The first PostgreSQL 16 two-worker execution run (CI #41289482098) reported 1,391 passed and one failed. Both workers raced the same claimed event; one filled and flattened the position, while the second rejected with "Stop event has no open position to close."
+- Root cause: the execution service performs an initial unlocked event read to discover lock keys. That ORM instance remains in SQLAlchemy's identity map. After waiting for the portfolio/event locks, a later `SELECT ... FOR UPDATE` can return the same in-memory instance without refreshing already-loaded attributes. The second worker could therefore observe stale `CLAIMED` state even though the first worker had committed `COMPLETED`.
+- Corrected the locked event query with SQLAlchemy `.populate_existing()`, forcing the row values read under lock to refresh the identity-mapped object before state/lease validation. This preserves the open-position guard and completed-event replay behavior; it does not permit a second fill.
+- The PostgreSQL concurrency test remains a required gate. Commit `7f7fc73d4c1e7e3236081d19fdc8f2b61f6265b6` requires full exact-head CI before acceptance.

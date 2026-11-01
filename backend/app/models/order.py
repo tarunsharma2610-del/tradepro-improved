@@ -19,6 +19,7 @@ class Order(BaseModel):
 
     __table_args__ = (
         UniqueConstraint("paper_stop_event_id", name="uq_orders_paper_stop_event"),
+        UniqueConstraint("id", "portfolio_id", name="uq_orders_id_portfolio_id"),
         CheckConstraint("trading_mode IN ('PAPER', 'LIVE')", name="ck_orders_trading_mode"),
         ForeignKeyConstraint(
             ["portfolio_id", "trading_mode"],

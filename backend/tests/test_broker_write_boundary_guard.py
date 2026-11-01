@@ -144,8 +144,8 @@ def test_stop_event_service_shared_paper_execution_call_is_allowed(tmp_path):
     app = tmp_path / "app"
     (app / "services").mkdir(parents=True)
     (app / "services" / "paper_stop_event_execution_service.py").write_text(
-        "async def execute_claimed(self, user, request):\\n"
-        "    return await self.execution.place_order(user, request, commit=False)\\n",
+        "async def execute_claimed(self, user, request):\n"
+        "    return await self.execution.place_order(user, request, commit=False)\n",
         encoding="utf-8",
     )
 
@@ -156,8 +156,8 @@ def test_stop_event_service_cannot_call_broker_adapter_directly(tmp_path):
     app = tmp_path / "app"
     (app / "services").mkdir(parents=True)
     (app / "services" / "paper_stop_event_execution_service.py").write_text(
-        "async def execute_claimed(self, adapter, request):\\n"
-        "    return await adapter.place_order(token, request)\\n",
+        "async def execute_claimed(self, adapter, request):\n"
+        "    return await adapter.place_order(token, request)\n",
         encoding="utf-8",
     )
 

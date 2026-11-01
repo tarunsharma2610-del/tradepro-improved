@@ -116,3 +116,48 @@ def test_strategy_analytics_separates_by_strategy(db_session, portfolio, instrum
     assert results["Strategy B"].is_active is False
     # No third entry for the manual trade — confirms it wasn't misattributed.
     assert len(results) == 2
+
+
+
+def test_portfolio_analytics_filters_executions_by_order_trading_mode(db_session, portfolio, instrument):
+    now = datetime.now(timezone.utc)
+    _make_order_and_execution(
+        db_session, portfolio.id, instrument.id, side="SELL",
+        realized_pnl=Decimal("125"), gross_value=Decimal("1000"),
+        total_charges=Decimal("20"), when=now,
+    )
+
+    # A deliberately inconsistent row simulates legacy/corrupt cross-mode
+    # data. Analytics must fail closed rather than include the other mode.
+    live_order = Order(
+        portfolio_id=portfolio.id, instrument_id=instrument.id, side="SELL",
+        order_type="MARKET", segment="EQUITY_INTRADAY", quantity=10,
+        status="FILLED", trading_mode="LIVE", execution_reason="MANUAL",
+        placed_at=now + timedelta(minutes=1), filled_at=now + timedelta(minutes=1),
+    )
+    db_session.add(live_order)
+    db_session.commit()
+    db_session.refresh(live_order)
+    live_execution = Execution(
+        order_id=live_order.id, portfolio_id=portfolio.id, instrument_id=instrument.id,
+        side="SELL", quantity=10, price=Decimal("100"), gross_value=Decimal("1000"),
+        brokerage=Decimal("20"), stt=Decimal("2"), exchange_charges=Decimal("0.5"),
+        sebi_charges=Decimal("0.01"), stamp_duty=Decimal("0.5"), gst=Decimal("3"),
+        total_charges=Decimal("26"), realized_pnl=Decimal("900"),
+        executed_at=now + timedelta(minutes=1),
+    )
+    db_session.add(live_execution)
+    db_session.commit()
+
+    paper_result = portfolio_analytics(db_session, portfolio.id, portfolio.virtual_capital, trading_mode="PAPER")
+    live_result = portfolio_analytics(db_session, portfolio.id, Decimal("0"), trading_mode="LIVE")
+
+    assert paper_result.total_realized_pnl == Decimal("125")
+    assert paper_result.total_trades == 1
+    assert live_result.total_realized_pnl == Decimal("900")
+    assert live_result.total_trades == 1
+
+
+def test_portfolio_analytics_rejects_unknown_trading_mode(db_session, portfolio):
+    with pytest.raises(ValueError, match="Unsupported portfolio trading mode"):
+        portfolio_analytics(db_session, portfolio.id, portfolio.virtual_capital, trading_mode="SIMULATED")

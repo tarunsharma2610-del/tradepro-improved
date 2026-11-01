@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class PortfolioCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     virtual_capital: Decimal = Field(gt=0, le=Decimal("1000000000"))
+    # Mode is selected once when creating a portfolio and is immutable afterwards.
+    trading_mode: Literal["PAPER", "LIVE"] = "PAPER"
 
 
 class PortfolioRiskSettings(BaseModel):

@@ -47,7 +47,15 @@ class PaperStopEventIntakeService:
             raise PaperStopObservationRejected("A validated market scanner observation is required.")
         if not isinstance(observation.user_id, str) or not observation.user_id:
             raise PaperStopObservationRejected("Observation user is missing.")
-        if not observation.instrument_key or not observation.epoch or observation.version <= 0:
+        if (
+            not isinstance(observation.instrument_key, str) or not observation.instrument_key
+            or not isinstance(observation.epoch, str) or not 1 <= len(observation.epoch) <= 128
+            or isinstance(observation.version, bool) or not isinstance(observation.version, int)
+            or observation.version <= 0
+            or isinstance(observation.exchange_timestamp_ms, bool)
+            or not isinstance(observation.exchange_timestamp_ms, int)
+            or observation.exchange_timestamp_ms <= 0
+        ):
             raise PaperStopObservationRejected("Observation identity is invalid.")
         if not observation.ltp or not Decimal(str(observation.ltp)).is_finite() or observation.ltp <= 0:
             raise PaperStopObservationRejected("Observation price must be finite and positive.")
@@ -59,7 +67,9 @@ class PaperStopEventIntakeService:
             raise PaperStopObservationRejected("Observation owner or receive timestamp is invalid.") from exc
         if received_at.tzinfo is None:
             raise PaperStopObservationRejected("Observation receive timestamp must be timezone-aware.")
-        age = (current - received_at.astimezone(timezone.utc)).total_seconds()
+        received_at = received_at.astimezone(timezone.utc)
+        current = current.astimezone(timezone.utc)
+        age = (current - received_at).total_seconds()
         if age < -5 or age > self.max_quote_age_seconds:
             raise PaperStopObservationRejected("Observation is stale or timestamped in the future.")
 
@@ -127,6 +137,35 @@ class PaperStopEventIntakeService:
             if position is None or position.quantity == 0:
                 continue
 
+            # Durable ordering is checked after portfolio → strategy → position
+            # locks. Epochs are opaque; accept a generation transition only
+            # with strictly newer receive time and non-regressing exchange time.
+            prior_epoch = strategy.last_quote_epoch
+            prior_version = strategy.last_quote_version
+            prior_received = strategy.last_quote_received_at
+            prior_exchange_ms = strategy.last_quote_exchange_timestamp_ms
+            prior_values = (prior_epoch, prior_version, prior_received, prior_exchange_ms)
+            if any(value is None for value in prior_values) and not all(value is None for value in prior_values):
+                raise PaperStopObservationRejected("Persisted quote ordering state is incomplete.")
+            if prior_epoch is not None:
+                prior_received_utc = prior_received
+                if prior_received_utc.tzinfo is None:
+                    prior_received_utc = prior_received_utc.replace(tzinfo=timezone.utc)
+                else:
+                    prior_received_utc = prior_received_utc.astimezone(timezone.utc)
+                if observation.epoch == prior_epoch:
+                    if (
+                        observation.version <= prior_version
+                        or received_at < prior_received_utc
+                        or observation.exchange_timestamp_ms < prior_exchange_ms
+                    ):
+                        continue
+                elif (
+                    received_at <= prior_received_utc
+                    or observation.exchange_timestamp_ms < prior_exchange_ms
+                ):
+                    continue
+
             watermark = (
                 Decimal(str(strategy.current_watermark))
                 if strategy.current_watermark is not None else None
@@ -137,6 +176,10 @@ class PaperStopEventIntakeService:
                 current_price=Decimal(str(observation.ltp)),
                 stop_pct=Decimal(str(strategy.trailing_stop_pct)),
             )
+            strategy.last_quote_epoch = observation.epoch
+            strategy.last_quote_version = observation.version
+            strategy.last_quote_received_at = received_at
+            strategy.last_quote_exchange_timestamp_ms = observation.exchange_timestamp_ms
             strategy.current_watermark = new_watermark
             self.db.add(strategy)
             if not stop_hit:

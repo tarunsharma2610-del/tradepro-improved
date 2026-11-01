@@ -19,6 +19,21 @@ def reconcile_broker_instruments(
         master.setdefault(key.strip(), []).append(instrument)
 
     source_rows = list(rows)
+    # Only exact duplicate source identities are ambiguous. A repeated key
+    # with a conflicting symbol/exchange must be reported as IDENTITY_CONFLICT,
+    # not allowed to poison an otherwise valid row sharing that key.
+    source_identity_counts: dict[tuple[str, str, str], int] = {}
+    for source in source_rows:
+        if not isinstance(source, dict):
+            continue
+        key = source.get("instrument_key")
+        if isinstance(key, str) and key.strip():
+            identity = (
+                key.strip(),
+                str(source.get("exchange") or "").strip(),
+                str(source.get("trading_symbol") or "").strip(),
+            )
+            source_identity_counts[identity] = source_identity_counts.get(identity, 0) + 1
 
     results = []
     for index, row in enumerate(source_rows):
@@ -31,7 +46,12 @@ def reconcile_broker_instruments(
             continue
         key = key.strip()
         candidates = master.get(key, [])
-        if len(candidates) > 1:
+        source_identity = (
+            key,
+            str(row.get("exchange") or "").strip(),
+            str(row.get("trading_symbol") or "").strip(),
+        )
+        if source_identity_counts.get(source_identity, 0) > 1 or len(candidates) > 1:
             results.append({"row_index": index, "instrument_key": key, "status": "AMBIGUOUS", "instrument_id": None})
             continue
         if not candidates:

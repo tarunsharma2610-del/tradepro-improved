@@ -248,3 +248,70 @@ def test_portfolio_creation_rejects_unknown_trading_mode(client):
         json={"name": "Invalid account", "virtual_capital": "100000", "trading_mode": "REAL"},
     )
     assert response.status_code == 422
+
+
+def test_paper_and_live_positions_are_isolated_by_portfolio(client, db_session):
+    from app.repositories.instrument_repository import InstrumentRepository
+    from app.repositories.position_repository import PositionRepository
+    from app.services.instrument_service import InstrumentService
+
+    _register_and_login(client, "position-isolation@example.com")
+    paper = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Paper", "virtual_capital": "100000", "trading_mode": "PAPER"},
+    )
+    live = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Live", "virtual_capital": "250000", "trading_mode": "LIVE"},
+    )
+    assert paper.status_code == live.status_code == 201
+
+    InstrumentService(db_session).seed_defaults()
+    instrument_id = InstrumentRepository(db_session).search("TCS")[0].id
+    positions = PositionRepository(db_session)
+
+    paper_position = positions.get_or_create(UUID(paper.json()["id"]), instrument_id)
+    paper_position.quantity = 5
+    paper_position.avg_price = 3500
+    positions.save(paper_position)
+
+    live_position = positions.get_or_create(UUID(live.json()["id"]), instrument_id)
+    live_position.quantity = 9
+    live_position.avg_price = 3600
+    positions.save(live_position)
+
+    paper_rows = client.get(f"/api/v1/portfolios/{paper.json()['id']}/positions")
+    live_rows = client.get(f"/api/v1/portfolios/{live.json()['id']}/positions")
+    assert paper_rows.status_code == live_rows.status_code == 200
+    assert len(paper_rows.json()) == len(live_rows.json()) == 1
+    assert paper_rows.json()[0]["quantity"] == 5
+    assert live_rows.json()[0]["quantity"] == 9
+
+
+def test_live_portfolio_order_submission_is_rejected_before_broker_access(client, db_session):
+    from app.models.order import Order
+    from app.repositories.instrument_repository import InstrumentRepository
+    from app.services.instrument_service import InstrumentService
+
+    _register_and_login(client, "live-order-denial@example.com")
+    live = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Live", "virtual_capital": "100000", "trading_mode": "LIVE"},
+    )
+    assert live.status_code == 201
+
+    InstrumentService(db_session).seed_defaults()
+    instrument_id = str(InstrumentRepository(db_session).search("TCS")[0].id)
+    response = client.post(
+        f"/api/v1/portfolios/{live.json()['id']}/orders",
+        json={
+            "instrument_id": instrument_id,
+            "side": "BUY",
+            "order_type": "MARKET",
+            "segment": "EQUITY_DELIVERY",
+            "quantity": 1,
+        },
+    )
+    assert response.status_code == 400
+    assert "PAPER-only" in response.json()["detail"]
+    assert db_session.query(Order).filter(Order.portfolio_id == UUID(live.json()["id"])).count() == 0

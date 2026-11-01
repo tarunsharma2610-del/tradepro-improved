@@ -178,3 +178,23 @@ def test_trailing_stop_rejects_invalid_inputs(kwargs):
 
     with pytest.raises(ValueError):
         check_trailing_stop(watermark=None, **kwargs)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"position_quantity": True, "position_avg_price": Decimal("0"), "side": Side.BUY, "fill_quantity": 1, "fill_price": Decimal("10")},
+        {"position_quantity": 0, "position_avg_price": Decimal("0"), "side": Side.BUY, "fill_quantity": 0, "fill_price": Decimal("10")},
+        {"position_quantity": 0, "position_avg_price": Decimal("0"), "side": Side.BUY, "fill_quantity": -1, "fill_price": Decimal("10")},
+        {"position_quantity": 0, "position_avg_price": Decimal("0"), "side": Side.BUY, "fill_quantity": True, "fill_price": Decimal("10")},
+        {"position_quantity": 0, "position_avg_price": Decimal("0"), "side": "BUY", "fill_quantity": 1, "fill_price": Decimal("10")},
+        {"position_quantity": 0, "position_avg_price": Decimal("0"), "side": Side.BUY, "fill_quantity": 1, "fill_price": Decimal("0")},
+        {"position_quantity": 0, "position_avg_price": Decimal("0"), "side": Side.BUY, "fill_quantity": 1, "fill_price": Decimal("NaN")},
+        {"position_quantity": 0, "position_avg_price": Decimal("NaN"), "side": Side.BUY, "fill_quantity": 1, "fill_price": Decimal("10")},
+        {"position_quantity": 3, "position_avg_price": Decimal("0"), "side": Side.SELL, "fill_quantity": 1, "fill_price": Decimal("10")},
+        {"position_quantity": 0, "position_avg_price": Decimal("1"), "side": Side.BUY, "fill_quantity": 1, "fill_price": Decimal("10")},
+    ],
+)
+def test_apply_fill_rejects_invalid_position_and_fill_inputs(kwargs):
+    with pytest.raises(ValueError):
+        apply_fill(**kwargs)

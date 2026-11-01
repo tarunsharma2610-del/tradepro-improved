@@ -553,3 +553,21 @@ The green dispatcher-recovery CI is necessary but not sufficient to activate quo
 2. Design the transactional per-quote evaluator: lock portfolio → strategy → position; validate tenant/mode and quote freshness; handle epoch/version ordering; update watermark and create durable stop event atomically.
 3. Add PostgreSQL 16 concurrency tests for watermark races and duplicate/out-of-order quote delivery.
 4. Add supervised consumer retry/shutdown tests, then connect Redis callback → bounded dispatcher → PAPER-only consumer. No LIVE writes.
+
+## 1 November 2026 — bounded dispatch retry and integrated PAPER runtime checkpoint
+
+- Latest code/test head: `3ca26594cf3a711be624cf2836079caac352a897`.
+- Exact-head Backend CI [#41302875861 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41302875861). All workflow steps completed: backend pytest; broker-write boundary; SQLite upgrade/downgrade/re-upgrade; isolated PostgreSQL 16 migration upgrade/downgrade/re-upgrade; synthetic PostgreSQL/document-volume restore and evidence retention.
+- Runtime worker wiring is present: Redis quote ingress → scanner/dispatcher → four PAPER dispatch workers; independent five-second durable stop-event recovery.
+- Dispatcher handler retries are capped at five attempts. On exhaustion, scanner high-water state is cleared to allow authoritative Redis snapshot replay; newer coalesced quotes are retained. PostgreSQL quote/event/order identities provide replay protection.
+- Shared PAPER execution rechecks the current position under portfolio/position locks and rejects a stale reduce-only exit if the position is flat, direction mismatched, or requested quantity exceeds the remaining position.
+- This checkpoint verifies backend CI, not production operation or sustained market-load behaviour. No production deployment or live broker write is authorized.
+
+### Remaining gates
+1. End-to-end integration proof from Redis snapshot through scanner, dispatcher, stop intake, durable claim, PAPER fill, ledger and final position/cash state.
+2. Multi-process/multi-replica tests for simultaneous quote delivery, worker death, lease expiry/reclaim, uncertain commits, Redis restart and periodic indicator-exit versus event-stop races.
+3. PAPER/LIVE mode separation audit and central live-write gateway review; current build remains PAPER-only.
+4. Security, dependency, load/backpressure, monitoring/alerting, backup/restore operations and runbook review.
+5. Synchronize all maintained docs and run exact-head CI on the final docs/code commit.
+
+PR #9 remains Draft/open/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` untouched. Live broker place/modify/cancel remain disabled.

@@ -199,6 +199,7 @@ class PaperStopEventExecutionService:
                 quantity=abs(position.quantity),
                 execution_reason="STRATEGY",
                 strategy_id=strategy.id,
+                reduce_only=True,
             )
             order = await self.execution.place_order(
                 user_id,

@@ -266,7 +266,8 @@ async def test_redis_worker_callback_feeds_validated_scan_dispatch_pipeline():
         await worker.reconcile_once()
         await wait_for_consumer(consumers)
         async def consume_and_acknowledge():
-            item = await asyncio.wait_for(dispatcher.get(), timeout=1)
+            async with asyncio.timeout(1):
+                item = await dispatcher.get()
             assert item.user_id == str(user_id)
             assert item.instrument_key == instrument
             assert item.version == 1

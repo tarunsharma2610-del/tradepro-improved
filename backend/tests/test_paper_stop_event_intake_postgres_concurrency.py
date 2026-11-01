@@ -230,3 +230,99 @@ def test_postgres_concurrent_duplicate_trigger_creates_one_stop_event():
     finally:
         _cleanup(Session, ids)
         engine.dispose()
+
+
+
+def test_postgres_concurrent_epoch_rotation_rejects_delayed_old_epoch():
+    """A delayed prior WebSocket generation cannot overwrite a newer epoch."""
+    engine, Session = _engine_and_session()
+    ids = _seed(Session, uuid4().hex[:12])
+    user_id, _, instrument_id, strategy_id = ids
+    with Session() as db:
+        instrument_key = db.get(Instrument, instrument_id).instrument_key
+
+    now = datetime.now(timezone.utc)
+    old_epoch = f"old-{uuid4()}"
+    new_epoch = f"new-{uuid4()}"
+    delayed_old = _observation(
+        user_id, instrument_key, epoch=old_epoch, version=99,
+        price=Decimal("103.00"), received_at=now - timedelta(milliseconds=2),
+    )
+    current_new = _observation(
+        user_id, instrument_key, epoch=new_epoch, version=1,
+        price=Decimal("105.00"), received_at=now,
+    )
+    barrier = threading.Barrier(2)
+    outcomes = []
+    lock = threading.Lock()
+
+    def evaluate(observation):
+        with Session() as db:
+            barrier.wait(timeout=10)
+            try:
+                PaperStopEventIntakeService(db).evaluate_and_claim(observation, now=now)
+                db.commit()
+                result = "committed"
+            except Exception as exc:
+                db.rollback()
+                result = f"error:{type(exc).__name__}:{exc}"
+            with lock:
+                outcomes.append(result)
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(evaluate, delayed_old), pool.submit(evaluate, current_new)]
+            for future in futures:
+                future.result(timeout=45)
+        assert outcomes == ["committed", "committed"] or sorted(outcomes) == ["committed", "committed"], outcomes
+        with Session() as verify:
+            saved = verify.get(Strategy, strategy_id)
+            assert saved.last_quote_epoch == new_epoch
+            assert saved.last_quote_version == 1
+            assert saved.last_quote_received_at == now
+            assert saved.current_watermark == Decimal("105.0000")
+    finally:
+        _cleanup(Session, ids)
+        engine.dispose()
+
+
+def test_postgres_claim_failure_rolls_back_quote_identity_and_watermark(monkeypatch):
+    """A failed stop claim leaves no partial quote or watermark commit."""
+    from app.services.paper_stop_event_claim_service import PaperStopEventClaimService
+
+    engine, Session = _engine_and_session()
+    ids = _seed(Session, uuid4().hex[:12])
+    user_id, _, instrument_id, strategy_id = ids
+    with Session() as db:
+        instrument_key = db.get(Instrument, instrument_id).instrument_key
+
+    now = datetime.now(timezone.utc)
+    triggering_quote = _observation(
+        user_id, instrument_key, epoch=f"rollback-{uuid4()}",
+        version=7, price=Decimal("97.00"), received_at=now,
+    )
+
+    def fail_claim(self, *args, **kwargs):
+        raise RuntimeError("injected PostgreSQL claim failure")
+
+    monkeypatch.setattr(PaperStopEventClaimService, "claim_trailing_stop", fail_claim)
+    try:
+        with Session() as db:
+            with pytest.raises(RuntimeError, match="injected PostgreSQL"):
+                PaperStopEventIntakeService(db).evaluate_and_claim(
+                    triggering_quote, now=now
+                )
+            db.rollback()
+
+        # A separate connection proves none of the failed transaction escaped.
+        with Session() as verify:
+            saved = verify.get(Strategy, strategy_id)
+            assert saved.last_quote_epoch is None
+            assert saved.last_quote_version is None
+            assert saved.last_quote_received_at is None
+            assert saved.last_quote_exchange_timestamp_ms is None
+            assert saved.current_watermark == Decimal("100.0000")
+            assert verify.query(PaperStopEvent).filter_by(strategy_id=strategy_id).count() == 0
+    finally:
+        _cleanup(Session, ids)
+        engine.dispose()

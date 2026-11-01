@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+import pytest
+
 from app.services.position_math import apply_fill
 from app.services.transaction_costs import Side
 
@@ -160,16 +162,19 @@ def test_trailing_stop_triggers_short_at_or_above_ratchet_threshold():
     assert hit is True
 
 
-def test_trailing_stop_does_not_trigger_on_zero_or_negative_stop_percent():
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"position_quantity": 0, "current_price": Decimal("100"), "stop_pct": Decimal("5")},
+        {"position_quantity": 10, "current_price": Decimal("0"), "stop_pct": Decimal("5")},
+        {"position_quantity": 10, "current_price": Decimal("100"), "stop_pct": Decimal("0")},
+        {"position_quantity": 10, "current_price": Decimal("100"), "stop_pct": Decimal("-1")},
+        {"position_quantity": 10, "current_price": Decimal("100"), "stop_pct": Decimal("51")},
+        {"position_quantity": 10, "current_price": Decimal("NaN"), "stop_pct": Decimal("5")},
+    ],
+)
+def test_trailing_stop_rejects_invalid_inputs(kwargs):
     from app.services.position_math import check_trailing_stop
 
-    # Zero stop percentage is mathematically defined but immediately exits
-    # on any adverse tick; negative percentages are invalid strategy config.
-    watermark, hit = check_trailing_stop(
-        watermark=Decimal("100"),
-        position_quantity=10,
-        current_price=Decimal("99"),
-        stop_pct=Decimal("0"),
-    )
-    assert watermark == Decimal("100")
-    assert hit is True
+    with pytest.raises(ValueError):
+        check_trailing_stop(watermark=None, **kwargs)

@@ -451,11 +451,28 @@ def test_latest_broker_positions_never_exposes_snapshot_from_replaced_account(cl
         raw_response={"status": "success", "data": []},
     )
     db_session.add(snapshot)
+    from decimal import Decimal
+    from app.models.broker_funds_snapshot import BrokerFundsSnapshot
+    funds_snapshot = BrokerFundsSnapshot(
+        broker_connection_id=first.id,
+        portfolio_id=portfolio_id,
+        user_id=owner.id,
+        total_available_to_trade=Decimal("1000.00"),
+        cash_available_to_trade=Decimal("900.00"),
+        pledge_available_to_trade=Decimal("100.00"),
+        unsettled_profit_today=Decimal("0.00"),
+        unsettled_profit_previous_days=Decimal("0.00"),
+        raw_response={"status": "success", "data": {}},
+    )
+    db_session.add(funds_snapshot)
     db_session.commit()
 
     latest_before = client.get(f"/api/v1/portfolios/{portfolio_id}/broker-positions/latest")
     assert latest_before.status_code == 200
     assert latest_before.json()["broker_connection_id"] == str(first.id)
+    funds_before = client.get(f"/api/v1/portfolios/{portfolio_id}/broker-funds/latest")
+    assert funds_before.status_code == 200
+    assert funds_before.json()["broker_connection_id"] == str(first.id)
 
     removed = client.delete(f"/api/v1/portfolios/{portfolio_id}/broker-allocation")
     assert removed.status_code == 204
@@ -467,3 +484,5 @@ def test_latest_broker_positions_never_exposes_snapshot_from_replaced_account(cl
 
     latest_after = client.get(f"/api/v1/portfolios/{portfolio_id}/broker-positions/latest")
     assert latest_after.status_code == 404
+    funds_after = client.get(f"/api/v1/portfolios/{portfolio_id}/broker-funds/latest")
+    assert funds_after.status_code == 404

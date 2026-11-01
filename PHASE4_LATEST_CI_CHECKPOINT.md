@@ -571,3 +571,14 @@ The green dispatcher-recovery CI is necessary but not sufficient to activate quo
 5. Synchronize all maintained docs and run exact-head CI on the final docs/code commit.
 
 PR #9 remains Draft/open/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` untouched. Live broker place/modify/cancel remain disabled.
+
+## PAPER/LIVE isolation audit finding — 1 November 2026
+
+A source review of the current models and shared execution service confirms that the present Phase 4 runtime is PAPER-only, not yet a selectable dual-mode implementation:
+- `ExecutionService.place_order` explicitly creates orders with `trading_mode="PAPER"` and the current market execution/fill path is simulated accounting; it does not route order writes to Upstox.
+- `Order` has a `trading_mode` column, but `Portfolio` does not own a mode and `Position` is scoped only by `(portfolio_id, instrument_id)`. Therefore the desired separate PAPER/LIVE balances and positions are not yet proven by the current schema.
+- Before enabling LIVE, design and test a mode boundary at portfolio/account scope: mode-bound portfolio ownership, order/position/ledger queries constrained to that mode, strategy-to-portfolio mode binding, and a separate explicit live broker execution gateway with deny-by-default authorization and idempotency.
+- Switching modes must select a different isolated portfolio/account; it must never mutate an existing order's mode, move positions/cash, or route PAPER strategies to a live gateway.
+- Keep LIVE broker place/modify/cancel disabled until this design, migrations, API authorization, UI selection, adversarial tests and independent safety audit are complete.
+
+This is a verified outstanding product requirement, not a claim that LIVE mode is implemented.

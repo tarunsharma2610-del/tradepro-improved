@@ -510,3 +510,23 @@ Product direction: Tradepro Improved is intended to support both PAPER and LIVE 
 3. Add a separately supervised PAPER consumer that validates receive-time and exchange-time freshness, resolves user/strategy ownership, obtains durable claim/lease and delegates to the existing atomic PAPER stop-event execution service.
 4. Test multi-worker PostgreSQL idempotency, Redis disconnect/reconnect/replay, queue overflow, stale/future quotes, depth, kill switch and cross-tenant isolation.
 5. Exact-head full CI before each accepted checkpoint. No LIVE writes until independent readiness gates and explicit approval.
+
+
+## Architecture review after dispatcher recovery CI — 1 November 2026
+
+The green dispatcher-recovery CI is necessary but not sufficient to activate quote-driven stop execution. A source review of `backend/app/worker.py`, `redis_market_quote_worker.py`, `market_scanner.py`, `strategy_execution_service.py`, and the stop-event services identified the following integration boundary:
+
+- The existing worker currently wires `RedisMarketQuoteWorker(on_quote=scanner.process_quote)`. `MarketScanner.process_quote` is synchronous, validates/builds an in-memory observation, and does not execute orders. This is safe for the current scanner role.
+- The Redis worker awaits async `on_quote` callbacks inline. Therefore the future dispatcher publish callback must be synchronous/non-blocking; it must not perform DB reads, strategy evaluation, broker calls or await execution.
+- The dispatcher is bounded and process-local. Its cooperative `release()` recovers task cancellation only. Hard process death requires upstream Redis snapshot recovery and durable PostgreSQL claim/lease recovery; the in-memory queue is not a durable event log.
+- Existing trailing-stop behavior is currently evaluated inside the 5-minute `StrategyExecutionService.evaluate` cycle using the latest scanner observation and persisted `current_watermark`. The stop-event claim/execution services provide idempotent durable execution, but the quote-driven consumer still needs an explicit, transactionally safe per-tick stop-evaluation/watermark policy.
+- Do not simply connect dispatcher items directly to `claim_trailing_stop` or `execute_claimed`. First define and test how active strategy/portfolio/position ownership is resolved; how watermark is advanced or a trigger is calculated under row locks; how stale/future exchange timestamps are rejected at the final boundary; and how quote epochs/replay are handled.
+- A dedicated supervised PAPER consumer must own bounded DB sessions, retry/backoff and shutdown semantics. Redis callbacks remain dispatch-only. The consumer must call the existing shared `check_trailing_stop` logic, not reimplement its math, and then use the existing durable claim + atomic execution services.
+- The current strategy/portfolio schema and execution path are not yet evidence of completed user-selectable PAPER/LIVE balance and order isolation. That remains a separate product requirement and live-readiness gate. All live broker order writes stay disabled.
+
+### Revised immediate next slice (before order integration)
+1. Specify a quote-driven trailing-stop evaluation service: lock order, owner resolution, watermark advancement, trigger boundary, quote age/skew policy and duplicate event key.
+2. Add pure/unit tests for long/short watermark evolution, epoch reset, duplicate/out-of-order quote, stale/future quote and no-position/no-strategy cases.
+3. Add PostgreSQL 16 concurrency tests proving two ticks/workers cannot race watermark updates or generate duplicate stop events.
+4. Add supervised dispatcher consumer tests for handler failure/backoff, cancellation during handler/backoff, graceful shutdown and pending/in-flight accounting.
+5. Only then wire the synchronous scanner→dispatcher publish callback and the PAPER-only consumer. Keep it disabled until integrated exact-head CI passes.

@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -62,4 +63,16 @@ class BrokerPortfolioAllocationOut(BaseModel):
     broker_connection_id: UUID
     broker: str
     trading_mode: str
+    created_at: datetime
+
+
+class BrokerFundsSnapshotOut(BaseModel):
+    id: UUID
+    portfolio_id: UUID
+    broker_connection_id: UUID
+    total_available_to_trade: Decimal
+    cash_available_to_trade: Decimal
+    pledge_available_to_trade: Decimal
+    unsettled_profit_today: Decimal
+    unsettled_profit_previous_days: Decimal
     created_at: datetime

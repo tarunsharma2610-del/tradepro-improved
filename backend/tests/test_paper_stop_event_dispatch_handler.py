@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
-from sqlalchemy.orm import sessionmaker
 import pytest
 
 from app.models.instrument import Instrument
@@ -125,7 +124,7 @@ async def test_handler_rotates_expired_claim_token_before_execution(
     old_token = event.claim_token
     db_session.commit()
 
-    monkeypatch.setattr(handler, "SessionLocal", sessionmaker(bind=db_session.get_bind()))
+    monkeypatch.setattr(handler, "SessionLocal", _fixture_session_factory(db_session))
     calls = []
 
     async def fake_execute(self, **kwargs):
@@ -168,7 +167,7 @@ async def test_recovery_sweeper_resumes_expired_claim_without_redis_redelivery(
     old_token = event.claim_token
     db_session.commit()
 
-    monkeypatch.setattr(handler, "SessionLocal", sessionmaker(bind=db_session.get_bind()))
+    monkeypatch.setattr(handler, "SessionLocal", _fixture_session_factory(db_session))
     calls = []
 
     async def fake_execute(self, **kwargs):
@@ -210,7 +209,7 @@ async def test_recovery_sweeper_terminalizes_expired_claim_at_attempt_limit(
     event.attempt_count = 5
     db_session.commit()
 
-    monkeypatch.setattr(handler, "SessionLocal", sessionmaker(bind=db_session.get_bind()))
+    monkeypatch.setattr(handler, "SessionLocal", _fixture_session_factory(db_session))
     calls = []
 
     async def fake_execute(self, **kwargs):

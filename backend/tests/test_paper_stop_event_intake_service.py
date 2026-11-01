@@ -3,6 +3,7 @@ from decimal import Decimal
 import uuid
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.models.instrument import Instrument
 from app.models.paper_stop_event import PaperStopEvent
@@ -262,3 +263,58 @@ def test_stop_claim_failure_rolls_back_quote_identity_and_watermark(db_session, 
     assert strategy.last_quote_exchange_timestamp_ms is None
     assert strategy.current_watermark == Decimal("100")
     assert db_session.query(PaperStopEvent).count() == 0
+
+
+
+@pytest.mark.parametrize(
+    "partial_state",
+    [
+        {"last_quote_epoch": "epoch-only"},
+        {"last_quote_version": 1},
+        {"last_quote_received_at": datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)},
+        {"last_quote_exchange_timestamp_ms": 1},
+        {
+            "last_quote_epoch": "",
+            "last_quote_version": 1,
+            "last_quote_received_at": datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc),
+            "last_quote_exchange_timestamp_ms": 1,
+        },
+        {
+            "last_quote_epoch": "epoch",
+            "last_quote_version": 0,
+            "last_quote_received_at": datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc),
+            "last_quote_exchange_timestamp_ms": 1,
+        },
+        {
+            "last_quote_epoch": "epoch",
+            "last_quote_version": 1,
+            "last_quote_received_at": datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc),
+            "last_quote_exchange_timestamp_ms": 0,
+        },
+    ],
+)
+def test_database_rejects_malformed_or_partial_persisted_quote_identity(
+    db_session, make_user, partial_state
+):
+    """The DB constraint rejects partial and invalid ordering high-water marks."""
+    from sqlalchemy import update
+
+    user, portfolio, instrument, strategy, _ = setup_stop_position(db_session, make_user)
+    with pytest.raises(IntegrityError):
+        db_session.execute(
+            update(Strategy)
+            .where(Strategy.id == strategy.id)
+            .values(**partial_state)
+        )
+        db_session.flush()
+    db_session.rollback()
+
+
+def test_database_accepts_fully_empty_quote_identity_before_first_quote(db_session, make_user):
+    """An uninitialized strategy has all four ordering fields NULL."""
+    user, portfolio, instrument, strategy, _ = setup_stop_position(db_session, make_user)
+    db_session.refresh(strategy)
+    assert strategy.last_quote_epoch is None
+    assert strategy.last_quote_version is None
+    assert strategy.last_quote_received_at is None
+    assert strategy.last_quote_exchange_timestamp_ms is None

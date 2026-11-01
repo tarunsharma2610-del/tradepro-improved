@@ -105,6 +105,9 @@ class ExecutionService:
         if portfolio is None:
             raise OrderValidationError("Portfolio not found.")
 
+        if portfolio.trading_mode != "PAPER":
+            raise OrderValidationError("This execution path is PAPER-only; LIVE execution is not enabled.")
+
         if paper_stop_event_id is not None:
             existing = self.orders.get_for_paper_stop_event(paper_stop_event_id)
             if existing is not None:

@@ -371,3 +371,10 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - CI #41286561712: 1,388 passed, one failed; only duplicate completed-event replay failed.
 - Fixed ordering so completed event and original PAPER order are verified before open-position validation. This is necessary because the first successful fill closes/flattens the position.
 - Active claims still require a locked, non-zero position before any fill. No live broker writes; full CI rerun pending.
+
+
+## 1 November 2026 — broker-write scanner refined for PAPER orchestration
+
+- CI #41286886564: full pytest passed; AST broker-write gate flagged intended call into shared ExecutionService.
+- Added exact-path, exact-function, exact-receiver allowlist for `self.execution.place_order` in the PAPER stop-event execution service, with a test ensuring direct adapter.place_order in that file still fails.
+- Exact-head CI pending; migration/restore gates remain unverified.

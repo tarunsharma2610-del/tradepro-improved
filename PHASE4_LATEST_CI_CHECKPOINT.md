@@ -439,3 +439,10 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Root cause: duplicate delivery checked for a non-flat position before checking COMPLETED state. The first successful stop fill correctly flattened the position, so replay was incorrectly rejected rather than returning the existing order.
 - Reordered validation/locks: portfolio -> strategy -> event; a completed event returns its existing matching filled PAPER order. Only active claimed events then lock/check the open position and proceed.
 - Exact-head CI required. PostgreSQL concurrency and dispatcher remain blocked.
+
+
+## 1 November 2026 — narrow PAPER execution call allowlist added; CI pending
+
+- CI #41286886564: pytest passed; broker-write AST gate failed on the intended shared `self.execution.place_order` call inside the PAPER stop-event orchestration service.
+- Narrowly allowed that exact receiver and function in that exact file. Added positive regression test for shared ExecutionService delegation and negative test proving direct adapter.place_order remains blocked.
+- No live broker-write exemption added. Await full exact-head CI including SQLite/PostgreSQL 16 migrations and restore drill.

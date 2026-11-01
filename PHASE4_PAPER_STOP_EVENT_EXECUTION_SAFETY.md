@@ -94,3 +94,11 @@ If a stop-event consumer calls the current execution path and the process fails 
 - CI #41286561712: 1,388 passed, one failed. The sole failure was the duplicate-completed-event test: after the first successful fill flattened the position, replay was rejected by the open-position guard before the service checked whether the event was already COMPLETED.
 - Corrected the lock/validation sequence to lock and validate portfolio -> strategy -> event first. A valid COMPLETED event now returns its existing matching filled PAPER order before requiring an open position. Only still-CLAIMED events proceed to lock and validate the open position.
 - This preserves idempotency and avoids a second fill; no retry or accounting behavior was loosened. Exact-head CI must pass before PostgreSQL concurrency work.
+
+
+## 1 November 2026 — broker-write boundary allowlist refinement
+
+- CI #41286886564: full pytest suite passed. The next broker-write AST gate failed because it correctly flagged the new orchestration service's call to `self.execution.place_order`.
+- Reviewed the call site: receiver is the shared `ExecutionService` instance created in the constructor; the request is constructed as a MARKET strategy exit for the existing position, and execution is invoked with `commit=False` so the caller commits the PAPER order/accounting and event transition together. No broker adapter or broker client is referenced by this service.
+- Refined the AST guard narrowly: allow only `self.execution.place_order` inside `execute_claimed` in the exact `services/paper_stop_event_execution_service.py` path. Added guard regression tests proving that same-file direct `adapter.place_order` remains rejected.
+- This is not a file-wide exemption and does not whitelist adapter writes. Exact-head CI must now run all migration and restore gates.

@@ -119,7 +119,7 @@ def test_strategy_analytics_separates_by_strategy(db_session, portfolio, instrum
 
 
 
-def test_portfolio_analytics_filters_executions_by_order_trading_mode(db_session, portfolio, instrument, make_user):
+def test_portfolio_analytics_filters_executions_by_order_trading_mode(db_session, portfolio, instrument):
     now = datetime.now(timezone.utc)
     _make_order_and_execution(
         db_session, portfolio.id, instrument.id, side="SELL",
@@ -130,9 +130,8 @@ def test_portfolio_analytics_filters_executions_by_order_trading_mode(db_session
     # Real portfolios cannot mix modes (the composite FK enforces this).
     # Keep the two valid environments separate and verify the query's mode
     # predicate independently of portfolio ownership.
-    live_user = make_user()
     live_portfolio = PortfolioRepository(db_session).create(
-        user_id=live_user.id, name="Live analytics test", virtual_capital=None, trading_mode="LIVE"
+        user_id=portfolio.user_id, name="Live analytics test", virtual_capital=None, trading_mode="LIVE"
     )
     live_order = Order(
         portfolio_id=live_portfolio.id, instrument_id=instrument.id, side="SELL",

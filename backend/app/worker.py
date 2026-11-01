@@ -30,6 +30,13 @@ from app.repositories.strategy_repository import StrategyRepository
 from app.services.execution_service import ExecutionService
 from app.services.news_service import NewsService
 from app.services.market_scanner import MarketScanner
+from app.services.market_quote_dispatcher import MarketQuoteDispatcher
+from app.services.market_quote_dispatch_worker import MarketQuoteDispatchWorker
+from app.services.market_scan_dispatch_pipeline import MarketScanDispatchPipeline
+from app.services.paper_stop_event_dispatch_handler import (
+    handle_paper_market_observation,
+    recover_expired_paper_stop_events_once,
+)
 from app.services.redis_market_quote_worker import RedisMarketQuoteWorker
 from app.services.strategy_execution_service import StrategyExecutionService
 from app.services.telegram_service import TelegramService
@@ -40,6 +47,7 @@ logger = logging.getLogger("trading_platform.worker")
 STRATEGY_EVAL_INTERVAL_SECONDS = 300  # 5 minutes -- matches the 5-minute candles the strategy engine reads
 TELEGRAM_POLL_INTERVAL_SECONDS = 30
 NEWS_INGEST_INTERVAL_SECONDS = 1800  # 30 minutes
+PAPER_STOP_RECOVERY_INTERVAL_SECONDS = 5
 IST = ZoneInfo("Asia/Kolkata")
 
 
@@ -117,6 +125,20 @@ async def run_news_ingest() -> dict[str, int]:
         session.close()
 
 
+async def run_paper_stop_event_recovery() -> None:
+    """Resume expired durable PAPER stop claims independently of Redis."""
+    while True:
+        try:
+            recovered = await recover_expired_paper_stop_events_once()
+            if recovered:
+                logger.info("Recovered %s expired PAPER stop event(s).", recovered)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("PAPER stop-event recovery failed this pass -- will retry.")
+        await asyncio.sleep(PAPER_STOP_RECOVERY_INTERVAL_SECONDS)
+
+
 async def main() -> None:
     logger.info(
         "Worker started. Strategies every %ss (market hours), Telegram every %ss, news every %ss.",
@@ -125,9 +147,20 @@ async def main() -> None:
     last_strategy_eval = 0.0
     last_news_ingest = 0.0
     scanner = MarketScanner()
-    quote_worker = RedisMarketQuoteWorker(on_quote=scanner.process_quote)
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=1024)
+    pipeline = MarketScanDispatchPipeline(scanner=scanner, dispatcher=dispatcher)
+    quote_worker = RedisMarketQuoteWorker(on_quote=pipeline.on_quote)
     quote_worker_task = asyncio.create_task(
         quote_worker.run_forever(), name="redis-market-quote-worker"
+    )
+    dispatch_worker = MarketQuoteDispatchWorker(
+        dispatcher, handle_paper_market_observation
+    )
+    dispatch_worker_task = asyncio.create_task(
+        dispatch_worker.run(), name="paper-market-quote-dispatch-worker"
+    )
+    stop_recovery_task = asyncio.create_task(
+        run_paper_stop_event_recovery(), name="paper-stop-event-recovery"
     )
 
     try:
@@ -140,7 +173,7 @@ async def main() -> None:
 
             if now - last_strategy_eval >= STRATEGY_EVAL_INTERVAL_SECONDS:
                 if _is_market_hours():
-                    evaluated = await run_once(scanner=scanner)
+                    evaluated = await run_once()
                     if evaluated:
                         logger.info("Evaluated %s active strategies this pass.", evaluated)
                 else:
@@ -155,8 +188,16 @@ async def main() -> None:
 
             await asyncio.sleep(TELEGRAM_POLL_INTERVAL_SECONDS)
     finally:
+        # Stop ingress first, then release any in-flight dispatch item. A
+        # process restart can recover committed claims from PostgreSQL even
+        # when the in-memory Redis/dispatcher queue is lost.
         quote_worker_task.cancel()
         await asyncio.gather(quote_worker_task, return_exceptions=True)
+        dispatch_worker_task.cancel()
+        stop_recovery_task.cancel()
+        await asyncio.gather(
+            dispatch_worker_task, stop_recovery_task, return_exceptions=True
+        )
         await quote_worker.close()
 
 

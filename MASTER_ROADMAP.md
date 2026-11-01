@@ -2345,3 +2345,10 @@ This section is the current-status authority as of 2026-11-01 and supersedes old
 - PR #9 remains Draft and unmerged. Work is restricted to `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository remains out of scope and must not be modified.
 - Next implementation sequence: holdings synchronization; broker instrument identity reconciliation; separate realized P&L ledger; freshness-gated unrealized P&L using market prices; stale-data detection; multi-worker synchronization recovery; end-to-end security/isolation and operational review.
 - Documentation update itself must pass exact-head Backend CI before this documentation checkpoint is considered green.
+
+
+## Phase 4 status update — 1 November 2026
+
+Latest branch head `18588c18f550f6dc5a4953f90229e05f31e14269` passed exact-head Backend CI #41328649301. Fresh-quote LIVE unrealized P&L calculator passed #41327228865; read-only portfolio P&L projection and duplicate-position protections passed #41328649301. This is calculation/projection logic only; Redis/API/UI integration remains outstanding.
+
+Next gates: authoritative Redis snapshot adapter → owner-scoped LIVE portfolio API integration → API-level stale-data/ownership/PAPER isolation tests → broker/internal realized ledger reconciliation → frontend → multi-worker recovery, security and operational review. Do not show partial aggregate P&L as complete. Keep realized and unrealized P&L distinct. LIVE order writes stay disabled and PR #9 remains Draft/unmerged.

@@ -139,6 +139,12 @@ class MarketScanner:
             return None
         return self._latest.get(identity)
 
+    def clear_instrument(self, user_id: UUID | str, instrument_key: str) -> None:
+        """Allow one capacity-dropped Redis snapshot to be validated again."""
+        identity = (str(user_id), instrument_key)
+        self._latest.pop(identity, None)
+        self._latest_seen.pop(identity, None)
+
     def clear_user(self, user_id: UUID | str) -> None:
         owner = str(user_id)
         for identity in [key for key in self._latest if key[0] == owner]:

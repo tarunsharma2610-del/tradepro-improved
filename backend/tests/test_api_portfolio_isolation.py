@@ -255,7 +255,7 @@ def test_portfolio_creation_rejects_unknown_trading_mode(client):
     assert response.status_code == 422
 
 
-def test_paper_and_live_positions_are_isolated_by_portfolio(client, db_session):
+def test_paper_positions_are_returned_and_live_positions_fail_closed_until_broker_allocation(client, db_session):
     from app.repositories.instrument_repository import InstrumentRepository
     from app.repositories.position_repository import PositionRepository
     from app.services.instrument_service import InstrumentService
@@ -280,18 +280,13 @@ def test_paper_and_live_positions_are_isolated_by_portfolio(client, db_session):
     paper_position.avg_price = 3500
     positions.save(paper_position)
 
-    live_position = positions.get_or_create(UUID(live.json()["id"]), instrument_id)
-    live_position.quantity = 9
-    live_position.avg_price = 3600
-    positions.save(live_position)
-
     paper_rows = client.get(f"/api/v1/portfolios/{paper.json()['id']}/positions")
     live_rows = client.get(f"/api/v1/portfolios/{live.json()['id']}/positions")
-    assert paper_rows.status_code == live_rows.status_code == 200
-    assert len(paper_rows.json()) == len(live_rows.json()) == 1
+    assert paper_rows.status_code == 200
+    assert len(paper_rows.json()) == 1
     assert paper_rows.json()[0]["quantity"] == 5
-    assert live_rows.json()[0]["quantity"] == 9
-
+    assert live_rows.status_code == 503
+    assert "verified broker sync and portfolio allocation" in live_rows.json()["detail"]
 
 def test_live_portfolio_order_submission_is_rejected_before_broker_access(client, db_session):
     from app.models.order import Order

@@ -184,6 +184,9 @@ def test_live_portfolio_cannot_activate_or_evaluate_paper_strategy(client, db_se
 
     portfolio = db_session.query(Portfolio).filter(Portfolio.id == UUID(portfolio_id)).one()
     portfolio.trading_mode = "LIVE"
+    portfolio.balance_source = "UNAVAILABLE"
+    portfolio.virtual_capital = 0
+    portfolio.cash_balance = 0
     db_session.commit()
 
     activation = client.post(
@@ -298,7 +301,7 @@ def test_live_portfolio_order_submission_is_rejected_before_broker_access(client
     _register_and_login(client, "live-order-denial@example.com")
     live = client.post(
         "/api/v1/portfolios",
-        json={"name": "Live", "virtual_capital": "100000", "trading_mode": "LIVE"},
+        json={"name": "Live", "trading_mode": "LIVE"},
     )
     assert live.status_code == 201
 

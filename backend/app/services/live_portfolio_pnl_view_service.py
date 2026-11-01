@@ -21,6 +21,7 @@ def build_live_unrealized_pnl_view(
     rows = []
     total = Decimal("0.00")
     unavailable_count = 0
+    seen_position_identities: set[tuple[str, str | None]] = set()
 
     for index, position in enumerate(broker_positions):
         if not isinstance(position, dict):
@@ -38,6 +39,19 @@ def build_live_unrealized_pnl_view(
             rows.append({"row_index": index, "instrument_key": key, "status": "INVALID_QUANTITY", "unrealized_pnl": None})
             unavailable_count += 1
             continue
+        product = position.get("product")
+        identity = (key, product if isinstance(product, str) and product.strip() else None)
+        if identity in seen_position_identities:
+            rows.append({
+                "row_index": index,
+                "instrument_key": key,
+                "status": "DUPLICATE_BROKER_POSITION",
+                "unrealized_pnl": None,
+            })
+            unavailable_count += 1
+            continue
+        seen_position_identities.add(identity)
+
         if quantity == 0:
             rows.append({
                 "row_index": index, "instrument_key": key,

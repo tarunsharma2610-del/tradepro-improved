@@ -3031,3 +3031,15 @@ Resume from `phase4/redis-market-data-publisher` in `tarunsharma2610-del/tradepr
 ## Phase 4 verified checkpoint — 30 October 2026
 
 Implementation commit `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358) on the exact SHA. Backend pytest (including PostgreSQL 16 independent-session stop-claim races), broker-write boundary enforcement, SQLite migrations, isolated PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore all passed. Migration validation now uses separate `tradepro_migration_check` DB; concurrency tests use `tradepro_test`. Next: claim-token-owned event lifecycle transitions, then lease reclamation and crash recovery. PR #9 remains Draft/unmerged; PAPER mandatory; all live broker writes disabled; only `tradepro-improved` is in scope.
+
+## Current handover — Phase 4 bounded dispatch retry checkpoint — 1 November 2026
+
+Resume in `tarunsharma2610-del/tradepro-improved`, branch `phase4/redis-market-data-publisher`, PR #9 Draft/open/unmerged.
+
+- Latest code/test SHA: `3ca26594cf3a711be624cf2836079caac352a897`.
+- Exact-head Backend CI [#41302875861 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41302875861). Backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic PostgreSQL/document-volume restore passed.
+- Worker runtime currently wires Redis quote ingress → scanner/dispatcher → four PAPER dispatch workers, plus five-second durable stop-event recovery.
+- Dispatch handler retries at most five times. Exhaustion resets scanner high-water state to permit authoritative Redis snapshot replay; durable quote/event/order idempotency is relied on for uncertain commit recovery.
+- PAPER exits use reduce-only validation under portfolio/position locks; this prevents stale duplicate exits from increasing/reversing exposure.
+- Next: strengthen true end-to-end Redis → stop intake → claim → fill/ledger/position tests; multi-process/restart/concurrent indicator-exit race tests; then PAPER/LIVE isolation and security/operational audits. Synchronize docs and require exact-head CI.
+- Do not deploy, activate live writes, mark PR ready, or merge. Preserve the original `Tradepro` repository untouched.

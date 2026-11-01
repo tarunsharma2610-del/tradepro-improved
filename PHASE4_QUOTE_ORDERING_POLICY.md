@@ -180,3 +180,17 @@ A PAPER-only async dispatch worker was added:
 - Does not submit broker orders and is not wired into the application lifespan or scanner yet.
 
 Implementation and tests are being added on the Phase 4 branch. Tests cover transient failure/retry, cancellation/requeue, newer-quote preference at shutdown, and invalid backoff bounds. Exact-head CI must pass before this worker is considered verified or integrated.
+
+
+## Supervised dispatcher worker CI verified — 1 November 2026
+
+Backend CI #41297279152 passed on worker test commit `40ad92f69fc888702349cfecc72163a5580d19a5`; documentation-head CI #41297295118 passed on `9bc7891b2763bbe21b5ba192d9945b554b52d13a`. The first worker draft had a flaky retry test caused by the mocked sleep yielding through the patched asyncio.sleep; the test was corrected. The worker retains per-key single-flight ownership through retry backoff, and cancellation releases the in-flight key for safe replay. The successful documentation-head run completed all backend tests, broker-write boundary, SQLite/PostgreSQL 16 migration cycle and synthetic restore.
+
+## Persisted quote identity database guard tests — submitted, CI pending
+
+Added tests to verify the migration's `ck_strategies_quote_identity_complete` constraint:
+- Reject partially populated quote identity tuples.
+- Reject empty epoch, non-positive quote version and non-positive exchange timestamp.
+- Accept the fully NULL tuple before the first quote.
+
+Test commit: `700567dc2cf7ada0764ddb0f642818a3ed56a863`. Exact-head Backend CI must pass before this integrity coverage is considered verified.

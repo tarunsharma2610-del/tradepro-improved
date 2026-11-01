@@ -126,6 +126,11 @@ class PaperStopEventIntakeService:
                 # Strategy has a joined-loaded optional Instrument relationship.
                 # PostgreSQL rejects an unrestricted FOR UPDATE over the nullable
                 # side of that outer join; lock only the strategy row.
+                # The initial candidate query may already have loaded this
+                # Strategy into the Session identity map before another worker
+                # committed. Refresh after acquiring the row lock so ordering
+                # compares against the latest committed high-water mark.
+                .populate_existing()
                 .with_for_update(of=Strategy)
                 .first()
             )

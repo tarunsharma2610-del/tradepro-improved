@@ -150,7 +150,9 @@ async def ask_assistant(
 @router.get("/{portfolio_id}/analytics", response_model=PortfolioAnalyticsOut)
 def get_portfolio_analytics(portfolio_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     portfolio = _get_owned_portfolio(db, user, portfolio_id)
-    return analytics_service.portfolio_analytics(db, portfolio.id, Decimal(str(portfolio.virtual_capital)))
+    return analytics_service.portfolio_analytics(
+        db, portfolio.id, Decimal(str(portfolio.virtual_capital)), trading_mode=portfolio.trading_mode
+    )
 
 
 @router.get("/{portfolio_id}/strategies/analytics", response_model=list[StrategyAnalyticsOut])

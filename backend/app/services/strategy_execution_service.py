@@ -188,6 +188,7 @@ class StrategyExecutionService:
                 quantity=abs(position_quantity),
                 execution_reason="STRATEGY",
                 strategy_id=strategy.id,
+                reduce_only=True,
             ),
         )
 

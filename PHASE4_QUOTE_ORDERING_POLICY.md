@@ -143,3 +143,12 @@ Backend CI #41294894211 is running against the exact fix commit. Until it passes
 The first scoped Strategy lock exposed the same PostgreSQL outer-join restriction on Position: its joined-loaded optional Instrument relationship caused the Position query's unrestricted `FOR UPDATE` to fail. The intake service now uses `.with_for_update(of=Position)` as well, matching the existing claim service's scoped Position lock. The intended portfolio → strategy → position lock order is unchanged.
 
 Fix commit: `2dc2d5b0beb59e4b6992e125c70787c410a915a1`. Exact-head Backend CI is required; no passing result is claimed yet.
+
+
+## Identity-map concurrency correction — 1 November 2026
+
+The latest PostgreSQL run passed the scoped Strategy and Position locks, and the duplicate-trigger race passed, but the N/N+1 race still exposed a real stale-state issue: the initial strategy discovery query had already loaded Strategy objects into the SQLAlchemy Session identity map before workers waited on the portfolio lock. The later `SELECT ... FOR UPDATE` could return that already-loaded object without refreshing its attributes, so a worker could compare against stale quote version data even after it acquired the row lock.
+
+Fix committed as `572b14aea20481b9c86b1220fe136d9274b422e8`: the locked Strategy query now calls `.populate_existing()` before `.with_for_update(of=Strategy)`, ensuring the locked row refreshes from the latest committed database state. This preserves the lock order and makes the race test assert the intended invariant rather than scheduler order.
+
+The next exact-head CI must confirm the N/N+1 race and all existing checks. No green result is claimed yet.

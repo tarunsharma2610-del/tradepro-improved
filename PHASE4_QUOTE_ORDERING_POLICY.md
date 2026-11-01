@@ -6,7 +6,7 @@ Scope: PAPER trailing-stop evaluation only
 
 ## Status
 
-Initial implementation submitted; exact-head Backend CI is pending. The service now persists the last accepted quote identity on the Strategy row and enforces ordering under portfolio → strategy → position locks. PostgreSQL 16 multi-session race coverage, rollback coverage and supervised consumer integration remain outstanding.
+Core durable quote-ordering implementation, PostgreSQL 16 epoch-race/rollback coverage, supervised dispatch worker, and database quote-identity constraints are implemented and CI-verified. Multi-worker dispatcher lifecycle tests are now being expanded; scanner-to-PAPER evaluator wiring remains gated and is not enabled.
 
 No dispatcher-to-execution wiring is authorized by this implementation alone.
 
@@ -201,3 +201,21 @@ Test commit: `700567dc2cf7ada0764ddb0f642818a3ed56a863`. Exact-head Backend CI m
 Backend CI #41297560366 (test commit `700567dc2cf7ada0764ddb0f642818a3ed56a863`) and documentation CI #41297573966 (documentation commit `9aaeab39a71394ef6bb80458a71631a1309c1482`) failed in the new quote-identity constraint tests: 1,422 passed and 7 failed because the SQLite unit-test fixture builds its schema from SQLAlchemy ORM metadata (`Base.metadata.create_all`) rather than running Alembic migrations. The check existed in the Alembic migration but was absent from ORM metadata, so those test-created tables did not contain it.
 
 Correction submitted in commit `0b7535b3640ad4747a90cde8ae114c7aebac2ad5`: declare the same named `CheckConstraint` in `Strategy.__table_args__`. This keeps ORM-created test schemas aligned with the migration-created production schema. The Alembic migration remains the production schema-change mechanism. Exact-head CI must now verify both SQLite metadata-created tables and PostgreSQL migration behavior; no green status is assumed yet.
+
+
+## Quote identity ORM/migration constraint alignment verified — 1 November 2026
+
+The database integrity correction is now green:
+- Backend CI #41297858951 passed on model fix commit `0b7535b3640ad4747a90cde8ae114c7aebac2ad5`.
+- Documentation-head Backend CI #41297870322 passed on exact branch head `8c7b34259c4cf181f15a0b1a93b14d6ea916742e`.
+- Both runs completed the full pytest suite, broker-write boundary enforcement, SQLite migration round-trip, PostgreSQL 16 migration round-trip, and synthetic PostgreSQL/document-volume restore.
+
+The earlier seven failures were caused by the SQLite test fixture using ORM `create_all` without the Alembic-only CHECK constraint. The model now declares the same named `ck_strategies_quote_identity_complete` constraint; the migration remains in place for deployed schema upgrades.
+
+## Multi-worker dispatcher lifecycle tests — submitted, CI pending
+
+Added two worker-pool tests:
+- Two independent supervised worker tasks share one dispatcher and must never process the same user/instrument concurrently; a newer quote is coalesced until the first worker acknowledges.
+- A two-worker pool is bounded by unique keys, rejects overflow, and reaches zero pending/in-flight items with queue completion accounting after successful acknowledgement.
+
+Test commit: `36aa713fa298985870be1ba57069c809be0138a5`, followed by deterministic acknowledgement synchronization in `afaea5d434ac1a3209e4240ee955d10aee45205d`. These tests exercise multiple tasks in one process; they do not prove distributed cross-process ownership. Durable cross-replica protection remains the PostgreSQL claim-token service. Exact-head CI is required before marking this lifecycle expansion verified.

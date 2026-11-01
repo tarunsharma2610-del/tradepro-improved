@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -15,6 +15,18 @@ class Strategy(BaseModel):
     services/strategy_execution_service.py."""
 
     __tablename__ = "strategies"
+    __table_args__ = (
+        CheckConstraint(
+            "((last_quote_epoch IS NULL AND last_quote_version IS NULL "
+            "AND last_quote_received_at IS NULL AND last_quote_exchange_timestamp_ms IS NULL) "
+            "OR (last_quote_epoch IS NOT NULL AND length(last_quote_epoch) BETWEEN 1 AND 128 "
+            "AND last_quote_version IS NOT NULL AND last_quote_version > 0 "
+            "AND last_quote_received_at IS NOT NULL "
+            "AND last_quote_exchange_timestamp_ms IS NOT NULL "
+            "AND last_quote_exchange_timestamp_ms > 0))",
+            name="ck_strategies_quote_identity_complete",
+        ),
+    )
 
     portfolio_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
     instrument_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("instruments.id"), index=True)

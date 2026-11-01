@@ -941,3 +941,27 @@ async def test_reduce_only_strategy_exit_cannot_open_or_reverse_a_position(
     assert "reduce-only" in order.rejection_reason.lower()
     assert position.quantity == position_quantity
     assert db_session.query(Execution).filter(Execution.order_id == order.id).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_paper_execution_fails_closed_for_live_mode_portfolio(db_session, portfolio, instrument):
+    user, p = portfolio
+    p.trading_mode = "LIVE"
+    db_session.commit()
+
+    with pytest.raises(OrderValidationError, match="PAPER-only"):
+        await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="MARKET",
+                segment=Segment.EQUITY_DELIVERY,
+                quantity=1,
+            ),
+        )
+
+    db_session.refresh(p)
+    assert p.cash_balance == Decimal("100000")
+    assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == 0

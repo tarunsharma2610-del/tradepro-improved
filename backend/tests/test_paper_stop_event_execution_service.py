@@ -13,11 +13,32 @@ from app.models.order import Order
 from app.models.paper_stop_event import PaperStopEvent
 from app.models.position import Position
 from app.models.strategy import Strategy
+from app.repositories.portfolio_repository import PortfolioRepository
+from app.services.instrument_service import InstrumentService
 from app.services.paper_stop_event_claim_service import PaperStopEventClaimService
 from app.services.paper_stop_event_execution_service import (
     PaperStopEventExecutionRejected,
     PaperStopEventExecutionService,
 )
+
+
+@pytest.fixture()
+def instrument(db_session):
+    InstrumentService(db_session).seed_defaults()
+    from app.repositories.instrument_repository import InstrumentRepository
+
+    return InstrumentRepository(db_session).search("RELIANCE")[0]
+
+
+@pytest.fixture()
+def portfolio(db_session, make_user):
+    user = make_user(email=f"atomic-stop-{uuid.uuid4().hex}@example.invalid")
+    portfolio = PortfolioRepository(db_session).create(
+        user_id=user.id,
+        name="Atomic stop PAPER",
+        virtual_capital=Decimal("100000"),
+    )
+    return user, portfolio
 
 
 def _connect_analytics_token(db_session, user_id):

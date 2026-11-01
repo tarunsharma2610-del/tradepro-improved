@@ -417,3 +417,10 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Added success, replay, invalid-token and forced-completion-failure rollback tests.
 - New exact-head CI is required before acceptance. Dispatcher remains disconnected; no live broker order writes; PR #9 Draft/unmerged; original Tradepro untouched.
 - Next after green CI: PostgreSQL 16 concurrent duplicate-consumer race and process-crash/failure injection around commit; then review whether dispatcher activation is safe.
+
+
+## 1 November 2026 — atomic execution CI failure diagnosed; fixture fix committed
+
+- CI #41286034683 failed at pytest setup: 1,383 passed, four errors because the new test module referenced non-shared `portfolio` and `instrument` fixtures defined only in another test module.
+- Added local `portfolio` and `instrument` fixtures following existing repository patterns. This is a test-only correction; no production code changed.
+- Rerun exact-head CI is mandatory. Do not proceed to PostgreSQL concurrency tests or dispatcher integration until green.

@@ -71,3 +71,11 @@ If a stop-event consumer calls the current execution path and the process fails 
 - Completed-event redelivery returns the original filled order without another quote or accounting mutation.
 - Failure-injection tests force completion to fail after the fill flush and verify the entire transaction rolls back (no order, execution, cash debit/credit, or position mutation).
 - Dispatcher remains disconnected. This service is an internal PAPER-only execution boundary; do not expose it as an unauthenticated route or activate it from the scanner until PostgreSQL 16 concurrency tests pass.
+
+
+## 1 November 2026 — CI failure and fixture correction
+
+- Backend CI #41286034683 ran 1,383 tests successfully but reported four setup errors in the new atomic stop-event test module.
+- Root cause from pytest logs: the test module referenced `portfolio` and `instrument` fixtures declared only inside `test_execution_service.py`; pytest fixtures are module-scoped unless registered in shared conftest.
+- Corrected the test module by defining local fixtures using the repository's established `PortfolioRepository` and `InstrumentService` setup patterns. No production execution code changed in this correction.
+- Atomic execution remains unaccepted until the complete new-head CI passes, including PostgreSQL 16 migrations and restore gates.

@@ -350,3 +350,10 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Duplicate completed event delivery returns the original filled order without a second quote or accounting effect. Invalid claim tokens fail closed.
 - This service is not wired to scanner/dispatcher or a public endpoint. PostgreSQL 16 concurrent consumer proof and process-crash tests remain required before dispatcher integration.
 - PR #9 remains Draft/unmerged; PAPER mandatory; live broker order writes disabled; original Tradepro untouched.
+
+
+## 1 November 2026 — atomic stop-event test fixture correction
+
+- Diagnosed CI #41286034683: 1,383 passed; four test setup errors due to cross-module fixture assumptions.
+- Added local fixtures in `test_paper_stop_event_execution_service.py` using PortfolioRepository and InstrumentService.
+- Test-only fix committed; exact-head CI pending. Atomic execution not yet accepted.

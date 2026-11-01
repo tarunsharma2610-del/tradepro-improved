@@ -115,3 +115,87 @@ def test_worker_rejects_invalid_backoff_bounds():
         MarketQuoteDispatchWorker(
             dispatcher, handler, min_backoff_seconds=2, max_backoff_seconds=1
         )
+
+
+
+@pytest.mark.asyncio
+async def test_two_workers_never_process_same_user_instrument_concurrently():
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=2)
+    assert dispatcher.publish(Observation(version=1))
+    first_entered = asyncio.Event()
+    release_first = asyncio.Event()
+    second_entered = asyncio.Event()
+    seen = []
+
+    async def first_handler(item):
+        seen.append(("first", item.version))
+        first_entered.set()
+        await release_first.wait()
+
+    async def second_handler(item):
+        seen.append(("second", item.version))
+        second_entered.set()
+
+    first = asyncio.create_task(
+        MarketQuoteDispatchWorker(dispatcher, first_handler).run()
+    )
+    second = asyncio.create_task(
+        MarketQuoteDispatchWorker(dispatcher, second_handler).run()
+    )
+    await asyncio.wait_for(first_entered.wait(), timeout=1)
+    assert dispatcher.publish(Observation(version=2, ltp=101))
+    await asyncio.sleep(0)
+    assert not second_entered.is_set()
+    assert seen == [("first", 1)]
+
+    release_first.set()
+    await asyncio.wait_for(second_entered.wait(), timeout=1)
+    assert seen == [("first", 1), ("second", 2)]
+
+    first.cancel()
+    second.cancel()
+    for task in (first, second):
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert dispatcher.pending_keys == 0
+    assert dispatcher.inflight_keys == 0
+    await asyncio.wait_for(dispatcher._queue.join(), timeout=1)
+
+
+@pytest.mark.asyncio
+async def test_worker_pool_bounds_unique_keys_and_accounts_for_queue_completion():
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=2)
+    assert dispatcher.publish(Observation(instrument_key="NSE_EQ|ONE"))
+    assert dispatcher.publish(Observation(instrument_key="NSE_EQ|TWO"))
+    assert not dispatcher.publish(Observation(instrument_key="NSE_EQ|THREE"))
+    assert dispatcher.dropped_unique_keys == 1
+
+    entered = []
+    release = asyncio.Event()
+    both_entered = asyncio.Event()
+
+    async def handler(item):
+        entered.append(item.instrument_key)
+        if len(entered) == 2:
+            both_entered.set()
+        await release.wait()
+
+    workers = [
+        asyncio.create_task(MarketQuoteDispatchWorker(dispatcher, handler).run())
+        for _ in range(2)
+    ]
+    await asyncio.wait_for(both_entered.wait(), timeout=1)
+    assert set(entered) == {"NSE_EQ|ONE", "NSE_EQ|TWO"}
+    assert dispatcher.inflight_keys == 2
+    assert dispatcher.pending_keys == 0
+
+    release.set()
+    for task in workers:
+        task.cancel()
+    for task in workers:
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert dispatcher.pending_keys == 0
+    assert dispatcher.inflight_keys == 0
+    await asyncio.wait_for(dispatcher._queue.join(), timeout=1)

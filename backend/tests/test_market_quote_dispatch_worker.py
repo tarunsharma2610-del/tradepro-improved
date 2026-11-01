@@ -33,7 +33,6 @@ async def test_worker_retries_failed_handler_with_bounded_backoff_then_acks(monk
 
     async def fake_sleep(delay):
         sleeps.append(delay)
-        await asyncio.sleep(0)
 
     monkeypatch.setattr("app.services.market_quote_dispatch_worker.asyncio.sleep", fake_sleep)
     worker = MarketQuoteDispatchWorker(

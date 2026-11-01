@@ -50,3 +50,15 @@ The unique database constraint is the final duplicate guard. PostgreSQL row lock
 - Claims validate user/portfolio/strategy/instrument ownership, lock portfolio → strategy → position, reject flat or ambiguously shared positions, and persist unique quote identity, claim token and bounded lease. Duplicate claims fail closed.
 - No claim consumer or order path is enabled by this slice. PAPER-only remains mandatory; live broker order writes remain disabled; PR #9 remains Draft/unmerged; original Tradepro repository is out of scope.
 - Next: PostgreSQL 16 multi-worker claim tests, safe lease reclamation and crash recovery, then controlled PAPER dispatcher integration only after those gates.
+
+
+## Lifecycle extension — 1 November 2026
+
+The claim service is now complemented by `PaperStopEventLifecycle` (verified at exact head `aaf64fcf1431f7fa998d61c9cc3efd9b251437a6`, Backend CI #41097352266 SUCCESS).
+
+- Claim-token-fenced conditional updates implement CLAIMED → EXECUTING → COMPLETED, EXECUTING → RETRYABLE, and EXECUTING → FAILED.
+- Execution and retry leases are bounded; reclaim rotates the claim token and increments attempts; exhausted attempts become terminal FAILED.
+- A stale worker cannot complete or advance an event after another worker has reclaimed it.
+- The lifecycle never commits, creates an order, or calls a broker; caller owns the SQLAlchemy transaction.
+- PostgreSQL 16 tests cover concurrent reclaim, retry-budget exhaustion, rollback atomicity and recovery of an expired EXECUTING event.
+- This remains a state-coordination primitive only. It is not connected to the dispatcher or order execution.

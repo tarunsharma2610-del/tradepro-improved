@@ -359,3 +359,17 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - PostgreSQL migration validation now uses isolated `tradepro_migration_check`; the concurrency suite retains `tradepro_test`.
 - **Next:** implement and test claim-token-owned event lifecycle transitions (CLAIMED → EXECUTING → COMPLETED; explicit RETRYABLE/FAILED), then lease expiry/reclamation and crash recovery. Do not connect to PAPER order execution until lifecycle/idempotency gates pass.
 - **Safety:** only `tarunsharma2610-del/tradepro-improved`; PR #9 remains Draft/open/unmerged; PAPER mandatory; live broker order writes disabled; no deployment or live trading.
+
+
+## Latest verified checkpoint — PAPER stop-event lifecycle and PostgreSQL 16 recovery (1 November 2026)
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; branch: `phase4/redis-market-data-publisher`; Draft PR #9 remains open and unmerged.
+- Exact PR/code head verified: `aaf64fcf1431f7fa998d61c9cc3efd9b251437a6` (commit: caller-owned watermark transaction test correction).
+- Exact-head Backend CI [#41097352266 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41097352266). Backend pytest, Redis restart-recovery integration setup, broker-write boundary guard, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore and evidence-retention steps all completed successfully.
+- The previously planned claim-token-owned lifecycle is now implemented in `paper_stop_event_lifecycle.py`: CLAIMED → EXECUTING → COMPLETED; EXECUTING → RETRYABLE or FAILED; expired CLAIMED/EXECUTING/RETRYABLE claims can be reclaimed with a rotated token and bounded attempt count. Conditional updates fence stale claim tokens; caller retains transaction commit/rollback ownership.
+- PostgreSQL 16 tests now cover simultaneous lease reclaim (exactly one new token wins), exhausted retry-budget races, rollback atomicity, expired EXECUTING recovery, and stale-worker completion rejection. Unit tests cover retry delay, terminal failure and lease expiry.
+- Latest watermark test correction explicitly commits the caller-owned transaction before asserting persisted watermark state; this preserves the service's transaction ownership contract.
+- Important boundary: lifecycle tests validate durable event state only. No lifecycle transition authorizes an order, no dispatcher-to-execution connection is accepted by this checkpoint, and no live broker writes are enabled.
+- Next gate: review lifecycle semantics and transaction boundaries, decide/implement explicit strategy allocation for shared portfolio/instrument positions (currently fail-closed), then design a crash-safe PAPER consumer that coordinates claim → existing PAPER risk/depth/kill-switch/accounting path with idempotent execution evidence. Add failure-injection tests before connecting the bounded dispatcher.
+- Deployment, sustained-load testing, credentialed Upstox smoke tests and production Oracle restore remain deferred.
+- Safety: PAPER mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled; PR #9 Draft/unmerged; no main update or merge; original `tarunsharma2610-del/Tradepro` untouched.

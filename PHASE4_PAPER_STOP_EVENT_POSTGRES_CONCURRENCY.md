@@ -20,3 +20,18 @@ Backend CI already provisions PostgreSQL 16 and exports `TEST_POSTGRES_URL`; the
 ## Safety
 
 Tests create only synthetic PAPER-domain database rows. No dispatcher integration, order creation, broker API call, live write, deployment or PR merge is included.
+
+
+## Lifecycle and lease-recovery concurrency extension — 1 November 2026
+
+Verified on exact head `aaf64fcf1431f7fa998d61c9cc3efd9b251437a6`, Backend CI #41097352266 SUCCESS.
+
+Additional PostgreSQL 16 independent-session tests cover:
+
+1. Two workers racing to reclaim one expired claim: exactly one rotates the token; the other loses without error.
+2. Two workers racing an event at its retry limit: neither can exceed the attempt budget; the event is terminalized as FAILED.
+3. Caller rollback after CLAIMED → EXECUTING restores the prior durable state and token.
+4. Recovery of an expired EXECUTING lease rotates ownership; the stale worker cannot complete, while the new token can proceed.
+5. Retryable delay and stale-token behavior are also covered by service-level tests.
+
+These tests prove the implemented database state transitions under the CI PostgreSQL 16 service; they do not prove production multi-host reliability or authorize dispatcher/order integration.

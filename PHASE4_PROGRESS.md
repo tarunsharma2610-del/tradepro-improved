@@ -302,3 +302,14 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - PostgreSQL migration validation now uses isolated `tradepro_migration_check`; the concurrency suite retains `tradepro_test`.
 - **Next:** implement and test claim-token-owned event lifecycle transitions (CLAIMED → EXECUTING → COMPLETED; explicit RETRYABLE/FAILED), then lease expiry/reclamation and crash recovery. Do not connect to PAPER order execution until lifecycle/idempotency gates pass.
 - **Safety:** only `tarunsharma2610-del/tradepro-improved`; PR #9 remains Draft/open/unmerged; PAPER mandatory; live broker order writes disabled; no deployment or live trading.
+
+
+## 1 November 2026 — stop-event lifecycle and PostgreSQL recovery checkpoint
+
+- Current exact head: `aaf64fcf1431f7fa998d61c9cc3efd9b251437a6`; exact-head Backend CI #41097352266 SUCCESS.
+- Implemented token-fenced lifecycle transitions (CLAIMED → EXECUTING → COMPLETED; EXECUTING → RETRYABLE/FAILED), bounded lease renewal/retry, lease reclamation with claim-token rotation, and max-attempt terminal failure.
+- PostgreSQL 16 regression tests cover two-worker reclaim races, retry-budget races, rollback atomicity, expired execution recovery and stale-token fencing. The prior checkpoint's claim-creation concurrency tests remain covered.
+- The latest CI also passed broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, Redis restart-recovery environment, and synthetic restore/evidence steps.
+- Not yet authorized: dispatcher-to-order execution. Lifecycle state is not an order authorization. Keep all live broker writes disabled.
+- Next: settle shared-position strategy allocation (or retain fail-closed), review lifecycle/transaction invariants, then design crash-safe PAPER-only consumer integration with idempotent execution result persistence and failure-injection coverage.
+- PR #9 remains Draft/unmerged; only `tradepro-improved` is in scope; original `Tradepro` untouched.

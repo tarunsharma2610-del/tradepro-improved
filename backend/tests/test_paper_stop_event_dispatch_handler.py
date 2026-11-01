@@ -14,6 +14,24 @@ from app.services.market_scanner import MarketScanObservation
 from app.services.paper_stop_event_claim_service import PaperStopEventClaimService
 
 
+
+class _SessionProxy:
+    """Keep the fixture-owned SQLite session open across handler session scopes."""
+
+    def __init__(self, session):
+        self._session = session
+
+    def __getattr__(self, name):
+        return getattr(self._session, name)
+
+    def close(self):
+        # The pytest fixture owns the underlying session lifecycle.
+        return None
+
+
+def _fixture_session_factory(db_session):
+    return lambda: _SessionProxy(db_session)
+
 def _setup(db_session, make_user):
     user = make_user(email=f"dispatch-stop-{uuid4().hex}@example.invalid")
     portfolio = Portfolio(
@@ -65,7 +83,7 @@ async def test_handler_commits_new_stop_claim_before_invoking_execution(
     import app.services.paper_stop_event_dispatch_handler as handler
 
     user, portfolio, instrument, strategy = _setup(db_session, make_user)
-    monkeypatch.setattr(handler, "SessionLocal", sessionmaker(bind=db_session.get_bind()))
+    monkeypatch.setattr(handler, "SessionLocal", _fixture_session_factory(db_session))
     calls = []
 
     async def fake_execute(self, **kwargs):

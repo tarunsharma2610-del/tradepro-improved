@@ -126,41 +126,57 @@ async def test_two_workers_never_process_same_user_instrument_concurrently():
     release_first = asyncio.Event()
     second_entered = asyncio.Event()
     seen = []
+    active = 0
+    max_active = 0
 
-    async def first_handler(item):
-        seen.append(("first", item.version))
-        first_entered.set()
-        await release_first.wait()
+    async def handler(item):
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        seen.append(item.version)
+        try:
+            if item.version == 1:
+                first_entered.set()
+                await release_first.wait()
+            elif item.version == 2:
+                second_entered.set()
+        finally:
+            active -= 1
 
-    async def second_handler(item):
-        seen.append(("second", item.version))
-        second_entered.set()
-
-    # Start the owner first so the test does not depend on scheduler ordering.
-    first = asyncio.create_task(
-        MarketQuoteDispatchWorker(dispatcher, first_handler).run()
-    )
+    # Hold the first quote in-flight, then add a newer coalesced quote while
+    # another worker is available. Either worker may receive the successor;
+    # the invariant is that the same key is never handled concurrently.
+    workers = [
+        asyncio.create_task(MarketQuoteDispatchWorker(dispatcher, handler).run())
+    ]
     await asyncio.wait_for(first_entered.wait(), timeout=1)
-    second = asyncio.create_task(
-        MarketQuoteDispatchWorker(dispatcher, second_handler).run()
+    workers.append(
+        asyncio.create_task(MarketQuoteDispatchWorker(dispatcher, handler).run())
     )
     assert dispatcher.publish(Observation(version=2, ltp=101))
     await asyncio.sleep(0)
     assert not second_entered.is_set()
-    assert seen == [("first", 1)]
+    assert active == 1
+    assert max_active == 1
 
     release_first.set()
     await asyncio.wait_for(second_entered.wait(), timeout=1)
-    assert seen == [("first", 1), ("second", 2)]
+    assert seen == [1, 2]
+    assert max_active == 1
 
-    first.cancel()
-    second.cancel()
-    for task in (first, second):
-        with pytest.raises(asyncio.CancelledError):
-            await task
+    for _ in range(100):
+        if dispatcher.pending_keys == 0 and dispatcher.inflight_keys == 0:
+            break
+        await asyncio.sleep(0)
     assert dispatcher.pending_keys == 0
     assert dispatcher.inflight_keys == 0
     await asyncio.wait_for(dispatcher._queue.join(), timeout=1)
+
+    for task in workers:
+        task.cancel()
+    for task in workers:
+        with pytest.raises(asyncio.CancelledError):
+            await task
 
 
 @pytest.mark.asyncio

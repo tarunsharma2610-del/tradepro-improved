@@ -6,16 +6,16 @@ and docker-compose.yml's `worker` service) -- this file is a different
 entrypoint into the same codebase, not a second implementation of
 anything.
 
-Four independent cadences share one process rather than three separate
-containers, since none of them is expensive enough alone to justify its
-own container + healthcheck + restart policy:
-- run_once(): strategy evaluation, every 5 min, market hours only.
-- run_telegram_poll(): Telegram getUpdates, every 30s, always -- a user
-  linking their account shouldn't feel like it takes minutes to register.
-- run_news_ingest(): RSS ingestion, every 30 min, always -- news doesn't
-  stop outside market hours and doesn't need to be as fresh as prices.
-Each is independently testable and independently error-isolated from the
-other two; a failure in one never blocks or crashes the others.
+Independent cadences and event-driven consumers share one worker container
+rather than multiplying services that do not need separate deployment units:
+- run_once(): indicator strategy evaluation and PAPER limit matching, every
+  5 min during market hours.
+- run_telegram_poll(): Telegram getUpdates, every 30s.
+- run_news_ingest(): RSS ingestion, every 30 min.
+- Redis quote ingress feeds a bounded scanner/dispatcher worker pool.
+- Durable PAPER stop-event recovery scans expired claims every 5s.
+The event-driven consumers run independently of the periodic strategy loop;
+failures are logged and retried without blocking Telegram/news scheduling.
 """
 
 import asyncio
@@ -143,8 +143,11 @@ async def run_paper_stop_event_recovery() -> None:
 
 async def main() -> None:
     logger.info(
-        "Worker started. Strategies every %ss (market hours), Telegram every %ss, news every %ss.",
-        STRATEGY_EVAL_INTERVAL_SECONDS, TELEGRAM_POLL_INTERVAL_SECONDS, NEWS_INGEST_INTERVAL_SECONDS,
+        "Worker started. Strategies every %ss (market hours), Telegram every %ss, news every %ss; "
+        "PAPER quote workers=%s queue_capacity=%s recovery every %ss.",
+        STRATEGY_EVAL_INTERVAL_SECONDS, TELEGRAM_POLL_INTERVAL_SECONDS,
+        NEWS_INGEST_INTERVAL_SECONDS, MARKET_DISPATCH_WORKER_COUNT,
+        MARKET_DISPATCH_QUEUE_CAPACITY, PAPER_STOP_RECOVERY_INTERVAL_SECONDS,
     )
     last_strategy_eval = 0.0
     last_news_ingest = 0.0

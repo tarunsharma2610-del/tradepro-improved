@@ -70,6 +70,11 @@ class StrategyExecutionService:
         portfolio = self.portfolios.get_by_id(strategy.portfolio_id)
         if portfolio is None:
             return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Portfolio no longer exists.")
+        if portfolio.trading_mode != "PAPER":
+            return EvaluationResult(
+                str(strategy.id), Signal.HOLD.value,
+                "Automated strategy evaluation is PAPER-only; LIVE automation is not enabled.",
+            )
 
         access_token = self.broker_credentials.get_analytics_token(portfolio.user_id, "upstox")
         if access_token is None:

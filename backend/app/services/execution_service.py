@@ -56,6 +56,7 @@ class PlaceOrderRequest:
     limit_price: Decimal | None = None
     execution_reason: str = "MANUAL"  # "STRATEGY" when called from strategy_execution_service
     strategy_id: UUID | None = None
+    reduce_only: bool = False  # internal strategy exits may only reduce an existing position
 
 
 class ExecutionService:
@@ -83,6 +84,10 @@ class ExecutionService:
             req.execution_reason != "STRATEGY" or req.strategy_id is None or req.order_type != "MARKET"
         ):
             raise OrderValidationError("PAPER stop-event orders must be strategy-owned MARKET orders.")
+        if req.reduce_only and (
+            req.execution_reason != "STRATEGY" or req.strategy_id is None or req.order_type != "MARKET"
+        ):
+            raise OrderValidationError("Reduce-only orders must be strategy-owned MARKET orders.")
         if req.quantity <= 0:
             raise OrderValidationError("Quantity must be greater than zero.")
         if req.order_type not in {"MARKET", "LIMIT"}:
@@ -135,11 +140,41 @@ class ExecutionService:
             placed_at=now,
         )
 
+        if req.reduce_only:
+            # Portfolio is already locked above. Lock and re-read the current
+            # position under that same transaction so a stale strategy snapshot
+            # cannot turn an exit into a new short/long position after another
+            # worker has already flattened or reversed it.
+            current_position = (
+                self.db.query(Position)
+                .filter(
+                    Position.portfolio_id == portfolio.id,
+                    Position.instrument_id == instrument.id,
+                )
+                .with_for_update(of=Position)
+                .first()
+            )
+            can_reduce = (
+                current_position is not None
+                and current_position.quantity != 0
+                and (
+                    (req.side == Side.SELL and current_position.quantity > 0)
+                    or (req.side == Side.BUY and current_position.quantity < 0)
+                )
+                and req.quantity <= abs(current_position.quantity)
+            )
+            if not can_reduce:
+                return self._reject(
+                    order,
+                    "Reduce-only strategy exit rejected: no matching open position remains or quantity exceeds it.",
+                    commit=commit,
+                )
+
         if req.order_type == "LIMIT":
             risk_reason = check_portfolio_order(
                 self.db, portfolio, instrument, side=req.side.value, quantity=req.quantity,
                 estimated_price=Decimal(str(req.limit_price)),
-                reducing_position=self._is_reducing_position(portfolio.id, instrument.id, req.side, req.quantity),
+                reducing_position=req.reduce_only or self._is_reducing_position(portfolio.id, instrument.id, req.side, req.quantity),
             )
             if risk_reason:
                 return self._reject(order, risk_reason, commit=commit)

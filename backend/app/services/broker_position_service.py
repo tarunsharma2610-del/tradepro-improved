@@ -14,6 +14,10 @@ def _decimal(value: Any, field: str, *, nullable: bool = False, places: str = "0
         raise ValueError(f"Invalid position field: {field}") from exc
     if not number.is_finite():
         raise ValueError(f"Non-finite position field: {field}")
+    # Canonicalize signed zero from broker payloads so equivalent zero values
+    # cannot leak a misleading negative sign into API snapshots or reports.
+    if number == 0:
+        number = abs(number)
     return format(number.quantize(Decimal(places)), "f")
 
 

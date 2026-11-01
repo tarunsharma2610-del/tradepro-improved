@@ -75,7 +75,15 @@ def delete_strategy(portfolio_id: UUID, strategy_id: UUID, db: Session = Depends
 
 @router.post("/{strategy_id}/activate", response_model=StrategyOut)
 def activate_strategy(portfolio_id: UUID, strategy_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    strategy = _get_owned_strategy(db, user, portfolio_id, strategy_id)
+    portfolio = _get_owned_portfolio(db, user, portfolio_id)
+    if portfolio.trading_mode != "PAPER":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Strategy activation is PAPER-only; LIVE automation is not enabled.",
+        )
+    strategy = StrategyRepository(db).get_for_portfolio(portfolio_id, strategy_id)
+    if strategy is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Strategy not found.")
     strategy.is_active = True
     strategy.paused_until = None  # an explicit user activation overrides an automatic risk-engine pause
     return StrategyRepository(db).save(strategy)

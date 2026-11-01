@@ -123,7 +123,10 @@ class PaperStopEventIntakeService:
                     Strategy.instrument_id == instrument.id,
                     Strategy.is_active.is_(True),
                 )
-                .with_for_update()
+                # Strategy has a joined-loaded optional Instrument relationship.
+                # PostgreSQL rejects an unrestricted FOR UPDATE over the nullable
+                # side of that outer join; lock only the strategy row.
+                .with_for_update(of=Strategy)
                 .first()
             )
             if strategy is None:

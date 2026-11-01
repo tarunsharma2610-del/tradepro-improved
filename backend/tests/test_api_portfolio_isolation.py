@@ -405,3 +405,65 @@ def test_broker_allocation_rejects_unverified_or_expired_connection(client, db_s
         json={"broker_connection_id": str(connection.id)},
     )
     assert response.status_code == 409
+
+
+def test_latest_broker_positions_never_exposes_snapshot_from_replaced_account(client, db_session):
+    from datetime import datetime, timedelta, timezone
+    from app.models.broker_connection import BrokerConnection
+    from app.models.broker_position_snapshot import BrokerPositionSnapshot
+    from app.models.user import User
+
+    _register_and_login(client, "positions-reallocation@example.com")
+    live = client.post("/api/v1/portfolios", json={"name": "LIVE", "trading_mode": "LIVE"})
+    assert live.status_code == 201
+    portfolio_id = UUID(live.json()["id"])
+    owner = db_session.query(User).filter_by(email="positions-reallocation@example.com").one()
+
+    def make_connection():
+        connection = BrokerConnection(
+            user_id=owner.id,
+            broker="upstox",
+            api_key_encrypted="encrypted-api-key",
+            api_secret_encrypted="encrypted-api-secret",
+            redirect_uri="https://example.invalid/callback",
+            access_token_encrypted="encrypted-access-token",
+            access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            is_connected=True,
+        )
+        db_session.add(connection)
+        db_session.commit()
+        db_session.refresh(connection)
+        return connection
+
+    first = make_connection()
+    second = make_connection()
+    first_allocation = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/broker-allocation",
+        json={"broker_connection_id": str(first.id)},
+    )
+    assert first_allocation.status_code == 201
+
+    snapshot = BrokerPositionSnapshot(
+        broker_connection_id=first.id,
+        portfolio_id=portfolio_id,
+        user_id=owner.id,
+        positions=[{"instrument_key": "NSE_EQ|INE062A01020", "quantity": 1}],
+        raw_response={"status": "success", "data": []},
+    )
+    db_session.add(snapshot)
+    db_session.commit()
+
+    latest_before = client.get(f"/api/v1/portfolios/{portfolio_id}/broker-positions/latest")
+    assert latest_before.status_code == 200
+    assert latest_before.json()["broker_connection_id"] == str(first.id)
+
+    removed = client.delete(f"/api/v1/portfolios/{portfolio_id}/broker-allocation")
+    assert removed.status_code == 204
+    second_allocation = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/broker-allocation",
+        json={"broker_connection_id": str(second.id)},
+    )
+    assert second_allocation.status_code == 201
+
+    latest_after = client.get(f"/api/v1/portfolios/{portfolio_id}/broker-positions/latest")
+    assert latest_after.status_code == 404

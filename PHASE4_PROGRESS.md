@@ -427,3 +427,14 @@ A source review of the current models and shared execution service confirms that
 - Keep LIVE broker place/modify/cancel disabled until this design, migrations, API authorization, UI selection, adversarial tests and independent safety audit are complete.
 
 This is a verified outstanding product requirement, not a claim that LIVE mode is implemented.
+
+
+## 2026-11-01 — Current Phase 4 status (supersedes older resume pointers)
+
+- Latest verified green implementation head: `d0d26eb98ff5d77ce4f3ed1baee943bccaca51e4`; Backend CI [#41316803274 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41316803274). Checks: backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL and documentation-volume restore.
+- LIVE balance-source protection and its fixture corrections passed CI #41315704407 on `9314703f31ff3ad31f2b97090cbfa1a5d4096a8c`.
+- Mode-aware analytics implementation and regression tests are included in `d0d26eb` and passed #41316803274.
+- Remaining: fail-closed LIVE positions API; explicit broker-account/LIVE-portfolio allocation; verified funds and positions sync; realized and freshness-gated unrealized P&L; Redis-to-execution and multi-worker end-to-end recovery/isolation; frontend mode selector; security/load/operational review.
+- Current documentation synchronization commit is being validated separately; do not call the documentation head green until its exact-head CI succeeds.
+- PR #9 remains Draft/unmerged. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `tarunsharma2610-del/Tradepro` remains untouched. LIVE broker place/modify/cancel writes remain disabled.
+- Next code gate: inspect LIVE positions route and tests, then enforce mode-aware fail-closed behavior with regression coverage.

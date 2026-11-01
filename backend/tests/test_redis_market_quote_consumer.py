@@ -342,3 +342,20 @@ async def test_listener_periodically_resweeps_authoritative_snapshots_after_idle
     assert recovered[0]["version"] == recovered[1]["version"] == 1
     assert pubsub.ping_count == 1
     assert pubsub.closed
+
+
+@pytest.mark.asyncio
+async def test_periodic_snapshot_recovery_rotates_instrument_order_for_fairness():
+    redis, user_id = FakeRedis(), uuid4()
+    consumer = RedisMarketQuoteConsumer(redis, user_id)
+    instruments = [f"NSE_EQ|ROTATE{i}" for i in range(4)]
+    for instrument in instruments:
+        redis.values[consumer.snapshot_key(instrument)] = (
+            json.dumps(snapshot(user_id, instrument)), 10
+        )
+
+    first = await consumer.recover(instruments)
+    second = await consumer.recover(instruments)
+
+    assert list(first) == instruments
+    assert list(second) == instruments[2:] + instruments[:2]

@@ -2305,3 +2305,14 @@ The Phase 4 implementation has progressed beyond the older checkpoints below. Tr
 - Shared PAPER execution enforces reduce-only exits under portfolio/position locks, preventing stale exits from increasing or reversing exposure.
 - Remaining Phase 4 gates: end-to-end market-data-to-ledger tests; multi-process/replica crash and concurrency tests; indicator-exit versus stop-event races; explicit PAPER/LIVE isolation audit; security, load, observability and operational recovery review; exact-head green documentation checkpoint.
 - Product target remains one app with user-selectable PAPER/LIVE modes and isolated balances/orders/positions/P&L. Current branch is PAPER-only; LIVE broker writes remain disabled. PR #9 stays Draft/unmerged; original `Tradepro` remains out of scope.
+
+## PAPER/LIVE isolation audit finding — 1 November 2026
+
+A source review of the current models and shared execution service confirms that the present Phase 4 runtime is PAPER-only, not yet a selectable dual-mode implementation:
+- `ExecutionService.place_order` explicitly creates orders with `trading_mode="PAPER"` and the current market execution/fill path is simulated accounting; it does not route order writes to Upstox.
+- `Order` has a `trading_mode` column, but `Portfolio` does not own a mode and `Position` is scoped only by `(portfolio_id, instrument_id)`. Therefore the desired separate PAPER/LIVE balances and positions are not yet proven by the current schema.
+- Before enabling LIVE, design and test a mode boundary at portfolio/account scope: mode-bound portfolio ownership, order/position/ledger queries constrained to that mode, strategy-to-portfolio mode binding, and a separate explicit live broker execution gateway with deny-by-default authorization and idempotency.
+- Switching modes must select a different isolated portfolio/account; it must never mutate an existing order's mode, move positions/cash, or route PAPER strategies to a live gateway.
+- Keep LIVE broker place/modify/cancel disabled until this design, migrations, API authorization, UI selection, adversarial tests and independent safety audit are complete.
+
+This is a verified outstanding product requirement, not a claim that LIVE mode is implemented.

@@ -1,6 +1,7 @@
 from app.models.base import BaseModel  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.broker_connection import BrokerConnection  # noqa: F401
+from app.models.broker_portfolio_allocation import BrokerPortfolioAllocation  # noqa: F401
 from app.models.broker_order import BrokerOrder  # noqa: F401
 from app.models.broker_trade_record import BrokerTradeRecord  # noqa: F401
 from app.models.broker_charge_evidence import BrokerChargeEvidence  # noqa: F401
@@ -33,6 +34,7 @@ __all__ = [
     "BaseModel",
     "User",
     "BrokerConnection",
+    "BrokerPortfolioAllocation",
     "BrokerOrder",
     "BrokerTradeRecord",
     "BrokerChargeEvidence",

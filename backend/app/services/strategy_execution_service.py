@@ -62,11 +62,10 @@ class StrategyExecutionService:
         self.notifications = NotificationService(db)
 
     async def evaluate(self, strategy: Strategy) -> EvaluationResult:
-        # The API exposes an immediate-evaluation endpoint as well as the worker.
-        # Enforce activation here so manual calls cannot bypass the worker's active check.
-        if not strategy.is_active:
-            return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Strategy is inactive; activate it before evaluation.")
-
+        # Resolve the owning portfolio and enforce its mode before the inactive
+        # strategy shortcut. A LIVE strategy must never be evaluated as if it
+        # were merely an inactive PAPER strategy; this also guarantees the
+        # mode guard runs before credentials, quotes, or market-data access.
         portfolio = self.portfolios.get_by_id(strategy.portfolio_id)
         if portfolio is None:
             return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Portfolio no longer exists.")
@@ -75,6 +74,11 @@ class StrategyExecutionService:
                 str(strategy.id), Signal.HOLD.value,
                 "Automated strategy evaluation is PAPER-only; LIVE automation is not enabled.",
             )
+
+        # The API exposes an immediate-evaluation endpoint as well as the worker.
+        # Enforce activation here so manual calls cannot bypass the worker's active check.
+        if not strategy.is_active:
+            return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Strategy is inactive; activate it before evaluation.")
 
         access_token = self.broker_credentials.get_analytics_token(portfolio.user_id, "upstox")
         if access_token is None:

@@ -219,3 +219,10 @@ Added two worker-pool tests:
 - A two-worker pool is bounded by unique keys, rejects overflow, and reaches zero pending/in-flight items with queue completion accounting after successful acknowledgement.
 
 Test commit: `36aa713fa298985870be1ba57069c809be0138a5`, followed by deterministic acknowledgement synchronization in `afaea5d434ac1a3209e4240ee955d10aee45205d`. These tests exercise multiple tasks in one process; they do not prove distributed cross-process ownership. Durable cross-replica protection remains the PostgreSQL claim-token service. Exact-head CI is required before marking this lifecycle expansion verified.
+
+
+## Multi-worker single-flight test refinement — 1 November 2026
+
+Backend CI #41298564267 failed with 1,430 passed and one timeout in `test_two_workers_never_process_same_user_instrument_concurrently`. The failure showed the test still assumed worker affinity: after the first handler acknowledges, the dispatcher immediately requeues a coalesced successor and either available worker may consume it. The dispatcher does not promise FIFO worker assignment, and no such guarantee is required for same-key single-flight.
+
+Correction submitted in commit `17ab764afc5eb7c601fddd256f7476aaef9efe0c`: both workers use a shared handler that tracks active invocations; the test holds version 1, publishes version 2, asserts version 2 cannot enter while version 1 is active, then allows either worker to process the successor and asserts maximum same-key concurrency is exactly one. It also verifies queue completion and zero pending/in-flight keys before cancelling idle workers. No production code changed. Exact-head CI remains pending.

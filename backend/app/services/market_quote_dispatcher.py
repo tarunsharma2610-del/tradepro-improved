@@ -86,19 +86,35 @@ class MarketQuoteDispatcher:
         self._consumer_keys[task] = key
         return item
 
-    def task_done(self) -> None:
-        """Acknowledge the current task's item and release any coalesced update."""
+    def _finish_current(self, *, requeue_current: bool) -> None:
         task = asyncio.current_task()
         key = self._consumer_keys.pop(task, None) if task is not None else None
         if key is None:
-            raise ValueError("task_done must be called by the task that received the item.")
-        self._inflight.pop(key, None)
+            raise ValueError("The current task does not own a dispatcher item.")
+        current = self._inflight.pop(key, None)
+        if requeue_current and key not in self._pending and current is not None:
+            # Cancellation/worker shutdown before durable handling must not
+            # silently discard the only observation for this key.
+            self._pending[key] = current
         self._queue.task_done()
-        pending = self._pending.get(key)
-        if pending is not None:
-            # The queue slot was freed by get(); requeue exactly one coalesced
-            # latest value, making the key eligible for another consumer.
+        if key in self._pending:
+            # A newer coalesced value wins over the interrupted in-flight one.
+            # get() freed a queue slot, so exactly one key can be requeued.
             self._queue.put_nowait(key)
+
+    def task_done(self) -> None:
+        """Acknowledge successful handling and release a coalesced update."""
+        self._finish_current(requeue_current=False)
+
+    def release(self) -> None:
+        """Release an interrupted item, retrying it unless a newer quote exists.
+
+        Call from the same consumer task that called get(), typically in the
+        CancelledError/finally path. Durable claim/execution idempotency makes
+        replay after an uncertain commit safe; callers must still bound their
+        own retry/backoff policy for repeated processing failures.
+        """
+        self._finish_current(requeue_current=True)
 
     @property
     def pending_keys(self) -> int:

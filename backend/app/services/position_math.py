@@ -57,6 +57,27 @@ def check_trailing_stop(
 def apply_fill(
     *, position_quantity: int, position_avg_price: Decimal, side: Side, fill_quantity: int, fill_price: Decimal
 ) -> PositionUpdate:
+    """Apply one positive-price, positive-quantity fill to a signed position.
+
+    Reject malformed inputs before arithmetic so invalid broker or caller data
+    cannot silently create a nonsensical position or realized-P&L value.
+    """
+    if isinstance(position_quantity, bool) or not isinstance(position_quantity, int):
+        raise ValueError("Position quantity must be an integer.")
+    if isinstance(fill_quantity, bool) or not isinstance(fill_quantity, int) or fill_quantity <= 0:
+        raise ValueError("Fill quantity must be a positive integer.")
+    if not isinstance(side, Side):
+        raise ValueError("Fill side must be a valid Side.")
+    if not isinstance(position_avg_price, Decimal) or not position_avg_price.is_finite():
+        raise ValueError("Position average price must be a finite Decimal.")
+    if not isinstance(fill_price, Decimal) or not fill_price.is_finite() or fill_price <= 0:
+        raise ValueError("Fill price must be a finite positive Decimal.")
+    if position_quantity == 0:
+        if position_avg_price != 0:
+            raise ValueError("A flat position must have a zero average price.")
+    elif position_avg_price <= 0:
+        raise ValueError("An open position must have a positive average price.")
+
     signed_fill = fill_quantity if side == Side.BUY else -fill_quantity
     new_quantity = position_quantity + signed_fill
 

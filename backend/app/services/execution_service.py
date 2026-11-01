@@ -67,10 +67,22 @@ class ExecutionService:
         self.instruments = InstrumentRepository(db)
         self.broker_credentials = BrokerCredentialsService(db)
 
-    async def place_order(self, user_id: UUID, req: PlaceOrderRequest, *, commit: bool = True) -> Order:
-        """Place a PAPER order; internal orchestrators may retain transaction ownership."""
+    async def place_order(
+        self, user_id: UUID, req: PlaceOrderRequest, *, commit: bool = True,
+        paper_stop_event_id: UUID | None = None,
+    ) -> Order:
+        """Place a PAPER order; internal orchestrators may retain transaction ownership.
+
+        A stop-event reference is accepted only for an internal strategy MARKET
+        order. Existing event orders are returned after portfolio ownership is
+        locked and validated, making delivery retries idempotent.
+        """
         # Validate at the service boundary as well as the HTTP schema: strategy
         # automation and future internal callers do not pass through Pydantic.
+        if paper_stop_event_id is not None and (
+            req.execution_reason != "STRATEGY" or req.strategy_id is None or req.order_type != "MARKET"
+        ):
+            raise OrderValidationError("PAPER stop-event orders must be strategy-owned MARKET orders.")
         if req.quantity <= 0:
             raise OrderValidationError("Quantity must be greater than zero.")
         if req.order_type not in {"MARKET", "LIMIT"}:
@@ -84,6 +96,23 @@ class ExecutionService:
         portfolio = self.portfolios.get_for_user_for_update(user_id, req.portfolio_id)
         if portfolio is None:
             raise OrderValidationError("Portfolio not found.")
+
+        if paper_stop_event_id is not None:
+            existing = self.orders.get_for_paper_stop_event(paper_stop_event_id)
+            if existing is not None:
+                same_request = (
+                    existing.portfolio_id == portfolio.id
+                    and existing.instrument_id == req.instrument_id
+                    and existing.strategy_id == req.strategy_id
+                    and existing.execution_reason == "STRATEGY"
+                    and existing.trading_mode == "PAPER"
+                    and existing.side == req.side.value
+                    and existing.quantity == req.quantity
+                    and existing.order_type == "MARKET"
+                )
+                if not same_request:
+                    raise OrderValidationError("Stop-event idempotency key is already bound to a different order.")
+                return existing
 
         instrument = self.instruments.get_by_id(req.instrument_id)
         if instrument is None:
@@ -102,6 +131,7 @@ class ExecutionService:
             trading_mode="PAPER",
             execution_reason=req.execution_reason,
             strategy_id=req.strategy_id,
+            paper_stop_event_id=paper_stop_event_id,
             placed_at=now,
         )
 

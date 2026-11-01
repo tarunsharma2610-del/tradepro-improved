@@ -331,3 +331,12 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - This establishes the database one-event/one-order invariant only. No stop-event consumer is connected and no automated order execution is enabled.
 - Next: add claim-token/state/lease authorization, duplicate-order recovery, same-transaction event completion, fault-injection and PostgreSQL 16 duplicate-worker tests.
 - PR #9 Draft/unmerged; PAPER mandatory; live writes disabled; original Tradepro untouched.
+
+
+## 1 November 2026 — event-order replay recovery implementation
+
+- Verified exact-head CI #41285290161 success on `b8be854040ffa672ed5da26fd821984ec074c232`.
+- Added stop-event lookup and event-linked strategy PAPER MARKET order idempotency to the shared ExecutionService. Matching retries return the existing order after portfolio lock; mismatched replay is rejected.
+- Added regression coverage for no second fill/cash debit and unsupported order types.
+- The event consumer is still not connected; lifecycle completion is not yet part of the same transaction. Next gate is claim-token/lease validation plus event completion and execution accounting in one caller-owned transaction, then failure injection and PostgreSQL 16 multi-worker tests.
+- PR #9 Draft/unmerged; PAPER mandatory; live writes disabled; original Tradepro untouched.

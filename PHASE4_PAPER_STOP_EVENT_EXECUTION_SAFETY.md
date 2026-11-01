@@ -50,3 +50,13 @@ If a stop-event consumer calls the current execution path and the process fails 
 - Added database uniqueness constraint `uq_orders_paper_stop_event`: any one durable stop event can be associated with at most one order, while normal orders retain NULL and remain unaffected.
 - Added schema regression coverage for nullability, uniqueness and FK target.
 - This is a storage invariant only. The event consumer is still NOT connected; no code currently authorizes stop events to place orders. Next work must add token/state/lease validation, duplicate-result recovery, and same-transaction completion before consumer activation.
+
+
+## 1 November 2026 — execution-boundary idempotent recovery
+
+- `OrderRepository.get_for_paper_stop_event` provides the durable lookup.
+- `ExecutionService.place_order` accepts a stop-event reference only for internal strategy MARKET orders, after validating and locking the owning portfolio.
+- A repeated request returns the existing order only when portfolio, instrument, strategy, PAPER mode, side, quantity and MARKET type match; a mismatched replay fails closed.
+- The event reference is persisted on the order before fill accounting. Existing PAPER accounting remains the single execution implementation.
+- Regression tests cover replay recovery without a second broker quote, duplicate order, execution, or cash mutation, plus rejection of unsupported order types.
+- This is not yet the complete stop-event consumer: claim-token/state/lease validation and event completion must still be orchestrated in the same transaction as the fill. Dispatcher remains disconnected.

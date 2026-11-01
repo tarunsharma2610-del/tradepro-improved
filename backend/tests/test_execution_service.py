@@ -831,3 +831,60 @@ async def test_paper_fill_can_remain_in_caller_owned_transaction(db_session, por
     assert db_session.query(Position).filter_by(portfolio_id=p.id, instrument_id=instrument.id).count() == 0
     db_session.refresh(p)
     assert Decimal(str(p.cash_balance)) == initial_cash
+
+
+@pytest.mark.asyncio
+async def test_paper_stop_event_order_retry_returns_existing_fill_without_second_accounting(
+    db_session, portfolio, instrument
+):
+    """A repeated delivery for one stop event must not create another fill."""
+    from uuid import uuid4
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    event_id = uuid4()
+    request = ServicePlaceOrderRequest(
+        portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+        order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=2,
+        execution_reason="STRATEGY",
+        strategy_id=uuid4(),
+    )
+    service = ExecutionService(db_session)
+    with patch("app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED", False), _mock_quote("2500.00"):
+        first = await service.place_order(
+            user.id, request, paper_stop_event_id=event_id,
+        )
+    assert first.status == "FILLED"
+    cash_after_first = Decimal(str(p.cash_balance))
+    executions_after_first = db_session.query(Execution).filter(Execution.order_id == first.id).count()
+
+    # Deliberately no broker quote mock on retry: idempotency recovery must
+    # return the committed result before asking the broker for another quote.
+    second = await service.place_order(
+        user.id, request, paper_stop_event_id=event_id,
+    )
+
+    assert second.id == first.id
+    assert second.paper_stop_event_id == event_id
+    assert db_session.query(Order).filter(Order.paper_stop_event_id == event_id).count() == 1
+    assert db_session.query(Execution).filter(Execution.order_id == first.id).count() == executions_after_first == 1
+    db_session.refresh(p)
+    assert Decimal(str(p.cash_balance)) == cash_after_first
+
+
+@pytest.mark.asyncio
+async def test_paper_stop_event_id_rejects_non_strategy_or_limit_orders(db_session, portfolio, instrument):
+    from uuid import uuid4
+
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    with pytest.raises(OrderValidationError, match="strategy-owned MARKET"):
+        await service.place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=1,
+                limit_price=Decimal("2500"),
+            ),
+            paper_stop_event_id=uuid4(),
+        )

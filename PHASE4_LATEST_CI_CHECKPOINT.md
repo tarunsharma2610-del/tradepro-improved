@@ -397,3 +397,13 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Added model/schema test for nullable unique reference and FK.
 - This constraint prevents more than one order from referencing a given event, but it does not itself implement recovery or authorize event execution. Consumer remains disconnected pending token/lease validation, existing-order recovery and atomic event completion.
 - PR #9 remains Draft/unmerged; PAPER-only; live broker order writes disabled; original Tradepro untouched.
+
+
+## 1 November 2026 — CI green and execution-boundary replay recovery added
+
+- Backend CI #41285290161 passed on exact schema/migration commit `b8be854040ffa672ed5da26fd821984ec074c232`, including pytest, broker-write boundary, SQLite and PostgreSQL 16 migration cycles, and synthetic restore drill.
+- Added order lookup by `paper_stop_event_id` and a constrained `ExecutionService.place_order(..., paper_stop_event_id=...)` path for strategy-owned PAPER MARKET orders only.
+- After locking the user-owned portfolio, repeated matching event delivery returns the existing order; mismatched replay parameters fail closed.
+- Added tests for replay without a second quote/accounting mutation and rejection of LIMIT/manual event-linked orders.
+- These changes do not yet complete event lifecycle atomically. Next: event/portfolio/strategy/position lock-order orchestration; claim-token and unexpired lease validation; existing-order recovery; complete/fail transition in the same transaction; fault-injection and PostgreSQL 16 concurrency tests.
+- PAPER only; live broker order writes disabled; PR #9 remains Draft/unmerged; original Tradepro untouched.

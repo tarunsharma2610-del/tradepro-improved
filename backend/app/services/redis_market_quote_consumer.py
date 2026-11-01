@@ -12,12 +12,18 @@ logger = logging.getLogger(__name__)
 class RedisMarketQuoteConsumer:
     """Read authoritative snapshots; Pub/Sub messages only trigger snapshot reads."""
 
-    def __init__(self, redis_client, user_id: UUID, *, max_age_seconds: int = 15):
+    def __init__(
+        self, redis_client, user_id: UUID, *, max_age_seconds: int = 15,
+        snapshot_recovery_interval_seconds: float = 5.0,
+    ):
         if max_age_seconds <= 0:
             raise ValueError("Quote maximum age must be positive.")
+        if snapshot_recovery_interval_seconds <= 0:
+            raise ValueError("Snapshot recovery interval must be positive.")
         self.redis = redis_client
         self.user_id = str(user_id)
         self.max_age_seconds = max_age_seconds
+        self.snapshot_recovery_interval_seconds = snapshot_recovery_interval_seconds
         self.key_prefix = f"tradepro:market:v1:user:{self.user_id}"
         self._versions: dict[str, int] = {}
         self._epochs: dict[str, str] = {}
@@ -115,6 +121,7 @@ class RedisMarketQuoteConsumer:
                 # Close the startup/reconnect race using authoritative snapshots.
                 for quote in (await self.recover(instrument_keys)).values():
                     yield quote
+                last_snapshot_recovery = asyncio.get_running_loop().time()
 
                 while True:
                     # A blocking listen() can remain suspended on a dead TCP
@@ -136,6 +143,15 @@ class RedisMarketQuoteConsumer:
                         )
                         if pong is None or pong.get("type") != "pong":
                             raise ConnectionError("Redis Pub/Sub heartbeat was not acknowledged")
+                        # Pub/Sub is lossy and the bounded in-process dispatcher
+                        # may reject a unique key when full. Periodically sweep
+                        # authoritative Redis snapshots so those keys are
+                        # offered again while their short TTL is still valid.
+                        now_monotonic = asyncio.get_running_loop().time()
+                        if now_monotonic - last_snapshot_recovery >= self.snapshot_recovery_interval_seconds:
+                            for recovered_quote in (await self.recover(instrument_keys)).values():
+                                yield recovered_quote
+                            last_snapshot_recovery = now_monotonic
                         continue
                     if message.get("type") != "message":
                         # Subscription acknowledgements and heartbeat replies

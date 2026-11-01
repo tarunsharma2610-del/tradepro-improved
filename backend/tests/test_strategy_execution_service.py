@@ -361,3 +361,67 @@ async def test_expired_scanner_observation_cannot_trigger_trailing_stop(db_sessi
 
     assert result.signal == Signal.HOLD.value
     assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == strategy.quantity
+
+
+@pytest.mark.asyncio
+async def test_stale_periodic_exit_after_stop_event_fill_is_rejected_without_reversal(
+    db_session, portfolio, instrument
+):
+    """The shared execution boundary arbitrates event-stop vs periodic exits."""
+    from app.repositories.position_repository import PositionRepository
+    from app.services.execution_service import ExecutionService, PlaceOrderRequest
+    from app.services.transaction_costs import Segment, Side
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+
+    # Establish the open PAPER position through the normal strategy path.
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await StrategyExecutionService(db_session).evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == strategy.quantity
+
+    stale_quantity = strategy.quantity
+
+    # Model the event-driven stop path winning the race and flattening first.
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        stop_order = await ExecutionService(db_session).place_order(
+            user.id,
+            PlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.SELL,
+                order_type="MARKET",
+                segment=Segment(strategy.segment),
+                quantity=stale_quantity,
+                execution_reason="STRATEGY",
+                strategy_id=strategy.id,
+                reduce_only=True,
+            ),
+        )
+    assert stop_order.status == "FILLED"
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0
+
+    # The periodic evaluator now submits its previously-read stale exit.
+    # It must be rejected by the shared locked-position recheck.
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        stale_order = await ExecutionService(db_session).place_order(
+            user.id,
+            PlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.SELL,
+                order_type="MARKET",
+                segment=Segment(strategy.segment),
+                quantity=stale_quantity,
+                execution_reason="STRATEGY",
+                strategy_id=strategy.id,
+                reduce_only=True,
+            ),
+        )
+
+    assert stale_order.status == "REJECTED"
+    assert "reduce-only" in stale_order.rejection_reason.lower()
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0

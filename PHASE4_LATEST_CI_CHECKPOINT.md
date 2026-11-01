@@ -530,3 +530,11 @@ The green dispatcher-recovery CI is necessary but not sufficient to activate quo
 3. Add PostgreSQL 16 concurrency tests proving two ticks/workers cannot race watermark updates or generate duplicate stop events.
 4. Add supervised dispatcher consumer tests for handler failure/backoff, cancellation during handler/backoff, graceful shutdown and pending/in-flight accounting.
 5. Only then wire the synchronous scanner→dispatcher publish callback and the PAPER-only consumer. Keep it disabled until integrated exact-head CI passes.
+
+
+## 1 November 2026 — quote freshness test correction (not yet CI-verified)
+
+- Backend CI #41290692856 FAILED on commit `4224d08da1cd71173ceace6a0bcb2aa0ea4f2d99`. The failure was isolated to `test_scanner_accepts_exchange_timestamp_within_future_clock_skew`: the test generated its receive timestamp using a later wall-clock call than the injected `now`, so the scanner correctly rejected a receive timestamp slightly in the future. This was a test-fixture clock mismatch, not evidence that the future exchange-time skew policy failed.
+- Corrected the fixture to set `received_at=now.isoformat()` using the same injected clock. Fix commit: `fe6d86a4c662512a891d40be45aafd441b144430`.
+- The correction is NOT accepted until full CI passes on this exact head. Do not rely on the previous green CI #41290374836 for the later scanner freshness changes.
+- Next action: inspect the new exact-head workflow result. If it fails, diagnose the actual failing test/log before changing implementation. No dispatcher/consumer integration until quote freshness tests and full CI are green.

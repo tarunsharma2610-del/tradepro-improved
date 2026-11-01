@@ -239,12 +239,6 @@ async def test_exhausted_quote_releases_worker_and_preserves_newer_coalesced_sna
             raise RuntimeError("persistent database failure")
         completed.set()
 
-    async def fake_sleep(_delay):
-        await asyncio.sleep(0)
-
-    monkeypatch.setattr(
-        "app.services.market_quote_dispatch_worker.asyncio.sleep", fake_sleep
-    )
     worker = MarketQuoteDispatchWorker(
         dispatcher,
         handler,

@@ -6,9 +6,9 @@ Scope: PAPER trailing-stop evaluation only
 
 ## Status
 
-Design decision and implementation contract. This document does not claim that durable quote ordering has been implemented. The current `PaperStopEventIntakeService` validates receive-time freshness and locks portfolio → strategy → position, but it updates `current_watermark` without persisting the last evaluated quote epoch/version/timestamps. The scanner and Redis consumer maintain in-memory ordering high-water marks; those are not durable across worker restarts or independent replicas.
+Initial implementation submitted; exact-head Backend CI is pending. The service now persists the last accepted quote identity on the Strategy row and enforces ordering under portfolio → strategy → position locks. PostgreSQL 16 multi-session race coverage, rollback coverage and supervised consumer integration remain outstanding.
 
-No dispatcher-to-execution wiring is authorized by this design alone.
+No dispatcher-to-execution wiring is authorized by this implementation alone.
 
 ## Existing facts verified at PR #9 head 4547fc55edbf5904694b4cc3ee7ea92d6dec65ea
 
@@ -108,3 +108,22 @@ This policy relies on `received_at` being assigned by the trusted Upstox/Redis i
 - Live broker order writes remain disabled.
 - PR #9 remains Draft/unmerged.
 - Work only in `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository is out of scope and must not be modified.
+
+
+## Implementation update — 1 November 2026
+
+Commits:
+- `ac93bc36d3fc218488e8b4945021638ce6b8153c`: nullable quote high-water migration.
+- `29a4e56d34d5f2fc9b38dbd4b6d970cada2ccaa0`: Strategy model fields.
+- `40862c282b936aaf09f52280b4f7de0cb4982d7b`: locked PAPER intake ordering enforcement.
+- `32b213952cc56e0a3677298ada18afea03ec0e3e`: first service regression set.
+- `c6b00ee86272976e160125a84c6449e73b144556`: exchange timestamp freshness guard.
+- `fd525c3041642bf62e8b9db8fd360e46ae15356b`: timestamp regression and freshness tests.
+
+The first service regression set covers durable identity persistence, duplicate/lower-version rejection, accepted newer epoch and rejection of a delayed prior epoch. Additional tests cover receive/exchange timestamp regression and stale exchange timestamps. The current CI run was started against commit `32b213952cc56e0a3677298ada18afea03ec0e3e`, before the final exchange-time freshness fix and its tests; a final exact-head run is therefore required.
+
+Still required before dispatcher integration:
+- PostgreSQL 16 independent-session races for duplicate/N/N+1/epoch transition.
+- Transaction rollback tests proving neither quote identity, trailing watermark nor event persists on failure.
+- Partial persisted-state and malformed identity tests.
+- Consumer supervision, cancellation, bounded queue and retry/backoff tests.

@@ -235,3 +235,30 @@ def test_exchange_timestamp_must_be_fresh_even_when_receive_time_is_fresh(db_ses
     db_session.refresh(strategy)
     assert strategy.current_watermark == Decimal("100")
     assert strategy.last_quote_epoch is None
+
+
+
+def test_stop_claim_failure_rolls_back_quote_identity_and_watermark(db_session, make_user, monkeypatch):
+    user, portfolio, instrument, strategy, _ = setup_stop_position(db_session, make_user)
+    now = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
+
+    def fail_claim(*args, **kwargs):
+        raise RuntimeError("injected claim persistence failure")
+
+    monkeypatch.setattr(
+        "app.services.paper_stop_event_intake_service.PaperStopEventClaimService.claim_trailing_stop",
+        fail_claim,
+    )
+    with pytest.raises(RuntimeError, match="injected"):
+        PaperStopEventIntakeService(db_session).evaluate_and_claim(
+            observation(user, instrument, price=97.0, version=5), now=now
+        )
+    db_session.rollback()
+    db_session.refresh(strategy)
+
+    assert strategy.last_quote_epoch is None
+    assert strategy.last_quote_version is None
+    assert strategy.last_quote_received_at is None
+    assert strategy.last_quote_exchange_timestamp_ms is None
+    assert strategy.current_watermark == Decimal("100")
+    assert db_session.query(PaperStopEvent).count() == 0

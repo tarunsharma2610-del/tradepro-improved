@@ -364,3 +364,10 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Diagnosed CI #41286342961: 1,384 passed, 3 failed due to SQLite naive datetime values compared with aware UTC lease times.
 - Added UTC normalization for persisted lease values and two focused unit tests (naive UTC, aware offset conversion).
 - Full exact-head CI pending. PostgreSQL 16 migration/concurrency gates and dispatcher remain blocked pending green.
+
+
+## 1 November 2026 — completed-event replay correction
+
+- CI #41286561712: 1,388 passed, one failed; only duplicate completed-event replay failed.
+- Fixed ordering so completed event and original PAPER order are verified before open-position validation. This is necessary because the first successful fill closes/flattens the position.
+- Active claims still require a locked, non-zero position before any fill. No live broker writes; full CI rerun pending.

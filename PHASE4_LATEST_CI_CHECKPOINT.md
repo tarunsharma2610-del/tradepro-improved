@@ -431,3 +431,11 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - CI #41286342961: 1,384 passed, 3 failed. All three failures shared a naive/aware datetime comparison at claim-lease validation; PostgreSQL migration and later CI gates were skipped because pytest failed first.
 - SQLite strips timezone metadata from DateTime(timezone=True). Added UTC normalization at the execution boundary and tests for naive UTC plus non-UTC aware offsets.
 - New commit awaits exact-head full CI. Do not mark atomic execution green until pytest, broker-write boundary, SQLite/PostgreSQL 16 migration cycles and restore drill all pass.
+
+
+## 1 November 2026 — completed-event redelivery fix; CI rerun pending
+
+- CI #41286561712 on `f3ef675d0085c87658408cdd2841d8d859dc96e3`: 1,388 passed, one failed.
+- Root cause: duplicate delivery checked for a non-flat position before checking COMPLETED state. The first successful stop fill correctly flattened the position, so replay was incorrectly rejected rather than returning the existing order.
+- Reordered validation/locks: portfolio -> strategy -> event; a completed event returns its existing matching filled PAPER order. Only active claimed events then lock/check the open position and proceed.
+- Exact-head CI required. PostgreSQL concurrency and dispatcher remain blocked.

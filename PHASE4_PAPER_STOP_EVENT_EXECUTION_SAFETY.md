@@ -87,3 +87,10 @@ If a stop-event consumer calls the current execution path and the process fails 
 - Root cause: SQLite returns naive Python datetimes for `DateTime(timezone=True)`, whereas the execution service supplies aware UTC timestamps. Python rejects direct comparison of naive and aware values.
 - Added a single UTC-normalization boundary for persisted lease timestamps: naive database values are interpreted as UTC (the lifecycle writes UTC); aware values are converted to UTC. PostgreSQL timezone-aware values retain correct absolute-time comparison.
 - Added explicit unit coverage for SQLite-naive and offset-aware timestamp normalization. Full CI rerun is required; no live broker write capability was added.
+
+
+## 1 November 2026 — completed-event replay correction
+
+- CI #41286561712: 1,388 passed, one failed. The sole failure was the duplicate-completed-event test: after the first successful fill flattened the position, replay was rejected by the open-position guard before the service checked whether the event was already COMPLETED.
+- Corrected the lock/validation sequence to lock and validate portfolio -> strategy -> event first. A valid COMPLETED event now returns its existing matching filled PAPER order before requiring an open position. Only still-CLAIMED events proceed to lock and validate the open position.
+- This preserves idempotency and avoids a second fill; no retry or accounting behavior was loosened. Exact-head CI must pass before PostgreSQL concurrency work.

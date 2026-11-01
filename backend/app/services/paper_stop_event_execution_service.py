@@ -82,10 +82,12 @@ class PaperStopEventExecutionService:
     ) -> Order:
         """Execute a valid claim; duplicate completed deliveries return its order.
 
-        Lock order is portfolio -> strategy -> position -> event. The event's
-        token and lease are revalidated after locks are acquired. The PAPER
-        order, fill ledger, cash/position changes, and COMPLETED transition
-        share one database commit.
+        Lock order is portfolio -> strategy -> event -> position. Locking the
+        event before reading the position lets a completed redelivery return
+        its original order even though the successful first fill flattened the
+        position. The event's token and lease are revalidated after locks are
+        acquired. The PAPER order, fill ledger, cash/position changes, and
+        COMPLETED transition share one database commit.
         """
         current = now or datetime.now(timezone.utc)
         if current.tzinfo is None:
@@ -134,18 +136,9 @@ class PaperStopEventExecutionService:
             if instrument is None:
                 raise PaperStopEventExecutionRejected("Stop-event instrument no longer exists.")
 
-            position = (
-                self.db.query(Position)
-                .filter(
-                    Position.portfolio_id == portfolio.id,
-                    Position.instrument_id == instrument.id,
-                )
-                .with_for_update(of=Position)
-                .first()
-            )
-            if position is None or position.quantity == 0:
-                raise PaperStopEventExecutionRejected("Stop event has no open position to close.")
-
+            # Lock and validate the event before the position. A completed
+            # duplicate delivery must return its original order even though
+            # the first fill has already flattened the position.
             event = (
                 self.db.query(PaperStopEvent)
                 .filter(PaperStopEvent.id == event_id)
@@ -170,6 +163,18 @@ class PaperStopEventExecutionService:
                 or self._utc_datetime(event.claimed_until) <= self._utc_datetime(current)
             ):
                 raise PaperStopEventExecutionRejected("Stop-event claim lease has expired.")
+
+            position = (
+                self.db.query(Position)
+                .filter(
+                    Position.portfolio_id == portfolio.id,
+                    Position.instrument_id == instrument.id,
+                )
+                .with_for_update(of=Position)
+                .first()
+            )
+            if position is None or position.quantity == 0:
+                raise PaperStopEventExecutionRejected("Stop event has no open position to close.")
 
             executing = self.lifecycle.begin_execution(
                 event_id=event.id,

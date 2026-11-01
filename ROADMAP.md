@@ -1969,3 +1969,19 @@ The documentation sync head `5bb6d06e764c00b1ab406409889a2cde9e74dacf` passed Ba
 - **Evidence boundary:** Brokerage Details remains estimate-only; Trade Charges remains aggregate reconciliation-only and never per-fill actual evidence. Null IPFT must not be silently coerced to zero. This fix validates response shape; it does not approve tariffs or promote accounting.
 - **Contract-note continuity:** previously supplied January 2023 Upstox/RKSV contract-note examples remain available as historical regression fixtures; do not ask the user to provide them again. Their scope must be respected when using them for GST totals versus per-fill allocations.
 - **Next:** verify CI on the exact synchronized documentation head. Keep PR #6/#7 Draft and unmerged, PAPER mode mandatory, live broker writes disabled, and the original `tarunsharma2610-del/Tradepro` repository untouched.
+
+
+## 2026-11-01 — Superseding Phase 4 status (verified through Backend CI #41316803274)
+
+This section is the current-status authority as of 2026-11-01 and supersedes older undated or stale “current status/next step” statements elsewhere in this document. Earlier entries remain historical records and must not be interpreted as the current implementation state.
+
+- Latest verified green implementation commit: `d0d26eb98ff5d77ce4f3ed1baee943bccaca51e4` on `phase4/redis-market-data-publisher`.
+- Exact-head Backend CI: [#41316803274 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41316803274). Verified stages: backend pytest, broker-write safety boundary, SQLite migration round-trips, PostgreSQL 16 migration round-trips, synthetic PostgreSQL restore and documentation-volume restore drill.
+- The preceding LIVE balance-source implementation and its corrected test fixtures were included in green CI #41315704407 on commit `9314703f31ff3ad31f2b97090cbfa1a5d4096a8c`.
+- Mode-aware portfolio analytics was added: analytics queries join executions to their owning orders, constrain portfolio identity and trading mode, and the portfolio API passes the portfolio's mode. Regression coverage checks PAPER and LIVE analytics independently and rejects an unsupported mode. This is verified by CI #41316803274.
+- LIVE balance safety: LIVE portfolios do not treat simulated starting capital as broker funds; balance source remains unavailable until a verified broker sync. PAPER simulated balances remain supported.
+- Important scope limitation: green CI proves the listed automated checks, not production LIVE trading readiness. LIVE broker place/modify/cancel writes remain disabled. No LIVE broker gateway activation or deployment is authorized.
+- Still outstanding: verify/fix the LIVE positions API so it cannot expose PAPER positions as LIVE; design explicit broker-account-to-LIVE-portfolio allocation; implement verified LIVE funds/positions synchronization; finish realized and market-price/freshness-gated unrealized P&L; complete Redis-to-execution and multi-worker end-to-end isolation/recovery; frontend mode selection; security/load/operational review; final documentation-head CI.
+- PR #9 remains Draft and unmerged, targeting `phase4/roadmap-progress-checkpoints`. Only `tarunsharma2610-del/tradepro-improved` is in scope. The original `tarunsharma2610-del/Tradepro` repository must remain untouched.
+- Next implementation gate: inspect current LIVE positions route and its tests, then add fail-closed mode-aware behavior with regression tests. Do not start broker allocation or UI work until the positions boundary is proven.
+- Documentation rule: after the next code milestone, update all maintained project documents and run exact-head CI on the documentation commit before declaring the documentation checkpoint current.

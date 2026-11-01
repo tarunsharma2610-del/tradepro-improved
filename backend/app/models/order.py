@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -19,6 +19,13 @@ class Order(BaseModel):
 
     __table_args__ = (
         UniqueConstraint("paper_stop_event_id", name="uq_orders_paper_stop_event"),
+        CheckConstraint("trading_mode IN ('PAPER', 'LIVE')", name="ck_orders_trading_mode"),
+        ForeignKeyConstraint(
+            ["portfolio_id", "trading_mode"],
+            ["portfolios.id", "portfolios.trading_mode"],
+            name="fk_orders_portfolio_trading_mode",
+            ondelete="CASCADE",
+        ),
     )
 
     portfolio_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)

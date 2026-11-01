@@ -373,3 +373,18 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Next gate: review lifecycle semantics and transaction boundaries, decide/implement explicit strategy allocation for shared portfolio/instrument positions (currently fail-closed), then design a crash-safe PAPER consumer that coordinates claim → existing PAPER risk/depth/kill-switch/accounting path with idempotent execution evidence. Add failure-injection tests before connecting the bounded dispatcher.
 - Deployment, sustained-load testing, credentialed Upstox smoke tests and production Oracle restore remain deferred.
 - Safety: PAPER mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled; PR #9 Draft/unmerged; no main update or merge; original `tarunsharma2610-del/Tradepro` untouched.
+
+
+## Execution integration safety audit — 1 November 2026
+
+- Documentation-only audit at head `5208b19ca07cb8bf1b32fe9944760d5d9e2e522d`; exact-head documentation CI #41284535086 passed.
+- Shared-position policy: retain fail-closed rejection when multiple active strategies share a portfolio/instrument position. `Position` is keyed by portfolio+instrument, not strategy; no allocation ledger exists. Do not guess ownership or let multiple strategies exit the same net position.
+- Critical execution-path finding: `ExecutionService._fill()` is not currently one atomic unit of work. It calls `OrderRepository.create()`, `PositionRepository.get_or_create()/save()`, and `PortfolioRepository.save()`, whose repository methods commit internally, before the final `Execution` insert/commit. A crash or exception between those commits can leave a filled order without matching position/cash/execution evidence, or partially applied accounting.
+- Therefore do NOT call the current `ExecutionService.place_order()` as the consumer's event-completion transaction yet. A lifecycle event cannot safely be marked COMPLETED atomically with the existing fill; a retry after an intermediate commit risks duplicate or inconsistent accounting.
+- Required implementation gate before dispatcher integration:
+  1. Refactor PAPER fill persistence so order, position, portfolio cash, execution/charges and event completion share one caller-owned SQL transaction; repositories used in that path must flush, not commit.
+  2. Add durable event idempotency to the order/execution boundary (unique stop-event reference, or equivalent unique idempotency key) and recovery lookup. A retry must return the prior committed outcome, never create a second fill.
+  3. Lock/revalidate portfolio, strategy, position and event in a documented global lock order; recheck open position, direction/quantity, kill switch and risk immediately before fill.
+  4. Add failure-injection tests after each persistence stage, transaction rollback tests, duplicate-consumer races, and PostgreSQL 16 concurrent tests proving one fill and one accounting effect.
+  5. Keep ambiguous shared strategy ownership fail-closed until explicit position allocation exists.
+- No source execution code was changed in this audit. Dispatcher remains unconnected to stop-event execution. PAPER-only; all live broker order writes remain disabled.

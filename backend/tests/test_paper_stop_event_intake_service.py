@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import uuid
 
@@ -44,14 +44,14 @@ def setup_stop_position(db_session, make_user, *, quantity=5, watermark=Decimal(
     return user, portfolio, instrument, strategy, position
 
 
-def observation(user, instrument, *, price=97.0, version=1, received_at=None, epoch="intake-epoch"):
+def observation(user, instrument, *, price=97.0, version=1, received_at=None, epoch="intake-epoch", exchange_timestamp_ms=None):
     stamp = received_at or datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
     return MarketScanObservation(
         user_id=str(user.id), instrument_key=instrument.instrument_key,
         epoch=epoch, version=version, ltp=price,
         price_change_pct=None, volume_traded_today=None, open_interest=None,
         buy_sell_imbalance=None, option_greeks=None,
-        exchange_timestamp_ms=int(stamp.timestamp() * 1000),
+        exchange_timestamp_ms=exchange_timestamp_ms if exchange_timestamp_ms is not None else int(stamp.timestamp() * 1000),
         received_at=stamp.isoformat(),
     )
 
@@ -191,3 +191,47 @@ def test_new_quote_epoch_requires_newer_receive_time(db_session, make_user):
     assert strategy.last_quote_epoch == "new-epoch"
     assert strategy.last_quote_version == 1
     assert strategy.current_watermark == Decimal("104.0000")
+
+
+
+def test_same_epoch_rejects_receive_and_exchange_timestamp_regressions(db_session, make_user):
+    user, portfolio, instrument, strategy, _ = setup_stop_position(db_session, make_user)
+    now = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
+    service = PaperStopEventIntakeService(db_session)
+
+    service.evaluate_and_claim(observation(user, instrument, price=104.0, version=10), now=now)
+    db_session.commit()
+    db_session.refresh(strategy)
+
+    older_receive = now - timedelta(seconds=1)
+    assert service.evaluate_and_claim(
+        observation(user, instrument, price=90.0, version=11, received_at=older_receive),
+        now=now,
+    ) == []
+    assert service.evaluate_and_claim(
+        observation(
+            user, instrument, price=90.0, version=12, received_at=now,
+            exchange_timestamp_ms=int((now - timedelta(seconds=1)).timestamp() * 1000),
+        ),
+        now=now,
+    ) == []
+    db_session.commit()
+    db_session.refresh(strategy)
+
+    assert strategy.last_quote_version == 10
+    assert strategy.current_watermark == Decimal("104.0000")
+
+
+def test_exchange_timestamp_must_be_fresh_even_when_receive_time_is_fresh(db_session, make_user):
+    user, portfolio, instrument, strategy, _ = setup_stop_position(db_session, make_user)
+    now = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
+    stale_exchange = int((now - timedelta(seconds=20)).timestamp() * 1000)
+
+    with pytest.raises(PaperStopObservationRejected, match="exchange timestamp"):
+        PaperStopEventIntakeService(db_session).evaluate_and_claim(
+            observation(user, instrument, price=97.0, exchange_timestamp_ms=stale_exchange),
+            now=now,
+        )
+    db_session.refresh(strategy)
+    assert strategy.current_watermark == Decimal("100")
+    assert strategy.last_quote_epoch is None

@@ -27,6 +27,7 @@ class RedisMarketQuoteConsumer:
         self.key_prefix = f"tradepro:market:v1:user:{self.user_id}"
         self._versions: dict[str, int] = {}
         self._epochs: dict[str, str] = {}
+        self._recovery_cursor = 0
 
     def snapshot_key(self, instrument_key: str) -> str:
         return f"{self.key_prefix}:quote:{instrument_key}"
@@ -88,7 +89,19 @@ class RedisMarketQuoteConsumer:
     async def recover(self, instrument_keys: list[str]) -> dict[str, dict]:
         """Re-read latest snapshots after startup/reconnect; Pub/Sub is lossy."""
         recovered = {}
-        for instrument_key in dict.fromkeys(instrument_keys):
+        keys = list(dict.fromkeys(instrument_keys))
+        if not keys:
+            return recovered
+
+        # Rotate the starting point on each sweep. If the bounded downstream
+        # dispatcher is smaller than the subscription set, a fixed-order sweep
+        # would repeatedly admit only the first N instruments and starve the
+        # tail forever. Half-set rotation gives dropped keys a fair retry turn.
+        start = self._recovery_cursor % len(keys)
+        ordered = keys[start:] + keys[:start]
+        self._recovery_cursor = (start + max(1, len(keys) // 2)) % len(keys)
+
+        for instrument_key in ordered:
             quote = await self.get_quote(instrument_key)
             if quote is not None:
                 recovered[instrument_key] = quote

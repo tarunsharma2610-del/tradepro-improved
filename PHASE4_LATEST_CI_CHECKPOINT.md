@@ -407,3 +407,13 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Added tests for replay without a second quote/accounting mutation and rejection of LIMIT/manual event-linked orders.
 - These changes do not yet complete event lifecycle atomically. Next: event/portfolio/strategy/position lock-order orchestration; claim-token and unexpired lease validation; existing-order recovery; complete/fail transition in the same transaction; fault-injection and PostgreSQL 16 concurrency tests.
 - PAPER only; live broker order writes disabled; PR #9 remains Draft/unmerged; original Tradepro untouched.
+
+
+## 1 November 2026 — atomic stop-event execution implementation (CI pending)
+
+- Previous exact-head Backend CI #41285643789 passed on `7b12c9522941f5ac3237f4f659055863687cca31`, including stop-event order idempotency/replay tests.
+- Added `PaperStopEventExecutionService`: validates user/portfolio/strategy/instrument ownership, active strategy, open position, claim token and unexpired lease; locks portfolio -> strategy -> position -> event.
+- Calls the existing PAPER MARKET ExecutionService with caller-owned transaction (`commit=False`), then transitions the event to COMPLETED in the same commit as order, execution, cash, position and strategy watermark. Rejected orders become terminal FAILED; duplicate completed delivery returns the original filled order.
+- Added success, replay, invalid-token and forced-completion-failure rollback tests.
+- New exact-head CI is required before acceptance. Dispatcher remains disconnected; no live broker order writes; PR #9 Draft/unmerged; original Tradepro untouched.
+- Next after green CI: PostgreSQL 16 concurrent duplicate-consumer race and process-crash/failure injection around commit; then review whether dispatcher activation is safe.

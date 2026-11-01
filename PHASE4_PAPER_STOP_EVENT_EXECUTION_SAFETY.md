@@ -60,3 +60,14 @@ If a stop-event consumer calls the current execution path and the process fails 
 - The event reference is persisted on the order before fill accounting. Existing PAPER accounting remains the single execution implementation.
 - Regression tests cover replay recovery without a second broker quote, duplicate order, execution, or cash mutation, plus rejection of unsupported order types.
 - This is not yet the complete stop-event consumer: claim-token/state/lease validation and event completion must still be orchestrated in the same transaction as the fill. Dispatcher remains disconnected.
+
+
+## 1 November 2026 — atomic stop-event execution orchestration
+
+- Added `PaperStopEventExecutionService` as the only orchestration bridge from a durable stop claim to the shared PAPER ExecutionService.
+- Validates user/portfolio/strategy/instrument ownership, active strategy, open position, claim-token ownership and unexpired lease. Locks in the documented order: portfolio -> strategy -> position -> event.
+- Uses the existing PAPER MARKET pricing, risk, charge-estimation and fill/accounting path with `commit=False`; no separate accounting implementation and no broker order-write calls.
+- The stop event reaches COMPLETED in the same transaction as order, execution, position, cash and strategy-watermark changes. A rejected PAPER order is terminalized as FAILED because its unique idempotency key cannot safely create a second order; a fresh quote event is required.
+- Completed-event redelivery returns the original filled order without another quote or accounting mutation.
+- Failure-injection tests force completion to fail after the fill flush and verify the entire transaction rolls back (no order, execution, cash debit/credit, or position mutation).
+- Dispatcher remains disconnected. This service is an internal PAPER-only execution boundary; do not expose it as an unauthenticated route or activate it from the scanner until PostgreSQL 16 concurrency tests pass.

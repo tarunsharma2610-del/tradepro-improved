@@ -340,3 +340,13 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Added regression coverage for no second fill/cash debit and unsupported order types.
 - The event consumer is still not connected; lifecycle completion is not yet part of the same transaction. Next gate is claim-token/lease validation plus event completion and execution accounting in one caller-owned transaction, then failure injection and PostgreSQL 16 multi-worker tests.
 - PR #9 Draft/unmerged; PAPER mandatory; live writes disabled; original Tradepro untouched.
+
+
+## 1 November 2026 — atomic stop-event execution orchestration added (verification pending)
+
+- Exact-head CI #41285643789 passed on prior commit `7b12c9522941f5ac3237f4f659055863687cca31`.
+- Added internal PAPER-only `PaperStopEventExecutionService` bridging claim token/lease validation and the existing shared PAPER MARKET fill path.
+- Order, execution ledger, cash/position, strategy watermark and event COMPLETED/FAILED state now share one caller-owned transaction. Completion failure injection verifies rollback removes all partial writes.
+- Duplicate completed event delivery returns the original filled order without a second quote or accounting effect. Invalid claim tokens fail closed.
+- This service is not wired to scanner/dispatcher or a public endpoint. PostgreSQL 16 concurrent consumer proof and process-crash tests remain required before dispatcher integration.
+- PR #9 remains Draft/unmerged; PAPER mandatory; live broker order writes disabled; original Tradepro untouched.

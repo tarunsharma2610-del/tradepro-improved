@@ -1,4 +1,4 @@
-import asyncio
+import pytest
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -23,7 +23,7 @@ def quote(user_id, *, instrument="NSE_EQ|INE002A01018", version=1, ltp=110.0):
     }
 
 
-@__import__("pytest").mark.asyncio
+@pytest.mark.asyncio
 async def test_pipeline_validates_scans_and_dispatches_observation():
     user_id = uuid4()
     dispatcher = MarketQuoteDispatcher(max_pending_keys=4)

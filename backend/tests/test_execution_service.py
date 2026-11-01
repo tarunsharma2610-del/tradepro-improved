@@ -948,6 +948,9 @@ async def test_reduce_only_strategy_exit_cannot_open_or_reverse_a_position(
 async def test_paper_execution_fails_closed_for_live_mode_portfolio(db_session, portfolio, instrument):
     user, p = portfolio
     p.trading_mode = "LIVE"
+    p.balance_source = "UNAVAILABLE"
+    p.virtual_capital = Decimal("0")
+    p.cash_balance = Decimal("0")
     db_session.commit()
 
     with pytest.raises(OrderValidationError, match="PAPER-only"):
@@ -964,7 +967,8 @@ async def test_paper_execution_fails_closed_for_live_mode_portfolio(db_session, 
         )
 
     db_session.refresh(p)
-    assert p.cash_balance == Decimal("100000")
+    assert p.balance_source == "UNAVAILABLE"
+    assert p.cash_balance == Decimal("0")
     assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == 0
 
 

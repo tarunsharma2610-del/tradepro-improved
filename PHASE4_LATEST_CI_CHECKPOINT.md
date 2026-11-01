@@ -538,3 +538,18 @@ The green dispatcher-recovery CI is necessary but not sufficient to activate quo
 - Corrected the fixture to set `received_at=now.isoformat()` using the same injected clock. Fix commit: `fe6d86a4c662512a891d40be45aafd441b144430`.
 - The correction is NOT accepted until full CI passes on this exact head. Do not rely on the previous green CI #41290374836 for the later scanner freshness changes.
 - Next action: inspect the new exact-head workflow result. If it fails, diagnose the actual failing test/log before changing implementation. No dispatcher/consumer integration until quote freshness tests and full CI are green.
+
+
+## 1 November 2026 — trailing-stop pure-math hardening (CI pending)
+
+- Latest verified baseline: Backend CI #41290966001 passed on `e13c3d16bd00031b9b8e5259cf1b4df2457fb473`; this is the last fully green exact-head checkpoint before the following edits.
+- Added pure unit coverage for long and short trailing-stop watermark seeding, monotonic ratcheting, and trigger thresholds using the existing shared `check_trailing_stop` helper. No separate implementation of stop math was introduced.
+- Hardened `check_trailing_stop` to reject zero positions, non-positive/non-finite prices or watermarks, and stop percentages outside the supported strategy schema range (>0 and <=50%). This avoids silently interpreting a flat position as short or accepting corrupted configuration.
+- New code/test commits are not yet CI-verified. Do not connect quote dispatch to stop execution until full exact-head CI passes and a transactional quote-evaluation policy (including watermark/epoch handling) is designed and tested.
+- Product target remains a single app with selectable PAPER/LIVE modes and isolated balances/orders/positions/P&L. Current CI and automated execution remain PAPER-only; LIVE broker place/modify/cancel remain disabled. PR #9 stays Draft/unmerged and original `tarunsharma2610-del/Tradepro` remains untouched.
+
+### Next
+1. Verify this exact head through full Backend CI; diagnose any failure from logs before changing code.
+2. Design the transactional per-quote evaluator: lock portfolio → strategy → position; validate tenant/mode and quote freshness; handle epoch/version ordering; update watermark and create durable stop event atomically.
+3. Add PostgreSQL 16 concurrency tests for watermark races and duplicate/out-of-order quote delivery.
+4. Add supervised consumer retry/shutdown tests, then connect Redis callback → bounded dispatcher → PAPER-only consumer. No LIVE writes.

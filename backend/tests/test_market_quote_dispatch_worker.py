@@ -228,6 +228,7 @@ async def test_exhausted_quote_releases_worker_and_preserves_newer_coalesced_sna
     dispatcher = MarketQuoteDispatcher(max_pending_keys=2)
     assert dispatcher.publish(Observation(version=1))
     first_attempt = asyncio.Event()
+    allow_retry = asyncio.Event()
     completed = asyncio.Event()
     attempts = []
     exhausted = []
@@ -235,7 +236,9 @@ async def test_exhausted_quote_releases_worker_and_preserves_newer_coalesced_sna
     async def handler(item):
         attempts.append(item.version)
         if item.version == 1:
-            first_attempt.set()
+            if attempts.count(1) == 1:
+                first_attempt.set()
+                await allow_retry.wait()
             raise RuntimeError("persistent database failure")
         completed.set()
 
@@ -252,6 +255,7 @@ async def test_exhausted_quote_releases_worker_and_preserves_newer_coalesced_sna
 
     # The newest authoritative quote coalesces behind the failing observation.
     assert dispatcher.publish(Observation(version=2, ltp=101))
+    allow_retry.set()
     await asyncio.wait_for(completed.wait(), timeout=1)
 
     assert attempts == [1, 1, 2]

@@ -198,3 +198,53 @@ def test_live_portfolio_cannot_activate_or_evaluate_paper_strategy(client, db_se
     assert evaluation.status_code == 200
     assert evaluation.json()["signal"] == "HOLD"
     assert "PAPER-only" in evaluation.json()["reason"]
+
+
+def test_user_can_create_separate_paper_and_live_portfolios_with_immutable_modes(client):
+    _register_and_login(client, "dual-mode-owner@example.com")
+
+    paper = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Paper account", "virtual_capital": "100000", "trading_mode": "PAPER"},
+    )
+    live = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Live account", "virtual_capital": "250000", "trading_mode": "LIVE"},
+    )
+
+    assert paper.status_code == 201
+    assert live.status_code == 201
+    assert paper.json()["trading_mode"] == "PAPER"
+    assert live.json()["trading_mode"] == "LIVE"
+    assert paper.json()["id"] != live.json()["id"]
+    assert paper.json()["cash_balance"] == "100000.00"
+    assert live.json()["cash_balance"] == "250000.00"
+
+    # The risk-settings endpoint cannot mutate a portfolio's execution mode.
+    attempted_paper_switch = client.patch(
+        f"/api/v1/portfolios/{paper.json()['id']}/risk-settings",
+        json={"trading_mode": "LIVE"},
+    )
+    attempted_live_switch = client.patch(
+        f"/api/v1/portfolios/{live.json()['id']}/risk-settings",
+        json={"trading_mode": "PAPER"},
+    )
+    assert attempted_paper_switch.status_code == 200
+    assert attempted_live_switch.status_code == 200
+    assert attempted_paper_switch.json()["trading_mode"] == "PAPER"
+    assert attempted_live_switch.json()["trading_mode"] == "LIVE"
+
+    listed = client.get("/api/v1/portfolios")
+    assert listed.status_code == 200
+    modes = {item["id"]: item["trading_mode"] for item in listed.json()}
+    assert modes[paper.json()["id"]] == "PAPER"
+    assert modes[live.json()["id"]] == "LIVE"
+
+
+def test_portfolio_creation_rejects_unknown_trading_mode(client):
+    _register_and_login(client, "invalid-mode-owner@example.com")
+    response = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Invalid account", "virtual_capital": "100000", "trading_mode": "REAL"},
+    )
+    assert response.status_code == 422

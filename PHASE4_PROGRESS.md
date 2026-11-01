@@ -406,3 +406,13 @@ Product direction: Tradepro Improved is intended to support both PAPER and LIVE 
 - Run full exact-head CI: pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore evidence.
 - Only after green CI, continue PostgreSQL 16 concurrent PAPER stop-event tests.
 - In parallel, audit existing live-intent and broker-adapter call paths against the stages above. Record gaps; do not enable writes during this audit.
+
+## 1 November 2026 — runtime integration and bounded retry checkpoint
+
+- Exact-head Backend CI #41302875861 passed on `3ca26594cf3a711be624cf2836079caac352a897`.
+- CI verified backend pytest, broker-write safety boundary, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore.
+- Runtime worker is wired to Redis quote ingress, validated scanner/dispatcher, four PAPER dispatch workers and independent five-second durable stop-event recovery.
+- Dispatch retries are bounded to five; exhaustion clears scanner high-water state to re-arm authoritative Redis snapshot recovery. Durable quote/event/order identity is the duplicate/replay boundary.
+- Shared execution applies reduce-only validation under portfolio/position locks to prevent stale exit reversal or exposure increase.
+- Remaining: full end-to-end fill/ledger assertions; process/replica concurrency and crash recovery; periodic indicator-exit versus event-driven stop race tests; PAPER/LIVE isolation; security/load/observability review; docs-head CI.
+- PR #9 Draft/unmerged; PAPER only; live broker writes disabled; original Tradepro untouched.

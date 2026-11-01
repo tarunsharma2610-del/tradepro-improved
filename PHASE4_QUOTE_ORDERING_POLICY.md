@@ -251,3 +251,12 @@ Exact-head Backend CI is pending. This is a reusable adapter only: it is not yet
 The adapter is now exercised through the actual `RedisMarketQuoteWorker(on_quote=pipeline.on_quote)` callback contract using a validated snapshot fixture. The test asserts that the user-scoped Redis worker callback produces the expected scanner observation and dispatches it under the correct user/instrument key, then acknowledges it and checks pending/in-flight cleanup.
 
 Test commit: `466fbdd43a5c49008d59491226ebba842b562691`. Exact-head CI is pending. This is an integration test of the callback boundary, not production worker activation: `app.worker` runtime wiring has not yet been changed. The existing periodic strategy evaluator continues to use its current scanner path until a dedicated dispatcher handler and safe transaction boundary are reviewed.
+
+
+### Adapter unit-test CI passed; callback integration CI pending — 1 November 2026
+
+- Backend CI #41299506942 passed on adapter test commit `53c53cb8bb5c8e67bf19a8a5ee63d720ecf18400`.
+- Backend CI #41299613870 is running on Redis callback integration test commit `466fbdd43a5c49008d59491226ebba842b562691`.
+- Documentation-head Backend CI #41299654388 is running on `731ed14c7bbcf09173fda885e56ad5b82bbc251b`.
+- Earlier run #41299473379 on the first test draft failed; it is superseded by the corrected async test commit and passing #41299506942.
+- Do not mark the callback integration or docs head verified until their exact-head runs are green.

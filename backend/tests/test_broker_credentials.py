@@ -254,3 +254,49 @@ def test_analytics_token_is_owner_scoped_and_can_be_cleared(db_session, make_use
 
     with pytest.raises(ValueError, match="only for Upstox"):
         service.save_analytics_token(user_a.id, "zerodha", "not-supported")
+
+
+def test_allocated_broker_credentials_cannot_be_replaced_or_deleted(db_session, make_user):
+    import pytest
+
+    from app.models.broker_connection import BrokerConnection
+    from app.models.broker_portfolio_allocation import BrokerPortfolioAllocation
+    from app.models.portfolio import Portfolio
+
+    user = make_user()
+    service = BrokerCredentialsService(db_session)
+    connection = service.save_credentials(
+        user.id,
+        BrokerConnectionCreate(
+            broker="upstox", api_key="key-1", api_secret="secret-1", redirect_uri="https://example.com/cb"
+        ),
+    )
+    connection.is_connected = True
+    connection.access_token_encrypted = "encrypted-access-token"
+    from datetime import datetime, timedelta, timezone
+    connection.access_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    portfolio = Portfolio(
+        user_id=user.id, name="LIVE", trading_mode="LIVE",
+        virtual_capital=0, cash_balance=0, balance_source="UNAVAILABLE",
+    )
+    db_session.add(portfolio)
+    db_session.flush()
+    db_session.add(BrokerPortfolioAllocation(
+        broker_connection_id=connection.id, portfolio_id=portfolio.id,
+        user_id=user.id, trading_mode="LIVE",
+    ))
+    db_session.commit()
+
+    with pytest.raises(ValueError, match="Remove the allocation first"):
+        service.save_credentials(
+            user.id,
+            BrokerConnectionCreate(
+                broker="upstox", api_key="key-2", api_secret="secret-2", redirect_uri="https://example.com/cb"
+            ),
+        )
+    with pytest.raises(ValueError, match="Remove the allocation first"):
+        service.delete_connection(user.id, "upstox")
+
+    db_session.refresh(connection)
+    assert connection.is_connected is True
+    assert connection.access_token_encrypted == "encrypted-access-token"

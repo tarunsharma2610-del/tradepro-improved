@@ -17,26 +17,25 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "orders",
-        sa.Column("paper_stop_event_id", sa.Uuid(), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_orders_paper_stop_event_id",
-        "orders",
-        "paper_stop_events",
-        ["paper_stop_event_id"],
-        ["id"],
-        ondelete="RESTRICT",
-    )
-    op.create_unique_constraint(
-        "uq_orders_paper_stop_event",
-        "orders",
-        ["paper_stop_event_id"],
-    )
+    # Batch mode is required for SQLite's table-rebuild implementation when
+    # adding a foreign key; it also behaves correctly on PostgreSQL.
+    with op.batch_alter_table("orders") as batch_op:
+        batch_op.add_column(sa.Column("paper_stop_event_id", sa.Uuid(), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_orders_paper_stop_event_id",
+            "paper_stop_events",
+            ["paper_stop_event_id"],
+            ["id"],
+            ondelete="RESTRICT",
+        )
+        batch_op.create_unique_constraint(
+            "uq_orders_paper_stop_event",
+            ["paper_stop_event_id"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_orders_paper_stop_event", "orders", type_="unique")
-    op.drop_constraint("fk_orders_paper_stop_event_id", "orders", type_="foreignkey")
-    op.drop_column("orders", "paper_stop_event_id")
+    with op.batch_alter_table("orders") as batch_op:
+        batch_op.drop_constraint("uq_orders_paper_stop_event", type_="unique")
+        batch_op.drop_constraint("fk_orders_paper_stop_event_id", type_="foreignkey")
+        batch_op.drop_column("paper_stop_event_id")

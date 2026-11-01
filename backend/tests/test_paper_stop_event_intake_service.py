@@ -44,11 +44,11 @@ def setup_stop_position(db_session, make_user, *, quantity=5, watermark=Decimal(
     return user, portfolio, instrument, strategy, position
 
 
-def observation(user, instrument, *, price=97.0, version=1, received_at=None):
+def observation(user, instrument, *, price=97.0, version=1, received_at=None, epoch="intake-epoch"):
     stamp = received_at or datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
     return MarketScanObservation(
         user_id=str(user.id), instrument_key=instrument.instrument_key,
-        epoch="intake-epoch", version=version, ltp=price,
+        epoch=epoch, version=version, ltp=price,
         price_change_pct=None, volume_traded_today=None, open_interest=None,
         buy_sell_imbalance=None, option_greeks=None,
         exchange_timestamp_ms=int(stamp.timestamp() * 1000),
@@ -117,3 +117,77 @@ def test_stale_quote_fails_closed_without_mutating_watermark(db_session, make_us
     db_session.refresh(strategy)
     assert strategy.current_watermark == Decimal("100")
     assert db_session.query(PaperStopEvent).count() == 0
+
+
+
+def test_quote_identity_is_persisted_with_watermark(db_session, make_user):
+    user, portfolio, instrument, strategy, _ = setup_stop_position(db_session, make_user)
+    now = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
+
+    assert PaperStopEventIntakeService(db_session).evaluate_and_claim(
+        observation(user, instrument, price=103.0, version=4), now=now
+    ) == []
+    db_session.commit()
+    db_session.refresh(strategy)
+
+    assert strategy.last_quote_epoch == "intake-epoch"
+    assert strategy.last_quote_version == 4
+    assert strategy.last_quote_received_at.replace(tzinfo=timezone.utc) == now
+    assert strategy.last_quote_exchange_timestamp_ms == int(now.timestamp() * 1000)
+    assert strategy.current_watermark == Decimal("103.0000")
+
+
+def test_duplicate_and_lower_quote_versions_do_not_regress_watermark(db_session, make_user):
+    user, portfolio, instrument, strategy, _ = setup_stop_position(db_session, make_user)
+    now = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
+    service = PaperStopEventIntakeService(db_session)
+
+    service.evaluate_and_claim(observation(user, instrument, price=104.0, version=8), now=now)
+    db_session.commit()
+    db_session.refresh(strategy)
+
+    assert service.evaluate_and_claim(
+        observation(user, instrument, price=90.0, version=8), now=now
+    ) == []
+    assert service.evaluate_and_claim(
+        observation(user, instrument, price=90.0, version=7), now=now
+    ) == []
+    db_session.commit()
+    db_session.refresh(strategy)
+
+    assert strategy.last_quote_version == 8
+    assert strategy.current_watermark == Decimal("104.0000")
+    assert db_session.query(PaperStopEvent).count() == 0
+
+
+def test_new_quote_epoch_requires_newer_receive_time(db_session, make_user):
+    user, portfolio, instrument, strategy, _ = setup_stop_position(db_session, make_user)
+    start = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
+    service = PaperStopEventIntakeService(db_session)
+
+    service.evaluate_and_claim(
+        observation(user, instrument, price=103.0, version=99, epoch="old-epoch"), now=start
+    )
+    db_session.commit()
+    db_session.refresh(strategy)
+
+    later = start.replace(second=1)
+    assert service.evaluate_and_claim(
+        observation(user, instrument, price=104.0, version=1, epoch="new-epoch", received_at=later),
+        now=later,
+    ) == []
+    db_session.commit()
+    db_session.refresh(strategy)
+    assert strategy.last_quote_epoch == "new-epoch"
+    assert strategy.last_quote_version == 1
+    assert strategy.current_watermark == Decimal("104.0000")
+
+    delayed_old = observation(
+        user, instrument, price=90.0, version=100, epoch="old-epoch", received_at=start
+    )
+    assert service.evaluate_and_claim(delayed_old, now=later.replace(second=2)) == []
+    db_session.commit()
+    db_session.refresh(strategy)
+    assert strategy.last_quote_epoch == "new-epoch"
+    assert strategy.last_quote_version == 1
+    assert strategy.current_watermark == Decimal("104.0000")

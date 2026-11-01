@@ -3083,3 +3083,25 @@ This section is the current-status authority as of 2026-11-01 and supersedes old
 - PR #9 remains Draft and unmerged. Work is restricted to `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository remains out of scope and must not be modified.
 - Next implementation sequence: holdings synchronization; broker instrument identity reconciliation; separate realized P&L ledger; freshness-gated unrealized P&L using market prices; stale-data detection; multi-worker synchronization recovery; end-to-end security/isolation and operational review.
 - Documentation update itself must pass exact-head Backend CI before this documentation checkpoint is considered green.
+
+
+## Current handover — 1 November 2026 — LIVE unrealized P&L projection
+
+Resume in `tarunsharma2610-del/tradepro-improved`, branch `phase4/redis-market-data-publisher`, PR #9 Draft/open/unmerged.
+
+- Latest code/test head before this documentation-only update: `18588c18f550f6dc5a4953f90229e05f31e14269`.
+- Exact-head Backend CI [#41328649301 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41328649301). Service-only preceding commit CI #41328642939 also passed.
+- Fresh-quote unrealized P&L calculator and tests passed CI #41327228865. Read-only portfolio projection plus tests passed latest-head CI #41328649301.
+- Projection validates exact instrument keys and fresh timestamps (15-second default), supports long/short signs and flat positions, rejects duplicate instrument+product rows, and withholds the aggregate total if any open position lacks a valid fresh quote.
+- Not yet integrated with Redis quote consumer, authenticated LIVE portfolio API, or frontend. Not a production/live trading readiness claim.
+
+### Resume sequence
+1. Inspect `RedisMarketQuoteConsumer` authoritative snapshot schema, timestamp semantics, key naming and expiry behaviour.
+2. Add a narrow adapter for exact instrument-key matching and timestamp/Decimal normalization; do not infer identity from trading symbol.
+3. Integrate the projection only into the owner-scoped LIVE portfolio read route, gated on the latest valid broker positions snapshot and allocated broker connection.
+4. Add API tests for ownership, PAPER/LIVE separation, missing/stale/future quote, duplicate positions, malformed payload and Redis outage.
+5. Keep broker-reported realized P&L separate from internal realized ledger; define reconciliation only after per-fill identity mapping is proven.
+6. Add UI after the API response contract and freshness status are stable.
+7. Update all maintained docs and require exact-head Backend CI on final docs commit.
+
+Safety: PAPER execution remains the only enabled execution path; LIVE broker place/modify/cancel remain disabled; no deployment or gateway activation. Original `tarunsharma2610-del/Tradepro` remains untouched.

@@ -157,3 +157,77 @@ def test_dispatcher_capacity_counts_inflight_keys():
         assert dispatcher.inflight_keys == 0
 
     asyncio.run(scenario())
+
+
+
+def test_dispatcher_requeues_inflight_observation_when_consumer_is_cancelled():
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=2)
+
+    async def scenario():
+        assert dispatcher.publish(obs(version=1, ltp=100.0))
+        started = asyncio.Event()
+
+        async def interrupted_consumer():
+            item = await dispatcher.get()
+            assert item.version == 1
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                dispatcher.release()
+                raise
+
+        task = asyncio.create_task(interrupted_consumer())
+        await started.wait()
+        assert dispatcher.inflight_keys == 1
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+        assert dispatcher.inflight_keys == 0
+        assert dispatcher.pending_keys == 1
+        recovered = await dispatcher.get()
+        assert recovered.version == 1
+        dispatcher.task_done()
+        assert dispatcher.pending_keys == 0
+
+    asyncio.run(scenario())
+
+
+def test_dispatcher_release_prefers_newest_quote_after_consumer_cancellation():
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=2)
+
+    async def scenario():
+        assert dispatcher.publish(obs(version=1, ltp=100.0))
+        started = asyncio.Event()
+
+        async def interrupted_consumer():
+            item = await dispatcher.get()
+            assert item.version == 1
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                dispatcher.release()
+                raise
+
+        task = asyncio.create_task(interrupted_consumer())
+        await started.wait()
+        assert dispatcher.publish(obs(version=2, ltp=101.0))
+        assert dispatcher.publish(obs(version=3, ltp=102.0))
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+        recovered = await dispatcher.get()
+        assert recovered.version == 3
+        assert recovered.observation.ltp == 102.0
+        dispatcher.task_done()
+        assert dispatcher.pending_keys == 0
+        assert dispatcher.inflight_keys == 0
+
+    asyncio.run(scenario())

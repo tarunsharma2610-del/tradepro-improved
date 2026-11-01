@@ -68,7 +68,15 @@ def update_portfolio_risk_settings(
 
 @router.get("/{portfolio_id}/positions", response_model=list[PositionOut])
 def list_positions(portfolio_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    _get_owned_portfolio(db, user, portfolio_id)  # ownership check before touching child resources
+    portfolio = _get_owned_portfolio(db, user, portfolio_id)  # ownership check before touching child resources
+    if portfolio.trading_mode == "LIVE":
+        # LivePosition is broker-connection scoped and has no verified portfolio
+        # allocation yet. Never return rows from the PAPER positions table as
+        # if they were broker holdings.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "LIVE positions are unavailable until a verified broker sync and portfolio allocation are implemented.",
+        )
     return db.query(Position).filter(Position.portfolio_id == portfolio_id, Position.quantity != 0).all()
 
 

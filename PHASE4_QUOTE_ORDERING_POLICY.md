@@ -152,3 +152,14 @@ The latest PostgreSQL run passed the scoped Strategy and Position locks, and the
 Fix committed as `572b14aea20481b9c86b1220fe136d9274b422e8`: the locked Strategy query now calls `.populate_existing()` before `.with_for_update(of=Strategy)`, ensuring the locked row refreshes from the latest committed database state. This preserves the lock order and makes the race test assert the intended invariant rather than scheduler order.
 
 The next exact-head CI must confirm the N/N+1 race and all existing checks. No green result is claimed yet.
+
+
+## PostgreSQL 16 epoch-race and rollback coverage — 1 November 2026
+
+After the stale ORM identity-map correction, Backend CI #41296561087 passed on implementation commit `572b14aea20481b9c86b1220fe136d9274b422e8`; documentation-head CI #41296585343 also passed on `3240f9308e240c8912d10181e86e31b5365bbff8`. Both included PostgreSQL 16 migration and restore gates, broker-write boundary enforcement, and the full backend pytest suite.
+
+Additional independent-session PostgreSQL tests are now submitted in commit `a15f55919f5393080654f7d996da182e7b39665d`:
+- Race a delayed quote from an old WebSocket epoch against a quote from a newer epoch; final durable state must retain the new epoch and its version.
+- Inject a stop-claim persistence failure, roll back the transaction, and verify through a separate database session that quote identity, watermark and stop events were not partially committed.
+
+These new tests are not yet CI-verified. Await the exact-head Backend CI result before treating epoch-race and PostgreSQL rollback coverage as complete.

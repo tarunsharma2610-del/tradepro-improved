@@ -198,3 +198,69 @@ def test_trailing_stop_rejects_invalid_inputs(kwargs):
 def test_apply_fill_rejects_invalid_position_and_fill_inputs(kwargs):
     with pytest.raises(ValueError):
         apply_fill(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "fills,expected_quantity,expected_average,expected_realized",
+    [
+        (
+            [(Side.BUY, 10, "100"), (Side.BUY, 5, "130"), (Side.SELL, 8, "140"), (Side.SELL, 7, "90")],
+            0, "0", "205.00",
+        ),
+        (
+            [(Side.SELL, 10, "200"), (Side.SELL, 5, "180"), (Side.BUY, 8, "170"), (Side.BUY, 7, "210")],
+            0, "0", "205.00",
+        ),
+        (
+            [(Side.BUY, 4, "100"), (Side.SELL, 7, "120"), (Side.BUY, 2, "110")],
+            -1, "120", "80.00",
+        ),
+        (
+            [(Side.SELL, 4, "100"), (Side.BUY, 7, "80"), (Side.SELL, 2, "90")],
+            1, "90", "80.00",
+        ),
+    ],
+)
+def test_sequential_partial_fills_and_reversals_preserve_position_accounting_invariants(
+    fills, expected_quantity, expected_average, expected_realized
+):
+    quantity = 0
+    average = Decimal("0")
+    cumulative_realized = Decimal("0")
+
+    for side, fill_quantity, fill_price in fills:
+        update = apply_fill(
+            position_quantity=quantity,
+            position_avg_price=average,
+            side=side,
+            fill_quantity=fill_quantity,
+            fill_price=Decimal(fill_price),
+        )
+        quantity = update.new_quantity
+        average = update.new_avg_price
+        cumulative_realized += update.realized_pnl
+
+        if quantity == 0:
+            assert average == Decimal("0")
+        else:
+            assert average > 0
+        assert update.realized_pnl == update.realized_pnl.quantize(Decimal("0.01"))
+
+    assert quantity == expected_quantity
+    assert average == Decimal(expected_average)
+    assert cumulative_realized == Decimal(expected_realized)
+
+
+def test_opening_and_adding_fills_do_not_realize_pnl_until_position_is_reduced():
+    first = apply_fill(
+        position_quantity=0, position_avg_price=Decimal("0"),
+        side=Side.BUY, fill_quantity=3, fill_price=Decimal("100"),
+    )
+    second = apply_fill(
+        position_quantity=first.new_quantity, position_avg_price=first.new_avg_price,
+        side=Side.BUY, fill_quantity=2, fill_price=Decimal("110"),
+    )
+    assert first.realized_pnl == Decimal("0.00")
+    assert second.realized_pnl == Decimal("0.00")
+    assert second.new_quantity == 5
+    assert second.new_avg_price == Decimal("104")

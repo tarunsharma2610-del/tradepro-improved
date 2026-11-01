@@ -1,9 +1,13 @@
 import asyncio
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
 
 from app.services.redis_market_quote_worker import RedisMarketQuoteWorker
+from app.services.market_quote_dispatcher import MarketQuoteDispatcher
+from app.services.market_scan_dispatch_pipeline import MarketScanDispatchPipeline
+from app.services.market_scanner import MarketScanner
 
 
 class FakeRedis:
@@ -210,3 +214,66 @@ async def test_downstream_scanner_failure_does_not_stop_redis_quote_listener():
         assert worker._lease_key(user_id) in redis.values
     finally:
         await worker.close()
+
+
+
+@pytest.mark.asyncio
+async def test_redis_worker_callback_feeds_validated_scan_dispatch_pipeline():
+    redis = FakeRedis()
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=4)
+    pipeline = MarketScanDispatchPipeline(
+        scanner=MarketScanner(), dispatcher=dispatcher
+    )
+    consumers = []
+
+    class ValidSnapshotConsumer:
+        def __init__(self, _redis, owner):
+            self.owner = str(owner)
+            self.started = asyncio.Event()
+            self.stopped = asyncio.Event()
+
+        async def listen(self, instrument_keys):
+            self.started.set()
+            now = datetime.now(timezone.utc)
+            yield {
+                "schema_version": 1,
+                "user_id": self.owner,
+                "instrument_key": instrument_keys[0],
+                "epoch": "redis-epoch-1",
+                "version": 1,
+                "ltp": 123.45,
+                "exchange_timestamp_ms": int(now.timestamp() * 1000),
+                "received_at": now.isoformat(),
+                "ohlc": [{"interval": "1d", "close": 120.0}],
+            }
+            await self.stopped.wait()
+
+    def consumer_factory(client, owner):
+        consumer = ValidSnapshotConsumer(client, owner)
+        consumers.append(consumer)
+        return consumer
+
+    worker = RedisMarketQuoteWorker(
+        redis_client=redis,
+        subscription_loader=lambda: {user_id: [instrument]},
+        consumer_factory=consumer_factory,
+        on_quote=pipeline.on_quote,
+        lease_seconds=3,
+    )
+    try:
+        await worker.reconcile_once()
+        await wait_for_consumer(consumers)
+        item = await asyncio.wait_for(dispatcher.get(), timeout=1)
+        assert item.user_id == str(user_id)
+        assert item.instrument_key == instrument
+        assert item.version == 1
+        assert item.observation.ltp == 123.45
+        assert pipeline.accepted_observations == 1
+        dispatcher.task_done()
+    finally:
+        await worker.close()
+
+    assert dispatcher.pending_keys == 0
+    assert dispatcher.inflight_keys == 0

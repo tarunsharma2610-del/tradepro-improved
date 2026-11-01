@@ -50,8 +50,15 @@ class PortfolioRepository:
         anything handling a live user request."""
         return self.db.get(Portfolio, portfolio_id)
 
-    def create(self, *, user_id: UUID, name: str, virtual_capital: Decimal) -> Portfolio:
-        portfolio = Portfolio(user_id=user_id, name=name, virtual_capital=virtual_capital, cash_balance=virtual_capital)
+    def create(
+        self, *, user_id: UUID, name: str, virtual_capital: Decimal, trading_mode: str = "PAPER"
+    ) -> Portfolio:
+        if trading_mode not in {"PAPER", "LIVE"}:
+            raise ValueError("Unsupported trading mode.")
+        portfolio = Portfolio(
+            user_id=user_id, name=name, trading_mode=trading_mode,
+            virtual_capital=virtual_capital, cash_balance=virtual_capital,
+        )
         self.db.add(portfolio)
         self.db.commit()
         self.db.refresh(portfolio)

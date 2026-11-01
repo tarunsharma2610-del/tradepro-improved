@@ -1,15 +1,16 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from app.services.market_scanner import MarketScanner
 
 
 def quote(user_id, **overrides):
+    now = datetime.now(timezone.utc)
     data = {
         "user_id": str(user_id), "instrument_key": "NSE_EQ|INE002A01018",
         "epoch": "epoch-1", "version": 1, "ltp": 110.0,
-        "exchange_timestamp_ms": 1_800_000_000_000,
-        "received_at": datetime.now(timezone.utc).isoformat(),
+        "exchange_timestamp_ms": int(now.timestamp() * 1000),
+        "received_at": now.isoformat(),
         "ohlc": [{"interval": "1d", "close": 100.0}],
         "volume_traded_today": 125000, "open_interest": None,
         "total_buy_quantity": 600, "total_sell_quantity": 400,
@@ -80,3 +81,50 @@ def test_scanner_expires_stale_observations(monkeypatch):
     monkeypatch.setattr(scanner_module.time, "monotonic", lambda: 115.1)
 
     assert scanner.latest(user_id, result.instrument_key) is None
+
+
+def test_scanner_rejects_stale_receive_and_exchange_timestamps():
+    user_id, scanner = uuid4(), MarketScanner(max_age_seconds=15)
+    now = datetime.now(timezone.utc)
+    stale = now - timedelta(seconds=16)
+    assert scanner.process_quote(
+        user_id,
+        quote(
+            user_id,
+            received_at=stale.isoformat(),
+            exchange_timestamp_ms=int(stale.timestamp() * 1000),
+        ),
+        now=now,
+    ) is None
+
+    assert scanner.process_quote(
+        user_id,
+        quote(
+            user_id,
+            exchange_timestamp_ms=int(stale.timestamp() * 1000),
+        ),
+        now=now,
+    ) is None
+
+
+def test_scanner_rejects_exchange_timestamp_beyond_future_clock_skew():
+    user_id, scanner = uuid4(), MarketScanner(max_age_seconds=15)
+    now = datetime.now(timezone.utc)
+    future = now + timedelta(seconds=61)
+    assert scanner.process_quote(
+        user_id,
+        quote(user_id, exchange_timestamp_ms=int(future.timestamp() * 1000)),
+        now=now,
+    ) is None
+
+
+def test_scanner_accepts_exchange_timestamp_within_future_clock_skew():
+    user_id, scanner = uuid4(), MarketScanner(max_age_seconds=15)
+    now = datetime.now(timezone.utc)
+    slight_future = now + timedelta(seconds=30)
+    result = scanner.process_quote(
+        user_id,
+        quote(user_id, exchange_timestamp_ms=int(slight_future.timestamp() * 1000)),
+        now=now,
+    )
+    assert result is not None

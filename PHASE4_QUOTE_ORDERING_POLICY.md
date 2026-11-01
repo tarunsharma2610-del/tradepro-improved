@@ -244,3 +244,10 @@ A narrow in-memory adapter is now added:
 Implementation commit: `4a98c34c6a7caa4e09e6f93548cab8c05dc8970e`.
 Test commit: `53c53cb8bb5c8e67bf19a8a5ee63d720ecf18400`.
 Exact-head Backend CI is pending. This is a reusable adapter only: it is not yet wired into API startup or a deployed worker process. The next review must decide and test dedicated worker lifecycle/supervision before runtime activation. PAPER strategy evaluation and LIVE execution remain disabled at this boundary.
+
+
+### Redis callback integration test added — 1 November 2026
+
+The adapter is now exercised through the actual `RedisMarketQuoteWorker(on_quote=pipeline.on_quote)` callback contract using a validated snapshot fixture. The test asserts that the user-scoped Redis worker callback produces the expected scanner observation and dispatches it under the correct user/instrument key, then acknowledges it and checks pending/in-flight cleanup.
+
+Test commit: `466fbdd43a5c49008d59491226ebba842b562691`. Exact-head CI is pending. This is an integration test of the callback boundary, not production worker activation: `app.worker` runtime wiring has not yet been changed. The existing periodic strategy evaluator continues to use its current scanner path until a dedicated dispatcher handler and safe transaction boundary are reviewed.

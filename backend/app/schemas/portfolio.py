@@ -35,6 +35,7 @@ class PortfolioOut(BaseModel):
 
     id: UUID
     name: str
+    trading_mode: str
     virtual_capital: Decimal
     cash_balance: Decimal
     risk_controls_enabled: bool = False

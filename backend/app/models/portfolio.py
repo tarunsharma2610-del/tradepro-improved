@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, Numeric, String, Uuid
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -8,7 +8,10 @@ from app.models.base import BaseModel
 
 class Portfolio(BaseModel):
     __tablename__ = "portfolios"
-    __table_args__ = (CheckConstraint("trading_mode IN ('PAPER', 'LIVE')", name="ck_portfolios_trading_mode"),)
+    __table_args__ = (
+        CheckConstraint("trading_mode IN ('PAPER', 'LIVE')", name="ck_portfolios_trading_mode"),
+        UniqueConstraint("id", "trading_mode", name="uq_portfolios_id_trading_mode"),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)

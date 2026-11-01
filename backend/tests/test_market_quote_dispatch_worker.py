@@ -180,16 +180,18 @@ async def test_worker_pool_bounds_unique_keys_and_accounts_for_queue_completion(
             both_entered.set()
         await release.wait()
 
-    workers = [
-        asyncio.create_task(MarketQuoteDispatchWorker(dispatcher, handler).run())
-        for _ in range(2)
-    ]
+    worker_instances = [MarketQuoteDispatchWorker(dispatcher, handler) for _ in range(2)]
+    workers = [asyncio.create_task(worker.run()) for worker in worker_instances]
     await asyncio.wait_for(both_entered.wait(), timeout=1)
     assert set(entered) == {"NSE_EQ|ONE", "NSE_EQ|TWO"}
     assert dispatcher.inflight_keys == 2
     assert dispatcher.pending_keys == 0
 
     release.set()
+    async def wait_for_acknowledgements():
+        while sum(worker.processed_count for worker in worker_instances) != 2:
+            await asyncio.sleep(0)
+    await asyncio.wait_for(wait_for_acknowledgements(), timeout=1)
     for task in workers:
         task.cancel()
     for task in workers:

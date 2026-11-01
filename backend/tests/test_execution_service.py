@@ -3,6 +3,7 @@ from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.brokers.base import BrokerCallResult
 from app.models.execution import Execution
@@ -965,3 +966,25 @@ async def test_paper_execution_fails_closed_for_live_mode_portfolio(db_session, 
     db_session.refresh(p)
     assert p.cash_balance == Decimal("100000")
     assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == 0
+
+
+def test_database_rejects_order_mode_that_differs_from_portfolio(db_session, portfolio, instrument):
+    from app.models.order import Order
+
+    _, p = portfolio
+    mismatched = Order(
+        portfolio_id=p.id,
+        instrument_id=instrument.id,
+        side="BUY",
+        order_type="LIMIT",
+        segment="EQUITY_DELIVERY",
+        quantity=1,
+        status="PENDING",
+        trading_mode="LIVE",
+        execution_reason="MANUAL",
+        placed_at=datetime.now(timezone.utc),
+    )
+    db_session.add(mismatched)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()

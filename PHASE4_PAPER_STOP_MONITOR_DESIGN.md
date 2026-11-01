@@ -65,3 +65,31 @@ Do **not** implement tick-triggered exits by simply calling `StrategyExecutionSe
 ## Latest follow-up — 30 October 2026
 
 Transactional PAPER stop-event claim service commit `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. Claims validate tenant/strategy/instrument ownership, lock portfolio → strategy → position, reject ambiguous shared-position ownership and duplicate quote identity, and store a bounded lease. The dispatcher remains disconnected from the claim service and order execution. Next gates are PostgreSQL 16 multi-worker concurrency, event transitions/lease reclaim, crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled.
+
+
+## Implementation status correction — 1 November 2026
+
+This dated addendum supersedes the earlier "findings that block" where the gaps have since been implemented and CI-verified. The original audit remains intact as a historical record of the risks identified at design time.
+
+### Safeguards now implemented and covered by tests
+- Durable PAPER stop-event identity is stored with a unique strategy/event/epoch/version key, claim token, bounded lease, attempt counter and constrained state vocabulary.
+- Claim service validates user/portfolio/strategy/instrument ownership and rejects ambiguous shared portfolio/instrument position ownership. It locks portfolio → strategy → position.
+- Lifecycle supports token-fenced CLAIMED → EXECUTING → COMPLETED/RETRYABLE/FAILED transitions and atomic expired-lease reclamation with token rotation.
+- PAPER execution orchestration validates ownership and lease, uses the shared ExecutionService with caller-owned transaction, and commits order, execution/accounting, position/cash, watermark and event completion atomically.
+- Completed-event redelivery returns the existing matching filled PAPER order. Failure injection verifies rollback when completion fails after the order/accounting work has been flushed.
+- PostgreSQL 16 tests cover concurrent claims/reclaimers, retry-limit exhaustion, expired EXECUTING lease recovery, rollback, and two workers concurrently executing the same event. The last case verifies one order, one execution, one position close and same-order replay.
+- Exact-head Backend CI #41289810206 passed on 6db7dcfa3d46c11c844733e571ea6f90dda999d6; the current code checkpoint and its docs are tracked in PHASE4_LATEST_CI_CHECKPOINT.md.
+
+### Still not implemented / still blocks dispatcher activation
+- MarketQuoteDispatcher remains isolated and is not wired into RedisMarketQuoteWorker or the durable claim/execution services.
+- There is no supervised quote-driven PAPER stop-monitor consumer yet. Callback must remain validation/cache/dispatch only; DB and execution work belongs in a separate bounded consumer.
+- Consumer cancellation, in-flight acknowledgement/requeue, retry backoff, shutdown and multi-replica handoff need explicit semantics and tests before activation.
+- Freshness must include both scanner receive-time TTL and exchange timestamp age/skew checks at the final stop-trigger boundary. A WebSocket LTPC tick is trigger data only; fills still require fresh Full Market Quotes V3 depth through existing PAPER execution.
+- Multi-user/multi-instrument load, Redis outage/reconnect, queue overflow, stale quote, missing depth, kill-switch, and deployment/credentialed Upstox tests remain required or deferred as applicable.
+
+### Correct next sequence
+1. Harden dispatcher acknowledgement/cancellation and supervised consumer lifecycle; add tests for cancellation before work, during work, and shutdown with pending/in-flight keys.
+2. Add a PAPER-only consumer service that resolves exact owner/instrument strategy subscriptions, applies final exchange-time and receive-time freshness checks, then uses durable claim + atomic execution services. Do not perform DB or order work in the Redis callback.
+3. Test the integrated flow with PostgreSQL 16 multi-worker races, duplicate/out-of-order versions, epoch replacement, cross-tenant isolation, stale/future timestamps and queue overflow.
+4. Run full exact-head CI before recording another checkpoint.
+5. Keep LIVE mode isolated and all live broker writes disabled until the separate live-readiness stages are independently completed and explicitly approved.

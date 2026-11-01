@@ -205,19 +205,19 @@ def test_apply_fill_rejects_invalid_position_and_fill_inputs(kwargs):
     [
         (
             [(Side.BUY, 10, "100"), (Side.BUY, 5, "130"), (Side.SELL, 8, "140"), (Side.SELL, 7, "90")],
-            0, "0", "205.00",
+            0, "0", "100.00",
         ),
         (
             [(Side.SELL, 10, "200"), (Side.SELL, 5, "180"), (Side.BUY, 8, "170"), (Side.BUY, 7, "210")],
-            0, "0", "205.00",
+            0, "0", "70.00",
         ),
         (
             [(Side.BUY, 4, "100"), (Side.SELL, 7, "120"), (Side.BUY, 2, "110")],
-            -1, "120", "80.00",
+            -1, "120", "100.00",
         ),
         (
             [(Side.SELL, 4, "100"), (Side.BUY, 7, "80"), (Side.SELL, 2, "90")],
-            1, "90", "80.00",
+            1, "80", "100.00",
         ),
     ],
 )

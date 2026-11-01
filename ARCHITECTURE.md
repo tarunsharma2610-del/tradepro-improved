@@ -1753,3 +1753,27 @@ The transactional PAPER stop-event claim implementation at `6ac3882a98f3c66abb4c
 ## 2026-10-30 — Phase 4 PostgreSQL 16 stop-claim concurrency checkpoint
 
 Exact implementation SHA `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358). Verified: backend pytest with PostgreSQL 16 multi-session claim-race coverage, broker-write boundary, SQLite and isolated PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore. Migration validation is isolated in `tradepro_migration_check`. Next work is lifecycle transition and lease recovery design/testing; no broker order submission is in scope. PR #9 remains Draft/unmerged, PAPER mandatory, live writes disabled, and only Tradepro Improved is authorized.
+
+## Trading-mode isolation architecture decision — 1 November 2026
+
+### Current verified state
+The current execution service creates PAPER orders explicitly. Portfolio rows do not carry a trading mode. Position rows are keyed by portfolio and instrument, and strategy rows reference a portfolio. Order rows have a trading_mode field. This is not sufficient evidence of complete dual-mode isolation.
+
+### Required target model
+1. A portfolio/account has an immutable trading_mode: PAPER or LIVE. A user's PAPER and LIVE portfolios are distinct rows with independent capital, cash, risk controls and lifecycle.
+2. Positions, orders, fills, charges, realized/unrealized P&L and ledger entries must derive their mode from the owning portfolio/account. Never accept a client-supplied mode that can disagree with the portfolio.
+3. Strategy ownership is bound to exactly one portfolio/account and therefore one mode. A strategy cannot switch the mode of an existing position or order. To run the same strategy in both modes, create two separately configured strategy instances attached to the two portfolios.
+4. Every order creation and fill path must verify order mode equals portfolio mode inside the same transaction/lock boundary. Add database constraints or composite foreign-key/trigger enforcement where supported; do not rely only on UI or request validation.
+5. PAPER execution remains simulated and cannot invoke broker place/modify/cancel methods. LIVE execution, when eventually authorized, must use a separate deny-by-default gateway with explicit user authorization, broker-account binding, idempotency keys, audit events, risk checks and kill switch.
+6. Mode switching in the UI selects another isolated portfolio. It does not mutate a portfolio's mode, transfer cash/positions, or rewrite historical orders.
+7. Migration plan: existing portfolios are backfilled as PAPER; existing orders remain PAPER and are checked against their owning portfolio; fail migration if inconsistent records exist rather than guessing. LIVE portfolios are created only through an explicit, separately authorized onboarding flow.
+8. Test requirements: cross-mode read/write denial; user/portfolio ownership; concurrent mode selection; strategy-mode mismatch; order/portfolio mismatch; positions and ledger isolation; retries/idempotency; PAPER cannot reach broker-write methods; LIVE gateway deny-by-default; mode switch cannot transfer state; upgrade/downgrade/re-upgrade on SQLite and PostgreSQL 16.
+
+### Implementation sequence
+A. Inventory every portfolio/order/position/fill/charge/ledger/P&L query and mutation, including API routes, background workers, strategy execution and reporting.
+B. Add portfolio trading_mode and backfill/constraints in a reversible migration; add repository/service mode scoping.
+C. Enforce portfolio-derived mode at order, fill, ledger and strategy boundaries; add adversarial cross-mode tests.
+D. Update API schemas and UI to select an isolated portfolio rather than mutate mode.
+E. Only after separate authorization and independent review, consider implementing the LIVE broker gateway. Keep live writes disabled until explicit approval.
+
+This decision is an architecture plan, not an implementation claim. Current Phase 4 runtime remains PAPER-only; LIVE place/modify/cancel are disabled.

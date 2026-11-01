@@ -30,6 +30,15 @@ def check_trailing_stop(
 
     watermark=None means no watermark yet (e.g., right after entry) —
     current_price seeds it."""
+    if isinstance(position_quantity, bool) or not isinstance(position_quantity, int) or position_quantity == 0:
+        raise ValueError("Trailing stop requires a non-zero integer position quantity.")
+    if not current_price.is_finite() or current_price <= 0:
+        raise ValueError("Trailing-stop price must be finite and positive.")
+    if watermark is not None and (not watermark.is_finite() or watermark <= 0):
+        raise ValueError("Trailing-stop watermark must be finite and positive.")
+    if not stop_pct.is_finite() or not Decimal("0") < stop_pct <= Decimal("50"):
+        raise ValueError("Trailing-stop percentage must be greater than 0 and at most 50.")
+
     effective_watermark = watermark if watermark is not None else current_price
     stop_fraction = stop_pct / Decimal("100")
 

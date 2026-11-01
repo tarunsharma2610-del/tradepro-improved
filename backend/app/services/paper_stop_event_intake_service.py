@@ -72,6 +72,9 @@ class PaperStopEventIntakeService:
         age = (current - received_at).total_seconds()
         if age < -5 or age > self.max_quote_age_seconds:
             raise PaperStopObservationRejected("Observation is stale or timestamped in the future.")
+        exchange_age_ms = current.timestamp() * 1000 - observation.exchange_timestamp_ms
+        if not -60_000 <= exchange_age_ms <= self.max_quote_age_seconds * 1000:
+            raise PaperStopObservationRejected("Observation exchange timestamp is stale or invalid.")
 
         instrument = (
             self.db.query(Instrument)

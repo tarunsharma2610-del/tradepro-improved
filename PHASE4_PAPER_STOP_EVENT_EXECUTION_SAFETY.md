@@ -138,3 +138,12 @@ Product direction: Tradepro Improved is intended to support both PAPER and LIVE 
 - Root cause: the execution service performs an initial unlocked event read to discover lock keys. That ORM instance remains in SQLAlchemy's identity map. After waiting for the portfolio/event locks, a later `SELECT ... FOR UPDATE` can return the same in-memory instance without refreshing already-loaded attributes. The second worker could therefore observe stale `CLAIMED` state even though the first worker had committed `COMPLETED`.
 - Corrected the locked event query with SQLAlchemy `.populate_existing()`, forcing the row values read under lock to refresh the identity-mapped object before state/lease validation. This preserves the open-position guard and completed-event replay behavior; it does not permit a second fill.
 - The PostgreSQL concurrency test remains a required gate. Commit `7f7fc73d4c1e7e3236081d19fdc8f2b61f6265b6` requires full exact-head CI before acceptance.
+
+
+## 1 November 2026 — PostgreSQL concurrent execution verified
+
+- Exact-head Backend CI [#41289810206 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41289810206) on `6db7dcfa3d46c11c844733e571ea6f90dda999d6`.
+- The PostgreSQL 16 concurrent duplicate-execution test, full pytest suite, broker-write boundary, SQLite/PostgreSQL 16 migration cycles and synthetic restore/evidence gates all passed.
+- The test demonstrates a single durable PAPER order and execution for two simultaneous deliveries, with one quote fetch and one closed position. Both callers resolve to the same order.
+- The identity-map correction uses `.populate_existing()` on the locked event query. No open-position validation was weakened and no broker order-write API was enabled.
+- Next: PostgreSQL concurrent expired-lease reclaim and process interruption/restart tests. Dispatcher activation remains blocked until those recovery and acknowledgement gates pass.

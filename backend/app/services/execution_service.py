@@ -81,9 +81,12 @@ class ExecutionService:
         # Validate at the service boundary as well as the HTTP schema: strategy
         # automation and future internal callers do not pass through Pydantic.
         if paper_stop_event_id is not None and (
-            req.execution_reason != "STRATEGY" or req.strategy_id is None or req.order_type != "MARKET"
+            req.execution_reason != "STRATEGY" or req.strategy_id is None
+            or req.order_type != "MARKET" or not req.reduce_only
         ):
-            raise OrderValidationError("PAPER stop-event orders must be strategy-owned MARKET orders.")
+            raise OrderValidationError(
+                "PAPER stop-event orders must be strategy-owned reduce-only MARKET orders."
+            )
         if req.reduce_only and (
             req.execution_reason != "STRATEGY" or req.strategy_id is None or req.order_type != "MARKET"
         ):

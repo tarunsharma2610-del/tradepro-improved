@@ -3717,3 +3717,15 @@ This section is the current-status authority as of 2026-11-01 and supersedes old
 - PR #9 remains Draft and unmerged. Work is restricted to `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository remains out of scope and must not be modified.
 - Next implementation sequence: holdings synchronization; broker instrument identity reconciliation; separate realized P&L ledger; freshness-gated unrealized P&L using market prices; stale-data detection; multi-worker synchronization recovery; end-to-end security/isolation and operational review.
 - Documentation update itself must pass exact-head Backend CI before this documentation checkpoint is considered green.
+
+
+## Phase 4 latest checkpoint — 1 November 2026 — LIVE unrealized P&L projection
+
+- Latest branch head: `18588c18f550f6dc5a4953f90229e05f31e14269` on `phase4/redis-market-data-publisher`.
+- Exact-head Backend CI [#41328649301 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41328649301). The preceding service commit also passed #41328642939; #41328649301 verifies the final head and duplicate-row tests.
+- Fresh quote calculation and regression suite passed earlier exact-head CI #41327228865 (`f84834a`). Portfolio projection is now implemented as a read-only pure service and validates instrument identity, quote freshness, long/short signs, flat rows and malformed inputs.
+- Duplicate broker position identity (same instrument + same product) is rejected; distinct products for the same instrument are treated separately. Any unavailable open-position quote makes total portfolio unrealized P&L unavailable rather than partial.
+- Scope: not yet connected to Redis consumer or authenticated portfolio API; no frontend display and no broker/internal realized P&L reconciliation yet.
+- Next: inspect Redis quote consumer schema and timestamp source; build authoritative snapshot adapter; integrate projection into owner-scoped LIVE portfolio read endpoint; add API ownership/PAPER isolation/stale-data tests; reconcile broker fills to internal realized ledger; then UI. Keep realized and unrealized figures separate.
+- Exact-head docs CI is still required after this checkpoint update.
+- PR #9 remains Draft/open/unmerged. PAPER execution only; LIVE broker place/modify/cancel disabled. Work only in `tradepro-improved`; original `Tradepro` untouched.

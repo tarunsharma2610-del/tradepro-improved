@@ -65,3 +65,30 @@ def test_missing_instrument_key_is_not_guessed_from_symbol():
     )
     assert result["complete"] is False
     assert result["rows"][0]["status"] == "MISSING_INSTRUMENT_KEY"
+
+
+def test_duplicate_instrument_and_product_rows_fail_closed():
+    result = build_live_unrealized_pnl_view(
+        broker_positions=[
+            {"instrument_key": "NSE_EQ|AAA", "product": "I", "quantity": 10, "average_price": "100"},
+            {"instrument_key": "NSE_EQ|AAA", "product": "I", "quantity": 10, "average_price": "100"},
+        ],
+        quotes_by_instrument={"NSE_EQ|AAA": quote("110")},
+        now=NOW,
+    )
+    assert result["complete"] is False
+    assert result["total_unrealized_pnl"] is None
+    assert result["rows"][1]["status"] == "DUPLICATE_BROKER_POSITION"
+
+
+def test_same_instrument_across_distinct_products_is_not_misclassified_as_duplicate():
+    result = build_live_unrealized_pnl_view(
+        broker_positions=[
+            {"instrument_key": "NSE_EQ|AAA", "product": "I", "quantity": 10, "average_price": "100"},
+            {"instrument_key": "NSE_EQ|AAA", "product": "D", "quantity": 5, "average_price": "105"},
+        ],
+        quotes_by_instrument={"NSE_EQ|AAA": quote("110")},
+        now=NOW,
+    )
+    assert result["complete"] is True
+    assert result["total_unrealized_pnl"] == "125.00"

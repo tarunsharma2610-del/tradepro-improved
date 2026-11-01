@@ -158,3 +158,57 @@ async def handle_paper_market_observation(
 
     for event_id in event_ids:
         await _execute_event(event_id, user_id)
+
+
+async def recover_expired_paper_stop_events_once(*, limit: int = 100) -> int:
+    """Reclaim and resume expired durable claims independently of Redis delivery.
+
+    This is the restart-recovery path for the narrow crash window after the
+    claim transaction commits but before the dispatcher finishes the event.
+    """
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+        raise ValueError("Recovery batch limit must be between 1 and 1000.")
+
+    session = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        event_ids = [
+            row[0]
+            for row in (
+                session.query(PaperStopEvent.id)
+                .filter(
+                    PaperStopEvent.state.in_(_ACTIVE_EVENT_STATES),
+                    PaperStopEvent.claimed_until <= now,
+                )
+                .order_by(PaperStopEvent.claimed_until.asc(), PaperStopEvent.id.asc())
+                .limit(limit)
+                .all()
+            )
+        ]
+        session.rollback()
+    finally:
+        session.close()
+
+    recovered = 0
+    for event_id in event_ids:
+        # _execute_event performs the token-fenced conditional reclaim. If a
+        # competing worker already completed/reclaimed it, the current state
+        # is re-read under lock and no stale token can authorize execution.
+        event_session = SessionLocal()
+        try:
+            event = (
+                event_session.query(PaperStopEvent)
+                .filter(PaperStopEvent.id == event_id)
+                .first()
+            )
+            if event is None:
+                event_session.rollback()
+                continue
+            user_id = event.user_id
+            event_session.rollback()
+        finally:
+            event_session.close()
+
+        await _execute_event(event_id, user_id)
+        recovered += 1
+    return recovered

@@ -494,3 +494,19 @@ Product direction: Tradepro Improved is intended to support both PAPER and LIVE 
 4. Connect the bounded dispatcher to the durable claim service for PAPER only; keep scanner callbacks free of DB, broker and order work.
 5. Add multi-user/multi-instrument, Redis outage/reconnect, stale quote, depth and kill-switch tests; then run exact-head full CI.
 6. Continue the separate PAPER/LIVE mode-isolation and live-write gateway audit. Do not enable LIVE broker writes as part of Phase 4 dispatcher work.
+
+
+## 1 November 2026 — dispatcher cancellation recovery tests CI green
+
+- Exact PR #9 head `1e37ad6e52a3c94a35a5519cc496ab3000f3f44f`; Backend CI [#41290374836 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41290374836).
+- All workflow gates passed: full backend pytest, broker-write boundary enforcement, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore, and evidence retention.
+- Dispatcher now exposes same-consumer-task `release()` for cancellation/interruption. It requeues the in-flight observation unless a newer coalesced observation exists; newest observation wins. Successful processing continues to use `task_done()`.
+- Added regression tests for cancellation recovery and newest-value preference. These are in-process handoff semantics only; process death loses this in-memory queue, so durable recovery must continue to rely on Redis replay plus PostgreSQL claim/lease state. Do not describe dispatcher memory as durable.
+- PR #9 remains Draft/unmerged. Product target is PAPER + LIVE with strict separation; PAPER is default for CI. LIVE broker place/modify/cancel remain disabled. Original `tarunsharma2610-del/Tradepro` untouched.
+
+### Next steps
+1. Add supervised consumer lifecycle tests for worker shutdown, cancellation before/during handling, retry/backoff, queue drain and no leaked in-flight keys.
+2. Wire the Redis quote callback to a non-blocking dispatcher publish only; it must not await strategy/DB/execution work.
+3. Add a separately supervised PAPER consumer that validates receive-time and exchange-time freshness, resolves user/strategy ownership, obtains durable claim/lease and delegates to the existing atomic PAPER stop-event execution service.
+4. Test multi-worker PostgreSQL idempotency, Redis disconnect/reconnect/replay, queue overflow, stale/future quotes, depth, kill switch and cross-tenant isolation.
+5. Exact-head full CI before each accepted checkpoint. No LIVE writes until independent readiness gates and explicit approval.

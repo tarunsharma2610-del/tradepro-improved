@@ -3666,3 +3666,14 @@ Resume only after verifying the latest head and its own CI. Next task is P4-0 ba
 ## Phase 4 verified checkpoint — 30 October 2026
 
 Implementation commit `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358) on the exact SHA. Backend pytest (including PostgreSQL 16 independent-session stop-claim races), broker-write boundary enforcement, SQLite migrations, isolated PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore all passed. Migration validation now uses separate `tradepro_migration_check` DB; concurrency tests use `tradepro_test`. Next: claim-token-owned event lifecycle transitions, then lease reclamation and crash recovery. PR #9 remains Draft/unmerged; PAPER mandatory; all live broker writes disabled; only `tradepro-improved` is in scope.
+
+## Phase 4 checkpoint — 1 November 2026 — bounded dispatcher retry and runtime wiring
+
+- Latest exact-head code/test commit: `3ca26594cf3a711be624cf2836079caac352a897`.
+- Exact-head Backend CI [#41302875861 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41302875861). Backend pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, and synthetic PostgreSQL/document-volume restore drill all passed.
+- Runtime is wired in `backend/app/worker.py`: Redis quote ingress → validated scanner/dispatcher → four PAPER dispatch workers; independent durable stop-event recovery loop runs every five seconds.
+- Dispatcher retries are bounded to five attempts. On exhaustion, scanner high-water state is cleared so the authoritative Redis snapshot can be offered again. Newer coalesced observations remain eligible; durable PostgreSQL quote/event/order identity protects replay.
+- Shared PAPER execution enforces reduce-only exits under portfolio/position locks. Indicator exits and stop-event exits may race, but stale exits must not increase exposure or reverse a position.
+- PR #9 description synchronized to current implementation and remaining work; PR remains Draft/open/unmerged.
+- Remaining: full Redis-to-ledger end-to-end assertions, multi-process/multi-replica crash/race tests, periodic-indicator versus event-stop concurrency, PAPER/LIVE isolation audit, security/load/observability checks, and maintained-doc synchronization on a green docs head.
+- Safety: PAPER only; live broker place/modify/cancel disabled; no deployment/production activation; only `tradepro-improved`; original `Tradepro` untouched.

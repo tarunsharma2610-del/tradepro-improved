@@ -17,6 +17,7 @@ class Portfolio(BaseModel):
             name="ck_portfolios_balance_source_mode",
         ),
         UniqueConstraint("id", "trading_mode", name="uq_portfolios_id_trading_mode"),
+        UniqueConstraint("id", "user_id", name="uq_portfolios_id_user"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)

@@ -49,10 +49,22 @@ class StrategyAnalytics:
     total_realized_pnl: Decimal
 
 
-def portfolio_analytics(db: Session, portfolio_id: UUID, initial_capital: Decimal) -> PortfolioAnalytics:
+def portfolio_analytics(
+    db: Session, portfolio_id: UUID, initial_capital: Decimal, trading_mode: str = "PAPER"
+) -> PortfolioAnalytics:
+    if trading_mode not in {"PAPER", "LIVE"}:
+        raise ValueError("Unsupported portfolio trading mode.")
+
+    # Mode is checked at the execution's owning order as a second isolation
+    # boundary; portfolio_id alone must never mix PAPER and LIVE fills.
     executions = (
         db.query(Execution)
-        .filter(Execution.portfolio_id == portfolio_id)
+        .join(Order, Order.id == Execution.order_id)
+        .filter(
+            Execution.portfolio_id == portfolio_id,
+            Order.portfolio_id == portfolio_id,
+            Order.trading_mode == trading_mode,
+        )
         .order_by(Execution.executed_at)
         .all()
     )

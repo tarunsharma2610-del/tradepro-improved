@@ -796,3 +796,12 @@ Credentialed Upstox OAuth/API smoke testing and real Oracle/database-plus-docume
 ## 2026-10-30 — Phase 4 PostgreSQL 16 stop-claim concurrency checkpoint
 
 Exact implementation SHA `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358). Verified: backend pytest with PostgreSQL 16 multi-session claim-race coverage, broker-write boundary, SQLite and isolated PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore. Migration validation is isolated in `tradepro_migration_check`. Next work is lifecycle transition and lease recovery design/testing; no broker order submission is in scope. PR #9 remains Draft/unmerged, PAPER mandatory, live writes disabled, and only Tradepro Improved is authorized.
+
+## 2026-11-01 — Phase 4 bounded dispatcher retry and PAPER runtime integration
+
+- Wired Redis quote ingress through validated scanner/dispatcher to four supervised PAPER dispatch workers in `backend/app/worker.py`; durable stop-event recovery remains an independent five-second loop.
+- Added bounded five-attempt dispatcher retry. Retry exhaustion clears scanner high-water state so authoritative Redis snapshot recovery can offer the observation again; newer coalesced quotes remain preserved.
+- Added regression tests for retry exhaustion, coalesced successor processing and invalid retry configuration.
+- Shared PAPER execution retains reduce-only checks under portfolio/position locks to prevent stale exit reversal or exposure increase.
+- Exact-head Backend CI #41302875861 passed on `3ca26594cf3a711be624cf2836079caac352a897`, including pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill.
+- Remaining: full end-to-end Redis-to-ledger proof, multi-replica crash/race tests, PAPER/LIVE isolation, security/operational review and final docs-head CI. PR #9 remains Draft/unmerged; LIVE broker writes disabled; original Tradepro untouched.

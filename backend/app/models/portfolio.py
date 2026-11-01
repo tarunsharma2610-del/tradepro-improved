@@ -10,6 +10,12 @@ class Portfolio(BaseModel):
     __tablename__ = "portfolios"
     __table_args__ = (
         CheckConstraint("trading_mode IN ('PAPER', 'LIVE')", name="ck_portfolios_trading_mode"),
+        CheckConstraint("balance_source IN ('SIMULATED', 'UNAVAILABLE', 'BROKER')", name="ck_portfolios_balance_source"),
+        CheckConstraint(
+            "(trading_mode = 'PAPER' AND balance_source = 'SIMULATED') OR "
+            "(trading_mode = 'LIVE' AND balance_source IN ('UNAVAILABLE', 'BROKER'))",
+            name="ck_portfolios_balance_source_mode",
+        ),
         UniqueConstraint("id", "trading_mode", name="uq_portfolios_id_trading_mode"),
     )
 
@@ -26,6 +32,11 @@ class Portfolio(BaseModel):
     # accounting model referenced in the architecture rules, not a
     # separate implementation from what Phase 3+ strategies will use.
     cash_balance: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
+    # LIVE funds are unavailable until a verified broker balance sync completes.
+    # PAPER balances are simulated and must never be presented as broker funds.
+    balance_source: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="SIMULATED", server_default="SIMULATED"
+    )
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

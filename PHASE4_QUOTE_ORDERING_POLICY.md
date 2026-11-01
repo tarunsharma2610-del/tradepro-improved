@@ -136,3 +136,10 @@ Backend CI #41294699288 exposed PostgreSQL's restriction against applying an unr
 Fix committed as `821fd427948c3af226e66848effcc2c6c1499193`: the strategy lock now uses SQLAlchemy `.with_for_update(of=Strategy)`, retaining the intended strategy-row lock while excluding the nullable joined Instrument side. This does not change the portfolio → strategy → position lock order.
 
 Backend CI #41294894211 is running against the exact fix commit. Until it passes, the PostgreSQL concurrency tests and this fix remain unverified. The duplicate-trigger concurrency assertion must be reviewed after the PostgreSQL lock issue is cleared, because uniqueness conflict handling is a separate behavior to verify.
+
+
+## Follow-up PostgreSQL locking correction — 1 November 2026
+
+The first scoped Strategy lock exposed the same PostgreSQL outer-join restriction on Position: its joined-loaded optional Instrument relationship caused the Position query's unrestricted `FOR UPDATE` to fail. The intake service now uses `.with_for_update(of=Position)` as well, matching the existing claim service's scoped Position lock. The intended portfolio → strategy → position lock order is unchanged.
+
+Fix commit: `2dc2d5b0beb59e4b6992e125c70787c410a915a1`. Exact-head Backend CI is required; no passing result is claimed yet.

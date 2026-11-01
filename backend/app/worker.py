@@ -163,7 +163,12 @@ async def main() -> None:
     dispatch_worker_tasks = [
         asyncio.create_task(
             MarketQuoteDispatchWorker(
-                dispatcher, handle_paper_market_observation
+                dispatcher,
+                handle_paper_market_observation,
+                max_attempts=5,
+                on_exhausted=lambda item: scanner.clear_instrument(
+                    item.user_id, item.instrument_key
+                ),
             ).run(),
             name=f"paper-market-quote-dispatch-worker-{index + 1}",
         )

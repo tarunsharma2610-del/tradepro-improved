@@ -226,3 +226,21 @@ Test commit: `36aa713fa298985870be1ba57069c809be0138a5`, followed by determinist
 Backend CI #41298564267 failed with 1,430 passed and one timeout in `test_two_workers_never_process_same_user_instrument_concurrently`. The failure showed the test still assumed worker affinity: after the first handler acknowledges, the dispatcher immediately requeues a coalesced successor and either available worker may consume it. The dispatcher does not promise FIFO worker assignment, and no such guarantee is required for same-key single-flight.
 
 Correction submitted in commit `17ab764afc5eb7c601fddd256f7476aaef9efe0c`: both workers use a shared handler that tracks active invocations; the test holds version 1, publishes version 2, asserts version 2 cannot enter while version 1 is active, then allows either worker to process the successor and asserts maximum same-key concurrency is exactly one. It also verifies queue completion and zero pending/in-flight keys before cancelling idle workers. No production code changed. Exact-head CI remains pending.
+
+
+## Scanner-to-dispatcher adapter submitted — 1 November 2026
+
+The multi-worker lifecycle correction passed:
+- Backend CI #41299089659 passed on `17ab764afc5eb7c601fddd256f7476aaef9efe0c`.
+- Documentation-head Backend CI #41299105020 passed on `c161bfdac7461a24c2e75896481bf53423f38b4d`.
+
+A narrow in-memory adapter is now added:
+- `backend/app/services/market_scan_dispatch_pipeline.py` calls the existing fail-closed `MarketScanner`, then publishes accepted observations to the existing bounded `MarketQuoteDispatcher`.
+- The callback can be supplied as `RedisMarketQuoteWorker(on_quote=pipeline.on_quote)`.
+- It exposes counters for accepted observations, rejected quotes and dispatch-capacity drops.
+- It has no database session, no strategy evaluation, no order writes, and no broker client.
+- Tests cover valid conversion, cross-user/invalid/duplicate rejection, per-user isolation and bounded-queue overflow.
+
+Implementation commit: `4a98c34c6a7caa4e09e6f93548cab8c05dc8970e`.
+Test commit: `53c53cb8bb5c8e67bf19a8a5ee63d720ecf18400`.
+Exact-head Backend CI is pending. This is a reusable adapter only: it is not yet wired into API startup or a deployed worker process. The next review must decide and test dedicated worker lifecycle/supervision before runtime activation. PAPER strategy evaluation and LIVE execution remain disabled at this boundary.

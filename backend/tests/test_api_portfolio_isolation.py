@@ -337,3 +337,71 @@ def test_live_portfolio_balance_is_unavailable_until_broker_sync(client):
     assert data["balance_source"] == "UNAVAILABLE"
     assert data["cash_balance"] == "0.00"
     assert data["virtual_capital"] == "0.00"
+
+
+
+def test_broker_allocation_requires_owned_live_portfolio_and_verified_unexpired_connection(client, db_session):
+    from datetime import datetime, timedelta, timezone
+    from app.models.broker_connection import BrokerConnection
+    from app.models.user import User
+
+    _register_and_login(client, "allocation-api-owner@example.com")
+    live = client.post("/api/v1/portfolios", json={"name": "LIVE", "trading_mode": "LIVE"})
+    paper = client.post(
+        "/api/v1/portfolios",
+        json={"name": "PAPER", "trading_mode": "PAPER", "virtual_capital": "100000"},
+    )
+    assert live.status_code == paper.status_code == 201
+
+    connection = BrokerConnection(
+        user_id=db_session.query(User).filter_by(email="allocation-api-owner@example.com").one().id,
+        broker="upstox",
+        api_key_encrypted="encrypted-api-key",
+        api_secret_encrypted="encrypted-api-secret",
+        redirect_uri="https://example.invalid/callback",
+        access_token_encrypted="encrypted-access-token",
+        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        is_connected=True,
+    )
+    db_session.add(connection)
+    db_session.commit()
+    db_session.refresh(connection)
+
+    payload = {"broker_connection_id": str(connection.id)}
+    allocated = client.post(f"/api/v1/portfolios/{live.json()['id']}/broker-allocation", json=payload)
+    assert allocated.status_code == 201
+    assert allocated.json()["broker"] == "upstox"
+    assert allocated.json()["trading_mode"] == "LIVE"
+    assert "access_token" not in allocated.text
+    assert client.get(f"/api/v1/portfolios/{live.json()['id']}/broker-allocation").status_code == 200
+
+    duplicate = client.post(f"/api/v1/portfolios/{live.json()['id']}/broker-allocation", json=payload)
+    assert duplicate.status_code == 409
+    assert client.post(f"/api/v1/portfolios/{paper.json()['id']}/broker-allocation", json=payload).status_code == 409
+
+
+def test_broker_allocation_rejects_unverified_or_expired_connection(client, db_session):
+    from datetime import datetime, timedelta, timezone
+    from app.models.broker_connection import BrokerConnection
+    from app.models.user import User
+
+    _register_and_login(client, "allocation-unverified@example.com")
+    live = client.post("/api/v1/portfolios", json={"name": "LIVE", "trading_mode": "LIVE"})
+    owner = db_session.query(User).filter_by(email="allocation-unverified@example.com").one()
+    connection = BrokerConnection(
+        user_id=owner.id,
+        broker="upstox",
+        api_key_encrypted="encrypted-api-key",
+        api_secret_encrypted="encrypted-api-secret",
+        redirect_uri="https://example.invalid/callback",
+        access_token_encrypted="encrypted-access-token",
+        access_token_expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+        is_connected=True,
+    )
+    db_session.add(connection)
+    db_session.commit()
+    response = client.post(
+        f"/api/v1/portfolios/{live.json()['id']}/broker-allocation",
+        json={"broker_connection_id": str(connection.id)},
+    )
+    assert response.status_code == 409

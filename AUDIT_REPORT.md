@@ -2387,3 +2387,16 @@ This section is the current-status authority as of 2026-11-01 and supersedes old
 - PR #9 remains Draft and unmerged, targeting `phase4/roadmap-progress-checkpoints`. Only `tarunsharma2610-del/tradepro-improved` is in scope. The original `tarunsharma2610-del/Tradepro` repository must remain untouched.
 - Next implementation gate: inspect current LIVE positions route and its tests, then add fail-closed mode-aware behavior with regression tests. Do not start broker allocation or UI work until the positions boundary is proven.
 - Documentation rule: after the next code milestone, update all maintained project documents and run exact-head CI on the documentation commit before declaring the documentation checkpoint current.
+
+
+## 2026-11-01 — LIVE broker snapshot synchronization checkpoint (supersedes older outstanding-status notes)
+
+- Funds V3 synchronization and LIVE positions snapshot synchronization are implemented as read-only broker-data paths. Positions validation, immutable snapshot persistence, owner-scoped LIVE migration 042, latest-snapshot API and audit logging are in place.
+- Exact-head Backend CI #41321796027 PASSED on `3090d7518dfcebaad3dad69967b861f9e3fb3e14`. Verified stages: backend pytest, broker-write safety enforcement, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL restore and documentation-volume restore.
+- Decimal normalization canonicalizes signed zero to `0.00`; regression coverage added.
+- Latest broker Positions and Funds reads are now scoped to the broker connection currently allocated to the LIVE portfolio. Regression coverage verifies old snapshots are not returned after allocation removal/replacement. The test respects the database's unique one-connection-per-user-per-broker constraint by using distinct broker providers for the replacement scenario.
+- Failed synchronization retains the prior snapshot; PAPER positions and accounting are not mutated; broker-reported realized and unrealized P&L remain distinct; unknown instrument identities are not guessed; broker daily P&L is not represented as lifetime P&L.
+- This is read-only LIVE data synchronization, not LIVE order execution. Broker place/modify/cancel writes remain disabled; PAPER execution remains the only enabled execution path. No deployment or LIVE gateway activation is authorized.
+- PR #9 remains Draft and unmerged. Work is restricted to `tarunsharma2610-del/tradepro-improved`; the original `tarunsharma2610-del/Tradepro` repository remains out of scope and must not be modified.
+- Next implementation sequence: holdings synchronization; broker instrument identity reconciliation; separate realized P&L ledger; freshness-gated unrealized P&L using market prices; stale-data detection; multi-worker synchronization recovery; end-to-end security/isolation and operational review.
+- Documentation update itself must pass exact-head Backend CI before this documentation checkpoint is considered green.

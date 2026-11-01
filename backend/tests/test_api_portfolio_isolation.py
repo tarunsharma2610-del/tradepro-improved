@@ -151,3 +151,48 @@ def test_owner_can_cancel_pending_limit_order_but_another_user_cannot(client, db
     cancelled = client.delete(f"/api/v1/portfolios/{portfolio_id}/orders/{order_id}")
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "CANCELLED"
+
+
+def test_live_portfolio_cannot_activate_or_evaluate_paper_strategy(client, db_session):
+    from app.models.portfolio import Portfolio
+
+    _register_and_login(client, "live-mode-owner@example.com")
+    portfolio_id = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Live account", "virtual_capital": "100000"},
+    ).json()["id"]
+
+    from app.services.instrument_service import InstrumentService
+    from app.repositories.instrument_repository import InstrumentRepository
+
+    InstrumentService(db_session).seed_defaults()
+    instrument_id = InstrumentRepository(db_session).search("INFY")[0].id
+    created = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/strategies",
+        json={
+            "instrument_id": str(instrument_id),
+            "name": "Must remain inactive",
+            "segment": "EQUITY_INTRADAY",
+            "quantity": 1,
+            "max_daily_loss": "2000",
+        },
+    )
+    assert created.status_code == 201
+    strategy_id = created.json()["id"]
+
+    portfolio = db_session.query(Portfolio).filter(Portfolio.id == portfolio_id).one()
+    portfolio.trading_mode = "LIVE"
+    db_session.commit()
+
+    activation = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/strategies/{strategy_id}/activate"
+    )
+    assert activation.status_code == 409
+    assert "PAPER-only" in activation.json()["detail"]
+
+    evaluation = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/strategies/{strategy_id}/evaluate"
+    )
+    assert evaluation.status_code == 200
+    assert evaluation.json()["signal"] == "HOLD"
+    assert "PAPER-only" in evaluation.json()["reason"]

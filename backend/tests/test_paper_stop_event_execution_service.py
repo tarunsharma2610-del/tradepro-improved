@@ -210,3 +210,23 @@ def test_aware_claim_lease_is_converted_to_utc():
     value = datetime(2026, 11, 1, 13, 30, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
     normalized = PaperStopEventExecutionService._utc_datetime(value)
     assert normalized == datetime(2026, 11, 1, 8, 0, 0, tzinfo=timezone.utc)
+
+
+@pytest.mark.asyncio
+async def test_missing_analytics_token_keeps_stop_claim_retryable_without_creating_order(
+    db_session, portfolio, instrument
+):
+    user, p = portfolio
+    _, _, event_id, token = _claimed_event(db_session, user, p, instrument)
+
+    with pytest.raises(PaperStopEventExecutionRejected, match="remains claimable for retry"):
+        await PaperStopEventExecutionService(db_session).execute_claimed(
+            user_id=user.id, event_id=event_id, claim_token=token
+        )
+
+    db_session.expire_all()
+    event = db_session.get(PaperStopEvent, event_id)
+    assert event.state == "CLAIMED"
+    assert event.claim_token == token
+    assert db_session.query(Order).filter(Order.paper_stop_event_id == event_id).count() == 0
+    assert db_session.query(Execution).count() == 0

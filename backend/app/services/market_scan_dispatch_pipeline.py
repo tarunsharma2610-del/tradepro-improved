@@ -33,12 +33,13 @@ class MarketScanDispatchPipeline:
             return False
         if not self.dispatcher.publish(observation):
             self.rejected_dispatches += 1
-            # Scanner validation advances its in-memory high-water mark. Clear
-            # this user's scanner cache so the Redis consumer's periodic
-            # authoritative-snapshot sweep can retry a capacity-dropped quote.
-            # Durable per-strategy quote ordering in PostgreSQL still rejects
-            # duplicates/regressions, so this does not weaken execution safety.
-            self.scanner.clear_user(user_id)
+            # Scanner validation advances its in-memory high-water mark.
+            # Clear only this instrument so the Redis consumer's periodic
+            # authoritative-snapshot sweep can retry it without re-admitting
+            # duplicates for every other instrument owned by this user.
+            # Durable per-strategy quote ordering in PostgreSQL remains the
+            # final duplicate/regression boundary.
+            self.scanner.clear_instrument(user_id, observation.instrument_key)
             return False
         self.accepted_observations += 1
         return True

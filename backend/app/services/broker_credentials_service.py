@@ -18,6 +18,7 @@ from app.brokers.registry import get_broker_adapter
 from app.core.config import settings
 from app.core.encryption import decrypt_value, encrypt_value, mask_secret
 from app.models.broker_connection import BrokerConnection
+from app.models.broker_portfolio_allocation import BrokerPortfolioAllocation
 from app.repositories.broker_connection_repository import BrokerConnectionRepository
 from app.schemas.broker import BrokerConnectionCreate
 
@@ -31,6 +32,11 @@ class BrokerCredentialsService:
         return self.repo.list_for_user(user_id)
 
     def save_credentials(self, user_id: UUID, payload: BrokerConnectionCreate) -> BrokerConnection:
+        existing = self.repo.get_for_user(user_id, payload.broker)
+        if existing is not None and self.db.query(BrokerPortfolioAllocation.id).filter(
+            BrokerPortfolioAllocation.broker_connection_id == existing.id
+        ).first():
+            raise ValueError("Broker credentials cannot be replaced while the connection is allocated to a LIVE portfolio. Remove the allocation first.")
         conn = self.repo.upsert(
             user_id=user_id,
             broker=payload.broker,
@@ -111,6 +117,10 @@ class BrokerCredentialsService:
 
     def delete_connection(self, user_id: UUID, broker: str) -> None:
         conn = self._require_connection(user_id, broker)
+        if self.db.query(BrokerPortfolioAllocation.id).filter(
+            BrokerPortfolioAllocation.broker_connection_id == conn.id
+        ).first():
+            raise ValueError("Broker connection cannot be deleted while allocated to a LIVE portfolio. Remove the allocation first.")
         self.repo.delete(conn)
 
     def to_masked_out(self, conn: BrokerConnection) -> dict:

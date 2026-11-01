@@ -80,3 +80,32 @@ def test_pipeline_reports_bounded_dispatch_overflow():
     assert pipeline.accepted_observations == 1
     assert pipeline.rejected_dispatches == 1
     assert dispatcher.dropped_unique_keys == 1
+
+
+def test_pipeline_can_retry_capacity_dropped_snapshot_after_queue_drains():
+    user_id = uuid4()
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=1)
+    pipeline = MarketScanDispatchPipeline(
+        scanner=MarketScanner(), dispatcher=dispatcher
+    )
+    first = quote(user_id, instrument="NSE_EQ|FIRST")
+    dropped = quote(user_id, instrument="NSE_EQ|DROPPED")
+
+    assert pipeline.on_quote(user_id, first)
+    assert not pipeline.on_quote(user_id, dropped)
+    assert dispatcher.dropped_unique_keys == 1
+
+    current = dispatcher.get_nowait() if hasattr(dispatcher, "get_nowait") else None
+    if current is None:
+        # Queue retrieval is task-owned; use a consumer task for get+ack.
+        import asyncio
+
+        async def drain_first():
+            item = await dispatcher.get()
+            assert item.instrument_key == "NSE_EQ|FIRST"
+            dispatcher.task_done()
+
+        asyncio.run(drain_first())
+
+    assert pipeline.on_quote(user_id, dropped) is True
+    assert dispatcher.pending_keys == 1

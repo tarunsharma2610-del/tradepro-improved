@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -43,3 +43,7 @@ class Strategy(BaseModel):
     # --- Engine state (not user-configured) ---
     current_watermark: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
     last_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_quote_epoch: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_quote_version: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    last_quote_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_quote_exchange_timestamp_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)

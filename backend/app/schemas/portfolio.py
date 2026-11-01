@@ -8,9 +8,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class PortfolioCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    virtual_capital: Decimal = Field(gt=0, le=Decimal("1000000000"))
+    virtual_capital: Decimal | None = Field(default=None, gt=0, le=Decimal("1000000000"))
     # Mode is selected once when creating a portfolio and is immutable afterwards.
     trading_mode: Literal["PAPER", "LIVE"] = "PAPER"
+
+    @model_validator(mode="after")
+    def validate_initial_capital_by_mode(self):
+        if self.trading_mode == "PAPER" and self.virtual_capital is None:
+            raise ValueError("PAPER portfolios require simulated starting capital.")
+        if self.trading_mode == "LIVE" and self.virtual_capital is not None:
+            raise ValueError("LIVE portfolios cannot be initialized with simulated capital.")
+        return self
 
 
 class PortfolioRiskSettings(BaseModel):
@@ -41,6 +49,7 @@ class PortfolioOut(BaseModel):
     trading_mode: str
     virtual_capital: Decimal
     cash_balance: Decimal
+    balance_source: Literal["SIMULATED", "UNAVAILABLE", "BROKER"]
     risk_controls_enabled: bool = False
     max_daily_loss: Decimal | None = None
     max_open_exposure: Decimal | None = None

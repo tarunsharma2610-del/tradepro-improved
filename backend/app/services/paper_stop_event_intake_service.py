@@ -137,7 +137,10 @@ class PaperStopEventIntakeService:
                     Position.portfolio_id == portfolio.id,
                     Position.instrument_id == instrument.id,
                 )
-                .with_for_update()
+                # Position also joined-loads its optional Instrument.
+                # Restrict the row lock to Position to avoid PostgreSQL's
+                # nullable-side outer-join FOR UPDATE restriction.
+                .with_for_update(of=Position)
                 .first()
             )
             if position is None or position.quantity == 0:

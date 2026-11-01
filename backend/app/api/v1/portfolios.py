@@ -101,7 +101,7 @@ def allocate_broker_account(
     expiry = connection.access_token_expires_at
     if expiry is not None and expiry.tzinfo is None:
         expiry = expiry.replace(tzinfo=timezone.utc)
-    if not connection.is_connected or not connection.access_token_encrypted or (expiry is not None and expiry <= now):
+    if not connection.is_connected or not connection.access_token_encrypted or expiry is None or expiry <= now:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "Broker connection must have a verified, currently usable OAuth session before allocation.",

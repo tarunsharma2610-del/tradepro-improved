@@ -54,3 +54,13 @@ This commit adds the isolated dispatcher and unit tests only. It does not yet co
 ## Latest follow-up — 30 October 2026
 
 Transactional PAPER stop-event claim service commit `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. Claims validate tenant/strategy/instrument ownership, lock portfolio → strategy → position, reject ambiguous shared-position ownership and duplicate quote identity, and store a bounded lease. The dispatcher remains disconnected from the claim service and order execution. Next gates are PostgreSQL 16 multi-worker concurrency, event transitions/lease reclaim, crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled.
+
+
+## Cancellation recovery implementation — 1 November 2026
+
+- Added `release()` for the same consumer task that owns the in-flight key. On cancellation/interruption it requeues the in-flight observation unless a newer coalesced observation exists, in which case the newest wins.
+- `task_done()` remains the success acknowledgement. Both operations clear the in-flight ownership and maintain queue accounting.
+- Regression tests cover cancellation requeue and latest-value preference.
+- Exact-head Backend CI #41290374836 passed on `1e37ad6e52a3c94a35a5519cc496ab3000f3f44f`, including full pytest, broker-write boundary, SQLite/PostgreSQL 16 migration cycles and synthetic restore drill.
+- Important limitation: this dispatcher is in-memory and process-local. `release()` handles cooperative task cancellation, not hard process death. Durable replay/recovery must be supplied by the upstream Redis delivery semantics and PostgreSQL claim/lease state. Do not treat the dispatcher as a durable queue.
+- Next: supervised consumer lifecycle/backoff/shutdown tests, then non-blocking Redis callback → dispatcher wiring and a separately supervised PAPER-only durable consumer. Live broker writes remain disabled.

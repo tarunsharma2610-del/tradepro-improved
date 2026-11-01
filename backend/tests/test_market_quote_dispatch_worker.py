@@ -221,3 +221,63 @@ async def test_worker_pool_bounds_unique_keys_and_accounts_for_queue_completion(
     for task in workers:
         with pytest.raises(asyncio.CancelledError):
             await task
+
+
+@pytest.mark.asyncio
+async def test_exhausted_quote_releases_worker_and_preserves_newer_coalesced_snapshot(monkeypatch):
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=2)
+    assert dispatcher.publish(Observation(version=1))
+    first_attempt = asyncio.Event()
+    completed = asyncio.Event()
+    attempts = []
+    exhausted = []
+
+    async def handler(item):
+        attempts.append(item.version)
+        if item.version == 1:
+            first_attempt.set()
+            raise RuntimeError("persistent database failure")
+        completed.set()
+
+    async def fake_sleep(_delay):
+        await asyncio.sleep(0)
+
+    monkeypatch.setattr(
+        "app.services.market_quote_dispatch_worker.asyncio.sleep", fake_sleep
+    )
+    worker = MarketQuoteDispatchWorker(
+        dispatcher,
+        handler,
+        min_backoff_seconds=0,
+        max_backoff_seconds=0,
+        max_attempts=2,
+        on_exhausted=exhausted.append,
+    )
+    task = asyncio.create_task(worker.run())
+    await asyncio.wait_for(first_attempt.wait(), timeout=1)
+
+    # The newest authoritative quote coalesces behind the failing observation.
+    assert dispatcher.publish(Observation(version=2, ltp=101))
+    await asyncio.wait_for(completed.wait(), timeout=1)
+
+    assert attempts == [1, 1, 2]
+    assert [item.version for item in exhausted] == [1]
+    assert worker.exhausted_count == 1
+    assert worker.processed_count == 1
+    assert dispatcher.pending_keys == 0
+    assert dispatcher.inflight_keys == 0
+    await asyncio.wait_for(dispatcher._queue.join(), timeout=1)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+def test_worker_rejects_non_positive_max_attempts():
+    dispatcher = MarketQuoteDispatcher()
+
+    async def handler(_item):
+        return None
+
+    with pytest.raises(ValueError, match="max_attempts"):
+        MarketQuoteDispatchWorker(dispatcher, handler, max_attempts=0)

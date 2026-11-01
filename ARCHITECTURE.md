@@ -1,3 +1,19 @@
+# Current definitive product requirements — supersedes older PAPER-only wording
+
+**Product target: one application with two selectable, isolated modes: PAPER and LIVE.**
+
+1. One application supports PAPER and LIVE.
+2. The user can select either mode whenever they want, subject to explicit safety and authorization controls.
+3. Balances, orders, positions and P&L are separate between modes; no cross-mode transfer or accidental reuse.
+4. PAPER uses simulated execution and its own accounting.
+5. LIVE uses actual Upstox broker execution, but only after the separately approved live-readiness gates are met.
+6. Switching modes cannot accidentally submit, copy, modify, cancel or transfer real orders.
+7. AI strategies must obey the selected mode and its risk controls; AI cannot grant itself LIVE authority or bypass the live-write gateway.
+
+**Current operational restriction:** PAPER remains the default for development, tests, CI and unverified workflows. LIVE broker place/modify/cancel writes remain disabled. This target requirement does not authorize enabling live writes. Keep mode-specific credentials, balances, orders, positions, P&L, audit trails and risk limits isolated. Original `tarunsharma2610-del/Tradepro` remains out of scope; PR #9 remains Draft/unmerged.
+
+---
+
 <!-- Phase 3 checkpoint update — 27 Oct 2026. Latest code/test head 8feeb0cbb0c35e1e37012302c9075d43f1f33eb1 passed Backend CI #40458822529: 1,097 passed, 1 warning. Broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention passed. DP completeness checks require a consistent KNOWN + explicit valid finite nonnegative paise-exact amount, or NOT_APPLICABLE + no amount; invalid status, UNKNOWN-with-amount, KNOWN-without-amount, NOT_APPLICABLE-with-amount, NaN, negative and fractional-paise amounts fail closed. DP canonical manifests are checked against persisted broker trade → child order → local order mappings; only mapped equity-delivery SELL fills are accepted. Delivery SELL still requires reviewed/reconciled DP evidence and durable per-fill allocation; DP is included once in total and replay identity. Maintained docs are being synchronized after the green code run; exact-head CI on the final docs/checkpoint commit must pass before it is called green. PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled; original Tradepro repository out of scope. -->
 
 ## Latest authoritative checkpoint — 26 October 2026, 21:06 IST

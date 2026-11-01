@@ -181,6 +181,14 @@ class PaperStopEventExecutionService:
             if position is None or position.quantity == 0:
                 raise PaperStopEventExecutionRejected("Stop event has no open position to close.")
 
+            # Missing/expired Analytics Token is a retryable prerequisite, not
+            # a terminal rejected PAPER order. Keep the durable claim intact so
+            # the worker/recovery loop can retry after credentials are restored.
+            if self.execution.broker_credentials.get_analytics_token(user_id, "upstox") is None:
+                raise PaperStopEventExecutionRejected(
+                    "No valid Upstox Analytics Token is configured; stop event remains claimable for retry."
+                )
+
             executing = self.lifecycle.begin_execution(
                 event_id=event.id,
                 claim_token=claim_token,

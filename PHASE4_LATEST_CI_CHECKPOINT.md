@@ -582,3 +582,18 @@ A source review of the current models and shared execution service confirms that
 - Keep LIVE broker place/modify/cancel disabled until this design, migrations, API authorization, UI selection, adversarial tests and independent safety audit are complete.
 
 This is a verified outstanding product requirement, not a claim that LIVE mode is implemented.
+
+
+## 2026-11-01 — Superseding Phase 4 status (verified through Backend CI #41316803274)
+
+This section is the current-status authority as of 2026-11-01 and supersedes older undated or stale “current status/next step” statements elsewhere in this document. Earlier entries remain historical records and must not be interpreted as the current implementation state.
+
+- Latest verified green implementation commit: `d0d26eb98ff5d77ce4f3ed1baee943bccaca51e4` on `phase4/redis-market-data-publisher`.
+- Exact-head Backend CI: [#41316803274 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41316803274). Verified stages: backend pytest, broker-write safety boundary, SQLite migration round-trips, PostgreSQL 16 migration round-trips, synthetic PostgreSQL restore and documentation-volume restore drill.
+- The LIVE balance-source implementation and corrected fixtures passed CI #41315704407 on commit `9314703f31ff3ad31f2b97090cbfa1a5d4096a8c`.
+- Mode-aware portfolio analytics now joins executions to owning orders, constrains portfolio identity and trading mode, and receives the portfolio mode from the API. Regression tests cover PAPER/LIVE separation and unsupported modes. Verified by CI #41316803274.
+- LIVE portfolios do not treat simulated starting capital as broker funds; balance source remains unavailable until verified broker sync. PAPER simulated balances remain supported.
+- Green CI does not establish production LIVE readiness. LIVE broker place/modify/cancel writes remain disabled; no LIVE gateway activation or deployment is authorized.
+- Outstanding: LIVE positions API fail-closed behavior; broker-account-to-LIVE-portfolio allocation; verified LIVE funds/positions sync; realized and freshness-gated unrealized P&L; Redis-to-execution and multi-worker end-to-end isolation/recovery; frontend mode selection; security/load/operational review; final docs-head CI.
+- PR #9 remains Draft/unmerged, targeting `phase4/roadmap-progress-checkpoints`. Only `tarunsharma2610-del/tradepro-improved` is in scope. Original `tarunsharma2610-del/Tradepro` must remain untouched.
+- Next implementation gate: inspect the LIVE positions route and tests, then add fail-closed mode-aware behavior with regression tests. Do not start broker allocation or UI work until this boundary is proven.

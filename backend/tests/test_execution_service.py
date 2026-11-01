@@ -843,11 +843,19 @@ async def test_paper_stop_event_order_retry_returns_existing_fill_without_second
     user, p = portfolio
     _connect_fake_broker(db_session, user.id)
     event_id = uuid4()
+    from app.models.position import Position
+
+    db_session.add(Position(
+        portfolio_id=p.id, instrument_id=instrument.id,
+        quantity=-2, avg_price=Decimal("2500.00"), realized_pnl=Decimal("0"),
+    ))
+    db_session.commit()
     request = ServicePlaceOrderRequest(
         portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
         order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=2,
         execution_reason="STRATEGY",
         strategy_id=uuid4(),
+        reduce_only=True,
     )
     service = ExecutionService(db_session)
     with patch("app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED", False), _mock_quote("2500.00"):
@@ -878,7 +886,7 @@ async def test_paper_stop_event_id_rejects_non_strategy_or_limit_orders(db_sessi
 
     user, p = portfolio
     service = ExecutionService(db_session)
-    with pytest.raises(OrderValidationError, match="strategy-owned MARKET"):
+    with pytest.raises(OrderValidationError, match="strategy-owned reduce-only MARKET"):
         await service.place_order(
             user.id,
             ServicePlaceOrderRequest(

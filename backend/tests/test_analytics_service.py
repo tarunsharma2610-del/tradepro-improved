@@ -119,7 +119,7 @@ def test_strategy_analytics_separates_by_strategy(db_session, portfolio, instrum
 
 
 
-def test_portfolio_analytics_filters_executions_by_order_trading_mode(db_session, portfolio, instrument):
+def test_portfolio_analytics_filters_executions_by_order_trading_mode(db_session, portfolio, instrument, make_user):
     now = datetime.now(timezone.utc)
     _make_order_and_execution(
         db_session, portfolio.id, instrument.id, side="SELL",
@@ -127,10 +127,15 @@ def test_portfolio_analytics_filters_executions_by_order_trading_mode(db_session
         total_charges=Decimal("20"), when=now,
     )
 
-    # A deliberately inconsistent row simulates legacy/corrupt cross-mode
-    # data. Analytics must fail closed rather than include the other mode.
+    # Real portfolios cannot mix modes (the composite FK enforces this).
+    # Keep the two valid environments separate and verify the query's mode
+    # predicate independently of portfolio ownership.
+    live_user = make_user()
+    live_portfolio = PortfolioRepository(db_session).create(
+        user_id=live_user.id, name="Live analytics test", virtual_capital=None, trading_mode="LIVE"
+    )
     live_order = Order(
-        portfolio_id=portfolio.id, instrument_id=instrument.id, side="SELL",
+        portfolio_id=live_portfolio.id, instrument_id=instrument.id, side="SELL",
         order_type="MARKET", segment="EQUITY_INTRADAY", quantity=10,
         status="FILLED", trading_mode="LIVE", execution_reason="MANUAL",
         placed_at=now + timedelta(minutes=1), filled_at=now + timedelta(minutes=1),
@@ -139,7 +144,7 @@ def test_portfolio_analytics_filters_executions_by_order_trading_mode(db_session
     db_session.commit()
     db_session.refresh(live_order)
     live_execution = Execution(
-        order_id=live_order.id, portfolio_id=portfolio.id, instrument_id=instrument.id,
+        order_id=live_order.id, portfolio_id=live_portfolio.id, instrument_id=instrument.id,
         side="SELL", quantity=10, price=Decimal("100"), gross_value=Decimal("1000"),
         brokerage=Decimal("20"), stt=Decimal("2"), exchange_charges=Decimal("0.5"),
         sebi_charges=Decimal("0.01"), stamp_duty=Decimal("0.5"), gst=Decimal("3"),
@@ -150,12 +155,16 @@ def test_portfolio_analytics_filters_executions_by_order_trading_mode(db_session
     db_session.commit()
 
     paper_result = portfolio_analytics(db_session, portfolio.id, portfolio.virtual_capital, trading_mode="PAPER")
-    live_result = portfolio_analytics(db_session, portfolio.id, Decimal("0"), trading_mode="LIVE")
+    live_result = portfolio_analytics(db_session, live_portfolio.id, Decimal("0"), trading_mode="LIVE")
+    wrong_mode_paper = portfolio_analytics(db_session, portfolio.id, portfolio.virtual_capital, trading_mode="LIVE")
+    wrong_mode_live = portfolio_analytics(db_session, live_portfolio.id, Decimal("0"), trading_mode="PAPER")
 
     assert paper_result.total_realized_pnl == Decimal("125")
     assert paper_result.total_trades == 1
     assert live_result.total_realized_pnl == Decimal("900")
     assert live_result.total_trades == 1
+    assert wrong_mode_paper.total_trades == 0
+    assert wrong_mode_live.total_trades == 0
 
 
 def test_portfolio_analytics_rejects_unknown_trading_mode(db_session, portfolio):

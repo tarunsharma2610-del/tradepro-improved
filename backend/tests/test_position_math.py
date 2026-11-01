@@ -67,3 +67,109 @@ def test_buy_larger_than_short_flips_to_long():
     assert result.new_quantity == 3
     assert result.new_avg_price == Decimal("190")
     assert result.realized_pnl == Decimal("50.00")  # (200-190)*5 covering the short
+
+
+
+def test_trailing_stop_seeds_and_ratchets_long_watermark_without_trigger():
+    from app.services.position_math import check_trailing_stop
+
+    watermark, hit = check_trailing_stop(
+        watermark=None,
+        position_quantity=10,
+        current_price=Decimal("100"),
+        stop_pct=Decimal("5"),
+    )
+    assert watermark == Decimal("100")
+    assert hit is False
+
+    watermark, hit = check_trailing_stop(
+        watermark=watermark,
+        position_quantity=10,
+        current_price=Decimal("110"),
+        stop_pct=Decimal("5"),
+    )
+    assert watermark == Decimal("110")
+    assert hit is False
+
+    # A lower price does not lower a long trailing watermark.
+    watermark, hit = check_trailing_stop(
+        watermark=watermark,
+        position_quantity=10,
+        current_price=Decimal("106"),
+        stop_pct=Decimal("5"),
+    )
+    assert watermark == Decimal("110")
+    assert hit is False
+
+
+def test_trailing_stop_triggers_long_at_or_below_ratchet_threshold():
+    from app.services.position_math import check_trailing_stop
+
+    watermark, hit = check_trailing_stop(
+        watermark=Decimal("110"),
+        position_quantity=10,
+        current_price=Decimal("104.50"),
+        stop_pct=Decimal("5"),
+    )
+    assert watermark == Decimal("110")
+    assert hit is True
+
+
+def test_trailing_stop_seeds_and_ratchets_short_watermark_without_trigger():
+    from app.services.position_math import check_trailing_stop
+
+    watermark, hit = check_trailing_stop(
+        watermark=None,
+        position_quantity=-10,
+        current_price=Decimal("200"),
+        stop_pct=Decimal("5"),
+    )
+    assert watermark == Decimal("200")
+    assert hit is False
+
+    watermark, hit = check_trailing_stop(
+        watermark=watermark,
+        position_quantity=-10,
+        current_price=Decimal("180"),
+        stop_pct=Decimal("5"),
+    )
+    assert watermark == Decimal("180")
+    assert hit is False
+
+    # A higher price does not raise a short trailing watermark.
+    watermark, hit = check_trailing_stop(
+        watermark=watermark,
+        position_quantity=-10,
+        current_price=Decimal("185"),
+        stop_pct=Decimal("5"),
+    )
+    assert watermark == Decimal("180")
+    assert hit is False
+
+
+def test_trailing_stop_triggers_short_at_or_above_ratchet_threshold():
+    from app.services.position_math import check_trailing_stop
+
+    watermark, hit = check_trailing_stop(
+        watermark=Decimal("180"),
+        position_quantity=-10,
+        current_price=Decimal("189"),
+        stop_pct=Decimal("5"),
+    )
+    assert watermark == Decimal("180")
+    assert hit is True
+
+
+def test_trailing_stop_does_not_trigger_on_zero_or_negative_stop_percent():
+    from app.services.position_math import check_trailing_stop
+
+    # Zero stop percentage is mathematically defined but immediately exits
+    # on any adverse tick; negative percentages are invalid strategy config.
+    watermark, hit = check_trailing_stop(
+        watermark=Decimal("100"),
+        position_quantity=10,
+        current_price=Decimal("99"),
+        stop_pct=Decimal("0"),
+    )
+    assert watermark == Decimal("100")
+    assert hit is True

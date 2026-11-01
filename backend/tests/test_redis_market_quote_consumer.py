@@ -293,3 +293,52 @@ async def test_listener_uses_pubsub_ping_pong_heartbeat_for_idle_connection():
     assert len(recovered) == 1
     assert pubsub.ping_count == 1
     assert pubsub.closed
+
+
+@pytest.mark.asyncio
+async def test_listener_periodically_resweeps_authoritative_snapshots_after_idle_heartbeat():
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+
+    class IdleOncePubSub(FakePubSub):
+        def __init__(self):
+            super().__init__()
+            self.idle_once = True
+            self.ping_count = 0
+
+        async def get_message(self, *, ignore_subscribe_messages=True, timeout=0):
+            if self.idle_once:
+                self.idle_once = False
+                return None
+            return await super().get_message(
+                ignore_subscribe_messages=ignore_subscribe_messages,
+                timeout=timeout,
+            )
+
+        async def ping(self):
+            self.ping_count += 1
+            await super().ping()
+
+    redis, user_id = FakeRedis(), uuid4()
+    pubsub = IdleOncePubSub()
+    redis.pubsub_instance = pubsub
+    consumer = RedisMarketQuoteConsumer(
+        redis, user_id, snapshot_recovery_interval_seconds=0.000001
+    )
+    redis.values[consumer.snapshot_key(instrument)] = (
+        json.dumps(snapshot(user_id)), 10
+    )
+
+    recovered = [
+        quote async for quote in consumer.listen(
+            [instrument],
+            max_reconnect_attempts=0,
+            min_backoff_seconds=0,
+            max_backoff_seconds=0,
+        )
+    ]
+
+    assert len(recovered) == 2  # startup sweep plus periodic idle sweep
+    assert recovered[0]["version"] == recovered[1]["version"] == 1
+    assert pubsub.ping_count == 1
+    assert pubsub.closed

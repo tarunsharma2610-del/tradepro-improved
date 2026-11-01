@@ -209,7 +209,7 @@ def test_user_can_create_separate_paper_and_live_portfolios_with_immutable_modes
     )
     live = client.post(
         "/api/v1/portfolios",
-        json={"name": "Live account", "virtual_capital": "250000", "trading_mode": "LIVE"},
+        json={"name": "Live account", "trading_mode": "LIVE"},
     )
 
     assert paper.status_code == 201
@@ -218,7 +218,9 @@ def test_user_can_create_separate_paper_and_live_portfolios_with_immutable_modes
     assert live.json()["trading_mode"] == "LIVE"
     assert paper.json()["id"] != live.json()["id"]
     assert paper.json()["cash_balance"] == "100000.00"
-    assert live.json()["cash_balance"] == "250000.00"
+    assert live.json()["cash_balance"] == "0.00"
+    assert live.json()["virtual_capital"] == "0.00"
+    assert live.json()["balance_source"] == "UNAVAILABLE"
 
     # The risk-settings endpoint cannot mutate a portfolio's execution mode.
     attempted_paper_switch = client.patch(
@@ -262,7 +264,7 @@ def test_paper_and_live_positions_are_isolated_by_portfolio(client, db_session):
     )
     live = client.post(
         "/api/v1/portfolios",
-        json={"name": "Live", "virtual_capital": "250000", "trading_mode": "LIVE"},
+        json={"name": "Live", "trading_mode": "LIVE"},
     )
     assert paper.status_code == live.status_code == 201
 
@@ -315,3 +317,25 @@ def test_live_portfolio_order_submission_is_rejected_before_broker_access(client
     assert response.status_code == 400
     assert "PAPER-only" in response.json()["detail"]
     assert db_session.query(Order).filter(Order.portfolio_id == UUID(live.json()["id"])).count() == 0
+
+
+def test_live_portfolio_rejects_simulated_starting_capital(client):
+    _register_and_login(client, "live-capital-rejected@example.com")
+    response = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Live with fake funds", "virtual_capital": "500000", "trading_mode": "LIVE"},
+    )
+    assert response.status_code == 422
+
+
+def test_live_portfolio_balance_is_unavailable_until_broker_sync(client):
+    _register_and_login(client, "live-balance-unavailable@example.com")
+    response = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Unsynced live account", "trading_mode": "LIVE"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["balance_source"] == "UNAVAILABLE"
+    assert data["cash_balance"] == "0.00"
+    assert data["virtual_capital"] == "0.00"

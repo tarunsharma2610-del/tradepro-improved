@@ -5,7 +5,7 @@ signals, persist orders, or call any broker order endpoint. Historical candles
 remain the source for technical indicators until the PAPER integration gate.
 """
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from math import isfinite
 import time
 from uuid import UUID
@@ -47,7 +47,9 @@ class MarketScanner:
         self._latest: dict[tuple[str, str], MarketScanObservation] = {}
         self._latest_seen: dict[tuple[str, str], float] = {}
 
-    def process_quote(self, user_id: UUID | str, quote: dict) -> MarketScanObservation | None:
+    def process_quote(
+        self, user_id: UUID | str, quote: dict, *, now: datetime | None = None
+    ) -> MarketScanObservation | None:
         owner = str(user_id)
         if not isinstance(quote, dict) or quote.get("user_id") != owner:
             return None
@@ -69,6 +71,20 @@ class MarketScanner:
         except ValueError:
             return None
         if parsed_received_at.tzinfo is None:
+            return None
+
+        current = now or datetime.now(parsed_received_at.tzinfo)
+        if current.tzinfo is None:
+            return None
+        current_utc = current.astimezone(timezone.utc)
+        received_utc = parsed_received_at.astimezone(timezone.utc)
+        received_age = (current_utc - received_utc).total_seconds()
+        exchange_age_ms = current_utc.timestamp() * 1000 - exchange_timestamp_ms
+        if not 0 <= received_age <= self.max_age_seconds:
+            return None
+        # Permit up to 60 seconds of exchange/server clock skew, but reject
+        # future-dated ticks beyond that and ticks older than the scanner TTL.
+        if not -60_000 <= exchange_age_ms <= self.max_age_seconds * 1000:
             return None
 
         identity = (owner, instrument_key)

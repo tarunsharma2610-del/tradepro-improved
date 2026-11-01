@@ -31,7 +31,10 @@ def list_portfolios(db: Session = Depends(get_db), user: User = Depends(get_curr
 
 @router.post("", response_model=PortfolioOut, status_code=status.HTTP_201_CREATED)
 def create_portfolio(payload: PortfolioCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return PortfolioRepository(db).create(user_id=user.id, name=payload.name, virtual_capital=payload.virtual_capital)
+    return PortfolioRepository(db).create(
+        user_id=user.id, name=payload.name, virtual_capital=payload.virtual_capital,
+        trading_mode=payload.trading_mode,
+    )
 
 
 def _get_owned_portfolio(db: Session, user: User, portfolio_id: UUID):

@@ -888,3 +888,48 @@ async def test_paper_stop_event_id_rejects_non_strategy_or_limit_orders(db_sessi
             ),
             paper_stop_event_id=uuid4(),
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "position_quantity,side,quantity",
+    [
+        (0, Side.SELL, 1),       # another worker already flattened the position
+        (1, Side.SELL, 2),       # stale request exceeds the remaining long position
+        (-1, Side.SELL, 1),      # stale direction would increase/reverse exposure
+    ],
+)
+async def test_reduce_only_strategy_exit_cannot_open_or_reverse_a_position(
+    db_session, portfolio, instrument, position_quantity, side, quantity
+):
+    from app.models.position import Position
+
+    user, p = portfolio
+    position = Position(
+        portfolio_id=p.id, instrument_id=instrument.id,
+        quantity=position_quantity, avg_price=Decimal("100"),
+        realized_pnl=Decimal("0"),
+    )
+    db_session.add(position)
+    db_session.commit()
+
+    order = await ExecutionService(db_session).place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id,
+            instrument_id=instrument.id,
+            side=side,
+            order_type="MARKET",
+            segment=Segment.EQUITY_INTRADAY,
+            quantity=quantity,
+            execution_reason="STRATEGY",
+            strategy_id=__import__("uuid").uuid4(),
+            reduce_only=True,
+        ),
+    )
+
+    db_session.refresh(position)
+    assert order.status == "REJECTED"
+    assert "reduce-only" in order.rejection_reason.lower()
+    assert position.quantity == position_quantity
+    assert db_session.query(Execution).filter(Execution.order_id == order.id).count() == 0

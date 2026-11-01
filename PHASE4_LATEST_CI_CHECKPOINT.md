@@ -424,3 +424,10 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - CI #41286034683 failed at pytest setup: 1,383 passed, four errors because the new test module referenced non-shared `portfolio` and `instrument` fixtures defined only in another test module.
 - Added local `portfolio` and `instrument` fixtures following existing repository patterns. This is a test-only correction; no production code changed.
 - Rerun exact-head CI is mandatory. Do not proceed to PostgreSQL concurrency tests or dispatcher integration until green.
+
+
+## 1 November 2026 — timezone bug fixed after atomic execution CI
+
+- CI #41286342961: 1,384 passed, 3 failed. All three failures shared a naive/aware datetime comparison at claim-lease validation; PostgreSQL migration and later CI gates were skipped because pytest failed first.
+- SQLite strips timezone metadata from DateTime(timezone=True). Added UTC normalization at the execution boundary and tests for naive UTC plus non-UTC aware offsets.
+- New commit awaits exact-head full CI. Do not mark atomic execution green until pytest, broker-write boundary, SQLite/PostgreSQL 16 migration cycles and restore drill all pass.

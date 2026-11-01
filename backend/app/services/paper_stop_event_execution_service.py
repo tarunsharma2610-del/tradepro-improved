@@ -37,6 +37,18 @@ class PaperStopEventExecutionService:
         self.execution = ExecutionService(db)
         self.lifecycle = PaperStopEventLifecycle(db)
 
+    @staticmethod
+    def _utc_datetime(value: datetime) -> datetime:
+        """Normalize DB datetimes to UTC; SQLite may drop timezone metadata.
+
+        DateTime(timezone=True) is timezone-aware on PostgreSQL, while SQLite
+        returns naive values for the same column. Persisted naive values are
+        interpreted as UTC because all lifecycle timestamps are written in UTC.
+        """
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
     def _existing_completed_order(self, event: PaperStopEvent, claim_token: UUID) -> Order:
         if event.claim_token != claim_token:
             raise PaperStopEventExecutionRejected("Claim token does not own this stop event.")
@@ -153,7 +165,10 @@ class PaperStopEventExecutionService:
                 return self._existing_completed_order(event, claim_token)
             if event.state != "CLAIMED" or event.claim_token != claim_token:
                 raise PaperStopEventExecutionRejected("Stop event is not owned by this active claim.")
-            if event.claimed_until is None or event.claimed_until <= current:
+            if (
+                event.claimed_until is None
+                or self._utc_datetime(event.claimed_until) <= self._utc_datetime(current)
+            ):
                 raise PaperStopEventExecutionRejected("Stop-event claim lease has expired.")
 
             executing = self.lifecycle.begin_execution(

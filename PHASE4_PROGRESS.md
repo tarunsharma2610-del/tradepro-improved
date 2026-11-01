@@ -357,3 +357,10 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Diagnosed CI #41286034683: 1,383 passed; four test setup errors due to cross-module fixture assumptions.
 - Added local fixtures in `test_paper_stop_event_execution_service.py` using PortfolioRepository and InstrumentService.
 - Test-only fix committed; exact-head CI pending. Atomic execution not yet accepted.
+
+
+## 1 November 2026 — atomic stop-event UTC comparison fix
+
+- Diagnosed CI #41286342961: 1,384 passed, 3 failed due to SQLite naive datetime values compared with aware UTC lease times.
+- Added UTC normalization for persisted lease values and two focused unit tests (naive UTC, aware offset conversion).
+- Full exact-head CI pending. PostgreSQL 16 migration/concurrency gates and dispatcher remain blocked pending green.

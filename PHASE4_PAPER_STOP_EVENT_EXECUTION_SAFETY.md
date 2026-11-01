@@ -79,3 +79,11 @@ If a stop-event consumer calls the current execution path and the process fails 
 - Root cause from pytest logs: the test module referenced `portfolio` and `instrument` fixtures declared only inside `test_execution_service.py`; pytest fixtures are module-scoped unless registered in shared conftest.
 - Corrected the test module by defining local fixtures using the repository's established `PortfolioRepository` and `InstrumentService` setup patterns. No production execution code changed in this correction.
 - Atomic execution remains unaccepted until the complete new-head CI passes, including PostgreSQL 16 migrations and restore gates.
+
+
+## 1 November 2026 — UTC lease comparison correction
+
+- CI #41286342961 ran 1,384 tests successfully and exposed three failures in the new atomic stop-event execution tests.
+- Root cause: SQLite returns naive Python datetimes for `DateTime(timezone=True)`, whereas the execution service supplies aware UTC timestamps. Python rejects direct comparison of naive and aware values.
+- Added a single UTC-normalization boundary for persisted lease timestamps: naive database values are interpreted as UTC (the lifecycle writes UTC); aware values are converted to UTC. PostgreSQL timezone-aware values retain correct absolute-time comparison.
+- Added explicit unit coverage for SQLite-naive and offset-aware timestamp normalization. Full CI rerun is required; no live broker write capability was added.

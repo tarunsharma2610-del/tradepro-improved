@@ -419,10 +419,10 @@ def test_latest_broker_positions_never_exposes_snapshot_from_replaced_account(cl
     portfolio_id = UUID(live.json()["id"])
     owner = db_session.query(User).filter_by(email="positions-reallocation@example.com").one()
 
-    def make_connection():
+    def make_connection(broker="upstox"):
         connection = BrokerConnection(
             user_id=owner.id,
-            broker="upstox",
+            broker=broker,
             api_key_encrypted="encrypted-api-key",
             api_secret_encrypted="encrypted-api-secret",
             redirect_uri="https://example.invalid/callback",
@@ -436,7 +436,7 @@ def test_latest_broker_positions_never_exposes_snapshot_from_replaced_account(cl
         return connection
 
     first = make_connection()
-    second = make_connection()
+    second = make_connection("zerodha")
     first_allocation = client.post(
         f"/api/v1/portfolios/{portfolio_id}/broker-allocation",
         json={"broker_connection_id": str(first.id)},

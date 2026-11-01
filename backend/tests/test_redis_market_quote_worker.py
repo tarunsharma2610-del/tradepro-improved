@@ -265,13 +265,18 @@ async def test_redis_worker_callback_feeds_validated_scan_dispatch_pipeline():
     try:
         await worker.reconcile_once()
         await wait_for_consumer(consumers)
-        item = await asyncio.wait_for(dispatcher.get(), timeout=1)
-        assert item.user_id == str(user_id)
-        assert item.instrument_key == instrument
-        assert item.version == 1
-        assert item.observation.ltp == 123.45
-        assert pipeline.accepted_observations == 1
-        dispatcher.task_done()
+        async def consume_and_acknowledge():
+            item = await asyncio.wait_for(dispatcher.get(), timeout=1)
+            assert item.user_id == str(user_id)
+            assert item.instrument_key == instrument
+            assert item.version == 1
+            assert item.observation.ltp == 123.45
+            assert pipeline.accepted_observations == 1
+            dispatcher.task_done()
+
+        # Dispatcher ownership is task-scoped: get() and acknowledgement
+        # must run in the same consumer task, as they do in production.
+        await asyncio.create_task(consume_and_acknowledge())
     finally:
         await worker.close()
 

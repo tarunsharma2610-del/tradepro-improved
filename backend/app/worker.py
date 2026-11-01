@@ -48,6 +48,8 @@ STRATEGY_EVAL_INTERVAL_SECONDS = 300  # 5 minutes -- matches the 5-minute candle
 TELEGRAM_POLL_INTERVAL_SECONDS = 30
 NEWS_INGEST_INTERVAL_SECONDS = 1800  # 30 minutes
 PAPER_STOP_RECOVERY_INTERVAL_SECONDS = 5
+MARKET_DISPATCH_WORKER_COUNT = 4
+MARKET_DISPATCH_QUEUE_CAPACITY = 8192
 IST = ZoneInfo("Asia/Kolkata")
 
 
@@ -147,18 +149,23 @@ async def main() -> None:
     last_strategy_eval = 0.0
     last_news_ingest = 0.0
     scanner = MarketScanner()
-    dispatcher = MarketQuoteDispatcher(max_pending_keys=1024)
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=MARKET_DISPATCH_QUEUE_CAPACITY)
     pipeline = MarketScanDispatchPipeline(scanner=scanner, dispatcher=dispatcher)
     quote_worker = RedisMarketQuoteWorker(on_quote=pipeline.on_quote)
     quote_worker_task = asyncio.create_task(
         quote_worker.run_forever(), name="redis-market-quote-worker"
     )
-    dispatch_worker = MarketQuoteDispatchWorker(
-        dispatcher, handle_paper_market_observation
-    )
-    dispatch_worker_task = asyncio.create_task(
-        dispatch_worker.run(), name="paper-market-quote-dispatch-worker"
-    )
+    # Independent instrument keys can be processed concurrently. The
+    # dispatcher still enforces single-flight ownership per user/instrument.
+    dispatch_worker_tasks = [
+        asyncio.create_task(
+            MarketQuoteDispatchWorker(
+                dispatcher, handle_paper_market_observation
+            ).run(),
+            name=f"paper-market-quote-dispatch-worker-{index + 1}",
+        )
+        for index in range(MARKET_DISPATCH_WORKER_COUNT)
+    ]
     stop_recovery_task = asyncio.create_task(
         run_paper_stop_event_recovery(), name="paper-stop-event-recovery"
     )
@@ -193,10 +200,11 @@ async def main() -> None:
         # when the in-memory Redis/dispatcher queue is lost.
         quote_worker_task.cancel()
         await asyncio.gather(quote_worker_task, return_exceptions=True)
-        dispatch_worker_task.cancel()
+        for task in dispatch_worker_tasks:
+            task.cancel()
         stop_recovery_task.cancel()
         await asyncio.gather(
-            dispatch_worker_task, stop_recovery_task, return_exceptions=True
+            *dispatch_worker_tasks, stop_recovery_task, return_exceptions=True
         )
         await quote_worker.close()
 

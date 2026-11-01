@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Uuid
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -8,9 +8,12 @@ from app.models.base import BaseModel
 
 class Portfolio(BaseModel):
     __tablename__ = "portfolios"
+    __table_args__ = (CheckConstraint("trading_mode IN ('PAPER', 'LIVE')", name="ck_portfolios_trading_mode"),)
 
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Existing portfolios are backfilled PAPER; LIVE remains unavailable until isolation gates pass.
+    trading_mode: Mapped[str] = mapped_column(String(5), nullable=False, default="PAPER", server_default="PAPER")
 
     # Set once at creation, never changed by trading activity — the
     # starting line for measuring overall portfolio performance.

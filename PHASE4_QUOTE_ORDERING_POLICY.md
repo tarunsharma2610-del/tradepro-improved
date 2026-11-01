@@ -194,3 +194,10 @@ Added tests to verify the migration's `ck_strategies_quote_identity_complete` co
 - Accept the fully NULL tuple before the first quote.
 
 Test commit: `700567dc2cf7ada0764ddb0f642818a3ed56a863`. Exact-head Backend CI must pass before this integrity coverage is considered verified.
+
+
+## Database integrity test correction — 1 November 2026
+
+Backend CI #41297560366 (test commit `700567dc2cf7ada0764ddb0f642818a3ed56a863`) and documentation CI #41297573966 (documentation commit `9aaeab39a71394ef6bb80458a71631a1309c1482`) failed in the new quote-identity constraint tests: 1,422 passed and 7 failed because the SQLite unit-test fixture builds its schema from SQLAlchemy ORM metadata (`Base.metadata.create_all`) rather than running Alembic migrations. The check existed in the Alembic migration but was absent from ORM metadata, so those test-created tables did not contain it.
+
+Correction submitted in commit `0b7535b3640ad4747a90cde8ae114c7aebac2ad5`: declare the same named `CheckConstraint` in `Strategy.__table_args__`. This keeps ORM-created test schemas aligned with the migration-created production schema. The Alembic migration remains the production schema-change mechanism. Exact-head CI must now verify both SQLite metadata-created tables and PostgreSQL migration behavior; no green status is assumed yet.

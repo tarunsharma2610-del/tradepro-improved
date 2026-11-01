@@ -2,12 +2,13 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.middleware.rate_limit import assistant_rate_limit, order_rate_limit
 from app.models.execution import Execution
+from app.models.audit_log import AuditLog
 from app.models.broker_connection import BrokerConnection
 from app.models.broker_portfolio_allocation import BrokerPortfolioAllocation
 from app.models.position import Position
@@ -79,6 +80,7 @@ def update_portfolio_risk_settings(
 def allocate_broker_account(
     portfolio_id: UUID,
     payload: BrokerPortfolioAllocationCreate,
+    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -114,6 +116,14 @@ def allocate_broker_account(
         trading_mode="LIVE",
     )
     db.add(allocation)
+    db.add(AuditLog(
+        user_id=user.id,
+        action="broker_portfolio_allocation.created",
+        resource_type="broker_portfolio_allocation",
+        resource_id=str(allocation.id),
+        ip_address=request.client.host if request.client else None,
+        event_metadata={"portfolio_id": str(portfolio.id), "broker_connection_id": str(connection.id), "broker": connection.broker},
+    ))
     try:
         db.commit()
     except IntegrityError as exc:
@@ -169,6 +179,7 @@ def get_broker_account_allocation(
 @router.delete("/{portfolio_id}/broker-allocation", status_code=status.HTTP_204_NO_CONTENT)
 def remove_broker_account_allocation(
     portfolio_id: UUID,
+    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -184,6 +195,14 @@ def remove_broker_account_allocation(
     )
     if allocation is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No broker account is allocated to this portfolio.")
+    db.add(AuditLog(
+        user_id=user.id,
+        action="broker_portfolio_allocation.deleted",
+        resource_type="broker_portfolio_allocation",
+        resource_id=str(allocation.id),
+        ip_address=request.client.host if request.client else None,
+        event_metadata={"portfolio_id": str(portfolio.id), "broker_connection_id": str(allocation.broker_connection_id)},
+    ))
     db.delete(allocation)
     db.commit()
 

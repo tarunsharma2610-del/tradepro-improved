@@ -2268,3 +2268,31 @@ Do not stop an SDK audit at feature-name parity. Compare actual source behaviour
 ## Phase 4 checkpoint — 30 October 2026
 
 The exact implementation SHA `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358). Coverage includes PostgreSQL 16 concurrent PAPER stop-event claims (same-identity duplicate suppression and distinct quote versions), broker-write boundary enforcement, SQLite and isolated PostgreSQL migration round trips, and synthetic restore. The migration database is separate from the concurrency test database. Follow-up: implement claim-token-guarded state transitions and lease expiry/reclamation tests before dispatcher-to-PAPER integration. Preserve scope: only `tarunsharma2610-del/tradepro-improved`; PR #9 Draft/unmerged; PAPER mandatory; live broker writes disabled; no deployment.
+
+
+## Live-trading readiness policy — 1 November 2026
+
+Product direction: Tradepro Improved is intended to support both PAPER and LIVE trading. PAPER remains the default and mandatory mode for development, automated tests, CI, demos and all unverified workflows. This direction supersedes older roadmap wording that described the product as permanently PAPER-only; it does NOT authorize live broker writes today.
+
+### Current operational status
+- LIVE broker order submission, modification and cancellation remain DISABLED. This roadmap update does not enable any production live order writes.
+- The current CI work concerns PAPER stop-event orchestration and static broker-write boundary tests. Enabling LIVE mode would not resolve these failures and must not be used to bypass the guard.
+- Existing live-order intent/reconciliation code, if present, is not proof that broker writes are ready or authorized.
+- PR #9 remains Draft/unmerged. Original `tarunsharma2610-del/Tradepro` remains out of scope and must not be modified.
+
+### Required stages before any LIVE enablement
+1. **Mode separation:** explicit per-account/environment mode, secure default PAPER, and no environment variable or API request that silently switches a PAPER account to LIVE.
+2. **Broker authorization:** verify official Upstox OAuth scopes and account permissions; keep the read-only Analytics Token separate from trading OAuth credentials; encrypt credentials and enforce owner isolation, expiry and revocation.
+3. **Central live-write gateway:** all live place/modify/cancel operations pass through one narrowly scoped service. No direct adapter calls from routes, strategies, workers, stop-event services or AI agents.
+4. **Human authorization:** explicit confirmation for live orders, or a separately reviewed, revocable automation authorization with quantity/notional/instrument/segment limits, expiry and kill switch. No AI agent may grant itself live authority.
+5. **Pre-trade risk controls:** market/session checks, instrument/lot/tick validation, price collars, maximum order/notional/position/day-loss limits, duplicate/idempotency protection, fresh quotes and exposure checks.
+6. **Failure safety:** reconcile broker timeouts and unknown states before retry; never blindly resubmit. Keep durable audit records with actor, request hash, broker response and correlation ID; test cancel/modify races.
+7. **Security testing:** authorization/IDOR, replay, concurrency, secret handling, rate limits, dependency/SAST/DAST review; prove PAPER paths cannot reach the live gateway and PAPER credentials cannot activate live writes.
+8. **Operational readiness:** supported broker sandbox tests where available, monitoring/alerts, kill-switch drill, backup/restore drill, incident runbook and a restricted low-limit pilot.
+9. **Separate release approval:** exact-head green CI, independent review, explicit user authorization for the target deployment, and a documented rollback. Green CI alone never enables LIVE.
+
+### Immediate next steps
+- Correct malformed newline escapes in the broker-write AST regression fixtures; retain the negative test that rejects direct adapter writes.
+- Run full exact-head CI: pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore evidence.
+- Only after green CI, continue PostgreSQL 16 concurrent PAPER stop-event tests.
+- In parallel, audit existing live-intent and broker-adapter call paths against the stages above. Record gaps; do not enable writes during this audit.

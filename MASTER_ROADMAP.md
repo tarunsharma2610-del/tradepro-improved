@@ -2294,3 +2294,14 @@ Product direction: Tradepro Improved is intended to support both PAPER and LIVE 
 - Run full exact-head CI: pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore evidence.
 - Only after green CI, continue PostgreSQL 16 concurrent PAPER stop-event tests.
 - In parallel, audit existing live-intent and broker-adapter call paths against the stages above. Record gaps; do not enable writes during this audit.
+
+## Phase 4 status update — 1 November 2026
+
+The Phase 4 implementation has progressed beyond the older checkpoints below. Treat this section as the current status; historical checkpoint entries remain as an audit trail, not as current next-step instructions.
+
+- Latest code/test SHA `3ca26594cf3a711be624cf2836079caac352a897` passed exact-head Backend CI [#41302875861](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41302875861): backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore.
+- Runtime wiring: Redis quote consumer → validated scanner/dispatcher → four PAPER dispatch workers; five-second durable stop-event recovery runs independently.
+- Bounded retry: five attempts per dispatched observation; on exhaustion scanner high-water resets to allow authoritative Redis snapshot replay. Durable database quote/event/order identity protects against duplicate processing.
+- Shared PAPER execution enforces reduce-only exits under portfolio/position locks, preventing stale exits from increasing or reversing exposure.
+- Remaining Phase 4 gates: end-to-end market-data-to-ledger tests; multi-process/replica crash and concurrency tests; indicator-exit versus stop-event races; explicit PAPER/LIVE isolation audit; security, load, observability and operational recovery review; exact-head green documentation checkpoint.
+- Product target remains one app with user-selectable PAPER/LIVE modes and isolated balances/orders/positions/P&L. Current branch is PAPER-only; LIVE broker writes remain disabled. PR #9 stays Draft/unmerged; original `Tradepro` remains out of scope.

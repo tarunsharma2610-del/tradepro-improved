@@ -76,3 +76,14 @@ WebSocket timestamp validation and its regression tests passed Backend pytest on
 ## Market-depth and token-scope audit — 30 October 2026
 
 Exact code/test head `3a74fbb788a63ca3b042ceec400dbc7a83f32571` passed Backend CI #41016468736 (1,240 tests, 1 warning). Paper market fills use fresh Full Market Quotes V3 depth with side-aware depth consumption and quantity-weighted pricing; stale snapshot, invalid/mismatched instrument or insufficient depth fails closed. Next integration audit: distinguish Upstox Analytics Token (market-data/streaming) from standard daily OAuth access token (account/trading). Add separate encrypted storage and route by documented endpoint scope; never assume a refresh token.
+
+
+## 2026-11-01 — Current Phase 4 status (supersedes older resume pointers)
+
+- Latest verified green implementation head: `d0d26eb98ff5d77ce4f3ed1baee943bccaca51e4`; Backend CI [#41316803274 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41316803274). Checks: backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL and documentation-volume restore.
+- LIVE balance-source protection and its fixture corrections passed CI #41315704407 on `9314703f31ff3ad31f2b97090cbfa1a5d4096a8c`.
+- Mode-aware analytics implementation and regression tests are included in `d0d26eb` and passed #41316803274.
+- Remaining: fail-closed LIVE positions API; explicit broker-account/LIVE-portfolio allocation; verified funds and positions sync; realized and freshness-gated unrealized P&L; Redis-to-execution and multi-worker end-to-end recovery/isolation; frontend mode selector; security/load/operational review.
+- Current documentation synchronization commit is being validated separately; do not call the documentation head green until its exact-head CI succeeds.
+- PR #9 remains Draft/unmerged. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `tarunsharma2610-del/Tradepro` remains untouched. LIVE broker place/modify/cancel writes remain disabled.
+- Next code gate: inspect LIVE positions route and tests, then enforce mode-aware fail-closed behavior with regression coverage.

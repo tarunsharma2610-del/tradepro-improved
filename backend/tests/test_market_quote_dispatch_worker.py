@@ -136,13 +136,14 @@ async def test_two_workers_never_process_same_user_instrument_concurrently():
         seen.append(("second", item.version))
         second_entered.set()
 
+    # Start the owner first so the test does not depend on scheduler ordering.
     first = asyncio.create_task(
         MarketQuoteDispatchWorker(dispatcher, first_handler).run()
     )
+    await asyncio.wait_for(first_entered.wait(), timeout=1)
     second = asyncio.create_task(
         MarketQuoteDispatchWorker(dispatcher, second_handler).run()
     )
-    await asyncio.wait_for(first_entered.wait(), timeout=1)
     assert dispatcher.publish(Observation(version=2, ltp=101))
     await asyncio.sleep(0)
     assert not second_entered.is_set()
@@ -192,12 +193,15 @@ async def test_worker_pool_bounds_unique_keys_and_accounts_for_queue_completion(
         while sum(worker.processed_count for worker in worker_instances) != 2:
             await asyncio.sleep(0)
     await asyncio.wait_for(wait_for_acknowledgements(), timeout=1)
+
+    # Check the queue accounting before cancelling idle consumers. Cancellation
+    # must not be used as a substitute for acknowledgement of completed work.
+    assert dispatcher.pending_keys == 0
+    assert dispatcher.inflight_keys == 0
+    await asyncio.wait_for(dispatcher._queue.join(), timeout=1)
+
     for task in workers:
         task.cancel()
     for task in workers:
         with pytest.raises(asyncio.CancelledError):
             await task
-
-    assert dispatcher.pending_keys == 0
-    assert dispatcher.inflight_keys == 0
-    await asyncio.wait_for(dispatcher._queue.join(), timeout=1)

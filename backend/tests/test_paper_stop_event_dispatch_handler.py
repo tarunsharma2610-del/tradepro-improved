@@ -130,3 +130,85 @@ async def test_handler_rotates_expired_claim_token_before_execution(
     assert recovered.attempt_count == 2
     assert len(calls) == 1
     assert calls[0]["claim_token"] == recovered.claim_token
+
+
+@pytest.mark.asyncio
+async def test_recovery_sweeper_resumes_expired_claim_without_redis_redelivery(
+    db_session, make_user, monkeypatch
+):
+    import app.services.paper_stop_event_dispatch_handler as handler
+
+    user, portfolio, instrument, strategy = _setup(db_session, make_user)
+    old_now = datetime.now(timezone.utc) - timedelta(minutes=2)
+    event = PaperStopEventClaimService(db_session).claim_trailing_stop(
+        user_id=user.id, portfolio_id=portfolio.id, strategy_id=strategy.id,
+        instrument_id=instrument.id, quote_epoch="orphaned-dispatch-epoch",
+        quote_version=3, trigger_price=Decimal("97"),
+        lease_seconds=1, now=old_now,
+    )
+    assert event is not None
+    old_token = event.claim_token
+    db_session.commit()
+
+    monkeypatch.setattr(handler, "SessionLocal", sessionmaker(bind=db_session.get_bind()))
+    calls = []
+
+    async def fake_execute(self, **kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(
+        handler.PaperStopEventExecutionService, "execute_claimed", fake_execute
+    )
+
+    recovered_count = await handler.recover_expired_paper_stop_events_once()
+
+    db_session.expire_all()
+    recovered = db_session.query(PaperStopEvent).filter(
+        PaperStopEvent.id == event.id
+    ).one()
+    assert recovered_count == 1
+    assert recovered.claim_token != old_token
+    assert recovered.attempt_count == 2
+    assert len(calls) == 1
+    assert calls[0]["event_id"] == event.id
+    assert calls[0]["claim_token"] == recovered.claim_token
+
+
+@pytest.mark.asyncio
+async def test_recovery_sweeper_terminalizes_expired_claim_at_attempt_limit(
+    db_session, make_user, monkeypatch
+):
+    import app.services.paper_stop_event_dispatch_handler as handler
+
+    user, portfolio, instrument, strategy = _setup(db_session, make_user)
+    old_now = datetime.now(timezone.utc) - timedelta(minutes=2)
+    event = PaperStopEventClaimService(db_session).claim_trailing_stop(
+        user_id=user.id, portfolio_id=portfolio.id, strategy_id=strategy.id,
+        instrument_id=instrument.id, quote_epoch="exhausted-dispatch-epoch",
+        quote_version=4, trigger_price=Decimal("97"),
+        lease_seconds=1, now=old_now,
+    )
+    assert event is not None
+    event.attempt_count = 5
+    db_session.commit()
+
+    monkeypatch.setattr(handler, "SessionLocal", sessionmaker(bind=db_session.get_bind()))
+    calls = []
+
+    async def fake_execute(self, **kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(
+        handler.PaperStopEventExecutionService, "execute_claimed", fake_execute
+    )
+
+    recovered_count = await handler.recover_expired_paper_stop_events_once()
+
+    db_session.expire_all()
+    terminal = db_session.query(PaperStopEvent).filter(
+        PaperStopEvent.id == event.id
+    ).one()
+    assert recovered_count == 1
+    assert terminal.state == "FAILED"
+    assert terminal.last_error_code == "MAX_ATTEMPTS_EXCEEDED"
+    assert calls == []

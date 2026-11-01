@@ -35,36 +35,40 @@ class MarketQuoteDispatchWorker:
         self.max_backoff_seconds = max_backoff_seconds
         self.processed_count = 0
         self.failure_count = 0
-        self._failures_by_key: dict[tuple[str, str], int] = {}
 
     async def run(self) -> None:
-        """Run until cancelled; failed items are released and retried with backoff."""
+        """Run until cancelled; retain key ownership while retrying with capped backoff."""
         while True:
             item = await self.dispatcher.get()
-            key = (item.user_id, item.instrument_key)
             try:
-                await self.handler(item)
+                failures = 0
+                while True:
+                    try:
+                        await self.handler(item)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:
+                        failures += 1
+                        self.failure_count += 1
+                        logger.exception(
+                            "Market quote handler failed user=%s instrument=%s attempt=%s error=%s",
+                            item.user_id, item.instrument_key, failures, type(exc).__name__,
+                        )
+                        # Keep single-flight ownership during backoff. Newer
+                        # quotes coalesce behind this item; another worker
+                        # cannot race a retry of the same user/instrument key.
+                        delay = min(
+                            self.min_backoff_seconds * (2 ** min(failures - 1, 20)),
+                            self.max_backoff_seconds,
+                        )
+                        if delay:
+                            await asyncio.sleep(delay)
+                    else:
+                        self.dispatcher.task_done()
+                        self.processed_count += 1
+                        break
             except asyncio.CancelledError:
                 # The current observation (or its newest coalesced successor)
-                # must remain eligible after graceful worker shutdown.
+                # remains eligible after graceful worker shutdown.
                 self.dispatcher.release()
                 raise
-            except Exception as exc:
-                self.failure_count += 1
-                failures = self._failures_by_key.get(key, 0) + 1
-                self._failures_by_key[key] = failures
-                logger.exception(
-                    "Market quote handler failed user=%s instrument=%s attempt=%s error=%s",
-                    item.user_id, item.instrument_key, failures, type(exc).__name__,
-                )
-                self.dispatcher.release()
-                delay = min(
-                    self.min_backoff_seconds * (2 ** min(failures - 1, 20)),
-                    self.max_backoff_seconds,
-                )
-                if delay:
-                    await asyncio.sleep(delay)
-            else:
-                self.dispatcher.task_done()
-                self._failures_by_key.pop(key, None)
-                self.processed_count += 1

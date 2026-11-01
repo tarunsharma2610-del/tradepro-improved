@@ -84,3 +84,11 @@ class BrokerPositionSnapshotOut(BaseModel):
     broker_connection_id: UUID
     positions: list[dict]
     created_at: datetime
+
+
+class BrokerHoldingSnapshotOut(BaseModel):
+    id: UUID
+    portfolio_id: UUID
+    broker_connection_id: UUID
+    holdings: list[dict]
+    created_at: datetime

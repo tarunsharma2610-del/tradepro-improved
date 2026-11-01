@@ -363,12 +363,19 @@ def get_latest_broker_positions(
     portfolio = _get_owned_portfolio(db, user, portfolio_id)
     if portfolio.trading_mode != "LIVE":
         raise HTTPException(status.HTTP_409_CONFLICT, "Broker positions are only available for LIVE portfolios.")
+    allocation = db.query(BrokerPortfolioAllocation).filter(
+        BrokerPortfolioAllocation.portfolio_id == portfolio.id,
+        BrokerPortfolioAllocation.user_id == user.id,
+    ).one_or_none()
+    if allocation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No broker account is currently allocated to this portfolio.")
     snapshot = db.query(BrokerPositionSnapshot).filter(
         BrokerPositionSnapshot.portfolio_id == portfolio.id,
         BrokerPositionSnapshot.user_id == user.id,
+        BrokerPositionSnapshot.broker_connection_id == allocation.broker_connection_id,
     ).order_by(desc(BrokerPositionSnapshot.created_at)).first()
     if snapshot is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No verified broker positions snapshot is available.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No verified broker positions snapshot is available for the currently allocated account.")
     return snapshot
 
 

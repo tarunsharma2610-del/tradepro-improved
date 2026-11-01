@@ -50,3 +50,16 @@ class BrokerAnalyticsTokenSet(BaseModel):
 class BrokerAnalyticsTokenOut(BaseModel):
     configured: bool
     expires_at: datetime | None = None
+
+
+class BrokerPortfolioAllocationCreate(BaseModel):
+    broker_connection_id: UUID
+
+
+class BrokerPortfolioAllocationOut(BaseModel):
+    id: UUID
+    portfolio_id: UUID
+    broker_connection_id: UUID
+    broker: str
+    trading_mode: str
+    created_at: datetime

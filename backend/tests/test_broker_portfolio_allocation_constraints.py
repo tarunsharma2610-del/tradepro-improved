@@ -166,3 +166,43 @@ def test_live_portfolio_cannot_be_allocated_to_two_broker_connections(allocation
     ))
     with pytest.raises(IntegrityError):
         allocation_db.commit()
+
+
+def test_funds_snapshot_is_owner_scoped_and_live_only(allocation_db):
+    from decimal import Decimal
+    from app.models.broker_funds_snapshot import BrokerFundsSnapshot
+
+    owner = _user(allocation_db, "funds-owner@example.com")
+    other = _user(allocation_db, "funds-other@example.com")
+    portfolio = _live_portfolio(allocation_db, owner)
+    connection = _broker_connection(allocation_db, owner)
+    snapshot = BrokerFundsSnapshot(
+        broker_connection_id=connection.id,
+        portfolio_id=portfolio.id,
+        user_id=owner.id,
+        trading_mode="LIVE",
+        total_available_to_trade=Decimal("500.00"),
+        cash_available_to_trade=Decimal("450.00"),
+        pledge_available_to_trade=Decimal("50.00"),
+        unsettled_profit_today=Decimal("0.00"),
+        unsettled_profit_previous_days=Decimal("0.00"),
+        raw_response={"status": "success", "data": {}},
+    )
+    allocation_db.add(snapshot)
+    allocation_db.commit()
+    assert allocation_db.query(BrokerFundsSnapshot).count() == 1
+
+    allocation_db.add(BrokerFundsSnapshot(
+        broker_connection_id=connection.id,
+        portfolio_id=portfolio.id,
+        user_id=other.id,
+        trading_mode="LIVE",
+        total_available_to_trade=Decimal("500.00"),
+        cash_available_to_trade=Decimal("450.00"),
+        pledge_available_to_trade=Decimal("50.00"),
+        unsettled_profit_today=Decimal("0.00"),
+        unsettled_profit_previous_days=Decimal("0.00"),
+        raw_response={"status": "success", "data": {}},
+    ))
+    with pytest.raises(IntegrityError):
+        allocation_db.commit()

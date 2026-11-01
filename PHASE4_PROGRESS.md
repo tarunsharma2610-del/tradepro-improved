@@ -322,3 +322,12 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
 - Audited `ExecutionService._fill()`: repository helpers commit order, position, and portfolio changes at separate points before the Execution record's final commit. This is not atomic enough for durable stop-event execution.
 - Do not connect event lifecycle to current place_order path. Next engineering task is to refactor the PAPER fill path into one caller-owned transaction and add a unique stop-event idempotency key, followed by failure-injection and PostgreSQL 16 duplicate-worker tests.
 - No code path or live broker capability changed in this audit. PR #9 remains Draft/unmerged; PAPER mandatory; original Tradepro untouched.
+
+
+## 1 November 2026 — atomic-fill CI passed; stop-order idempotency schema added
+
+- Exact-head Backend CI #41284932565 passed on `a9dd7174f9a075d130a78a9046d434dcb97838f2`.
+- Added unique nullable PAPER stop-event reference to orders via migration `202611010034`; added FK/unique schema regression test.
+- This establishes the database one-event/one-order invariant only. No stop-event consumer is connected and no automated order execution is enabled.
+- Next: add claim-token/state/lease authorization, duplicate-order recovery, same-transaction event completion, fault-injection and PostgreSQL 16 duplicate-worker tests.
+- PR #9 Draft/unmerged; PAPER mandatory; live writes disabled; original Tradepro untouched.

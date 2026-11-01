@@ -42,3 +42,11 @@ If a stop-event consumer calls the current execution path and the process fails 
 3. Add the unique stop-event idempotency key and duplicate-result recovery.
 4. Prove atomicity with failure injection and PostgreSQL 16 concurrency tests.
 5. Integrate the lifecycle and dispatcher only after all above checks pass.
+
+
+## 1 November 2026 — order-boundary idempotency schema
+
+- Added nullable `orders.paper_stop_event_id`, protected by a foreign key to `paper_stop_events.id` with RESTRICT deletion semantics.
+- Added database uniqueness constraint `uq_orders_paper_stop_event`: any one durable stop event can be associated with at most one order, while normal orders retain NULL and remain unaffected.
+- Added schema regression coverage for nullability, uniqueness and FK target.
+- This is a storage invariant only. The event consumer is still NOT connected; no code currently authorizes stop events to place orders. Next work must add token/state/lease validation, duplicate-result recovery, and same-transaction completion before consumer activation.

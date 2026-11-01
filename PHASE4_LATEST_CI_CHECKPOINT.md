@@ -388,3 +388,12 @@ Work only in tarunsharma2610-del/tradepro-improved on phase4/redis-market-data-p
   4. Add failure-injection tests after each persistence stage, transaction rollback tests, duplicate-consumer races, and PostgreSQL 16 concurrent tests proving one fill and one accounting effect.
   5. Keep ambiguous shared strategy ownership fail-closed until explicit position allocation exists.
 - No source execution code was changed in this audit. Dispatcher remains unconnected to stop-event execution. PAPER-only; all live broker order writes remain disabled.
+
+
+## 1 November 2026 — atomic PAPER fill CI and stop-order idempotency schema
+
+- Backend CI #41284932565 SUCCESS on exact commit `a9dd7174f9a075d130a78a9046d434dcb97838f2`; includes caller-owned PAPER fill transaction and rollback regression.
+- Added migration `202611010034` introducing nullable `orders.paper_stop_event_id`, FK to `paper_stop_events.id` (RESTRICT), and unique constraint `uq_orders_paper_stop_event`.
+- Added model/schema test for nullable unique reference and FK.
+- This constraint prevents more than one order from referencing a given event, but it does not itself implement recovery or authorize event execution. Consumer remains disconnected pending token/lease validation, existing-order recovery and atomic event completion.
+- PR #9 remains Draft/unmerged; PAPER-only; live broker order writes disabled; original Tradepro untouched.

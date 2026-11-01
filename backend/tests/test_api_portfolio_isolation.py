@@ -1,3 +1,5 @@
+from uuid import UUID
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -180,7 +182,7 @@ def test_live_portfolio_cannot_activate_or_evaluate_paper_strategy(client, db_se
     assert created.status_code == 201
     strategy_id = created.json()["id"]
 
-    portfolio = db_session.query(Portfolio).filter(Portfolio.id == portfolio_id).one()
+    portfolio = db_session.query(Portfolio).filter(Portfolio.id == UUID(portfolio_id)).one()
     portfolio.trading_mode = "LIVE"
     db_session.commit()
 

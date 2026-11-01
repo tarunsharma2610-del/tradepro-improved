@@ -474,3 +474,23 @@ Product direction: Tradepro Improved is intended to support both PAPER and LIVE 
 - Run full exact-head CI: pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore evidence.
 - Only after green CI, continue PostgreSQL 16 concurrent PAPER stop-event tests.
 - In parallel, audit existing live-intent and broker-adapter call paths against the stages above. Record gaps; do not enable writes during this audit.
+
+
+## Phase 4 verified checkpoint — 1 November 2026 — PostgreSQL concurrent PAPER stop execution
+
+- Latest branch head: `6db7dcfa3d46c11c844733e571ea6f90dda999d6` (PR #9 head; Draft/unmerged).
+- Exact-head Backend CI [#41289810206 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41289810206). Backend pytest, broker-write boundary enforcement, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore and evidence retention all completed successfully.
+- PostgreSQL 16 concurrent duplicate stop-event execution regression is included. Two independent workers race the same durable claim; the test verifies one PAPER filled order, one execution, one position close, a single quote fetch, and the same completed order returned to both workers.
+- Initial concurrency CI #41289482098 exposed a SQLAlchemy identity-map stale-state race after a worker waited on row locks. The locked event query now uses `.populate_existing()` to refresh persisted state under lock. The fix is recorded in `PHASE4_PAPER_STOP_EVENT_EXECUTION_SAFETY.md`.
+- Atomicity remains enforced: PAPER order, execution/accounting, position/cash, strategy watermark and event completion share one transaction. Failure injection verifies rollback if completion cannot be committed; completed redelivery returns the existing order.
+- Direction check: this is the correct Phase 4 order of work—prove persistence, idempotency and multi-worker safety before connecting quote dispatch. It is not production-readiness certification.
+- Product target remains PAPER + LIVE with independent balances/orders/positions/P&L and mode-isolated execution. PAPER is the default for development and CI. LIVE broker place/modify/cancel remain disabled pending the separately gated readiness stages in this document and `MASTER_ROADMAP.md`.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PR #9 Draft/unmerged; no deployment or credentialed Upstox trading smoke test claimed.
+
+### Next implementation sequence
+1. Add PostgreSQL 16 concurrent expired-lease reclamation tests, proving only one reclaimer rotates the claim token and stale workers cannot execute.
+2. Add process-interruption/restart tests around claim, execution and acknowledgement; verify transaction rollback leaves a reclaimable claim and post-commit redelivery returns the existing completed order.
+3. Review dispatcher cancellation/acknowledgement behavior and define a supervised consumer loop that always acknowledges or safely releases in-flight work.
+4. Connect the bounded dispatcher to the durable claim service for PAPER only; keep scanner callbacks free of DB, broker and order work.
+5. Add multi-user/multi-instrument, Redis outage/reconnect, stale quote, depth and kill-switch tests; then run exact-head full CI.
+6. Continue the separate PAPER/LIVE mode-isolation and live-write gateway audit. Do not enable LIVE broker writes as part of Phase 4 dispatcher work.

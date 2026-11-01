@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -7,10 +8,13 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.middleware.rate_limit import assistant_rate_limit, order_rate_limit
 from app.models.execution import Execution
+from app.models.broker_connection import BrokerConnection
+from app.models.broker_portfolio_allocation import BrokerPortfolioAllocation
 from app.models.position import Position
 from app.models.user import User
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.repositories.order_repository import OrderRepository
+from app.schemas.broker import BrokerPortfolioAllocationCreate, BrokerPortfolioAllocationOut
 from app.schemas.analytics import PortfolioAnalyticsOut, StrategyAnalyticsOut
 from app.schemas.assistant import AssistantAskRequest, AssistantAskResponse
 from app.schemas.order import ExecutionOut, OrderOut, PlaceOrderRequest, PositionOut
@@ -20,6 +24,7 @@ from app.services import analytics_service
 from app.services.execution_service import ExecutionService, OrderValidationError
 from app.services.execution_service import PlaceOrderRequest as ServicePlaceOrderRequest
 from app.services.transaction_costs import Segment, Side
+from sqlalchemy.exc import IntegrityError
 
 router = APIRouter(prefix="/portfolios", tags=["portfolios"])
 
@@ -64,6 +69,123 @@ def update_portfolio_risk_settings(
     db.commit()
     db.refresh(portfolio)
     return portfolio
+
+
+@router.post(
+    "/{portfolio_id}/broker-allocation",
+    response_model=BrokerPortfolioAllocationOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def allocate_broker_account(
+    portfolio_id: UUID,
+    payload: BrokerPortfolioAllocationCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    portfolio = _get_owned_portfolio(db, user, portfolio_id)
+    if portfolio.trading_mode != "LIVE":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Broker accounts can only be allocated to LIVE portfolios.")
+
+    connection = (
+        db.query(BrokerConnection)
+        .filter(
+            BrokerConnection.id == payload.broker_connection_id,
+            BrokerConnection.user_id == user.id,
+        )
+        .with_for_update()
+        .one_or_none()
+    )
+    if connection is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Broker connection not found.")
+    now = datetime.now(timezone.utc)
+    expiry = connection.access_token_expires_at
+    if expiry is not None and expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    if not connection.is_connected or not connection.access_token_encrypted or (expiry is not None and expiry <= now):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Broker connection must have a verified, currently usable OAuth session before allocation.",
+        )
+
+    allocation = BrokerPortfolioAllocation(
+        broker_connection_id=connection.id,
+        portfolio_id=portfolio.id,
+        user_id=user.id,
+        trading_mode="LIVE",
+    )
+    db.add(allocation)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This broker connection or LIVE portfolio is already allocated, or the ownership constraints were not satisfied.",
+        ) from exc
+    db.refresh(allocation)
+    return {
+        "id": allocation.id,
+        "portfolio_id": portfolio.id,
+        "broker_connection_id": connection.id,
+        "broker": connection.broker,
+        "trading_mode": "LIVE",
+        "created_at": allocation.created_at,
+    }
+
+
+@router.get("/{portfolio_id}/broker-allocation", response_model=BrokerPortfolioAllocationOut)
+def get_broker_account_allocation(
+    portfolio_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    portfolio = _get_owned_portfolio(db, user, portfolio_id)
+    allocation = (
+        db.query(BrokerPortfolioAllocation)
+        .filter(
+            BrokerPortfolioAllocation.portfolio_id == portfolio.id,
+            BrokerPortfolioAllocation.user_id == user.id,
+        )
+        .one_or_none()
+    )
+    if allocation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No broker account is allocated to this portfolio.")
+    connection = db.query(BrokerConnection).filter(
+        BrokerConnection.id == allocation.broker_connection_id,
+        BrokerConnection.user_id == user.id,
+    ).one_or_none()
+    if connection is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Allocated broker connection is no longer available.")
+    return {
+        "id": allocation.id,
+        "portfolio_id": portfolio.id,
+        "broker_connection_id": connection.id,
+        "broker": connection.broker,
+        "trading_mode": allocation.trading_mode,
+        "created_at": allocation.created_at,
+    }
+
+
+@router.delete("/{portfolio_id}/broker-allocation", status_code=status.HTTP_204_NO_CONTENT)
+def remove_broker_account_allocation(
+    portfolio_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    portfolio = _get_owned_portfolio(db, user, portfolio_id)
+    allocation = (
+        db.query(BrokerPortfolioAllocation)
+        .filter(
+            BrokerPortfolioAllocation.portfolio_id == portfolio.id,
+            BrokerPortfolioAllocation.user_id == user.id,
+        )
+        .with_for_update()
+        .one_or_none()
+    )
+    if allocation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No broker account is allocated to this portfolio.")
+    db.delete(allocation)
+    db.commit()
 
 
 @router.get("/{portfolio_id}/positions", response_model=list[PositionOut])

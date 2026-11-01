@@ -124,7 +124,11 @@ def test_scanner_accepts_exchange_timestamp_within_future_clock_skew():
     slight_future = now + timedelta(seconds=30)
     result = scanner.process_quote(
         user_id,
-        quote(user_id, exchange_timestamp_ms=int(slight_future.timestamp() * 1000)),
+        quote(
+            user_id,
+            received_at=now.isoformat(),
+            exchange_timestamp_ms=int(slight_future.timestamp() * 1000),
+        ),
         now=now,
     )
     assert result is not None

@@ -69,3 +69,10 @@ def test_rejects_non_finite_broker_position_values():
     payload["data"][0]["pnl"] = float("nan")
     with pytest.raises(ValueError):
         normalize_upstox_positions(payload)
+
+
+def test_normalizes_negative_zero_as_unsigned_zero():
+    payload = _payload()
+    payload["data"][0]["realised"] = -0.0
+    positions = normalize_upstox_positions(payload)
+    assert positions[0]["broker_reported_realised"] == "0.00"

@@ -229,3 +229,70 @@ async def test_recovery_sweeper_terminalizes_expired_claim_at_attempt_limit(
     assert terminal.state == "FAILED"
     assert terminal.last_error_code == "MAX_ATTEMPTS_EXCEEDED"
     assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_dispatch_worker_retries_after_durable_claim_commit_without_duplicate_event(
+    db_session, make_user, monkeypatch
+):
+    """A crash-like execution failure replays one durable claim, not a second event."""
+    import asyncio
+
+    import app.services.paper_stop_event_dispatch_handler as handler
+    from app.services.market_quote_dispatcher import MarketQuoteDispatcher
+    from app.services.market_quote_dispatch_worker import MarketQuoteDispatchWorker
+
+    user, portfolio, instrument, strategy = _setup(db_session, make_user)
+    monkeypatch.setattr(handler, "SessionLocal", _fixture_session_factory(db_session))
+
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=4)
+    assert dispatcher.publish(_item(user, instrument, version=7, price=97.0))
+
+    calls = []
+    execution_recovered = asyncio.Event()
+
+    async def flaky_execute(self, **kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            # Intake already committed the event in its own transaction. Model
+            # an uncertain execution failure after that durable commit.
+            raise RuntimeError("simulated worker interruption after claim commit")
+        execution_recovered.set()
+
+    monkeypatch.setattr(
+        handler.PaperStopEventExecutionService, "execute_claimed", flaky_execute
+    )
+    worker = MarketQuoteDispatchWorker(
+        dispatcher,
+        handler.handle_paper_market_observation,
+        min_backoff_seconds=0,
+        max_backoff_seconds=0,
+        max_attempts=2,
+    )
+    task = asyncio.create_task(worker.run())
+    try:
+        await asyncio.wait_for(execution_recovered.wait(), timeout=2)
+        for _ in range(100):
+            if worker.processed_count == 1:
+                break
+            await asyncio.sleep(0)
+        assert worker.processed_count == 1
+        assert worker.failure_count == 1
+        assert dispatcher.pending_keys == 0
+        assert dispatcher.inflight_keys == 0
+
+        events = db_session.query(PaperStopEvent).filter(
+            PaperStopEvent.strategy_id == strategy.id,
+            PaperStopEvent.quote_epoch == "dispatch-epoch",
+            PaperStopEvent.quote_version == 7,
+        ).all()
+        assert len(events) == 1
+        assert events[0].state == "CLAIMED"
+        assert events[0].claim_token is not None
+        assert len(calls) == 2
+        assert calls[0]["event_id"] == calls[1]["event_id"] == events[0].id
+        assert calls[0]["claim_token"] == calls[1]["claim_token"] == events[0].claim_token
+    finally:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task

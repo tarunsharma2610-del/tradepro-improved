@@ -91,7 +91,7 @@ def test_disabling_unenabled_mfa_still_requires_password(db_session, make_user):
     assert user.mfa_enabled is False
 
 
-@pytest.mark.parametrize("reserved_claim", ["sub", "type", "iat", "exp"])
+@pytest.mark.parametrize("reserved_claim", ["sub", "type", "iat", "exp", "sid", "jti"])
 def test_token_extra_claims_cannot_override_security_claims(reserved_claim):
     from uuid import uuid4
 

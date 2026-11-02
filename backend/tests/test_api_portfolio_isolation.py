@@ -820,7 +820,14 @@ def test_user_cannot_access_another_users_broker_evidence_or_reconciliation(clie
 
     _register_and_login(client, "resource-intruder@example.com")
 
-    # Contract-note bytes and source-component review/transcription are owner-scoped.
+    # Uploading against another user's broker connection and accessing its
+    # stored document/source components must all fail without disclosing ownership.
+    upload = client.post(
+        f"/api/v1/broker-charge-evidence/connections/{connection.id}/contract-notes",
+        data={"broker_report_reference": "intruder-upload-attempt"},
+        files={"file": ("contract-note.pdf", b"not a real contract note", "application/pdf")},
+    )
+    assert upload.status_code == 404
     assert client.get(f"/api/v1/broker-charge-evidence/{evidence_id}/document").status_code == 404
     assert client.post(
         f"/api/v1/broker-charge-evidence/{evidence_id}/components",

@@ -187,3 +187,12 @@ Historical entries above are retained as historical evidence. Current authoritat
 - This is part of the exact 28-document maintained set from the JWT checkpoint. Current documentation head before this batch: `4083cb6dfd382f0dfe5802a1ebc1dbcf3beea873`. The resulting documentation commit requires exact-head Backend CI and Security analysis before it is called green.
 - Security assessment remains INCOMPLETE: HTTPS/production CORS, secret rotation and recovery, authentication-session controls, endpoint-by-endpoint authorization/IDOR, secret/token storage and redaction, broker-write reachability, isolated-staging DAST, abuse/load testing, deployment/incident response and independent penetration testing remain open.
 - Safeguards unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PAPER mandatory for development/tests/unverified workflows; LIVE broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 remains OPEN/Draft/unmerged; no deployment or LIVE gateway activation authorized.
+
+
+## 2 November 2026 — security checkpoint reconciliation
+
+- Session-security implementation verified on PR #9 head `77f44c7299f5e7157a4cdb2f8dfe7fbbfb6c08c6`: Backend CI #41460334989 and Security analysis #41460334979 passed on that exact head. Persisted sessions, refresh-token rotation/replay rejection, logout revocation and reserved JWT `sid`/`jti` handling are covered by tests.
+- Transactional key-rotation service implementation commit `960c099b53d4c8e41daeb4f5691bc0972d5fb7b2`: Backend CI #41456734039 and Security analysis #41456734074 passed. It covers encrypted broker credentials, OAuth access tokens, Upstox Analytics Tokens, platform settings and MFA secrets; unreadable ciphertext fails closed. No production keys/data were rotated or accessed.
+- Docs CI on the final documentation head is still required before calling this checkpoint green.
+- Security assessment remains incomplete: endpoint IDOR authorization matrix, secret/token redaction review, broker-write reachability, staging DAST, abuse/load and tenant-isolation tests, deployment/restore/incident-response review and independent penetration testing remain.
+- PAPER mandatory; LIVE broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` untouched.

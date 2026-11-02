@@ -34,8 +34,11 @@ def _check_and_increment(key: str, max_attempts: int, window_seconds: int) -> No
         count = r.incr(key)
         if count == 1:
             r.expire(key, window_seconds)
-    except redis.RedisError:
-        return
+    except redis.RedisError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Request protection is temporarily unavailable. Please retry shortly.",
+        ) from exc
 
     if count > max_attempts:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts. Try again in a few minutes.")

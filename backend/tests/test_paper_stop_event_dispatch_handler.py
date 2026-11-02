@@ -232,7 +232,6 @@ async def test_recovery_sweeper_terminalizes_expired_claim_at_attempt_limit(
 
 
 @pytest.mark.asyncio
-@pytest.mark.asyncio
 async def test_process_crash_after_claim_commit_recovers_same_event_without_redis(
     db_session, make_user, monkeypatch
 ):
@@ -304,6 +303,7 @@ async def test_process_crash_after_claim_commit_recovers_same_event_without_redi
     assert executions[1]["claim_token"] == saved.claim_token
 
 
+@pytest.mark.asyncio
 async def test_dispatch_worker_retries_after_durable_claim_commit_without_duplicate_event(
     db_session, make_user
 ):

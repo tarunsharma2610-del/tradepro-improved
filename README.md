@@ -1003,3 +1003,16 @@ Credentialed Upstox OAuth/API smoke testing and real Oracle/database-plus-docume
 ## Phase 4 current checkpoint — 30 October 2026
 
 The transactional PAPER stop-event claim implementation at `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. The claim service validates tenant and strategy ownership, uses portfolio → strategy → position locks, rejects ambiguous shared-position ownership and duplicate quote identity, and stores a bounded claim lease. It is not connected to quote dispatch or order execution. Next gates: PostgreSQL 16 multi-worker concurrency, lease reclaim/crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 stays Draft/unmerged; PAPER-only; live broker writes disabled; original Tradepro repository out of scope.
+
+
+---
+
+## Phase 4 current status — 2 November 2026
+
+- Latest implementation/test head: 2a98a07a8516c4cca4a46f8a0f511afcb2159e74; Backend CI #41400727799 PASSED (1,549 passed, 1 warning), including broker-write boundary, SQLite/PostgreSQL 16 migrations and synthetic restore.
+- Read-only LIVE funds, positions and holdings synchronization is implemented and bound to the allocated owner-scoped broker connection. LIVE unrealized P&L API is implemented with Redis quote consumption, fail-closed quote freshness, Redis outage handling and 120-second broker-position snapshot freshness.
+- Redis publisher/consumer, scanner lifecycle, PAPER trailing-stop evaluation, durable PAPER stop-event claims, bounded dispatcher and PostgreSQL concurrency/recovery controls have prior green CI evidence. Full end-to-end market-to-ledger acceptance and sustained-load validation remain outstanding.
+- Security review found and fixed two issues: rate limiting now fails closed with HTTP 503 on Redis errors; MFA disable now requires password re-verification and a current TOTP when MFA is enabled. Both fixes passed exact-head CI #41400727799.
+- The Phase 4 P0 baseline audit is a static source review, not a penetration test. Comprehensive security assessment remains incomplete; see PHASE4_SECURITY_AUDIT_STATUS.md for the authorization/IDOR, SAST/DAST, dependency, secret-handling, abuse, load and independent penetration-test gates.
+- Remaining product gates: full authenticated LIVE P&L API test against real Redis; internal realized-P&L ledger and broker-fill reconciliation; frontend LIVE read-only P&L; integrated Redis→scanner→dispatcher→PAPER fill→ledger tests; multi-user load/backpressure and operational runbooks.
+- Safeguards: PAPER is the only enabled execution path; LIVE broker place/modify/cancel writes remain disabled; PR #9 is Draft/open/unmerged; only tradepro-improved is in scope; original Tradepro remains untouched. No production deployment or LIVE gateway activation is authorized.

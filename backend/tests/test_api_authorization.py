@@ -143,23 +143,13 @@ def test_broker_credentials_and_analytics_tokens_are_isolated_between_users(clie
     assert client.delete("/api/v1/settings/broker/upstox/analytics-token").status_code == 404
 
 
-def test_market_data_stream_registry_isolated_between_users(client, monkeypatch):
+def test_market_data_stream_registry_isolated_between_users(client, db_session):
     _register_and_login(client, "stream-owner@example.com")
     owner_access = client.cookies.get("access_token")
     owner_refresh = client.cookies.get("refresh_token")
-    owner = UserRepository(
-        # The fixture's DB session is also the app dependency override.
-        client.app.dependency_overrides[get_db]().__next__() if False else None
-    ) if False else None
-
-    # Resolve the owner through the same database fixture used by the route.
-    from app.core.database import SessionLocal
-    db = SessionLocal()
-    try:
-        owner = UserRepository(db).get_by_email("stream-owner@example.com")
-        owner_id = owner.id
-    finally:
-        db.close()
+    # Resolve the owner through the same isolated database fixture used by the routes.
+    owner = UserRepository(db_session).get_by_email("stream-owner@example.com")
+    owner_id = owner.id
 
     from types import SimpleNamespace
     from app.services.market_data_stream_manager import market_data_stream_manager

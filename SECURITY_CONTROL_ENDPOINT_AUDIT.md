@@ -1115,3 +1115,12 @@ Static review covered the 13 routers registered by `backend/app/api/v1/router.py
 - Continue secret/token log redaction review, broker-write reachability analysis, abuse/load testing, tenant-isolation testing, deployment/restore/incident-response review and independent penetration testing.
 
 **Status: PARTIAL — no blanket security sign-off.** Backend CI #41464532786 and Security analysis #41464532390 passed on the pre-audit documentation head `0ed82cca3c7b0b66087a133230db07764ad903fc`. This audit documentation update requires its own exact-head CI. PAPER mandatory; LIVE broker order writes disabled; PR #9 remains OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` untouched.
+
+
+## Broker credential/API isolation regression — verified 2 November 2026
+
+- Added HTTP-level two-user regression `test_broker_credentials_and_analytics_tokens_are_isolated_between_users` in `backend/tests/test_api_authorization.py`.
+- Test covers User A saving broker credentials and an Upstox Analytics Token; User B sees an empty broker-connection list and an unconfigured token status, cannot delete User A's broker connection or token, and receives no plaintext secret/token in responses.
+- Exact test commit: `05f25067fc4a3d2e3e3fdb251aba859b3e668ad5`. Backend CI #41467643061 — SUCCESS; Security analysis #41467643224 — SUCCESS, both on that exact commit. Backend run passed pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and evidence retention.
+- This closes the specifically identified broker credential/Analytics Token API regression gap; it does not complete the full endpoint IDOR sweep, CSRF review, DAST, broker-write reachability audit or penetration testing.
+- Current PR #9 remains OPEN/Draft/unmerged; PAPER mandatory; LIVE broker order writes disabled; original `tarunsharma2610-del/Tradepro` untouched.

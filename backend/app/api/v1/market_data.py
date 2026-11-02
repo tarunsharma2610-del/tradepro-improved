@@ -186,7 +186,7 @@ async def subscribe_market_data(
             subscriptions_by_mode=streamer.subscriptions_by_mode,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(_stream_http_status(exc), str(exc))
     return {
         "subscribed": True,
         "delivery": delivery,
@@ -230,7 +230,7 @@ async def unsubscribe_market_data(
             subscriptions_by_mode=streamer.subscriptions_by_mode,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(_stream_http_status(exc), str(exc))
     return {
         "unsubscribed": True,
         "delivery": delivery,
@@ -257,7 +257,7 @@ async def change_market_data_stream_mode(
             subscriptions_by_mode=streamer.subscriptions_by_mode,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(_stream_http_status(exc), str(exc))
     return {
         "mode_changed": True,
         "delivery": delivery,

@@ -1,4 +1,5 @@
 import pytest
+from uuid import UUID
 
 from app.services.auth_service import AuthError, AuthService, MfaRequiredError
 
@@ -115,3 +116,73 @@ def test_token_allows_non_reserved_extra_claims():
     assert payload["sub"] == str(user_id)
     assert payload["type"] == "access"
     assert payload["scope"] == "read-only"
+
+
+def test_refresh_token_rotation_rejects_replay(db_session, make_user):
+    from uuid import UUID
+
+    from app.core.security import decode_token
+    from app.models.auth_session import AuthSession
+
+    user = make_user()
+    service = AuthService(db_session)
+    access_token, refresh_token = service.issue_tokens(user)
+    old_payload = decode_token(refresh_token)
+    assert old_payload and old_payload["type"] == "refresh"
+
+    new_access, new_refresh = service.rotate_refresh_session(
+        user_id=user.id,
+        session_id=UUID(old_payload["sid"]),
+        presented_jti=old_payload["jti"],
+    )
+    new_payload = decode_token(new_refresh)
+    assert new_payload and new_payload["jti"] != old_payload["jti"]
+    assert decode_token(new_access)["sid"] == old_payload["sid"]
+
+    with pytest.raises(AuthError, match="Invalid or revoked refresh session"):
+        service.rotate_refresh_session(
+            user_id=user.id,
+            session_id=UUID(old_payload["sid"]),
+            presented_jti=old_payload["jti"],
+        )
+
+    session = db_session.get(AuthSession, UUID(old_payload["sid"]))
+    assert session is not None
+    assert session.revoked_at is None
+
+
+def test_revoking_session_invalidates_its_access_token(db_session, make_user):
+    from fastapi import HTTPException
+
+    from app.core.deps import get_current_user
+    from app.core.security import decode_token
+
+    user = make_user()
+    service = AuthService(db_session)
+    access_token, refresh_token = service.issue_tokens(user)
+    payload = decode_token(access_token)
+    assert payload and payload["sid"]
+
+    assert get_current_user(db_session, access_token=access_token, authorization=None).id == user.id
+    service.revoke_session(UUID(payload["sid"]), user.id)
+
+    with pytest.raises(HTTPException) as exc:
+        get_current_user(db_session, access_token=access_token, authorization=None)
+    assert exc.value.status_code == 401
+
+
+def test_mfa_security_change_revokes_existing_sessions(db_session, make_user):
+    from app.core.security import decode_token
+    from app.models.auth_session import AuthSession
+
+    user = make_user()
+    service = AuthService(db_session)
+    _, _ = service.issue_tokens(user)
+    session = db_session.query(AuthSession).filter_by(user_id=user.id).one()
+    assert session.revoked_at is None
+
+    secret, _ = service.start_mfa_enrollment(user)
+    import pyotp
+    assert service.verify_and_enable_mfa(user, pyotp.TOTP(secret).now()) is True
+    db_session.refresh(session)
+    assert session.revoked_at is not None

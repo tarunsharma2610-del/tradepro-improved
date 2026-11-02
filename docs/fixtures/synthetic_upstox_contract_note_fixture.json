@@ -1,0 +1,98 @@
+{
+  "fixture_type": "synthetic_upstox_style_contract_note",
+  "authenticity": "NOT_ISSUED_BY_UPSTOX_NOT_A_REAL_TRADE",
+  "generated_for": "tradepro-improved Phase 3 parser and per-fill charge-allocation tests",
+  "trade_date": "2026-10-22",
+  "exchange": "NSE",
+  "segment": "EQ",
+  "product": "intraday",
+  "instrument": "TESTCO-EQ",
+  "currency": "INR",
+  "trades": [
+    {
+      "trade_id": "TEST-TRADE-BUY-001",
+      "order_id": "TEST-ORDER-BUY-001",
+      "side": "BUY",
+      "quantity": 100,
+      "price": "100.00",
+      "turnover": "10000.00"
+    },
+    {
+      "trade_id": "TEST-TRADE-SELL-001",
+      "order_id": "TEST-ORDER-SELL-001",
+      "side": "SELL",
+      "quantity": 100,
+      "price": "101.00",
+      "turnover": "10100.00"
+    }
+  ],
+  "gross_pnl": "100.00",
+  "charge_components": [
+    {
+      "component": "brokerage",
+      "basis": "0.1% of each side turnover, each below ₹20 cap",
+      "amount_inr": "20.10"
+    },
+    {
+      "component": "stt",
+      "basis": "0.025% of sell turnover; fixture rounds to paise",
+      "amount_inr": "2.53"
+    },
+    {
+      "component": "exchange_transaction",
+      "basis": "0.00307% of total turnover; illustrative rate",
+      "amount_inr": "0.62"
+    },
+    {
+      "component": "sebi_turnover",
+      "basis": "₹10 per crore of total turnover",
+      "amount_inr": "0.02"
+    },
+    {
+      "component": "stamp_duty",
+      "basis": "0.003% of buy turnover",
+      "amount_inr": "0.30"
+    },
+    {
+      "component": "gst",
+      "basis": "18% of brokerage plus transaction charges; fixture rounds to paise",
+      "amount_inr": "3.73"
+    },
+    {
+      "component": "ipft",
+      "basis": "Not separately represented in this fixture",
+      "amount_inr": "0.00"
+    }
+  ],
+  "total_charges_inr": "27.30",
+  "net_pnl_after_charges_inr": "72.70",
+  "allocation_test_fills": [
+    {
+      "fill_id": "TEST-FILL-001",
+      "notional_inr": "4020.00",
+      "weight_percent": "20.00"
+    },
+    {
+      "fill_id": "TEST-FILL-002",
+      "notional_inr": "6030.00",
+      "weight_percent": "30.00"
+    },
+    {
+      "fill_id": "TEST-FILL-003",
+      "notional_inr": "10050.00",
+      "weight_percent": "50.00"
+    }
+  ],
+  "notes": [
+    "Synthetic test data only; never present as an authentic broker-issued document.",
+    "Illustrative rates are based on public Upstox tariff pages checked when creating the fixture; not a production rate source.",
+    "Production rates must be versioned by effective date, segment, exchange, product and applicable transaction rules.",
+    "The fill weights are a synthetic reviewer-approved test assumption, not a claim that a broker contract note establishes per-fill allocation."
+  ],
+  "references": [
+    "https://upstox.com/brokerage-charges/",
+    "https://upstox.com/calculator/brokerage-calculator/",
+    "https://upstox.com/developer/api-documentation/get-trade-charges/",
+    "https://upstox.com/developer/api-documentation/get-brokerage/"
+  ]
+}

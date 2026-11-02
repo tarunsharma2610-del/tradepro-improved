@@ -18,6 +18,7 @@ def require_reviewed_charge_evidence(
     broker_connection_id: UUID,
     broker_report_reference: str,
     reviewer_user_id: UUID,
+    lock: bool = True,
 ) -> BrokerChargeEvidence:
     """Return matching reviewed evidence or fail closed.
 
@@ -33,16 +34,13 @@ def require_reviewed_charge_evidence(
     if not isinstance(reviewer_user_id, UUID):
         raise ValueError("A reviewer identity is required for charge evidence validation.")
 
-    evidence = (
-        db.query(BrokerChargeEvidence)
-        .filter(
-            BrokerChargeEvidence.id == evidence_id,
-            BrokerChargeEvidence.broker_connection_id == broker_connection_id,
-        )
-        .with_for_update()
-        .populate_existing()
-        .first()
+    evidence_query = db.query(BrokerChargeEvidence).filter(
+        BrokerChargeEvidence.id == evidence_id,
+        BrokerChargeEvidence.broker_connection_id == broker_connection_id,
     )
+    if lock:
+        evidence_query = evidence_query.with_for_update()
+    evidence = evidence_query.populate_existing().first()
     if evidence is None:
         raise ValueError("Reviewed broker charge evidence was not found for this connection.")
     if evidence.source_kind != "CONTRACT_NOTE":

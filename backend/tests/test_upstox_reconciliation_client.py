@@ -170,3 +170,234 @@ async def test_retry_after_metadata_is_exposed_without_response_body(fake_httpx)
     assert result.error_code == "RATE_LIMITED"
     assert result.retry_after_seconds == 3.0
     assert "private error body" not in repr(result)
+
+@pytest.mark.asyncio
+async def test_brokerage_estimate_uses_documented_read_only_endpoint_and_normalizes_inputs(fake_httpx):
+    from decimal import Decimal
+
+    fake_httpx.response = _Response(body={
+        "status": "success",
+        "data": {"charges": {"total": 12.34, "brokerage": 10.0, "dp_plan": {"min_expense": 18.5}}},
+    })
+    result = await UpstoxReadOnlyReconciliationClient().get_brokerage_estimate(
+        "test-token",
+        instrument_token="NSE_EQ|INE669E01016",
+        quantity=10,
+        product="I",
+        transaction_type="buy",
+        price=Decimal("13.70"),
+    )
+    assert result.ok is True
+    assert fake_httpx.calls[0]["url"] == f"{API_V2}/charges/brokerage"
+    assert fake_httpx.calls[0]["params"] == {
+        "instrument_token": "NSE_EQ|INE669E01016",
+        "quantity": "10",
+        "product": "I",
+        "transaction_type": "BUY",
+        "price": "13.70",
+    }
+    # The daily DP-plan minimum is metadata, not included in the API total.
+    assert result.data["data"]["charges"]["dp_plan"]["min_expense"] == 18.5
+
+
+@pytest.mark.asyncio
+async def test_brokerage_estimate_rejects_invalid_order_inputs_before_network(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    common = {
+        "instrument_token": "NSE_EQ|INE669E01016",
+        "quantity": 1,
+        "product": "I",
+        "transaction_type": "BUY",
+        "price": "10.00",
+    }
+    for overrides, message in [
+        ({"quantity": 0}, "positive integer"),
+        ({"quantity": True}, "positive integer"),
+        ({"transaction_type": "HOLD"}, "BUY or SELL"),
+        ({"price": "NaN"}, "finite positive decimal"),
+        ({"price": "0"}, "finite positive decimal"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            await client.get_brokerage_estimate("test-token", **{**common, **overrides})
+    assert fake_httpx.calls == []
+
+
+@pytest.mark.asyncio
+async def test_trade_charges_uses_documented_segment_and_financial_year_scope(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    result = await client.get_trade_charges(
+        "test-token",
+        segment="fo",
+        financial_year="2627",
+        from_date="01-04-2026",
+        to_date="24-10-2026",
+    )
+    assert result.ok is True
+    assert fake_httpx.calls[0]["url"] == f"{API_V2}/trade/profit-loss/charges"
+    assert fake_httpx.calls[0]["params"] == {
+        "segment": "FO",
+        "financial_year": "2627",
+        "from_date": "01-04-2026",
+        "to_date": "24-10-2026",
+    }
+
+
+@pytest.mark.asyncio
+async def test_trade_charges_rejects_invalid_financial_year_dates_and_segment(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    with pytest.raises(ValueError, match="financial_year"):
+        await client.get_trade_charges("test-token", segment="EQ", financial_year="2628")
+    with pytest.raises(ValueError, match="within financial_year"):
+        await client.get_trade_charges(
+            "test-token", segment="EQ", financial_year="2627", from_date="31-03-2026"
+        )
+    with pytest.raises(ValueError, match="to_date must not precede"):
+        await client.get_trade_charges(
+            "test-token", segment="EQ", financial_year="2627",
+            from_date="02-05-2026", to_date="01-05-2026",
+        )
+    with pytest.raises(ValueError, match="segment must be"):
+        await client.get_trade_charges("test-token", segment="ALL", financial_year="2627")
+    assert fake_httpx.calls == []
+
+
+@pytest.mark.asyncio
+async def test_historical_trades_uses_documented_pagination_and_date_scope(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    result = await client.get_historical_trades(
+        "test-token",
+        start_date="2026-04-01",
+        end_date="2026-10-24",
+        page_number=2,
+        page_size=5000,
+        segment="mf",
+    )
+    assert result.ok is True
+    assert fake_httpx.calls[0]["url"] == f"{API_V2}/charges/historical-trades"
+    assert fake_httpx.calls[0]["params"] == {
+        "start_date": "2026-04-01",
+        "end_date": "2026-10-24",
+        "page_number": "2",
+        "page_size": "5000",
+        "segment": "MF",
+    }
+
+
+@pytest.mark.asyncio
+async def test_historical_trades_rejects_invalid_dates_and_pagination(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    common = {
+        "start_date": "2026-04-01",
+        "end_date": "2026-10-24",
+        "page_number": 1,
+        "page_size": 100,
+    }
+    for overrides, message in [
+        ({"start_date": "01-04-2026"}, "YYYY-MM-DD"),
+        ({"end_date": "2026-03-31"}, "end_date must not precede"),
+        ({"page_number": 0}, "page_number"),
+        ({"page_size": 5001}, "page_size"),
+        ({"segment": "INVALID"}, "segment must be"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            await client.get_historical_trades("test-token", **{**common, **overrides})
+    assert fake_httpx.calls == []
+
+@pytest.mark.asyncio
+async def test_profit_loss_report_uses_documented_paginated_trade_wise_endpoint(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    fake_httpx.response = _Response(body={
+        "status": "success",
+        "data": [{
+            "quantity": 10,
+            "trade_type": "EQ",
+            "buy_amount": 1000.0,
+            "sell_amount": 1100.0,
+        }],
+        "metadata": {"page": {"page_number": 2, "page_size": 500}},
+    })
+    result = await client.get_profit_loss_report(
+        "test-token",
+        segment="eq",
+        financial_year="2627",
+        from_date="01-04-2026",
+        to_date="24-10-2026",
+        page_number=2,
+        page_size=500,
+    )
+    assert result.ok is True
+    assert fake_httpx.calls[0]["url"] == f"{API_V2}/trade/profit-loss/data"
+    assert fake_httpx.calls[0]["params"] == {
+        "segment": "EQ",
+        "financial_year": "2627",
+        "from_date": "01-04-2026",
+        "to_date": "24-10-2026",
+        "page_number": "2",
+        "page_size": "500",
+    }
+    # This endpoint provides trade-wise P&L rows, not per-fill charge components.
+    assert "charges_breakdown" not in result.data["data"][0]
+
+
+@pytest.mark.asyncio
+async def test_profit_loss_report_rejects_invalid_scope_and_pagination(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    common = {
+        "segment": "EQ",
+        "financial_year": "2627",
+        "page_number": 1,
+        "page_size": 100,
+    }
+    for overrides, message in [
+        ({"segment": "ALL"}, "segment must be"),
+        ({"financial_year": "2628"}, "financial_year"),
+        ({"page_number": 0}, "page_number"),
+        ({"page_size": 5001}, "page_size"),
+        ({"from_date": "31-03-2026"}, "within financial_year"),
+        ({"from_date": "02-05-2026", "to_date": "01-05-2026"}, "to_date must not precede"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            await client.get_profit_loss_report(
+                "test-token", **{**common, **overrides}
+            )
+    assert fake_httpx.calls == []
+
+@pytest.mark.asyncio
+async def test_profit_loss_report_metadata_uses_documented_endpoint_and_scope(fake_httpx):
+    fake_httpx.response = _Response(body={
+        "status": "success",
+        "data": {"trades_count": 12, "page_size_limit": 5000},
+    })
+    result = await UpstoxReadOnlyReconciliationClient().get_profit_loss_report_metadata(
+        "test-token",
+        segment="fo",
+        financial_year="2627",
+        from_date="01-04-2026",
+        to_date="24-10-2026",
+    )
+    assert result.ok is True
+    assert fake_httpx.calls[0]["url"] == f"{API_V2}/trade/profit-loss/metadata"
+    assert fake_httpx.calls[0]["params"] == {
+        "segment": "FO",
+        "financial_year": "2627",
+        "from_date": "01-04-2026",
+        "to_date": "24-10-2026",
+    }
+    assert result.data["data"]["page_size_limit"] == 5000
+
+
+@pytest.mark.asyncio
+async def test_profit_loss_report_metadata_rejects_invalid_scope_before_network(fake_httpx):
+    client = UpstoxReadOnlyReconciliationClient()
+    for overrides, message in [
+        ({"segment": "ALL"}, "segment must be"),
+        ({"financial_year": "2628"}, "financial_year"),
+        ({"from_date": "31-03-2026"}, "within financial_year"),
+        ({"from_date": "02-05-2026", "to_date": "01-05-2026"}, "to_date must not precede"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            await client.get_profit_loss_report_metadata(
+                "test-token",
+                **{"segment": "EQ", "financial_year": "2627", **overrides},
+            )
+    assert fake_httpx.calls == []

@@ -32,6 +32,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://trading:${POSTGRES_PASSWORD:?set in .env}@postgres:5432/trading_platform
       REDIS_URL: redis://redis:6379/0
+      BROKER_CHARGE_DOCUMENT_ROOT: /var/lib/tradepro/contract-notes
+    volumes:
+      - broker_charge_documents:/var/lib/tradepro/contract-notes
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,6 +49,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://trading:${POSTGRES_PASSWORD:?set in .env}@postgres:5432/trading_platform
       REDIS_URL: redis://redis:6379/0
+      BROKER_CHARGE_DOCUMENT_ROOT: /var/lib/tradepro/contract-notes
+    volumes:
+      - broker_charge_documents:/var/lib/tradepro/contract-notes
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,3 +82,4 @@ services:
 
 volumes:
   postgres_data:
+  broker_charge_documents:

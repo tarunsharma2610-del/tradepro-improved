@@ -172,8 +172,8 @@ def test_simultaneous_reconciliation_lease_claims_allow_only_one_worker():
 
 
 
-def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
-    """Two distinct confirmed fills must not race live-position accounting."""
+def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows(monkeypatch):
+    """Distinct fills and an exact concurrent replay account each fill once."""
     from datetime import date, datetime, timezone
     from decimal import Decimal
 
@@ -193,6 +193,12 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
         LiveFillChargeBreakdown,
     )
 
+    # This test isolates PostgreSQL row-lock serialization. The reconciled-ledger
+    # gate is exercised independently in test_live_fill_accounting_service.py.
+    monkeypatch.setattr(
+        LiveFillAccountingService, "_load_reconciled_allocation_fees",
+        lambda self, **kwargs: kwargs["supplied_fees"],
+    )
     engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_pre_ping=True)
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
@@ -319,7 +325,7 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
                     broker_report_reference=f"contract-note-{trade_id}",
                 ).scalar()
 
-        barrier = threading.Barrier(2)
+        barrier = threading.Barrier(3)
 
         def promote(trade_id):
             charges = LiveFillChargeBreakdown(
@@ -341,11 +347,19 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
                     owner_id, trade_id, charges
                 )
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            futures = [pool.submit(promote, trade_id) for trade_id in trade_ids]
+        # The same broker trade is submitted twice concurrently with identical
+        # reviewed evidence. One call inserts it; the other must replay the
+        # committed execution without applying its quantity to the position twice.
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [
+                pool.submit(promote, trade_ids[0]),
+                pool.submit(promote, trade_ids[1]),
+                pool.submit(promote, trade_ids[0]),
+            ]
             results = [future.result(timeout=20) for future in futures]
 
-        assert all(result.inserted for result in results)
+        assert sum(result.inserted for result in results) == 2, results
+        assert sum(not result.inserted for result in results) == 1, results
         with SessionLocal() as session:
             position = session.query(LivePosition).filter_by(
                 broker_connection_id=connection_id,
@@ -364,7 +378,7 @@ def test_concurrent_live_fill_promotions_serialize_on_parent_and_child_rows():
 
 
 
-def test_concurrent_child_orders_cannot_overfill_one_local_order():
+def test_concurrent_child_orders_cannot_overfill_one_local_order(monkeypatch):
     """Parent-order locking serializes separate children against one quantity cap."""
     from datetime import datetime, timezone
     from decimal import Decimal
@@ -385,6 +399,12 @@ def test_concurrent_child_orders_cannot_overfill_one_local_order():
         LiveFillChargeBreakdown,
     )
 
+    # This test isolates PostgreSQL row-lock serialization. The reconciled-ledger
+    # gate is exercised independently in test_live_fill_accounting_service.py.
+    monkeypatch.setattr(
+        LiveFillAccountingService, "_load_reconciled_allocation_fees",
+        lambda self, **kwargs: kwargs["supplied_fees"],
+    )
     engine = create_engine(os.environ["TEST_POSTGRES_URL"], pool_pre_ping=True)
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)

@@ -309,6 +309,24 @@ def test_parse_brokerage_details_preserves_estimate_components_and_dp_charge():
 
 
 @pytest.mark.parametrize(
+    ("field_path", "field"),
+    [
+        (("other_charges", "clearing"), "data.charges.other_charges.clearing"),
+        (("other_charges", "ipft"), "data.charges.other_charges.ipft"),
+        (("dp_plan", "min_expense"), "data.charges.dp_plan.min_expense"),
+    ],
+)
+def test_parse_brokerage_details_rejects_null_optional_charges_as_unknown(field_path, field):
+    payload = _brokerage_payload()
+    node = payload["data"]["charges"]
+    for part in field_path[:-1]:
+        node = node[part]
+    node[field_path[-1]] = None
+    with pytest.raises(ValueError, match="is null; charge amount is unknown"):
+        parse_brokerage_details(payload)
+
+
+@pytest.mark.parametrize(
     "mutate",
     [
         lambda p: p.update(status="error"),

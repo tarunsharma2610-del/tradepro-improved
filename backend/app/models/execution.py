@@ -48,6 +48,11 @@ class Execution(BaseModel):
         String(30), nullable=False, default="PAPER_ESTIMATE", server_default="PAPER_ESTIMATE"
     )
     charge_reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Durable link to the reviewed source evidence for live-fill charge provenance.
+    # Nullable to preserve existing paper executions and historical rows.
+    charge_evidence_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("broker_charge_evidence.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # Optional strategy-attributed component, separate from position realized P&L.
     strategy_realized_pnl: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)

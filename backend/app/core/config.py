@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     SECRET_KEY: str = secrets.token_urlsafe(48)
     MASTER_ENCRYPTION_KEY: str = ""  # required in real deployments; see setup.sh
+    # Private persistent volume mounted into API and worker containers.
+    BROKER_CHARGE_DOCUMENT_ROOT: str = "/var/lib/tradepro/contract-notes"
 
     # --- App-level, non-secret config (fine to have sane defaults) ---
     ENVIRONMENT: str = "development"

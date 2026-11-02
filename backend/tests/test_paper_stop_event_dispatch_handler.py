@@ -232,6 +232,78 @@ async def test_recovery_sweeper_terminalizes_expired_claim_at_attempt_limit(
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_process_crash_after_claim_commit_recovers_same_event_without_redis(
+    db_session, make_user, monkeypatch
+):
+    """A committed claim survives worker death and is resumed by the DB sweeper."""
+    import app.services.paper_stop_event_dispatch_handler as handler
+    from app.services.paper_stop_event_lifecycle import PaperStopEventLifecycle
+
+    user, portfolio, instrument, strategy = _setup(db_session, make_user)
+    monkeypatch.setattr(handler, "SessionLocal", _fixture_session_factory(db_session))
+    executions = []
+
+    async def interrupted_then_complete(self, **kwargs):
+        executions.append(kwargs.copy())
+        if len(executions) == 1:
+            # Simulate hard process loss after the intake transaction committed.
+            raise RuntimeError("simulated process death after durable claim commit")
+
+        event = db_session.get(PaperStopEvent, kwargs["event_id"])
+        assert event is not None
+        assert event.state == "CLAIMED"
+        assert event.claim_token == kwargs["claim_token"]
+        lifecycle = PaperStopEventLifecycle(db_session)
+        started = lifecycle.begin_execution(
+            event_id=event.id, claim_token=event.claim_token,
+        )
+        assert started is not None
+        completed = lifecycle.complete(
+            event_id=event.id, claim_token=event.claim_token,
+        )
+        assert completed is not None
+        db_session.commit()
+
+    monkeypatch.setattr(
+        handler.PaperStopEventExecutionService,
+        "execute_claimed",
+        interrupted_then_complete,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated process death"):
+        await handler.handle_paper_market_observation(
+            _item(user, instrument, version=9, price=97.0)
+        )
+
+    event = db_session.query(PaperStopEvent).filter(
+        PaperStopEvent.strategy_id == strategy.id,
+        PaperStopEvent.quote_epoch == "dispatch-epoch",
+        PaperStopEvent.quote_version == 9,
+    ).one()
+    original_event_id = event.id
+    original_token = event.claim_token
+    assert event.state == "CLAIMED"
+    assert original_token is not None
+
+    # The recovery path must not need Redis or a second quote delivery.
+    event.claimed_until = datetime.now(timezone.utc) - timedelta(seconds=1)
+    db_session.commit()
+    recovered_count = await handler.recover_expired_paper_stop_events_once()
+
+    db_session.expire_all()
+    saved = db_session.get(PaperStopEvent, original_event_id)
+    assert recovered_count == 1
+    assert saved is not None
+    assert saved.state == "COMPLETED"
+    assert saved.claim_token != original_token
+    assert saved.attempt_count == 2
+    assert len(executions) == 2
+    assert executions[0]["event_id"] == executions[1]["event_id"] == original_event_id
+    assert executions[0]["claim_token"] == original_token
+    assert executions[1]["claim_token"] == saved.claim_token
+
+
 async def test_dispatch_worker_retries_after_durable_claim_commit_without_duplicate_event(
     db_session, make_user
 ):

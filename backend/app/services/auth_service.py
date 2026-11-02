@@ -69,6 +69,9 @@ class AuthService:
         self, *, user_id: UUID, session_id: UUID, presented_jti: str
     ) -> tuple[str, str]:
         """Atomically rotate a refresh credential; replay or stale sessions fail."""
+        user = self.users.get_by_id(user_id)
+        if user is None or not user.is_active:
+            raise AuthError("Invalid or revoked refresh session.")
         session = (
             self.db.query(AuthSession)
             .filter(AuthSession.id == session_id, AuthSession.user_id == user_id)

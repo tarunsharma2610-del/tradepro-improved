@@ -27,3 +27,8 @@ class MfaEnrollResponse(BaseModel):
 
 class MfaVerifyRequest(BaseModel):
     code: str = Field(min_length=6, max_length=6)
+
+
+class MfaDisableRequest(BaseModel):
+    password: str = Field(min_length=10, max_length=128)
+    mfa_code: str | None = Field(default=None, min_length=6, max_length=6)

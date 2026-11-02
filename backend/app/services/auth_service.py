@@ -65,7 +65,12 @@ class AuthService:
         self.users.save(user)
         return True
 
-    def disable_mfa(self, user: User) -> None:
+    def disable_mfa(self, user: User, *, password: str, mfa_code: str | None) -> None:
+        """Require fresh password verification and, when enabled, a current TOTP."""
+        if not verify_password(password, user.password_hash):
+            raise AuthError("Incorrect password.")
+        if user.mfa_enabled and (not mfa_code or not self._verify_totp(user, mfa_code)):
+            raise AuthError("Incorrect MFA code.")
         user.mfa_enabled = False
         user.mfa_secret_encrypted = None
         self.users.save(user)

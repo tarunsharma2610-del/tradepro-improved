@@ -86,3 +86,53 @@ async def test_failed_stream_start_removes_unusable_registry_entry(monkeypatch):
         await manager.start(user_id, ["NSE_EQ|AAA"], "ltpc")
 
     assert manager.get(user_id) is None
+
+
+@pytest.mark.asyncio
+async def test_concurrent_start_and_subscribe_are_serialized(monkeypatch):
+    manager = stream_manager_module.MarketDataStreamManager()
+    user_id = uuid4()
+    start_entered = asyncio.Event()
+    release_start = asyncio.Event()
+    operations = []
+
+    class FakeStreamer:
+        def __init__(self, *_args, **_kwargs):
+            self.running = False
+            self.instrument_keys = ["NSE_EQ|AAA"]
+            self.mode = "ltpc"
+            self.subscriptions_by_mode = {"ltpc": self.instrument_keys}
+            self.subscriptions = {"ltpc": set(self.instrument_keys)}
+
+        async def start(self):
+            start_entered.set()
+            await release_start.wait()
+            self.running = True
+            operations.append("start-complete")
+
+        async def subscribe(self, keys, mode):
+            operations.append("subscribe")
+            self.instrument_keys.extend(keys)
+            self.subscriptions.setdefault(mode, set()).update(keys)
+            return "queued"
+
+        async def stop(self):
+            self.running = False
+
+    monkeypatch.setattr(stream_manager_module, "UpstoxMarketDataStreamer", FakeStreamer)
+    monkeypatch.setattr(stream_manager_module, "RedisMarketQuotePublisher", lambda *_args: object())
+    monkeypatch.setattr(manager, "_redis_client", lambda: object())
+
+    start_task = asyncio.create_task(manager.start(user_id, ["NSE_EQ|AAA"], "ltpc"))
+    await start_entered.wait()
+    subscribe_task = asyncio.create_task(manager.subscribe(user_id, ["NSE_EQ|BBB"], "ltpc"))
+    await asyncio.sleep(0)
+    assert operations == []
+    release_start.set()
+
+    streamer, delivery = await subscribe_task
+    await start_task
+
+    assert delivery == "queued"
+    assert streamer.instrument_keys == ["NSE_EQ|AAA", "NSE_EQ|BBB"]
+    assert operations == ["start-complete", "subscribe"]

@@ -387,3 +387,33 @@ The older Gate 0/Gate 1 notes above are historical. Mixed-mode persistence, V3 W
 - Verified baseline: exact-head Backend CI #41329154167 passed on commit 62eac41ce86577082b7e78c976de9c72b746464e; the follow-up documentation synchronization is tracked in PHASE4_LATEST_CI_CHECKPOINT.md and is awaiting its own exact-head CI result.
 - Correct next code gate: add a read-only quote-snapshot adapter using the existing user-scoped RedisMarketQuoteConsumer; resolve exact broker instrument keys without symbol guessing; expose the P&L projection through an owner-scoped LIVE portfolio read endpoint gated by the currently allocated broker connection and latest valid positions snapshot; test stale/missing/future quotes, Redis outage, tenant ownership, duplicate rows and PAPER isolation.
 - Keep realized and unrealized P&L separate. Do not show partial totals as complete. PAPER remains the only enabled execution path; LIVE broker place/modify/cancel remain disabled; PR #9 stays Draft/unmerged; original Tradepro remains untouched.
+
+
+## Phase 4 checkpoint repair — 2 November 2026 (supersedes earlier pending-integration notes)
+
+### Verified implementation
+- Owner-scoped read-only endpoint is implemented: GET /api/v1/portfolios/{portfolio_id}/live-unrealized-pnl.
+- Endpoint requires an owned LIVE portfolio, the currently allocated broker connection owned by the same user, and the latest position snapshot bound to that portfolio, user, and connection. PAPER portfolios are rejected; missing allocation/snapshot is not treated as zero.
+- Reads quotes through the existing user-scoped RedisMarketQuoteConsumer using exact broker instrument_key values; no symbol-based guessing. Quote freshness is bounded to 15 seconds and the P&L projection rejects missing/stale/future/malformed quote data, invalid position rows and duplicate instrument/product rows. Aggregate P&L is withheld if any open position cannot be valued.
+- Redis is pinged before reads so an unavailable Redis service returns HTTP 503; Redis client is closed in finally. This prevents Redis outages being misreported as an ordinary missing quote.
+- Calculation is read-only and keeps realized ledger, executions, PAPER positions, cash and broker writes untouched. This is not end-to-end LIVE trading readiness and no frontend P&L display is claimed.
+
+### Exact successful CI evidence
+- CI #41397210305 PASSED on 32816181c890877736b6d3324d542f8208141026 (API endpoint).
+- CI #41397227429 PASSED on a65c463b862b858b899bccd68f7e1eada6483e93 (API ownership and PAPER-mode regression tests).
+- CI #41397602437 PASSED on d01146f3384594c6a8443f1f0daa0b1fa4d635db (Redis availability fail-closed safeguard).
+- CI #41397616502 PASSED on 147d59be787124a04c44748dcf051784f0cf9f4e (Redis outage regression test).
+- Previous documentation repair CI #41396779042 PASSED on fd15b4a4d609597d9123b36f9c02190f422de083.
+- The documentation synchronization in this commit must itself pass Backend CI on its exact resulting head before this checkpoint is called green.
+
+### Next gates
+1. Add end-to-end API tests with a real ephemeral Redis service/snapshot writer and assert a fully-valued response from a fresh user-scoped quote.
+2. Add API tests for stale/missing/future quotes, stale or malformed broker position snapshots, Redis outage, tenant isolation and PAPER isolation.
+3. Review rate limiting, bounded Redis reads and large-position response behavior before enabling UI polling.
+4. Add frontend display only after the API contract and freshness semantics are verified; label unrealized P&L separately from realized P&L.
+5. Complete broker-vs-internal reconciliation and operational/security review before considering any LIVE execution capability.
+
+### Non-negotiable safeguards
+- Work only in tarunsharma2610-del/tradepro-improved; original tarunsharma2610-del/Tradepro remains out of scope and untouched.
+- PAPER remains the only enabled execution path. LIVE place_order, modify_order and cancel_order writes remain disabled.
+- PR #9 remains Draft/open/unmerged. Do not merge or enable LIVE order writes without explicit authorization.

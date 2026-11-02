@@ -1029,3 +1029,12 @@ Current Phase 4 status (historical notes above remain historical):
 - Remaining engineering gates: internal realized-P&L ledger/broker-fill reconciliation, frontend LIVE read-only P&L, full Redis→scanner→dispatcher→durable PAPER stop→ledger E2E, multi-user load/backpressure, observability/runbooks, credentialed Upstox smoke test and production Oracle restore.
 - PAPER only; LIVE broker `place_order`, `modify_order`, `cancel_order` writes disabled. Do not merge PR #9. Original `tarunsharma2610-del/Tradepro` remains untouched.
 - This documentation sync is not green until CI passes on its final resulting head.
+
+
+## Cross-tenant security regression checkpoint — 2 November 2026
+
+- Added authenticated two-user regression coverage for unauthorized contract-note upload/download, source-component create/review/reject, reconciliation run/issue access, and broker-settings connection scoping. Foreign broker-connection identifiers must not expose or mutate another user's data.
+- Exact PR-head Backend CI [#41404633900 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41404633900) on `e8f8783fc32a96e43e710289721992e077dc4d82`; PR #9 head matches this SHA. Pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore and evidence retention all passed.
+- This verifies the new regression coverage, not a complete IDOR sweep or penetration test. Comprehensive security assessment remains NOT COMPLETE.
+- Remaining security gates: endpoint authorization matrix, secret/token redaction/storage review, dependency scan/SAST, isolated-staging DAST, broker-write reachability, abuse/load tests, deployment/incident-response review and independent penetration test.
+- PAPER mandatory; LIVE broker place/modify/cancel writes disabled; PR #9 OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` out of scope.

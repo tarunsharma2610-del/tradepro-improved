@@ -803,6 +803,8 @@ def test_user_cannot_access_another_users_broker_evidence_or_reconciliation(clie
         status="COMPLETED",
         summary={"orders_seen": 1},
     )
+    db_session.add(run)
+    db_session.flush()
     issue = LiveReconciliationIssue(
         user_id=owner.id,
         broker_connection_id=connection.id,

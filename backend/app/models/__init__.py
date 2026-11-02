@@ -1,5 +1,6 @@
 from app.models.base import BaseModel  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.auth_session import AuthSession  # noqa: F401
 from app.models.broker_connection import BrokerConnection  # noqa: F401
 from app.models.broker_portfolio_allocation import BrokerPortfolioAllocation  # noqa: F401
 from app.models.broker_funds_snapshot import BrokerFundsSnapshot  # noqa: F401
@@ -36,6 +37,7 @@ from app.models.live_order_records import LiveOrderIntent, LiveOrderEvent, LiveO
 __all__ = [
     "BaseModel",
     "User",
+    "AuthSession",
     "BrokerConnection",
     "BrokerPortfolioAllocation",
     "BrokerFundsSnapshot",

@@ -184,3 +184,13 @@ Static review covered the 13 routers registered by `backend/app/api/v1/router.py
 - Exact test commit: `05f25067fc4a3d2e3e3fdb251aba859b3e668ad5`. Backend CI #41467643061 — SUCCESS; Security analysis #41467643224 — SUCCESS, both on that exact commit. Backend run passed pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and evidence retention.
 - This closes the specifically identified broker credential/Analytics Token API regression gap; it does not complete the full endpoint IDOR sweep, CSRF review, DAST, broker-write reachability audit or penetration testing.
 - Current PR #9 remains OPEN/Draft/unmerged; PAPER mandatory; LIVE broker order writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
+
+
+## Phase 4 dispatcher integration correction — 2 November 2026 (exact-head CI verified)
+
+- Corrective test commit: `4aba13642f1f3bcb4e11f5c6b5def7433e687ca7`. The Redis-to-scanner dispatcher integration test retrieves and acknowledges the dispatcher item in the same asyncio task, preserving task-scoped ownership; production safeguards were not weakened.
+- Exact-head Backend CI [#41471120955 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41471120955). Redis setup, full backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention all passed.
+- Exact-head Security analysis [#41471120975 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41471120975): CodeQL and Python dependency vulnerability audit passed. These are not DAST or penetration-test sign-offs.
+- Remaining Phase 4 gates: full Redis → scanner → dispatcher → durable PAPER stop-event → execution → final position/ledger proof; duplicate/out-of-order quote tests; worker crash/cancellation/recovery; concurrent PAPER exits; multi-process load/backpressure; observability/runbooks; production restore evidence.
+- Security assessment remains incomplete: full IDOR/authorization matrix, secret/token redaction, broker-write reachability, isolated-staging DAST, abuse/load and tenant-isolation testing, deployment/incident response and independent penetration testing.
+- Safeguards: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; LIVE broker `place_order`, `modify_order`, `cancel_order` disabled; PR #9 OPEN/Draft/unmerged; no merge/deployment/LIVE activation.

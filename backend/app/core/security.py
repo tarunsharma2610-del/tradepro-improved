@@ -55,8 +55,13 @@ def create_token(
         "iat": now,
         "exp": expire,
     }
+    if session_id is not None:
+        payload["sid"] = str(session_id)
+    if token_id is not None:
+        payload["jti"] = token_id
+
     if extra_claims:
-        reserved_claims = {"sub", "type", "iat", "exp"}
+        reserved_claims = {"sub", "type", "iat", "exp", "sid", "jti"}
         overridden = reserved_claims.intersection(extra_claims)
         if overridden:
             names = ", ".join(sorted(overridden))

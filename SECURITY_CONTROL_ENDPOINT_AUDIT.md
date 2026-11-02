@@ -1083,3 +1083,35 @@ Current Phase 4 status (historical notes above remain historical):
 - Docs CI on the final documentation head is still required before calling this checkpoint green.
 - Security assessment remains incomplete: endpoint IDOR authorization matrix, secret/token redaction review, broker-write reachability, staging DAST, abuse/load and tenant-isolation tests, deployment/restore/incident-response review and independent penetration testing remain.
 - PAPER mandatory; LIVE broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` untouched.
+
+
+## API authorization and cross-tenant audit — 2 November 2026
+
+### Scope and reviewed route inventory
+
+Static review covered the 13 routers registered by `backend/app/api/v1/router.py`, comprising 86 versioned route handlers across auth, users, settings, portfolios, strategies, backtests, market data, broker-charge evidence, reconciliation, Upstox charges, news, instruments and admin. Also reviewed the session dependency, portfolio/strategy ownership helpers, broker credential service, market-data subscription service, and representative HTTP authorization/isolation tests.
+
+### Controls confirmed in the reviewed code
+
+- Access-token requests require a valid JWT access type, UUID subject and session ID, an active user, and a persisted session belonging to that user that is neither revoked nor expired.
+- Portfolio child routes use authenticated-user portfolio lookup before reading or mutating positions, orders, executions, analytics, broker snapshots or strategies. Strategy access additionally binds the strategy to the requested portfolio.
+- Broker credential reads/writes and Analytics Token operations are passed the authenticated user ID; broker connection allocation and snapshot routes additionally constrain connection and allocation rows by that user.
+- Market-data stream state is keyed by authenticated user ID; subscription persistence scopes queries by both user ID and that user's broker connection.
+- Backtest repository access is scoped by user ID. Reconciliation list services receive the authenticated user ID. Broker-charge evidence lookup binds evidence to a broker connection owned by the user; cross-user contract-note/component/reconciliation regression coverage is recorded in the prior checkpoint.
+- Platform settings, admin statistics, news-source management/ingestion and instrument seed/sync routes use the administrator dependency. Regular-user denial is covered by HTTP tests.
+- Existing two-user HTTP regressions cover portfolio, order, strategy and backtest isolation; the contract-note and reconciliation cross-tenant regression checkpoint is recorded above in this file.
+
+### Public routes and operational review
+
+- Registration, login, logout and refresh are intentionally callable without an existing access session; MFA enrollment/verification/disable require the authenticated-user dependency.
+- `GET /health`, `GET /` and instrument catalog search are currently public by design/code shape. Instrument search exposes catalog data rather than user records. Confirm whether FastAPI OpenAPI/docs endpoints should be disabled or access-restricted in production deployment; this static review does not establish their production network exposure.
+- No confirmed cross-tenant read/write path was identified in the reviewed handler/service paths. This is a bounded static review, not proof that all authorization paths are correct.
+
+### Remaining adversarial verification — OPEN
+
+- Add/confirm two-user HTTP tests for broker credential and Analytics Token isolation, OAuth state user/connection binding and replay, market-data stream/subscription isolation, MFA step-up/session revocation, and admin-only news/instrument operations.
+- Review every child-resource repository/service query and response schema for indirect identifiers, nested relationships, exports and error side channels.
+- Verify public docs/OpenAPI exposure and production proxy/network access; run authenticated and unauthenticated DAST against an isolated staging deployment.
+- Continue secret/token log redaction review, broker-write reachability analysis, abuse/load testing, tenant-isolation testing, deployment/restore/incident-response review and independent penetration testing.
+
+**Status: PARTIAL — no blanket security sign-off.** Backend CI #41464532786 and Security analysis #41464532390 passed on the pre-audit documentation head `0ed82cca3c7b0b66087a133230db07764ad903fc`. This audit documentation update requires its own exact-head CI. PAPER mandatory; LIVE broker order writes disabled; PR #9 remains OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` untouched.

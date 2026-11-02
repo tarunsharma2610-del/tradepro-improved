@@ -76,3 +76,30 @@ def test_health_endpoint_is_unauthenticated_and_unversioned(client):
     r = client.get("/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+
+
+def test_refresh_rotates_token_and_logout_revokes_access_session(client):
+    _register_and_login(client, "session-flow@example.com")
+    old_access = client.cookies.get("access_token")
+    old_refresh = client.cookies.get("refresh_token")
+    assert old_access and old_refresh
+
+    refreshed = client.post("/api/v1/auth/refresh")
+    assert refreshed.status_code == 204
+    new_access = client.cookies.get("access_token")
+    new_refresh = client.cookies.get("refresh_token")
+    assert new_access and new_refresh
+    assert new_refresh != old_refresh
+
+    # A replay of the prior refresh token must not mint another token pair.
+    client.cookies.set("refresh_token", old_refresh)
+    replay = client.post("/api/v1/auth/refresh")
+    assert replay.status_code == 401
+
+    # Logout revokes the server-side session, not just the browser cookies.
+    client.cookies.set("access_token", new_access)
+    client.cookies.set("refresh_token", new_refresh)
+    logged_out = client.post("/api/v1/auth/logout")
+    assert logged_out.status_code == 204
+    client.cookies.set("access_token", new_access)
+    assert client.get("/api/v1/users/me").status_code == 401

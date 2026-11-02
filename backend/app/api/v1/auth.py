@@ -12,6 +12,7 @@ from app.schemas.auth import (
     LoginResult,
     MfaEnrollResponse,
     MfaVerifyRequest,
+    MfaDisableRequest,
     RegisterRequest,
 )
 from app.schemas.user import UserOut
@@ -114,7 +115,15 @@ def mfa_verify(
 
 
 @router.post("/mfa/disable", status_code=status.HTTP_204_NO_CONTENT)
-def mfa_disable(request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def mfa_disable(
+    payload: MfaDisableRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     service = AuthService(db)
-    service.disable_mfa(user)
+    try:
+        service.disable_mfa(user, password=payload.password, mfa_code=payload.mfa_code)
+    except AuthError as exc:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc))
     write_audit_log(db, action="user.mfa_disabled", user_id=user.id, request=request)

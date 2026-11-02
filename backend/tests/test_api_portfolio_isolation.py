@@ -500,3 +500,35 @@ def test_latest_broker_positions_never_exposes_snapshot_from_replaced_account(cl
     assert funds_after.status_code == 404
     holdings_after = client.get(f"/api/v1/portfolios/{portfolio_id}/broker-holdings/latest")
     assert holdings_after.status_code == 404
+
+
+def test_live_unrealized_pnl_endpoint_is_owner_scoped_and_requires_live_allocation(client):
+    _register_and_login(client, "live-pnl-owner@example.com")
+    live = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Live P&L", "trading_mode": "LIVE"},
+    )
+    assert live.status_code == 201
+    portfolio_id = live.json()["id"]
+
+    # No broker allocation means there is no authoritative account snapshot to value.
+    unavailable = client.get(f"/api/v1/portfolios/{portfolio_id}/live-unrealized-pnl")
+    assert unavailable.status_code == 404
+
+    _register_and_login(client, "live-pnl-intruder@example.com")
+    hidden = client.get(f"/api/v1/portfolios/{portfolio_id}/live-unrealized-pnl")
+    assert hidden.status_code == 404
+
+
+def test_live_unrealized_pnl_endpoint_rejects_paper_portfolios(client):
+    _register_and_login(client, "paper-pnl-owner@example.com")
+    paper = client.post(
+        "/api/v1/portfolios",
+        json={"name": "Paper P&L", "trading_mode": "PAPER", "virtual_capital": "100000"},
+    )
+    assert paper.status_code == 201
+
+    response = client.get(
+        f"/api/v1/portfolios/{paper.json()['id']}/live-unrealized-pnl"
+    )
+    assert response.status_code == 409

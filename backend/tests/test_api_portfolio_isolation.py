@@ -651,3 +651,97 @@ def test_live_unrealized_pnl_rejects_stale_broker_position_snapshot(client, db_s
     response = client.get(f"/api/v1/portfolios/{portfolio_id}/live-unrealized-pnl")
     assert response.status_code == 503
     assert "snapshot is stale" in response.json()["detail"]
+
+
+def test_live_unrealized_pnl_api_uses_real_user_scoped_redis_snapshot(client, db_session):
+    import asyncio
+    import time
+    from datetime import datetime, timedelta, timezone
+    from redis.asyncio import from_url
+    from app.core.config import settings
+    from app.models.broker_connection import BrokerConnection
+    from app.models.broker_position_snapshot import BrokerPositionSnapshot
+    from app.models.user import User
+    from app.services.redis_market_quote_publisher import RedisMarketQuotePublisher
+    from app.services.upstox_market_data_streamer import MarketTick
+
+    _register_and_login(client, "live-pnl-redis-integration@example.com")
+    live = client.post(
+        "/api/v1/portfolios",
+        json={"name": "LIVE Redis integration", "trading_mode": "LIVE"},
+    )
+    assert live.status_code == 201
+    portfolio_id = UUID(live.json()["id"])
+    owner = db_session.query(User).filter_by(
+        email="live-pnl-redis-integration@example.com"
+    ).one()
+    connection = BrokerConnection(
+        user_id=owner.id,
+        broker="upstox",
+        api_key_encrypted="encrypted-api-key",
+        api_secret_encrypted="encrypted-api-secret",
+        redirect_uri="https://example.invalid/callback",
+        access_token_encrypted="encrypted-access-token",
+        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        is_connected=True,
+    )
+    db_session.add(connection)
+    db_session.commit()
+    db_session.refresh(connection)
+    allocated = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/broker-allocation",
+        json={"broker_connection_id": str(connection.id)},
+    )
+    assert allocated.status_code == 201
+
+    instrument_key = "NSE_EQ|INE062A01020"
+    snapshot_time = datetime.now(timezone.utc)
+    db_session.add(BrokerPositionSnapshot(
+        broker_connection_id=connection.id,
+        portfolio_id=portfolio_id,
+        user_id=owner.id,
+        positions=[{
+            "instrument_key": instrument_key,
+            "quantity": 2,
+            "average_price": "100.00",
+        }],
+        raw_response={"status": "success", "data": []},
+        created_at=snapshot_time,
+    ))
+    db_session.commit()
+
+    async def publish_real_quote():
+        redis_client = from_url(settings.REDIS_URL, decode_responses=True)
+        publisher = RedisMarketQuotePublisher(redis_client, owner.id, ttl_seconds=15)
+        tick = MarketTick(
+            instrument_key=instrument_key,
+            ltp=120.0,
+            exchange_timestamp_ms=int(snapshot_time.timestamp() * 1000),
+            received_at=snapshot_time,
+            received_monotonic=time.monotonic(),
+        )
+        try:
+            assert await publisher.publish(tick) is True
+        finally:
+            await redis_client.aclose()
+
+    asyncio.run(publish_real_quote())
+    response = client.get(f"/api/v1/portfolios/{portfolio_id}/live-unrealized-pnl")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["complete"] is True
+    assert payload["unavailable_position_count"] == 0
+    assert payload["total_unrealized_pnl"] == "40.00"
+    assert payload["rows"][0]["instrument_key"] == instrument_key
+    assert payload["rows"][0]["status"] == "AVAILABLE"
+
+    async def remove_test_quote():
+        redis_client = from_url(settings.REDIS_URL, decode_responses=True)
+        publisher = RedisMarketQuotePublisher(redis_client, owner.id)
+        try:
+            key = publisher.snapshot_key(instrument_key)
+            await redis_client.delete(key, f"{key}:version")
+        finally:
+            await redis_client.aclose()
+
+    asyncio.run(remove_test_quote())

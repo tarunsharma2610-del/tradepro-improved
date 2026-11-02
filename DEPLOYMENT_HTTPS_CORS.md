@@ -17,3 +17,12 @@ The default `docker-compose.yml` and `nginx/nginx.conf` remain HTTP-only for loc
 - This repository change provides a production TLS reverse-proxy configuration and an application-side forwarded-protocol guard. It does not provision DNS, issue/renew certificates, configure a cloud firewall, or prove the deployed host is HTTPS reachable.
 - Do not use the default HTTP-only compose stack for production. Do not point real broker OAuth redirects at it.
 - PAPER-only mode remains mandatory. No live broker order writes are enabled by this deployment configuration.
+
+
+## 2 November 2026 — security checkpoint reconciliation
+
+- Session-security implementation verified on PR #9 head `77f44c7299f5e7157a4cdb2f8dfe7fbbfb6c08c6`: Backend CI #41460334989 and Security analysis #41460334979 passed on that exact head. Persisted sessions, refresh-token rotation/replay rejection, logout revocation and reserved JWT `sid`/`jti` handling are covered by tests.
+- Transactional key-rotation service implementation commit `960c099b53d4c8e41daeb4f5691bc0972d5fb7b2`: Backend CI #41456734039 and Security analysis #41456734074 passed. It covers encrypted broker credentials, OAuth access tokens, Upstox Analytics Tokens, platform settings and MFA secrets; unreadable ciphertext fails closed. No production keys/data were rotated or accessed.
+- Current documentation head is being checked separately. Do not call docs checkpoint green until both Backend CI and Security analysis pass on the final documentation head.
+- Security assessment remains incomplete: endpoint IDOR authorization matrix, secret/token redaction review, broker-write reachability, staging DAST, abuse/load and tenant-isolation tests, deployment/restore/incident-response review and independent penetration testing remain.
+- PAPER mandatory; LIVE broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` untouched.

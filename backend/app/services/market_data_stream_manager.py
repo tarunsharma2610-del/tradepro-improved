@@ -73,6 +73,30 @@ class MarketDataStreamManager:
             await streamer.stop()
             return True
 
+    async def subscribe(self, user_id: UUID, instrument_keys: list[str], mode: str) -> tuple[UpstoxMarketDataStreamer, str]:
+        async with self._user_lock(user_id):
+            streamer = self._streams.get(user_id)
+            if streamer is None or not streamer.running:
+                raise ValueError("Start a market-data stream before adding subscriptions.")
+            delivery = await streamer.subscribe(instrument_keys, mode)
+            return streamer, delivery
+
+    async def unsubscribe(self, user_id: UUID, instrument_keys: list[str]) -> tuple[UpstoxMarketDataStreamer, str]:
+        async with self._user_lock(user_id):
+            streamer = self._streams.get(user_id)
+            if streamer is None or not streamer.running:
+                raise ValueError("No running market-data stream exists.")
+            delivery = await streamer.unsubscribe(instrument_keys)
+            return streamer, delivery
+
+    async def change_mode(self, user_id: UUID, instrument_keys: list[str], mode: str) -> tuple[UpstoxMarketDataStreamer, str]:
+        async with self._user_lock(user_id):
+            streamer = self._streams.get(user_id)
+            if streamer is None or not streamer.running:
+                raise ValueError("No running market-data stream exists.")
+            delivery = await streamer.change_mode(instrument_keys, mode)
+            return streamer, delivery
+
     def get(self, user_id: UUID) -> UpstoxMarketDataStreamer | None:
         return self._streams.get(user_id)
 

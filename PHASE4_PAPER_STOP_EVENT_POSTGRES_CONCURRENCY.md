@@ -161,3 +161,8 @@ Historical entries above are retained as historical evidence. Current authoritat
 - These are automated regression tests; they do not constitute production load certification or broker live-order validation.
 - Safety invariants unchanged: PAPER mandatory; LIVE broker place/modify/cancel writes disabled; original `tarunsharma2610-del/Tradepro` out of scope; PR #9 remains Draft and unmerged.
 - This documentation synchronization is not a green checkpoint until Backend CI, CodeQL, and dependency audit pass on the resulting exact documentation commit.
+
+
+## Phase 4 authoritative resume checkpoint — 2 November 2026, 23:06 IST
+
+Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`. Backend tests [#41492213645](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213645) and Security analysis [#41492213677](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213677) both PASSED on that exact head. Nifty 500 universe snapshots and the Upstox LTPC subscription endpoint are implemented; no broker order writes. Remaining work: quote ordering/staleness and subscription lifecycle tests; scanner filters/ranking; full Redis→scanner→dispatcher→durable PAPER stop→execution→ledger proof; multi-process crash/concurrency tests; realized-P&L reconciliation; observability/load; remaining security review and independent penetration test. Next session: verify final docs-head CI, then continue quote-integrity integration. PR #9 Draft/unmerged; only tradepro-improved; original Tradepro untouched; PAPER mandatory; LIVE order writes disabled. Documentation head requires fresh exact-head CI.

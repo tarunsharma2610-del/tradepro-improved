@@ -134,7 +134,9 @@ def mfa_verify(
     service = AuthService(db)
     if not service.verify_and_enable_mfa(user, payload.code):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect code")
-    write_audit_log(db, action="user.mfa_enabled", user_id=user.id, request=request)\n    response.delete_cookie("access_token", path="/")\n    response.delete_cookie("refresh_token", path="/")
+    write_audit_log(db, action="user.mfa_enabled", user_id=user.id, request=request)
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
 
 
 @router.post("/mfa/disable", status_code=status.HTTP_204_NO_CONTENT)
@@ -149,4 +151,6 @@ def mfa_disable(
         service.disable_mfa(user, password=payload.password, mfa_code=payload.mfa_code)
     except AuthError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc))
-    write_audit_log(db, action="user.mfa_disabled", user_id=user.id, request=request)\n    response.delete_cookie("access_token", path="/")\n    response.delete_cookie("refresh_token", path="/")
+    write_audit_log(db, action="user.mfa_disabled", user_id=user.id, request=request)
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")

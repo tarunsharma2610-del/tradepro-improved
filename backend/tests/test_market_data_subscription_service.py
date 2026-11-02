@@ -186,3 +186,44 @@ def test_replace_modes_rejects_same_instrument_assigned_to_multiple_modes(db_ses
         assert "cannot be active in both" in str(exc)
 
     assert service.list_active(user_id=user.id) == []
+
+
+def test_nifty500_ltpc_subscription_set_persists_all_500_active_instruments(db_session, make_user):
+    user = make_user()
+    connection = BrokerConnection(
+        user_id=user.id,
+        broker="upstox",
+        api_key_encrypted="encrypted-key",
+        api_secret_encrypted="encrypted-secret",
+        redirect_uri="https://example.invalid/callback",
+    )
+    instruments = [
+        Instrument(
+            instrument_key=f"NSE_EQ|INE{index:09d}",
+            exchange="NSE",
+            segment="NSE_EQ",
+            instrument_type="EQUITY",
+            trading_symbol=f"TEST{index:04d}",
+            name=f"Test Company {index}",
+            lot_size=1,
+            tick_size=0.05,
+            is_active=True,
+        )
+        for index in range(1, 501)
+    ]
+    db_session.add(connection)
+    db_session.add_all(instruments)
+    db_session.commit()
+
+    active = MarketDataSubscriptionService(db_session).replace_for_user(
+        user_id=user.id,
+        broker="upstox",
+        instrument_keys=[item.instrument_key for item in instruments],
+        feed_mode="ltpc",
+    )
+
+    assert len(active) == 500
+    assert {row.instrument.instrument_key for row in active} == {
+        item.instrument_key for item in instruments
+    }
+    assert all(row.feed_mode == "ltpc" and row.is_active for row in active)

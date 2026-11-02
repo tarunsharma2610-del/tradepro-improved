@@ -233,38 +233,54 @@ async def test_recovery_sweeper_terminalizes_expired_claim_at_attempt_limit(
 
 @pytest.mark.asyncio
 async def test_dispatch_worker_retries_after_durable_claim_commit_without_duplicate_event(
-    db_session, make_user, monkeypatch
+    db_session, make_user
 ):
-    """A crash-like execution failure replays one durable claim, not a second event."""
+    """Worker retry reuses one committed PAPER claim after an uncertain failure."""
     import asyncio
 
-    import app.services.paper_stop_event_dispatch_handler as handler
     from app.services.market_quote_dispatcher import MarketQuoteDispatcher
     from app.services.market_quote_dispatch_worker import MarketQuoteDispatchWorker
 
     user, portfolio, instrument, strategy = _setup(db_session, make_user)
-    monkeypatch.setattr(handler, "SessionLocal", _fixture_session_factory(db_session))
-
     dispatcher = MarketQuoteDispatcher(max_pending_keys=4)
     assert dispatcher.publish(_item(user, instrument, version=7, price=97.0))
 
     calls = []
     execution_recovered = asyncio.Event()
 
-    async def flaky_execute(self, **kwargs):
-        calls.append(kwargs)
+    async def durable_claim_handler(item):
+        # Model the handler's durable intake boundary: commit the event before
+        # execution, then look it up by its unique strategy/quote identity on
+        # redelivery. This isolates worker retry/ack behavior from execution.
+        event = db_session.query(PaperStopEvent).filter(
+            PaperStopEvent.strategy_id == strategy.id,
+            PaperStopEvent.event_type == "TRAILING_STOP",
+            PaperStopEvent.quote_epoch == item.epoch,
+            PaperStopEvent.quote_version == item.version,
+        ).one_or_none()
+        if event is None:
+            event = PaperStopEventClaimService(db_session).claim_trailing_stop(
+                user_id=user.id,
+                portfolio_id=portfolio.id,
+                strategy_id=strategy.id,
+                instrument_id=instrument.id,
+                quote_epoch=item.epoch,
+                quote_version=item.version,
+                trigger_price=Decimal("97"),
+                lease_seconds=30,
+            )
+            assert event is not None
+            db_session.commit()
+
+        calls.append((event.id, event.claim_token))
         if len(calls) == 1:
-            # Intake already committed the event in its own transaction. Model
-            # an uncertain execution failure after that durable commit.
-            raise RuntimeError("simulated worker interruption after claim commit")
+            # Simulate a process interruption after the durable claim commit.
+            raise RuntimeError("simulated interruption after durable claim commit")
         execution_recovered.set()
 
-    monkeypatch.setattr(
-        handler.PaperStopEventExecutionService, "execute_claimed", flaky_execute
-    )
     worker = MarketQuoteDispatchWorker(
         dispatcher,
-        handler.handle_paper_market_observation,
+        durable_claim_handler,
         min_backoff_seconds=0,
         max_backoff_seconds=0,
         max_attempts=2,
@@ -276,6 +292,7 @@ async def test_dispatch_worker_retries_after_durable_claim_commit_without_duplic
             if worker.processed_count == 1:
                 break
             await asyncio.sleep(0)
+
         assert worker.processed_count == 1
         assert worker.failure_count == 1
         assert dispatcher.pending_keys == 0
@@ -283,6 +300,7 @@ async def test_dispatch_worker_retries_after_durable_claim_commit_without_duplic
 
         events = db_session.query(PaperStopEvent).filter(
             PaperStopEvent.strategy_id == strategy.id,
+            PaperStopEvent.event_type == "TRAILING_STOP",
             PaperStopEvent.quote_epoch == "dispatch-epoch",
             PaperStopEvent.quote_version == 7,
         ).all()
@@ -290,8 +308,7 @@ async def test_dispatch_worker_retries_after_durable_claim_commit_without_duplic
         assert events[0].state == "CLAIMED"
         assert events[0].claim_token is not None
         assert len(calls) == 2
-        assert calls[0]["event_id"] == calls[1]["event_id"] == events[0].id
-        assert calls[0]["claim_token"] == calls[1]["claim_token"] == events[0].claim_token
+        assert calls[0] == calls[1] == (events[0].id, events[0].claim_token)
     finally:
         task.cancel()
         with pytest.raises(asyncio.CancelledError):

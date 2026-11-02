@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, require_admin
 from app.models.user import User
 from app.repositories.instrument_repository import InstrumentRepository
 from app.schemas.instrument import InstrumentOut
+from app.schemas.market_universe import Nifty500UniverseImport, MarketUniverseSnapshotOut
 from app.services.instrument_service import InstrumentService
+from app.services.market_universe_service import MarketUniverseImportError, MarketUniverseService
 
 router = APIRouter(prefix="/instruments", tags=["instruments"])
 
@@ -25,3 +27,28 @@ def seed_default_instruments(db: Session = Depends(get_db), _admin: User = Depen
 async def sync_instruments_from_upstox(db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
     ok, message = await InstrumentService(db).sync_from_upstox()
     return {"success": ok, "message": message}
+
+
+
+@router.post("/universe/nifty-500/snapshots", response_model=MarketUniverseSnapshotOut)
+def import_nifty500_universe(
+    payload: Nifty500UniverseImport,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Import a dated, complete Nifty 500 constituent list from an official source."""
+    try:
+        snapshot = MarketUniverseService(db).import_nifty500(
+            symbols=payload.symbols,
+            as_of_date=payload.as_of_date,
+            source=payload.source,
+        )
+    except MarketUniverseImportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return MarketUniverseSnapshotOut(
+        snapshot_id=str(snapshot.id),
+        universe_key=snapshot.universe_key,
+        as_of_date=snapshot.as_of_date,
+        source=snapshot.source,
+        member_count=snapshot.member_count,
+    )

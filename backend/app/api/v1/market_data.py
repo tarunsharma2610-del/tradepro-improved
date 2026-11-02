@@ -115,6 +115,17 @@ def _validate_active_instruments(db: Session, instrument_keys: list[str]) -> Non
         )
 
 
+def _stream_http_status(exc: ValueError) -> int:
+    """Preserve conflict semantics when a requested stream is not running."""
+    message = str(exc)
+    if message in {
+        "Start a market-data stream before adding subscriptions.",
+        "No running market-data stream exists.",
+    }:
+        return status.HTTP_409_CONFLICT
+    return status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 def _require_analytics_token(db: Session, user: User) -> None:
     if BrokerCredentialsService(db).get_analytics_token(user.id, "upstox") is None:
         raise HTTPException(
@@ -145,7 +156,7 @@ async def start_market_data_stream(
             subscriptions_by_mode=streamer.subscriptions_by_mode,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(_stream_http_status(exc), str(exc))
     return {
         "started": True,
         "connected": streamer.connected,

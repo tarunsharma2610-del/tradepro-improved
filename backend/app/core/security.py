@@ -49,6 +49,11 @@ def create_token(user_id: UUID, token_type: TokenType, extra_claims: dict[str, A
         "exp": expire,
     }
     if extra_claims:
+        reserved_claims = {"sub", "type", "iat", "exp"}
+        overridden = reserved_claims.intersection(extra_claims)
+        if overridden:
+            names = ", ".join(sorted(overridden))
+            raise ValueError(f"Extra token claims cannot override reserved claims: {names}")
         payload.update(extra_claims)
 
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)

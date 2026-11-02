@@ -595,3 +595,59 @@ def test_live_unrealized_pnl_returns_503_when_redis_is_unavailable(client, db_se
     response = client.get(f"/api/v1/portfolios/{portfolio_id}/live-unrealized-pnl")
     assert response.status_code == 503
     assert "temporarily unavailable" in response.json()["detail"]
+
+
+def test_live_unrealized_pnl_rejects_stale_broker_position_snapshot(client, db_session, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from app.models.broker_connection import BrokerConnection
+    from app.models.broker_position_snapshot import BrokerPositionSnapshot
+    from app.models.user import User
+    import app.api.v1.portfolios as portfolios_api
+
+    _register_and_login(client, "live-pnl-stale-owner@example.com")
+    live = client.post(
+        "/api/v1/portfolios",
+        json={"name": "LIVE stale snapshot", "trading_mode": "LIVE"},
+    )
+    assert live.status_code == 201
+    portfolio_id = UUID(live.json()["id"])
+    owner = db_session.query(User).filter_by(email="live-pnl-stale-owner@example.com").one()
+    connection = BrokerConnection(
+        user_id=owner.id,
+        broker="upstox",
+        api_key_encrypted="encrypted-api-key",
+        api_secret_encrypted="encrypted-api-secret",
+        redirect_uri="https://example.invalid/callback",
+        access_token_encrypted="encrypted-access-token",
+        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        is_connected=True,
+    )
+    db_session.add(connection)
+    db_session.commit()
+    db_session.refresh(connection)
+    allocated = client.post(
+        f"/api/v1/portfolios/{portfolio_id}/broker-allocation",
+        json={"broker_connection_id": str(connection.id)},
+    )
+    assert allocated.status_code == 201
+    db_session.add(BrokerPositionSnapshot(
+        broker_connection_id=connection.id,
+        portfolio_id=portfolio_id,
+        user_id=owner.id,
+        positions=[{
+            "instrument_key": "NSE_EQ|INE062A01020",
+            "quantity": 1,
+            "average_price": "100.00",
+        }],
+        raw_response={"status": "success", "data": []},
+        created_at=datetime.now(timezone.utc) - timedelta(seconds=121),
+    ))
+    db_session.commit()
+
+    def redis_must_not_be_opened(*args, **kwargs):
+        raise AssertionError("stale broker snapshots must be rejected before Redis reads")
+
+    monkeypatch.setattr(portfolios_api, "from_url", redis_must_not_be_opened)
+    response = client.get(f"/api/v1/portfolios/{portfolio_id}/live-unrealized-pnl")
+    assert response.status_code == 503
+    assert "snapshot is stale" in response.json()["detail"]

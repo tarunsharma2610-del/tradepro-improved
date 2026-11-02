@@ -88,3 +88,30 @@ def test_disabling_unenabled_mfa_still_requires_password(db_session, make_user):
         service.disable_mfa(user, password="incorrect-password", mfa_code=None)
     service.disable_mfa(user, password="correct-horse-battery-staple", mfa_code=None)
     assert user.mfa_enabled is False
+
+
+@pytest.mark.parametrize("reserved_claim", ["sub", "type", "iat", "exp"])
+def test_token_extra_claims_cannot_override_security_claims(reserved_claim):
+    from uuid import uuid4
+
+    from app.core.security import create_token
+
+    with pytest.raises(ValueError, match="cannot override reserved claims"):
+        create_token(uuid4(), "access", extra_claims={reserved_claim: "attacker-controlled"})
+
+
+def test_token_allows_non_reserved_extra_claims():
+    from uuid import uuid4
+
+    import jwt
+
+    from app.core.config import settings
+    from app.core.security import create_token
+
+    user_id = uuid4()
+    token = create_token(user_id, "access", extra_claims={"scope": "read-only"})
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+
+    assert payload["sub"] == str(user_id)
+    assert payload["type"] == "access"
+    assert payload["scope"] == "read-only"

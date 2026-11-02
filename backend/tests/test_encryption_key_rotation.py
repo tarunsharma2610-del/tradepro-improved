@@ -1,7 +1,6 @@
 import pytest
 from cryptography.fernet import Fernet, MultiFernet, InvalidToken
 
-from app.core.encryption import encrypt_value, decrypt_value
 from app.models.broker_connection import BrokerConnection
 from app.models.platform_setting import PlatformSetting
 from app.models.user import User
@@ -19,6 +18,8 @@ def test_rotation_reencrypts_all_secret_columns_without_changing_plaintext(db_se
         full_name="Rotation Test",
         mfa_secret_encrypted=old_cipher.encrypt(b"totp-secret").decode(),
     )
+    db_session.add(user)
+    db_session.flush()
     broker = BrokerConnection(
         user_id=user.id,
         broker="upstox",
@@ -32,7 +33,7 @@ def test_rotation_reencrypts_all_secret_columns_without_changing_plaintext(db_se
         key="provider_key",
         value_encrypted=old_cipher.encrypt(b"provider-secret").decode(),
     )
-    db_session.add_all([user, broker, setting])
+    db_session.add_all([broker, setting])
     db_session.commit()
 
     counts = rotate_database_encryption_key(
@@ -64,7 +65,10 @@ def test_rotation_fails_closed_on_unreadable_ciphertext(db_session):
         user_id=user.id, broker="upstox", api_key_encrypted="not-a-fernet-token",
         api_secret_encrypted="also-invalid", redirect_uri="https://example.com/callback"
     )
-    db_session.add_all([user, broker])
+    db_session.add(user)
+    db_session.flush()
+    broker.user_id = user.id
+    db_session.add(broker)
     db_session.commit()
 
     with pytest.raises(InvalidToken):

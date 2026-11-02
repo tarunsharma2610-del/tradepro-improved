@@ -14,7 +14,7 @@ MASTER_ENCRYPTION_KEY below. See ARCHITECTURE.md, "Credential tiers".
 
 import secrets
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -65,6 +65,23 @@ class Settings(BaseSettings):
     AUTOMATED_ENTRIES_ENABLED: bool = True
     # Use Upstox's pre-trade charge calculator for paper fills; deterministic local rates remain fallback.
     UPSTOX_CHARGE_ESTIMATES_ENABLED: bool = True
+
+    @model_validator(mode="after")
+    def require_production_bootstrap_secrets(self) -> "Settings":
+        """Production must use stable, explicitly provisioned signing/encryption keys.
+
+        The development-only random SECRET_KEY fallback is process-local and
+        must never silently become a production signing key. Likewise, an
+        empty MASTER_ENCRYPTION_KEY would make stored credentials unusable.
+        """
+        if self.ENVIRONMENT.strip().lower() != "development":
+            if "SECRET_KEY" not in self.model_fields_set:
+                raise ValueError("SECRET_KEY must be explicitly configured outside development.")
+            if len(self.SECRET_KEY) < 32:
+                raise ValueError("SECRET_KEY must contain at least 32 characters outside development.")
+            if not self.MASTER_ENCRYPTION_KEY.strip():
+                raise ValueError("MASTER_ENCRYPTION_KEY must be configured outside development.")
+        return self
 
     @property
     def is_live_trading_enabled(self) -> bool:

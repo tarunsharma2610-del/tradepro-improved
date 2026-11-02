@@ -50,11 +50,14 @@ def test_different_keys_have_independent_counters():
         _check_and_increment("test:user-b", max_attempts=5, window_seconds=60)  # should not raise
 
 
-def test_fails_open_when_redis_is_unavailable():
+def test_fails_closed_when_redis_is_unavailable():
     import redis as redis_module
 
     with patch("app.middleware.rate_limit._get_redis", side_effect=redis_module.RedisError("down")):
-        _check_and_increment("test:whatever", max_attempts=1, window_seconds=60)  # should not raise
+        with pytest.raises(HTTPException) as exc_info:
+            _check_and_increment("test:whatever", max_attempts=1, window_seconds=60)
+
+    assert exc_info.value.status_code == 503
 
 
 def test_user_rate_limiter_keys_by_user_id_not_ip():

@@ -13,6 +13,7 @@ from app.schemas.market_data import MarketDataStreamChangeMode, MarketDataStream
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.market_data_stream_manager import market_data_stream_manager
 from app.services.market_data_subscription_service import MarketDataSubscriptionService
+from app.services.market_universe_service import MarketUniverseService
 from app.brokers.registry import get_broker_adapter
 
 router = APIRouter(prefix="/market-data", tags=["market-data"])
@@ -133,6 +134,79 @@ def _require_analytics_token(db: Session, user: User) -> None:
             "Configure a valid Upstox Analytics Token in Settings before managing a market stream.",
         )
 
+
+
+@router.post("/stream/universe/nifty-500", status_code=status.HTTP_202_ACCEPTED)
+async def subscribe_nifty500_universe(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Subscribe the authenticated user's Upstox stream to the active Nifty 500 snapshot.
+
+    Constituents are sourced only from the latest validated, complete universe
+    snapshot. The route records desired state but never submits broker orders.
+    """
+    _require_analytics_token(db, user)
+    instruments = MarketUniverseService(db).active_nifty500_instruments()
+    if len(instruments) != MarketUniverseService.EXPECTED_MEMBERS:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A complete active Nifty 500 snapshot is not available; import and validate one first.",
+        )
+
+    instrument_keys = sorted(item.instrument_key for item in instruments)
+    streamer = market_data_stream_manager.get(user.id)
+    try:
+        if streamer is None or not streamer.running:
+            streamer = await market_data_stream_manager.start(
+                user.id, instrument_keys, mode="ltpc",
+            )
+            delivery = "stream_started"
+        else:
+            existing_modes = streamer.subscriptions
+            conflicting = [
+                key for key in instrument_keys
+                if key in streamer.instrument_keys
+                and any(key in keys for mode, keys in existing_modes.items() if mode != "ltpc")
+            ]
+            if conflicting:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "Some Nifty 500 instruments are already subscribed in another feed mode; "
+                    "change those instruments to ltpc before applying this universe preset.",
+                )
+            additions = [key for key in instrument_keys if key not in streamer.instrument_keys]
+            if additions:
+                streamer, delivery = await market_data_stream_manager.subscribe(
+                    user.id, additions, "ltpc",
+                )
+            else:
+                delivery = "already_subscribed"
+
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(_stream_http_status(exc), str(exc)) from exc
+
+    return {
+        "subscribed": True,
+        "universe": "NIFTY_500",
+        "snapshot_as_of_date": instruments[0].trading_symbol and (
+            db.query(__import__("app.models.market_universe", fromlist=["MarketUniverseSnapshot"]).MarketUniverseSnapshot)
+            .filter_by(universe_key="NIFTY_500", is_active=True)
+            .order_by(__import__("app.models.market_universe", fromlist=["MarketUniverseSnapshot"]).MarketUniverseSnapshot.created_at.desc())
+            .first()
+        ).as_of_date,
+        "delivery": delivery,
+        "mode": "ltpc",
+        "instrument_count": len(instrument_keys),
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
+    }
 
 
 @router.post("/stream", status_code=status.HTTP_202_ACCEPTED)

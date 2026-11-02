@@ -152,3 +152,45 @@ def test_new_effective_date_atomically_replaces_active_snapshot_and_keeps_histor
     active = service.active_nifty500_instruments()
     assert len(active) == 500
     assert {item.trading_symbol for item in active} == set(second_symbols)
+
+
+def test_market_universe_membership_and_snapshot_content_are_database_immutable(db_session):
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    symbols = _seed_nse_equities(db_session, 1, 500)
+    snapshot = MarketUniverseService(db_session).import_nifty500(
+        symbols=symbols,
+        as_of_date=date(2026, 11, 1),
+        source="NSE official constituent file",
+    )
+    member = (
+        db_session.query(MarketUniverseMembership)
+        .filter(MarketUniverseMembership.snapshot_id == snapshot.id)
+        .first()
+    )
+
+    mutations = [
+        ("UPDATE market_universe_memberships SET trading_symbol = 'TAMPERED' WHERE id = :id", {"id": str(member.id)}),
+        ("DELETE FROM market_universe_memberships WHERE id = :id", {"id": str(member.id)}),
+        ("UPDATE market_universe_snapshots SET source = 'tampered' WHERE id = :id", {"id": str(snapshot.id)}),
+        ("UPDATE market_universe_snapshots SET member_count = 1 WHERE id = :id", {"id": str(snapshot.id)}),
+        ("DELETE FROM market_universe_snapshots WHERE id = :id", {"id": str(snapshot.id)}),
+    ]
+    for statement, params in mutations:
+        with pytest.raises(IntegrityError):
+            db_session.execute(text(statement), params)
+        db_session.rollback()
+
+    # Activation state is intentionally mutable so a complete newer snapshot
+    # can replace the active one; immutable source content remains protected.
+    db_session.execute(
+        text("UPDATE market_universe_snapshots SET is_active = 0 WHERE id = :id"),
+        {"id": str(snapshot.id)},
+    )
+    db_session.commit()
+    db_session.refresh(snapshot)
+    assert snapshot.is_active is False
+    assert db_session.query(MarketUniverseMembership).filter(
+        MarketUniverseMembership.snapshot_id == snapshot.id
+    ).count() == 500

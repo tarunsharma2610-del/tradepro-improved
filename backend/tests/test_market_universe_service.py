@@ -107,3 +107,24 @@ def test_nifty500_universe_excludes_bse_and_derivative_instruments(db_session):
     active = MarketUniverseService(db_session).active_nifty500_instruments()
     assert snapshot.member_count == 500
     assert all(item.exchange == "NSE" and item.segment == "NSE_EQ" for item in active)
+
+
+def test_duplicate_effective_date_is_rejected_without_deactivating_current_snapshot(db_session):
+    symbols = _seed_nse_equities(db_session, 1, 500)
+    service = MarketUniverseService(db_session)
+    original = service.import_nifty500(
+        symbols=symbols,
+        as_of_date=date(2026, 11, 1),
+        source="NSE official constituent file",
+    )
+
+    with pytest.raises(MarketUniverseImportError, match="already exists"):
+        service.import_nifty500(
+            symbols=symbols,
+            as_of_date=date(2026, 11, 1),
+            source="corrected copy of same date",
+        )
+
+    db_session.refresh(original)
+    assert original.is_active is True
+    assert len(service.active_nifty500_instruments()) == 500

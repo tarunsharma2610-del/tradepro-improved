@@ -128,3 +128,27 @@ def test_duplicate_effective_date_is_rejected_without_deactivating_current_snaps
     db_session.refresh(original)
     assert original.is_active is True
     assert len(service.active_nifty500_instruments()) == 500
+
+
+def test_new_effective_date_atomically_replaces_active_snapshot_and_keeps_history(db_session):
+    first_symbols = _seed_nse_equities(db_session, 1, 500)
+    service = MarketUniverseService(db_session)
+    first = service.import_nifty500(
+        symbols=first_symbols,
+        as_of_date=date(2026, 11, 1),
+        source="NSE official constituent file",
+    )
+    second_symbols = _seed_nse_equities(db_session, 501, 500)
+    second = service.import_nifty500(
+        symbols=second_symbols,
+        as_of_date=date(2026, 11, 2),
+        source="NSE official revised constituent file",
+    )
+
+    db_session.refresh(first)
+    assert first.is_active is False
+    assert second.is_active is True
+    assert db_session.query(MarketUniverseSnapshot).count() == 2
+    active = service.active_nifty500_instruments()
+    assert len(active) == 500
+    assert {item.trading_symbol for item in active} == set(second_symbols)

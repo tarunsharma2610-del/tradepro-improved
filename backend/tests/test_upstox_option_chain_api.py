@@ -287,6 +287,22 @@ def test_stream_lifecycle_routes_use_user_scoped_stream_and_validate_active_keys
 
     streamer = FakeStreamer()
     monkeypatch.setattr(market_data.market_data_stream_manager, "get", lambda user_id: streamer)
+
+    async def subscribe(user_id, keys, mode):
+        delivery = await streamer.subscribe(keys, mode)
+        return streamer, delivery
+
+    async def change_mode(user_id, keys, mode):
+        delivery = await streamer.change_mode(keys, mode)
+        return streamer, delivery
+
+    async def unsubscribe(user_id, keys):
+        delivery = await streamer.unsubscribe(keys)
+        return streamer, delivery
+
+    monkeypatch.setattr(market_data.market_data_stream_manager, "subscribe", subscribe)
+    monkeypatch.setattr(market_data.market_data_stream_manager, "change_mode", change_mode)
+    monkeypatch.setattr(market_data.market_data_stream_manager, "unsubscribe", unsubscribe)
     try:
         client = TestClient(app)
         subscribed = client.post(

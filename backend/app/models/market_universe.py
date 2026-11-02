@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, String, UniqueConstraint
+from datetime import date\nfrom uuid import UUID\n\nfrom sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -10,11 +10,11 @@ class MarketUniverseSnapshot(BaseModel):
     __tablename__ = "market_universe_snapshots"
     __table_args__ = (
         UniqueConstraint("universe_key", "as_of_date", name="uq_market_universe_snapshot_date"),
-        Index("ix_market_universe_active", "universe_key", "is_active"),
+        Index("ix_market_universe_active", "universe_key", "is_active"),\n        Index("uq_market_universe_one_active", "universe_key", unique=True, postgresql_where=text("is_active = true"), sqlite_where=text("is_active = 1")),
     )
 
     universe_key: Mapped[str] = mapped_column(String(50), nullable=False)
-    as_of_date: Mapped[object] = mapped_column(Date, nullable=False)
+    as_of_date: Mapped[date] = mapped_column(Date, nullable=False)
     source: Mapped[str] = mapped_column(String(255), nullable=False)
     member_count: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -30,10 +30,10 @@ class MarketUniverseMembership(BaseModel):
         Index("ix_market_universe_membership_snapshot", "snapshot_id"),
     )
 
-    snapshot_id: Mapped[object] = mapped_column(
+    snapshot_id: Mapped[UUID] = mapped_column(
         ForeignKey("market_universe_snapshots.id", ondelete="CASCADE"), nullable=False
     )
-    instrument_id: Mapped[object] = mapped_column(
+    instrument_id: Mapped[UUID] = mapped_column(
         ForeignKey("instruments.id", ondelete="RESTRICT"), nullable=False
     )
     trading_symbol: Mapped[str] = mapped_column(String(50), nullable=False)

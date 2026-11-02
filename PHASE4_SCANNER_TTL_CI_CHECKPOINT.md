@@ -112,3 +112,16 @@ This is the latest security/code checkpoint and supersedes older Phase 4 securit
 - Remaining security work: endpoint-by-endpoint IDOR/authorization matrix and adversarial tests; secret/token redaction/storage review; dependency vulnerability scan and SAST; DAST against isolated staging; broker-write reachability review; abuse/rate-limit and replay testing; tenant-isolation/load testing; deployment/backup/incident-response review; independent penetration test before any LIVE broker write.
 - Other Phase 4 gates remain: authenticated LIVE P&L API against real Redis integration test; internal realized-P&L ledger and broker fill reconciliation; frontend LIVE read-only P&L; full Redis-to-PAPER-stop-to-ledger end-to-end proof; multi-user load/backpressure and operational runbooks.
 - PAPER execution only; LIVE broker place/modify/cancel writes disabled; PR #9 remains Draft/open/unmerged; original Tradepro remains untouched. No deployment or LIVE gateway activation authorized.
+
+
+## Phase 4 authoritative audit synchronization — 2 November 2026
+
+This is the current operational status; earlier entries remain historical.
+- Repository `tarunsharma2610-del/tradepro-improved` only; branch `phase4/redis-market-data-publisher`; PR #9 targets `phase4/roadmap-progress-checkpoints`, OPEN/Draft/unmerged.
+- Code/test head before this docs sync: `3ad06a045c16251b6daf1e2ec429837ddd390c59`; exact-head Backend CI #41402165142 PASSED: **1,550 passed, 1 warning**. Redis-backed pytest, broker-write guard, SQLite/PostgreSQL 16 migration round-trips, synthetic restore/evidence retention passed.
+- New verified milestone: authenticated LIVE unrealized-P&L API test publishes a real user-scoped Redis quote and validates API P&L ₹40.00; accounting remains unchanged.
+- Rate limiting now fails closed (HTTP 503) on Redis outage; MFA disable requires password re-verification and current TOTP when MFA is enabled. CI #41400727799 passed these remediations.
+- Security audit status: **NOT COMPLETE**. Static baseline is not a penetration test. Remaining: endpoint IDOR/authorization matrix, cross-tenant adversarial tests, secret/token redaction, SAST/dependency scan, DAST, broker-write reachability, abuse/load tests, deployment hardening and independent penetration test.
+- Remaining engineering: internal realized-P&L ledger/broker-fill reconciliation; frontend LIVE read-only P&L; Redis→scanner→dispatcher→durable PAPER stop→ledger end-to-end acceptance; multi-user load/backpressure, observability/runbooks; credentialed Upstox smoke test and production Oracle restore.
+- PAPER remains the only enabled execution path; LIVE `place_order`, `modify_order`, `cancel_order` writes disabled. PR #9 stays Draft/unmerged. Original `tarunsharma2610-del/Tradepro` untouched.
+- Documentation sync is not green until Backend CI passes on the final documentation head.

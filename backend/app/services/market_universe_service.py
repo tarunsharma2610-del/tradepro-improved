@@ -6,7 +6,8 @@ active NSE equity instruments, and atomically activates a complete snapshot.
 """
 from datetime import date
 
-from sqlalchemy import func, text\nfrom sqlalchemy.orm import Session
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session
 
 from app.models.instrument import Instrument
 from app.models.market_universe import MarketUniverseMembership, MarketUniverseSnapshot
@@ -58,7 +59,9 @@ class MarketUniverseService:
             raise MarketUniverseImportError("Constituent snapshot rejected: " + "; ".join(details or ["invalid instrument mapping"]) + ".")
 
         try:
-            if self.db.bind is not None and self.db.bind.dialect.name == "postgresql":\n                self.db.execute(text("SELECT pg_advisory_xact_lock(202611020045)"))\n            duplicate_date = (
+            if self.db.bind is not None and self.db.bind.dialect.name == "postgresql":
+                self.db.execute(text("SELECT pg_advisory_xact_lock(202611020045)"))
+            duplicate_date = (
                 self.db.query(MarketUniverseSnapshot.id)
                 .filter(
                     MarketUniverseSnapshot.universe_key == self.NIFTY_500,

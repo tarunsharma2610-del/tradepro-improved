@@ -433,15 +433,25 @@ async def get_live_unrealized_pnl(
         and position.get("instrument_key")
     ))
     quotes_by_instrument = {}
-    redis = from_url(settings.REDIS_URL, decode_responses=True)
+    redis = None
     try:
+        redis = from_url(settings.REDIS_URL, decode_responses=True)
+        # Distinguish an unavailable Redis service from an ordinary missing/stale
+        # quote. The consumer intentionally maps Redis read failures to None.
+        await redis.ping()
         consumer = RedisMarketQuoteConsumer(redis, user.id, max_age_seconds=15)
         for instrument_key in instrument_keys:
             quote = await consumer.get_quote(instrument_key)
             if quote is not None:
                 quotes_by_instrument[instrument_key] = quote
+    except Exception as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Market quote storage is temporarily unavailable; LIVE P&L cannot be calculated.",
+        ) from exc
     finally:
-        await redis.aclose()
+        if redis is not None:
+            await redis.aclose()
 
     return build_live_unrealized_pnl_view(
         broker_positions=snapshot.positions,

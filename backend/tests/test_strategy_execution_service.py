@@ -425,3 +425,41 @@ async def test_stale_periodic_exit_after_stop_event_fill_is_rejected_without_rev
     assert stale_order.status == "REJECTED"
     assert "reduce-only" in stale_order.rejection_reason.lower()
     assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0
+
+
+@pytest.mark.asyncio
+async def test_same_users_other_instrument_quote_cannot_trigger_strategy_trailing_stop(
+    db_session, portfolio, instrument
+):
+    from datetime import datetime, timezone
+    from app.services.market_scanner import MarketScanner
+    from app.repositories.position_repository import PositionRepository
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await StrategyExecutionService(db_session).evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+
+    scanner = MarketScanner(max_age_seconds=15)
+    received_at = datetime.now(timezone.utc)
+    observation = scanner.process_quote(user.id, {
+        "user_id": str(user.id),
+        "instrument_key": "NSE_EQ|INE467B01029",
+        "epoch": "different-instrument-epoch",
+        "version": 1,
+        "ltp": 1.0,
+        "exchange_timestamp_ms": int(received_at.timestamp() * 1000),
+        "received_at": received_at.isoformat(),
+    })
+    assert observation is not None
+    assert scanner.latest(user.id, instrument.instrument_key) is None
+
+    db_session.refresh(strategy)
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        result = await StrategyExecutionService(db_session, scanner=scanner).evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == strategy.quantity

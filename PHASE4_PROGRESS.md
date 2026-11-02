@@ -438,3 +438,12 @@ This is a verified outstanding product requirement, not a claim that LIVE mode i
 - Current documentation synchronization commit is being validated separately; do not call the documentation head green until its exact-head CI succeeds.
 - PR #9 remains Draft/unmerged. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `tarunsharma2610-del/Tradepro` remains untouched. LIVE broker place/modify/cancel writes remain disabled.
 - Next code gate: inspect LIVE positions route and tests, then enforce mode-aware fail-closed behavior with regression coverage.
+
+
+## Phase 4 status and resume correction — 2 November 2026
+
+- November 1 work has advanced beyond the earlier next-code-gate text in this document: PAPER/LIVE portfolio/order consistency is enforced; LIVE broker funds and positions are synchronized into owner-scoped, allocation-bound snapshots; and a read-only, fail-closed unrealized-P&L projection now joins broker positions to fresh quotes, rejects duplicate instrument/product rows, and withholds the aggregate when any open-position quote is unavailable.
+- The projection remains a pure service only. It is not yet connected to the authenticated portfolio API or Redis quote consumer; there is no frontend display or broker/internal realized-P&L reconciliation. Do not represent this as end-to-end LIVE P&L or LIVE trading readiness.
+- Verified baseline: exact-head Backend CI #41329154167 passed on commit 62eac41ce86577082b7e78c976de9c72b746464e; the follow-up documentation synchronization is tracked in PHASE4_LATEST_CI_CHECKPOINT.md and is awaiting its own exact-head CI result.
+- Correct next code gate: add a read-only quote-snapshot adapter using the existing user-scoped RedisMarketQuoteConsumer; resolve exact broker instrument keys without symbol guessing; expose the P&L projection through an owner-scoped LIVE portfolio read endpoint gated by the currently allocated broker connection and latest valid positions snapshot; test stale/missing/future quotes, Redis outage, tenant ownership, duplicate rows and PAPER isolation.
+- Keep realized and unrealized P&L separate. Do not show partial totals as complete. PAPER remains the only enabled execution path; LIVE broker place/modify/cancel remain disabled; PR #9 stays Draft/unmerged; original Tradepro remains untouched.

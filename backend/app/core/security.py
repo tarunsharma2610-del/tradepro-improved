@@ -35,7 +35,7 @@ def needs_rehash(password_hash: str) -> bool:
 TokenType = Literal["access", "refresh"]
 
 
-def create_token(user_id: UUID, token_type: TokenType, extra_claims: dict[str, Any] | None = None) -> str:
+def create_token(\n    user_id: UUID,\n    token_type: TokenType,\n    extra_claims: dict[str, Any] | None = None,\n    *,\n    session_id: UUID | None = None,\n    token_id: str | None = None,\n) -> str:
     now = datetime.now(timezone.utc)
     if token_type == "access":
         expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

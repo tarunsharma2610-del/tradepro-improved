@@ -3339,3 +3339,13 @@ Static review covered the 13 routers registered by `backend/app/api/v1/router.py
 - These are automated regression tests; they do not constitute production load certification or broker live-order validation.
 - Safety invariants unchanged: PAPER mandatory; LIVE broker place/modify/cancel writes disabled; original `tarunsharma2610-del/Tradepro` out of scope; PR #9 remains Draft and unmerged.
 - This documentation synchronization is not a green checkpoint until Backend CI, CodeQL, and dependency audit pass on the resulting exact documentation commit.
+
+
+## Phase 4 authoritative resume checkpoint — 2 November 2026, 23:06 IST
+
+- Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`; Backend tests [#41492213645](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213645) and Security analysis [#41492213677](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213677) both PASSED on this exact head.
+- Nifty 500 dated/validated membership snapshots, exact NSE mapping, atomic replacement, retained history, admin import and regression tests are implemented. `POST /api/v1/market-data/stream/universe/nifty-500` connects the active complete snapshot to the authenticated user's existing Upstox LTPC stream; Analytics Token required, compatible subscriptions preserved, conflicting feed modes rejected, subscription state persisted. No order writes.
+- Completed earlier Phase 4 work includes Redis quote/dispatcher/recovery safeguards; durable PAPER stop-event claims/leases/retries/fencing and PostgreSQL concurrency coverage; persisted auth sessions, refresh rotation/replay rejection, logout revocation, JWT claim protections, MFA step-up, transactional key-rotation implementation; HTTPS/CORS and two-user broker credential/Analytics Token isolation regression.
+- Remaining: scanner quote ordering/staleness and subscription lifecycle; scanner filters/ranking; full Redis→scanner→dispatcher→durable PAPER stop→execution→position/ledger proof; multi-process crash/recovery and concurrent exits; realized-P&L/fill reconciliation; read-only LIVE P&L UI; load/backpressure/observability/runbooks; remaining IDOR/secret review/DAST/broker-write reachability/independent penetration test; authorized read-only Upstox smoke test and production restore evidence.
+- Next session (3 Nov): verify exact-head CI on the final docs commit first; then continue quote ordering/staleness and subscription lifecycle tests. Documentation commit itself is not green until its Backend CI, CodeQL and dependency audit pass.
+- PR #9 OPEN/Draft/unmerged; only `tradepro-improved`; original Tradepro untouched; PAPER mandatory; LIVE broker order writes disabled; no merge/deploy/LIVE activation.

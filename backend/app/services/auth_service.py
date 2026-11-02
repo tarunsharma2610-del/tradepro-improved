@@ -59,7 +59,7 @@ class AuthService:
             )
         )
         self.db.commit()
-        access_token = create_token(user.id, "access", extra_claims={"sid": str(session_id)})
+        access_token = create_token(user.id, "access", session_id=session_id)
         refresh_token = create_token(
             user.id, "refresh", extra_claims={"sid": str(session_id), "jti": jti}
         )
@@ -91,7 +91,7 @@ class AuthService:
         self.db.add(session)
         self.db.commit()
 
-        access_token = create_token(user_id, "access", extra_claims={"sid": str(session_id)})
+        access_token = create_token(user_id, "access", session_id=session_id)
         refresh_token = create_token(
             user_id, "refresh", extra_claims={"sid": str(session_id), "jti": next_jti}
         )

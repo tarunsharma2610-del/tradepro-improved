@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.models.instrument import Instrument
 from app.models.market_data_subscription import MarketDataSubscription
+from app.models.market_universe import MarketUniverseSnapshot
 from app.models.user import User
 from app.schemas.market_data import MarketDataStreamChangeMode, MarketDataStreamKeys, MarketDataStreamStart
 from app.services.broker_credentials_service import BrokerCredentialsService
@@ -154,6 +155,17 @@ async def subscribe_nifty500_universe(
             "A complete active Nifty 500 snapshot is not available; import and validate one first.",
         )
 
+    snapshot = (
+        db.query(MarketUniverseSnapshot)
+        .filter(
+            MarketUniverseSnapshot.universe_key == "NIFTY_500",
+            MarketUniverseSnapshot.is_active.is_(True),
+        )
+        .order_by(MarketUniverseSnapshot.created_at.desc())
+        .first()
+    )
+    if snapshot is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "No active Nifty 500 snapshot is available.")
     instrument_keys = sorted(item.instrument_key for item in instruments)
     streamer = market_data_stream_manager.get(user.id)
     try:
@@ -196,12 +208,7 @@ async def subscribe_nifty500_universe(
     return {
         "subscribed": True,
         "universe": "NIFTY_500",
-        "snapshot_as_of_date": instruments[0].trading_symbol and (
-            db.query(__import__("app.models.market_universe", fromlist=["MarketUniverseSnapshot"]).MarketUniverseSnapshot)
-            .filter_by(universe_key="NIFTY_500", is_active=True)
-            .order_by(__import__("app.models.market_universe", fromlist=["MarketUniverseSnapshot"]).MarketUniverseSnapshot.created_at.desc())
-            .first()
-        ).as_of_date,
+        "snapshot_as_of_date": snapshot.as_of_date,
         "delivery": delivery,
         "mode": "ltpc",
         "instrument_count": len(instrument_keys),

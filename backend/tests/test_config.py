@@ -8,6 +8,7 @@ from app.core.config import Settings
 def test_production_requires_explicit_stable_secret_key(monkeypatch):
     monkeypatch.delenv("SECRET_KEY", raising=False)
     monkeypatch.delenv("MASTER_ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("CORS_ORIGINS", '["https://app.example.com"]')
 
     with pytest.raises(ValidationError, match="SECRET_KEY must be explicitly configured"):
         Settings(ENVIRONMENT="production", _env_file=None)
@@ -16,6 +17,7 @@ def test_production_requires_explicit_stable_secret_key(monkeypatch):
 def test_production_requires_master_encryption_key(monkeypatch):
     monkeypatch.setenv("SECRET_KEY", "s" * 64)
     monkeypatch.delenv("MASTER_ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("CORS_ORIGINS", '["https://app.example.com"]')
 
     with pytest.raises(ValidationError, match="MASTER_ENCRYPTION_KEY must be configured"):
         Settings(ENVIRONMENT="production", _env_file=None)
@@ -24,6 +26,7 @@ def test_production_requires_master_encryption_key(monkeypatch):
 def test_production_accepts_explicit_bootstrap_secrets(monkeypatch):
     monkeypatch.setenv("SECRET_KEY", "s" * 64)
     monkeypatch.setenv("MASTER_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CORS_ORIGINS", '["https://app.example.com"]')
 
     configured = Settings(ENVIRONMENT="production", _env_file=None)
 

@@ -87,6 +87,34 @@ def db_session():
                 SELECT RAISE(ABORT, 'tariff estimate variance records are append-only');
             END
         """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_market_universe_membership_no_update
+            BEFORE UPDATE ON market_universe_memberships
+            BEGIN
+                SELECT RAISE(ABORT, 'market universe membership snapshots are immutable');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_market_universe_membership_no_delete
+            BEFORE DELETE ON market_universe_memberships
+            BEGIN
+                SELECT RAISE(ABORT, 'market universe membership snapshots are immutable');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_market_universe_snapshot_content_no_update
+            BEFORE UPDATE OF universe_key, as_of_date, source, member_count ON market_universe_snapshots
+            BEGIN
+                SELECT RAISE(ABORT, 'market universe snapshot content is immutable');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_market_universe_snapshot_no_delete
+            BEFORE DELETE ON market_universe_snapshots
+            BEGIN
+                SELECT RAISE(ABORT, 'market universe snapshots are retained for audit');
+            END
+        """)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSessionLocal()
     try:

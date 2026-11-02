@@ -27,7 +27,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("universe_key", "as_of_date", name="uq_market_universe_snapshot_date"),
     )
-    op.create_index("ix_market_universe_active", "market_universe_snapshots", ["universe_key", "is_active"])\n    op.create_index(\n        "uq_market_universe_one_active", "market_universe_snapshots", ["universe_key"],\n        unique=True, postgresql_where=sa.text("is_active = true"),\n        sqlite_where=sa.text("is_active = 1"),\n    )
+    op.create_index("ix_market_universe_active", "market_universe_snapshots", ["universe_key", "is_active"])
+    op.create_index(
+        "uq_market_universe_one_active", "market_universe_snapshots", ["universe_key"],
+        unique=True, postgresql_where=sa.text("is_active = true"),
+        sqlite_where=sa.text("is_active = 1"),
+    )
     op.create_table(
         "market_universe_memberships",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -48,5 +53,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_market_universe_membership_snapshot", table_name="market_universe_memberships")
     op.drop_table("market_universe_memberships")
-    op.drop_index("uq_market_universe_one_active", table_name="market_universe_snapshots")\n    op.drop_index("ix_market_universe_active", table_name="market_universe_snapshots")
+    op.drop_index("uq_market_universe_one_active", table_name="market_universe_snapshots")
+    op.drop_index("ix_market_universe_active", table_name="market_universe_snapshots")
     op.drop_table("market_universe_snapshots")

@@ -3729,3 +3729,13 @@ This section is the current-status authority as of 2026-11-01 and supersedes old
 - Next: inspect Redis quote consumer schema and timestamp source; build authoritative snapshot adapter; integrate projection into owner-scoped LIVE portfolio read endpoint; add API ownership/PAPER isolation/stale-data tests; reconcile broker fills to internal realized ledger; then UI. Keep realized and unrealized figures separate.
 - Exact-head docs CI is still required after this checkpoint update.
 - PR #9 remains Draft/open/unmerged. PAPER execution only; LIVE broker place/modify/cancel disabled. Work only in `tradepro-improved`; original `Tradepro` untouched.
+
+
+## Phase 4 checkpoint synchronization — 2 November 2026
+
+- Verified PR #9 branch head before this documentation repair: `62eac41ce86577082b7e78c976de9c72b746464e`.
+- Exact-head Backend CI run [#41329154167](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41329154167) completed successfully on that head. All workflow stages passed: backend pytest, broker-write boundary enforcement, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore drill with evidence retention.
+- This successful run is the verified baseline for this documentation synchronization. The documentation commit created from this update must receive its own exact-head Backend CI run before it is called a green documentation checkpoint.
+- November 1 Phase 4 progress recorded in this branch includes PAPER/LIVE portfolio isolation guards, read-only LIVE funds/positions synchronization, and fail-closed LIVE unrealized-P&L calculation/projection. The projection is not yet end-to-end: authoritative Redis quote-consumer integration, owner-scoped portfolio API integration, API-level stale-data/ownership/PAPER-isolation coverage, frontend display and realized-ledger reconciliation remain pending.
+- Resume sequence: inspect the authoritative Redis snapshot schema and exact instrument-key mapping; build a timestamp/Decimal-safe adapter; integrate behind owner-scoped LIVE portfolio authorization and snapshot-availability gates; add stale/missing/future quote, duplicate-row, ownership and PAPER-isolation tests; keep realized and unrealized P&L separate; then proceed to UI and broader multi-worker/security/operational verification.
+- Safeguards: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` remains untouched; PAPER remains the only enabled execution path; LIVE broker place/modify/cancel writes remain disabled; PR #9 remains Draft/open/unmerged.

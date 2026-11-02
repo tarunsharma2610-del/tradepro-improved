@@ -848,7 +848,7 @@ def test_user_cannot_access_another_users_broker_evidence_or_reconciliation(clie
     ).status_code == 404
     assert client.post(
         f"/api/v1/broker-charge-evidence/{evidence_id}/components/{component.id}/reject",
-        json={"confirm_source_matches": True, "review_note": "not authorized"},
+        json={"confirm_source_matches": False, "review_note": "not authorized"},
     ).status_code == 404
 
     # Reconciliation queries must not disclose another user's runs or issues,

@@ -38,3 +38,42 @@ def test_development_keeps_local_secret_fallback(monkeypatch):
     configured = Settings(ENVIRONMENT="development", _env_file=None)
 
     assert len(configured.SECRET_KEY) >= 32
+
+
+@pytest.mark.parametrize(
+    "origins",
+    [
+        ["http://app.example.com"],
+        ["*"],
+        ["https://app.example.com/portal"],
+        ["https://app.example.com?next=/"],
+        ["https://user:password@app.example.com"],
+    ],
+)
+def test_production_rejects_unsafe_cors_origins(monkeypatch, origins):
+    import json
+
+    monkeypatch.setenv("SECRET_KEY", "s" * 64)
+    monkeypatch.setenv("MASTER_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CORS_ORIGINS", json.dumps(origins))
+
+    with pytest.raises(ValidationError, match="production CORS_ORIGINS"):
+        Settings(ENVIRONMENT="production", _env_file=None)
+
+
+def test_production_accepts_exact_https_cors_origins(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "s" * 64)
+    monkeypatch.setenv("MASTER_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CORS_ORIGINS", '["https://app.example.com", "https://admin.example.com:8443"]')
+
+    configured = Settings(ENVIRONMENT="production", _env_file=None)
+
+    assert configured.CORS_ORIGINS == ["https://app.example.com", "https://admin.example.com:8443"]
+
+
+def test_development_allows_local_http_cors_origin(monkeypatch):
+    monkeypatch.setenv("CORS_ORIGINS", '["http://localhost:3000"]')
+
+    configured = Settings(ENVIRONMENT="development", _env_file=None)
+
+    assert configured.CORS_ORIGINS == ["http://localhost:3000"]

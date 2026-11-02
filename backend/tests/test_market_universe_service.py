@@ -171,9 +171,9 @@ def test_market_universe_membership_and_snapshot_content_are_database_immutable(
     )
 
     mutations = [
-        ("UPDATE market_universe_memberships SET trading_symbol = 'TAMPERED' WHERE id = :id", {"id": str(member.id)}),
+        ("UPDATE market_universe_memberships SET trading_symbol = 'TAMPERED' WHERE id = :id", {"id": member.id.hex}),
         ("DELETE FROM market_universe_memberships WHERE id = :id", {"id": str(member.id)}),
-        ("UPDATE market_universe_snapshots SET source = 'tampered' WHERE id = :id", {"id": str(snapshot.id)}),
+        ("UPDATE market_universe_snapshots SET source = 'tampered' WHERE id = :id", {"id": snapshot.id.hex}),
         ("UPDATE market_universe_snapshots SET member_count = 1 WHERE id = :id", {"id": str(snapshot.id)}),
         ("DELETE FROM market_universe_snapshots WHERE id = :id", {"id": str(snapshot.id)}),
     ]

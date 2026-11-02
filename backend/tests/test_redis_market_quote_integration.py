@@ -508,7 +508,8 @@ async def test_real_redis_snapshot_flows_into_scanner_dispatch_pipeline():
         assert recovered_quote["user_id"] == str(user_id)
         assert pipeline.on_quote(user_id, recovered_quote) is True
 
-        dispatched = await asyncio.wait_for(dispatcher.get(), timeout=2)
+        # Keep get() and task_done() in this same task: dispatcher ownership is task-scoped.
+        dispatched = await dispatcher.get()
         assert dispatched.user_id == str(user_id)
         assert dispatched.instrument_key == instrument
         assert dispatched.version == 1

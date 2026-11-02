@@ -8,6 +8,7 @@ from app.api.v1 import health
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.middleware.https import ProductionHTTPSMiddleware
 from app.models.broker_connection import BrokerConnection
 from app.models.market_data_subscription import MarketDataSubscription
 from app.services.market_data_stream_manager import market_data_stream_manager
@@ -103,6 +104,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0-phase1", lifespan=lifespan)
+app.add_middleware(
+    ProductionHTTPSMiddleware,
+    enabled=settings.ENVIRONMENT.strip().lower() != "development",
+)
 
 app.add_middleware(
     CORSMiddleware,

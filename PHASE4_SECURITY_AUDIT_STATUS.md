@@ -206,3 +206,8 @@ Static review covered the 13 routers registered by `backend/app/api/v1/router.py
 - These are automated regression tests; they do not constitute production load certification or broker live-order validation.
 - Safety invariants unchanged: PAPER mandatory; LIVE broker place/modify/cancel writes disabled; original `tarunsharma2610-del/Tradepro` out of scope; PR #9 remains Draft and unmerged.
 - This documentation synchronization is not a green checkpoint until Backend CI, CodeQL, and dependency audit pass on the resulting exact documentation commit.
+
+
+## Phase 4 authoritative resume checkpoint — 2 November 2026, 23:06 IST
+
+Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`. Backend tests [#41492213645](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213645) and Security analysis [#41492213677](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213677) both PASSED on this exact head. Nifty 500 dated membership snapshots, mapping and admin import are implemented; the active 500-member snapshot now feeds an authenticated Upstox LTPC subscription endpoint with durable desired-state persistence. Remaining: scanner quote ordering/staleness and subscription lifecycle; scanner filters/ranking; full Redis→scanner→dispatcher→durable PAPER stop→execution→ledger proof; multi-process recovery/concurrent exits; realized-P&L reconciliation and read-only UI; load/observability; IDOR/secret/DAST/broker-write reachability/independent penetration test. Next: verify final documentation commit's exact-head CI, then quote-integrity tests and scanner integration. Security audit is NOT COMPLETE. PR #9 Draft/unmerged; original Tradepro untouched; PAPER mandatory; LIVE order writes disabled.

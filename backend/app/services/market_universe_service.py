@@ -58,7 +58,19 @@ class MarketUniverseService:
             raise MarketUniverseImportError("Constituent snapshot rejected: " + "; ".join(details or ["invalid instrument mapping"]) + ".")
 
         try:
-            if self.db.bind is not None and self.db.bind.dialect.name == "postgresql":\n                self.db.execute(text("SELECT pg_advisory_xact_lock(202611020045)"))\n            current = (
+            if self.db.bind is not None and self.db.bind.dialect.name == "postgresql":\n                self.db.execute(text("SELECT pg_advisory_xact_lock(202611020045)"))\n            duplicate_date = (
+                self.db.query(MarketUniverseSnapshot.id)
+                .filter(
+                    MarketUniverseSnapshot.universe_key == self.NIFTY_500,
+                    MarketUniverseSnapshot.as_of_date == as_of_date,
+                )
+                .first()
+            )
+            if duplicate_date is not None:
+                raise MarketUniverseImportError(
+                    "A Nifty 500 snapshot for this effective date already exists; snapshots are immutable."
+                )
+            current = (
                 self.db.query(MarketUniverseSnapshot)
                 .filter(
                     MarketUniverseSnapshot.universe_key == self.NIFTY_500,

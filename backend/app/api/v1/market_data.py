@@ -173,9 +173,14 @@ async def subscribe_market_data(
     user: User = Depends(get_current_user),
 ):
     _require_analytics_token(db, user)
-    _validate_active_instruments(db, payload.instrument_keys)
     current = market_data_stream_manager.get(user.id)
-    feed_mode = payload.mode or (current.mode if current is not None else "full")
+    if current is None or not current.running:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Start a market-data stream before adding subscriptions.",
+        )
+    _validate_active_instruments(db, payload.instrument_keys)
+    feed_mode = payload.mode or current.mode
     try:
         streamer, delivery = await market_data_stream_manager.subscribe(
             user.id, payload.instrument_keys, feed_mode,

@@ -42,6 +42,9 @@ from sqlalchemy.exc import IntegrityError
 
 router = APIRouter(prefix="/portfolios", tags=["portfolios"])
 
+# Broker position snapshots are refreshed by an explicit broker sync; never value old positions.
+LIVE_POSITION_SNAPSHOT_MAX_AGE_SECONDS = 120
+
 
 @router.get("", response_model=list[PortfolioOut])
 def list_portfolios(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -423,6 +426,17 @@ async def get_live_unrealized_pnl(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No broker positions snapshot is available for the allocated account.")
     if not isinstance(snapshot.positions, list):
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "The stored broker positions snapshot is invalid.")
+    snapshot_created_at = snapshot.created_at
+    if snapshot_created_at is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "The broker positions snapshot has no creation timestamp.")
+    if snapshot_created_at.tzinfo is None:
+        snapshot_created_at = snapshot_created_at.replace(tzinfo=timezone.utc)
+    snapshot_age_seconds = (datetime.now(timezone.utc) - snapshot_created_at).total_seconds()
+    if snapshot_age_seconds < 0 or snapshot_age_seconds > LIVE_POSITION_SNAPSHOT_MAX_AGE_SECONDS:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "The broker positions snapshot is stale or has an invalid timestamp; synchronize broker positions before retrying.",
+        )
 
     instrument_keys = list(dict.fromkeys(
         position.get("instrument_key")

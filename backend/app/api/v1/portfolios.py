@@ -33,6 +33,10 @@ from app.services.broker_credentials_service import BrokerCredentialsService
 from app.brokers.registry import get_broker_adapter
 from app.services.broker_funds_service import normalize_upstox_funds_v3
 from app.services.broker_position_service import normalize_upstox_positions
+from redis.asyncio import from_url
+from app.core.config import settings
+from app.services.redis_market_quote_consumer import RedisMarketQuoteConsumer
+from app.services.live_portfolio_pnl_view_service import build_live_unrealized_pnl_view
 from app.services.broker_holding_service import normalize_upstox_holdings
 from sqlalchemy.exc import IntegrityError
 
@@ -386,6 +390,65 @@ def get_latest_broker_positions(
     if snapshot is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No verified broker positions snapshot is available for the currently allocated account.")
     return snapshot
+
+
+@router.get("/{portfolio_id}/live-unrealized-pnl")
+async def get_live_unrealized_pnl(
+    portfolio_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Read-only LIVE P&L projection from the allocated broker snapshot and this user's fresh Redis quotes."""
+    portfolio = _get_owned_portfolio(db, user, portfolio_id)
+    if portfolio.trading_mode != "LIVE":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Unrealized broker P&L is only available for LIVE portfolios.")
+    allocation = db.query(BrokerPortfolioAllocation).filter(
+        BrokerPortfolioAllocation.portfolio_id == portfolio.id,
+        BrokerPortfolioAllocation.user_id == user.id,
+    ).one_or_none()
+    if allocation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No broker account is currently allocated to this portfolio.")
+    connection = db.query(BrokerConnection).filter(
+        BrokerConnection.id == allocation.broker_connection_id,
+        BrokerConnection.user_id == user.id,
+    ).one_or_none()
+    if connection is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "The allocated broker connection is unavailable.")
+    snapshot = db.query(BrokerPositionSnapshot).filter(
+        BrokerPositionSnapshot.portfolio_id == portfolio.id,
+        BrokerPositionSnapshot.user_id == user.id,
+        BrokerPositionSnapshot.broker_connection_id == connection.id,
+    ).order_by(desc(BrokerPositionSnapshot.created_at)).first()
+    if snapshot is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No broker positions snapshot is available for the allocated account.")
+    if not isinstance(snapshot.positions, list):
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "The stored broker positions snapshot is invalid.")
+
+    instrument_keys = list(dict.fromkeys(
+        position.get("instrument_key")
+        for position in snapshot.positions
+        if isinstance(position, dict)
+        and position.get("quantity") != 0
+        and isinstance(position.get("instrument_key"), str)
+        and position.get("instrument_key")
+    ))
+    quotes_by_instrument = {}
+    redis = from_url(settings.REDIS_URL, decode_responses=True)
+    try:
+        consumer = RedisMarketQuoteConsumer(redis, user.id, max_age_seconds=15)
+        for instrument_key in instrument_keys:
+            quote = await consumer.get_quote(instrument_key)
+            if quote is not None:
+                quotes_by_instrument[instrument_key] = quote
+    finally:
+        await redis.aclose()
+
+    return build_live_unrealized_pnl_view(
+        broker_positions=snapshot.positions,
+        quotes_by_instrument=quotes_by_instrument,
+        now=datetime.now(timezone.utc),
+        max_quote_age_seconds=15,
+    )
 
 
 @router.post(

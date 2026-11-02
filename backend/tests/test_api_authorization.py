@@ -103,3 +103,38 @@ def test_refresh_rotates_token_and_logout_revokes_access_session(client):
     assert logged_out.status_code == 204
     client.cookies.set("access_token", new_access)
     assert client.get("/api/v1/users/me").status_code == 401
+
+
+def test_broker_credentials_and_analytics_tokens_are_isolated_between_users(client):
+    _register_and_login(client, "broker-owner@example.com")
+
+    saved = client.put(
+        "/api/v1/settings/broker",
+        json={
+            "broker": "upstox",
+            "api_key": "owner-api-key",
+            "api_secret": "owner-api-secret",
+            "redirect_uri": "https://example.com/upstox/callback",
+        },
+    )
+    assert saved.status_code == 200
+    assert "owner-api-secret" not in saved.text
+    assert "owner-api-key" not in saved.text
+
+    token_saved = client.put(
+        "/api/v1/settings/broker/upstox/analytics-token",
+        json={"analytics_token": "owner-analytics-token"},
+    )
+    assert token_saved.status_code == 200
+    assert token_saved.json()["configured"] is True
+    assert "owner-analytics-token" not in token_saved.text
+
+    # A second authenticated account must see neither the connection nor
+    # the token status, and cannot delete the first user's connection/token.
+    _register_and_login(client, "broker-intruder@example.com")
+    assert client.get("/api/v1/settings/broker").json() == []
+    token_status = client.get("/api/v1/settings/broker/upstox/analytics-token")
+    assert token_status.status_code == 200
+    assert token_status.json()["configured"] is False
+    assert client.delete("/api/v1/settings/broker/upstox").status_code == 404
+    assert client.delete("/api/v1/settings/broker/upstox/analytics-token").status_code == 404

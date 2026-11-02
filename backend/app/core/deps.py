@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import Cookie, Depends, Header, HTTPException, status
@@ -5,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import decode_token
+from app.models.auth_session import AuthSession
 from app.models.user import User
 
 
@@ -31,9 +33,28 @@ def get_current_user(
     if not payload or payload.get("type") != "access":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
 
-    user = db.get(User, UUID(payload["sub"]))
+    try:
+        user_id = UUID(payload["sub"])
+        session_id = UUID(payload["sid"])
+    except (KeyError, ValueError, TypeError):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+
+    user = db.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or inactive")
+
+    active_session = (
+        db.query(AuthSession)
+        .filter(
+            AuthSession.id == session_id,
+            AuthSession.user_id == user.id,
+            AuthSession.revoked_at.is_(None),
+            AuthSession.expires_at > datetime.now(timezone.utc),
+        )
+        .first()
+    )
+    if active_session is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session revoked or expired")
 
     return user
 

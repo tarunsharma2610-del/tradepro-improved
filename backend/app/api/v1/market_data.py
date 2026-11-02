@@ -133,13 +133,12 @@ async def start_market_data_stream(
     _require_analytics_token(db, user)
     _validate_active_instruments(db, payload.instrument_keys)
 
-    existing_streamer = market_data_stream_manager.get(user.id)
     try:
-        if existing_streamer is not None and existing_streamer.running:
-            await existing_streamer.subscribe(payload.instrument_keys, payload.mode)
-            streamer = existing_streamer
-        else:
-            streamer = await market_data_stream_manager.start(user.id, payload.instrument_keys, mode=payload.mode)
+        # Always go through the manager: its per-user lock serializes this
+        # request with concurrent start, stop, subscribe and mode changes.
+        streamer = await market_data_stream_manager.start(
+            user.id, payload.instrument_keys, mode=payload.mode,
+        )
         MarketDataSubscriptionService(db).replace_modes_for_user(
             user_id=user.id,
             broker="upstox",
@@ -163,13 +162,13 @@ async def subscribe_market_data(
     user: User = Depends(get_current_user),
 ):
     _require_analytics_token(db, user)
-    streamer = market_data_stream_manager.get(user.id)
-    if streamer is None or not streamer.running:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Start a market-data stream before adding subscriptions.")
     _validate_active_instruments(db, payload.instrument_keys)
-    feed_mode = payload.mode or streamer.mode
+    current = market_data_stream_manager.get(user.id)
+    feed_mode = payload.mode or (current.mode if current is not None else "full")
     try:
-        delivery = await streamer.subscribe(payload.instrument_keys, feed_mode)
+        streamer, delivery = await market_data_stream_manager.subscribe(
+            user.id, payload.instrument_keys, feed_mode,
+        )
         MarketDataSubscriptionService(db).replace_modes_for_user(
             user_id=user.id,
             broker="upstox",
@@ -211,7 +210,9 @@ async def unsubscribe_market_data(
         if requested & mode_keys
     }
     try:
-        delivery = await streamer.unsubscribe(list(requested))
+        streamer, delivery = await market_data_stream_manager.unsubscribe(
+            user.id, list(requested),
+        )
         MarketDataSubscriptionService(db).replace_modes_for_user(
             user_id=user.id,
             broker="upstox",
@@ -235,11 +236,10 @@ async def change_market_data_stream_mode(
     user: User = Depends(get_current_user),
 ):
     _require_analytics_token(db, user)
-    streamer = market_data_stream_manager.get(user.id)
-    if streamer is None or not streamer.running:
-        raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
     try:
-        delivery = await streamer.change_mode(payload.instrument_keys, payload.mode)
+        streamer, delivery = await market_data_stream_manager.change_mode(
+            user.id, payload.instrument_keys, payload.mode,
+        )
         MarketDataSubscriptionService(db).replace_modes_for_user(
             user_id=user.id,
             broker="upstox",

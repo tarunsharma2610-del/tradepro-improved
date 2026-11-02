@@ -21,13 +21,14 @@ def _clean_redis_rate_limits():
     one rate-limit bucket (keyed by the test client's fixed fake IP)
     across the whole session if a real Redis happens to be reachable at
     the default URL -- enough registrations across the suite would trip
-    the real limit, and a later test's login would legitimately 401
-    because its registration got rate-limited, not because anything is
+    the real limit, and a later test's login would legitimately 429
+    because its registration was rate-limited, not because anything is
     broken. Confirmed by validating this suite against a real Postgres +
     Redis stack, where this exact thing happened before this fixture
-    existed. Fails open (does nothing) if Redis isn't reachable, matching
-    the application code's own fail-open behavior -- this suite passes the
-    same way whether or not a local Redis happens to be running."""
+    existed. If Redis is unavailable, this cleanup fixture does not mask
+    the outage: the application rate limiter fails closed with HTTP 503.
+    The Backend CI workflow provisions Redis, so rate-limited API tests
+    exercise the same fail-closed dependency contract as the application."""
     import redis
 
     try:

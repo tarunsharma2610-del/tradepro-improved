@@ -53,3 +53,38 @@ def test_mfa_enroll_then_login_requires_code(db_session, make_user):
         email=user.email, password="correct-horse-battery-staple", mfa_code=fresh_code
     )
     assert authenticated.id == user.id
+
+
+def test_disabling_mfa_requires_password_and_current_totp(db_session, make_user):
+    user = make_user()
+    service = AuthService(db_session)
+    secret, _ = service.start_mfa_enrollment(user)
+
+    import pyotp
+
+    assert service.verify_and_enable_mfa(user, pyotp.TOTP(secret).now()) is True
+    current_code = pyotp.TOTP(secret).now()
+    wrong_code = str((int(current_code) + 123456) % 1_000_000).zfill(6)
+    with pytest.raises(AuthError):
+        service.disable_mfa(user, password="incorrect-password", mfa_code=current_code)
+    with pytest.raises(AuthError):
+        service.disable_mfa(user, password="correct-horse-battery-staple", mfa_code=None)
+    with pytest.raises(AuthError):
+        service.disable_mfa(user, password="correct-horse-battery-staple", mfa_code=wrong_code)
+
+    service.disable_mfa(
+        user,
+        password="correct-horse-battery-staple",
+        mfa_code=pyotp.TOTP(secret).now(),
+    )
+    assert user.mfa_enabled is False
+    assert user.mfa_secret_encrypted is None
+
+
+def test_disabling_unenabled_mfa_still_requires_password(db_session, make_user):
+    user = make_user()
+    service = AuthService(db_session)
+    with pytest.raises(AuthError):
+        service.disable_mfa(user, password="incorrect-password", mfa_code=None)
+    service.disable_mfa(user, password="correct-horse-battery-staple", mfa_code=None)
+    assert user.mfa_enabled is False

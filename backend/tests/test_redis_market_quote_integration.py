@@ -15,6 +15,8 @@ from redis.asyncio import Redis
 
 from app.services.redis_market_quote_consumer import RedisMarketQuoteConsumer
 from app.services.redis_market_quote_publisher import RedisMarketQuotePublisher
+from app.services.market_quote_dispatcher import MarketQuoteDispatcher
+from app.services.market_scan_dispatch_pipeline import MarketScanDispatchPipeline
 from app.services.upstox_market_data_streamer import MarketTick
 
 
@@ -466,4 +468,63 @@ async def test_real_redis_server_process_restart_recovers_without_reusing_stale_
             server.kill()
             await asyncio.to_thread(server.wait)
         await admin.aclose()
+        await redis.aclose()
+
+
+@pytest.mark.asyncio
+async def test_real_redis_snapshot_flows_into_scanner_dispatch_pipeline():
+    """Exercise actual Redis snapshot recovery through scanner and bounded dispatch."""
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(redis, user_id, max_age_seconds=15)
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=8)
+    pipeline = MarketScanDispatchPipeline(dispatcher=dispatcher)
+    listener = consumer.listen(
+        [instrument],
+        max_reconnect_attempts=1,
+        min_backoff_seconds=0.01,
+        max_backoff_seconds=0.02,
+    )
+    now = datetime.now(timezone.utc)
+    tick = MarketTick(
+        instrument_key=instrument,
+        ltp=110.0,
+        exchange_timestamp_ms=int(now.timestamp() * 1000),
+        received_at=now,
+        received_monotonic=1.0,
+        volume_traded_today=1200,
+        open_interest=4500,
+        total_buy_quantity=700,
+        total_sell_quantity=300,
+        ohlc=({"interval": "1d", "close": 100.0},),
+    )
+    try:
+        assert await publisher.publish(tick)
+        # The listener's startup snapshot sweep reads the authoritative Redis
+        # value and feeds the same callback used by the runtime worker.
+        recovered_quote = await asyncio.wait_for(anext(listener), timeout=3)
+        assert recovered_quote["user_id"] == str(user_id)
+        assert pipeline.on_quote(user_id, recovered_quote) is True
+
+        dispatched = await asyncio.wait_for(dispatcher.get(), timeout=2)
+        assert dispatched.user_id == str(user_id)
+        assert dispatched.instrument_key == instrument
+        assert dispatched.version == 1
+        assert dispatched.observation.ltp == 110.0
+        assert dispatched.observation.price_change_pct == 10.0
+        assert dispatched.observation.volume_traded_today == 1200
+        assert dispatched.observation.open_interest == 4500
+        assert dispatched.observation.buy_sell_imbalance == 0.4
+        assert pipeline.accepted_observations == 1
+        assert pipeline.rejected_quotes == 0
+        assert pipeline.rejected_dispatches == 0
+        dispatcher.task_done()
+    finally:
+        await listener.aclose()
+        await redis.delete(
+            publisher.snapshot_key(instrument),
+            publisher.snapshot_key(instrument) + ":version",
+        )
         await redis.aclose()

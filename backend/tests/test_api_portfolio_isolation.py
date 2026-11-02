@@ -745,3 +745,119 @@ def test_live_unrealized_pnl_api_uses_real_user_scoped_redis_snapshot(client, db
             await redis_client.aclose()
 
     asyncio.run(remove_test_quote())
+
+
+def test_user_cannot_access_another_users_broker_evidence_or_reconciliation(client, db_session):
+    from decimal import Decimal
+    from uuid import uuid4
+
+    from app.models.broker_charge_evidence import BrokerChargeEvidence
+    from app.models.broker_charge_source_component import BrokerChargeSourceComponent
+    from app.models.broker_connection import BrokerConnection
+    from app.models.live_order_records import LiveReconciliationIssue, LiveReconciliationRun
+    from app.models.user import User
+
+    _register_and_login(client, "resource-owner@example.com")
+    owner = db_session.query(User).filter_by(email="resource-owner@example.com").one()
+    connection = BrokerConnection(
+        user_id=owner.id,
+        broker="upstox",
+        api_key_encrypted="test-encrypted-api-key",
+        api_secret_encrypted="test-encrypted-api-secret",
+        redirect_uri="https://example.invalid/callback",
+        is_connected=False,
+    )
+    db_session.add(connection)
+    db_session.commit()
+    db_session.refresh(connection)
+
+    evidence_id = uuid4()
+    evidence = BrokerChargeEvidence(
+        id=evidence_id,
+        broker_connection_id=connection.id,
+        source_kind="CONTRACT_NOTE",
+        broker_report_reference="owner-only-report",
+        source_filename="contract-note.pdf",
+        storage_key="opaque-test-storage-key",
+        source_sha256="a" * 64,
+        byte_size=128,
+        received_by_user_id=owner.id,
+        status="RECEIVED",
+    )
+    component = BrokerChargeSourceComponent(
+        evidence_id=evidence_id,
+        source_sha256="a" * 64,
+        component_name="brokerage",
+        revision=1,
+        source_amount=Decimal("1.00"),
+        currency="INR",
+        extraction_method="MANUAL_TRANSCRIPTION",
+        parser_version="manual-transcription-v1",
+        source_locator="page 1, row 1",
+        extracted_by_user_id=owner.id,
+        status="PENDING_REVIEW",
+    )
+    run = LiveReconciliationRun(
+        user_id=owner.id,
+        broker_connection_id=connection.id,
+        status="COMPLETED",
+        summary={"orders_seen": 1},
+    )
+    issue = LiveReconciliationIssue(
+        user_id=owner.id,
+        broker_connection_id=connection.id,
+        run_id=run.id,
+        issue_type="UNMATCHED_BROKER_ORDER",
+        fingerprint="b" * 64,
+        safe_details={"reason": "manual review required"},
+        status="OPEN",
+        occurrence_count=1,
+    )
+    db_session.add_all([evidence, component, run, issue])
+    db_session.commit()
+
+    _register_and_login(client, "resource-intruder@example.com")
+
+    # Contract-note bytes and source-component review/transcription are owner-scoped.
+    assert client.get(f"/api/v1/broker-charge-evidence/{evidence_id}/document").status_code == 404
+    assert client.post(
+        f"/api/v1/broker-charge-evidence/{evidence_id}/components",
+        json={
+            "component_name": "brokerage",
+            "source_amount": "1.00",
+            "currency": "INR",
+            "source_locator": "page 1, row 1",
+        },
+    ).status_code == 404
+    assert client.post(
+        f"/api/v1/broker-charge-evidence/{evidence_id}/components/{component.id}/review",
+        json={
+            "confirm_source_matches": True,
+            "eligible_fill_record_ids": [str(uuid4())],
+            "allocation_basis": "EXPLICIT_REVIEWED",
+        },
+    ).status_code == 404
+    assert client.post(
+        f"/api/v1/broker-charge-evidence/{evidence_id}/components/{component.id}/reject",
+        json={"confirm_source_matches": True, "review_note": "not authorized"},
+    ).status_code == 404
+
+    # Reconciliation queries must not disclose another user's runs or issues,
+    # even when the caller supplies that user's broker_connection_id.
+    runs = client.get(
+        "/api/v1/reconciliation/runs",
+        params={"broker_connection_id": str(connection.id)},
+    )
+    issues = client.get(
+        "/api/v1/reconciliation/issues",
+        params={"broker_connection_id": str(connection.id)},
+    )
+    assert runs.status_code == 200
+    assert runs.json() == []
+    assert issues.status_code == 200
+    assert issues.json() == []
+
+    # Broker settings expose only the authenticated user's own connections.
+    connections = client.get("/api/v1/settings/broker")
+    assert connections.status_code == 200
+    assert connections.json() == []

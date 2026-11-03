@@ -1,3 +1,19 @@
+## Authoritative end-of-day checkpoint — 3 November 2026
+
+This entry supersedes older "latest/current/next step" summaries below it. Historical entries remain audit history.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; original `tarunsharma2610-del/Tradepro` remains out of scope.
+- PR #12 OPEN, Draft, unmerged; branch `phase4/operational-alerting`.
+- Verified implementation/test head before documentation synchronization: `4becf8bb3ee9f4d9f664cc30f5ca7d35edc65fe4`.
+- Backend CI #41682006365 SUCCESS and Security CI #41682006641 SUCCESS on that exact head. Backend included full pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill; Security included CodeQL and dependency audit.
+- The latest change corrected nearest-rank p50/p95/p99 calculation in `backend/tests/test_paper_stop_event_sustained_load_postgres.py`; no scanner algorithm or trading behavior changed.
+- Scanner implementation/ranking work documented below remains historical completed implementation; scanner-to-PAPER execution/ledger proof and final API/ranking validation remain acceptance gates.
+- Do not duplicate verified PostgreSQL SIGKILL recovery, duplicate execution/exit race, Redis restart/supervised acceptance, Docker Compose two-worker watchdog kill/recovery, or watchdog notification retry.
+- Next distinct integration gap: combined real Redis 7 + PostgreSQL 16 quote-to-PAPER end-to-end acceptance. Inspect existing Redis acceptance and PostgreSQL integration fixtures first; do not duplicate them.
+- Remaining: longer realistic PostgreSQL-backed soak/resource metrics; Oracle VM watchdog installation/drill; independent cloud monitoring; independent penetration review; final Phase 4 acceptance.
+- PAPER-only; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; original Tradepro untouched. CI is not LIVE/deployment/production-capacity certification.
+- Resume tomorrow by checking PR #12 and exact-head Backend/Security CI for the final docs commit, then inspect only the combined Redis+PostgreSQL gap. No broad re-audit or repetition of green tasks unless targeted inspection finds a concrete gap.
+
 ## Superseding verified Phase 4 checkpoint — 3 November 2026
 
 - Latest implementation head: `1d5776724a02aa3a74c791cd3c775019c44ab499`.

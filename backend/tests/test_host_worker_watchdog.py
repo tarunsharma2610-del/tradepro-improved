@@ -88,7 +88,7 @@ def test_worker_state_checks_every_compose_replica_including_stopped(monkeypatch
         "degraded:1/2:exited:5,running:2",
         "worker fleet running=1/2; non_running=1; restart_counts=2,5",
     )
-    assert run.call_args_list[0].args[0][4:6] == ["--all", "-q"]
+    assert run.call_args_list[0].args[0][5:7] == ["--all", "-q"]
     assert run.call_args_list[1].args[0][-2:] == ["worker-a", "worker-b"]
 
 

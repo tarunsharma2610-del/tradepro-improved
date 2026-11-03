@@ -529,3 +529,108 @@ async def test_real_redis_snapshot_flows_into_scanner_dispatch_pipeline():
             publisher.snapshot_key(instrument) + ":version",
         )
         await redis.aclose()
+
+
+@pytest.mark.asyncio
+async def test_real_redis_worker_process_crash_expires_lease_and_allows_failover():
+    """A killed worker cannot strand a user lease; a replacement resumes consumption."""
+    from app.services.redis_market_quote_worker import RedisMarketQuoteWorker
+
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    user_id = uuid4()
+    instrument = "NSE_EQ|INE002A01018"
+    marker_key = f"tradepro:test:worker-ready:{user_id}"
+    lease_key = RedisMarketQuoteWorker._lease_key(user_id)
+    child_script = textwrap.dedent(
+        """
+        import asyncio, os
+        from redis.asyncio import Redis
+        from app.services.redis_market_quote_worker import RedisMarketQuoteWorker
+
+        class BlockingConsumer:
+            def __init__(self, client, marker):
+                self.client, self.marker = client, marker
+            async def listen(self, keys):
+                await self.client.set(self.marker, "ready", ex=20)
+                await asyncio.Future()
+
+        async def main():
+            client = Redis.from_url(os.environ["REDIS_TEST_URL"], decode_responses=True)
+            user_id = os.environ["TEST_USER_ID"]
+            marker = os.environ["TEST_MARKER"]
+            worker = RedisMarketQuoteWorker(
+                redis_client=client,
+                subscription_loader=lambda: {__import__("uuid").UUID(user_id): ["NSE_EQ|INE002A01018"]},
+                consumer_factory=lambda _client, _owner: BlockingConsumer(client, marker),
+                lease_seconds=3,
+                reconcile_seconds=0.05,
+            )
+            await worker.reconcile_once()
+            await asyncio.Future()
+
+        asyncio.run(main())
+        """
+    )
+    env = os.environ.copy()
+    env["REDIS_TEST_URL"] = REDIS_TEST_URL
+    env["TEST_USER_ID"] = str(user_id)
+    env["TEST_MARKER"] = marker_key
+    child = None
+    replacement = None
+    try:
+        child = subprocess.Popen(
+            [sys.executable, "-c", child_script],
+            env=env,
+            cwd=os.getcwd(),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        async with asyncio.timeout(8):
+            while await redis.get(marker_key) != "ready":
+                if child.poll() is not None:
+                    stderr = child.stderr.read() if child.stderr else ""
+                    raise AssertionError(f"worker child exited early: {stderr}")
+                await asyncio.sleep(0.05)
+
+        assert await redis.get(lease_key) is not None
+        child.kill()
+        child.wait(timeout=3)
+
+        # The process is gone but Redis retains its lease until its short TTL.
+        assert await redis.get(lease_key) is not None
+
+        class ReplacementConsumer:
+            async def listen(self, keys):
+                now = datetime.now(timezone.utc)
+                yield {
+                    "instrument_key": keys[0],
+                    "ltp": 2501.25,
+                    "received_at": now.isoformat(),
+                }
+                await asyncio.Future()
+
+        replacement = RedisMarketQuoteWorker(
+            redis_client=redis,
+            subscription_loader=lambda: {user_id: [instrument]},
+            consumer_factory=lambda _client, _owner: ReplacementConsumer(),
+            lease_seconds=3,
+            reconcile_seconds=0.05,
+        )
+        await replacement.reconcile_once()
+        async with asyncio.timeout(8):
+            while replacement.latest_quote(user_id, instrument) is None:
+                await asyncio.sleep(0.05)
+
+        quote = replacement.latest_quote(user_id, instrument)
+        assert quote is not None
+        assert quote["ltp"] == 2501.25
+        assert await redis.get(lease_key) is not None
+    finally:
+        if child is not None and child.poll() is None:
+            child.kill()
+            child.wait(timeout=3)
+        if replacement is not None:
+            await replacement.close()
+        await redis.delete(marker_key, lease_key)
+        await redis.aclose()

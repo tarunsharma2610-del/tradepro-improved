@@ -533,7 +533,7 @@ async def test_postgres_recovery_sweeper_resumes_expired_executing_worker(
         # sweeper must find the row without any Redis redelivery.
         resumed = []
 
-        async def recovered_execution(*, user_id, event_id, claim_token):
+        async def recovered_execution(_service, *, user_id, event_id, claim_token):
             assert user_id == ids[0]
             with Session.begin() as db:
                 lifecycle = PaperStopEventLifecycle(db)

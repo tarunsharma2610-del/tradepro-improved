@@ -40,18 +40,3 @@ def snapshot() -> dict[str, object]:
                 for name in sorted(_ALLOWED_COUNTERS)
             },
         }
-
-
-def test_metric_names_are_allowlisted_to_prevent_unbounded_cardinality():
-    import pytest
-
-    with pytest.raises(ValueError, match="Unknown market-data metric"):
-        increment("market_quote_dispatch_user_secret_123")
-
-
-def test_snapshot_exposes_fixed_zero_initialized_counter_set():
-    result = snapshot()
-    assert result["scope"] == "process_local"
-    assert result["trading_mode"] == "PAPER"
-    assert len(result["counters"]) == len(_ALLOWED_COUNTERS)
-    assert all(isinstance(value, int) and value >= 0 for value in result["counters"].values())

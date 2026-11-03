@@ -44,3 +44,21 @@ def test_dispatcher_updates_operational_counters_for_accept_coalesce_drop_and_re
     ) == 1
     assert "opaque-test-user" not in repr(after)
     assert "NSE_EQ|ONE" not in repr(after)
+
+
+def test_metric_names_are_allowlisted_to_prevent_unbounded_cardinality():
+    import pytest
+    from app.services.market_data_metrics import increment
+
+    with pytest.raises(ValueError, match="Unknown market-data metric"):
+        increment("market_quote_dispatch_user_secret_123")
+
+
+def test_snapshot_exposes_fixed_zero_initialized_counter_set():
+    from app.services.market_data_metrics import _ALLOWED_COUNTERS, snapshot
+
+    result = snapshot()
+    assert result["scope"] == "process_local"
+    assert result["trading_mode"] == "PAPER"
+    assert len(result["counters"]) == len(_ALLOWED_COUNTERS)
+    assert all(isinstance(value, int) and value >= 0 for value in result["counters"].values())

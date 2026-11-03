@@ -162,6 +162,37 @@ class MarketScanner:
         self._latest_seen[identity] = time.monotonic()
         return observation
 
+    @staticmethod
+    def passes_market_quality(
+        observation: MarketScanObservation,
+        *,
+        max_spread_bps: float,
+        min_bid_quantity: float = 0.0,
+        min_ask_quantity: float = 0.0,
+    ) -> bool:
+        """Apply caller-supplied liquidity limits; unknown data fails closed.
+
+        Thresholds are deliberately explicit inputs rather than universal
+        constants because acceptable spreads/depth differ by segment and
+        instrument. This is a scanner filter only, never an execution rule.
+        """
+        limits = (max_spread_bps, min_bid_quantity, min_ask_quantity)
+        if any(_finite_number(value) is None for value in limits):
+            return False
+        if max_spread_bps < 0 or min_bid_quantity < 0 or min_ask_quantity < 0:
+            return False
+        if (
+            observation.spread_bps is None
+            or observation.best_bid_quantity is None
+            or observation.best_ask_quantity is None
+        ):
+            return False
+        return (
+            observation.spread_bps <= max_spread_bps
+            and observation.best_bid_quantity >= min_bid_quantity
+            and observation.best_ask_quantity >= min_ask_quantity
+        )
+
     def latest(self, user_id: UUID | str, instrument_key: str) -> MarketScanObservation | None:
         identity = (str(user_id), instrument_key)
         seen = self._latest_seen.get(identity)

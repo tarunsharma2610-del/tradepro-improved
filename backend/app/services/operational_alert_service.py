@@ -121,8 +121,8 @@ class OperationalAlertMonitor:
                 return False
             logger.warning("PAPER operational alert delivered: %s", fingerprint)
             return True
-        except Exception:
-            logger.exception("PAPER operational alert delivery failed.")
+        except Exception as exc:
+            logger.error("PAPER operational alert delivery failed (%s).", type(exc).__name__)
             try:
                 await self.redis.delete(dedupe_key)
             except Exception:

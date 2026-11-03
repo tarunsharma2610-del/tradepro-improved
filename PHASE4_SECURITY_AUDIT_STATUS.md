@@ -279,3 +279,40 @@ Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`.
 - Alerting is NOT implemented. Compose currently has PostgreSQL, Redis, backend, worker, frontend and Nginx, but no independent Prometheus/Alertmanager/notification service. Proposed thresholds are design candidates only, not approved production settings.
 - Remaining: independent alert delivery/failure recovery; endpoint-by-endpoint IDOR/cross-user authorization review; realistic sustained-load and multi-replica crash-window testing; final documentation synchronization and exact-head CI.
 - Safety unchanged: PAPER mandatory; live broker order writes disabled; PR #9 and #10 Draft/unmerged; only `tradepro-improved`; original `Tradepro` untouched.
+
+
+## Endpoint authorization and PAPER/LIVE audit addendum — 3 November 2026
+
+### Scope and inspected routes
+
+Source-reviewed the versioned API routers for portfolios, strategies, backtests, broker charge evidence, reconciliation, settings, users, and Upstox charge APIs. The review focused on authentication dependencies, owner scoping, child-resource lookups, admin-only operations, and execution-mode checks.
+
+### Verified safeguards in source and existing regression tests
+
+- Portfolio lookup is scoped through `PortfolioRepository.get_for_user(user.id, portfolio_id)`; child position/order/execution and broker snapshot reads occur only after the portfolio ownership check.
+- Strategy routes first verify portfolio ownership; strategy reads/updates/deletes/evaluation are constrained to the route's portfolio. Activation also verifies PAPER mode.
+- Backtest list/get/trades/delete operations use user-scoped repository methods.
+- Broker connection and Analytics Token settings are user-scoped; credential/token values are not returned in API responses.
+- Broker charge evidence is joined to the owning broker connection; cross-user access returns not found. Cross-user review is restricted to platform admins, and review also requires a different reviewer from the extractor.
+- Reconciliation queries are filtered by the authenticated user's ID.
+- Platform settings require the admin dependency.
+- Upstox charge operations resolve the connected token through the authenticated user's broker connection.
+- Existing API isolation tests cover cross-user portfolio, strategy, backtest, pending-order cancellation, broker evidence/reconciliation, broker credentials/tokens, market-data stream state, and OAuth callback state.
+- Existing PAPER/LIVE tests verify immutable trading mode, LIVE order rejection before broker access, LIVE strategy activation denial, fail-closed LIVE positions/balances, and broker allocation constraints.
+
+### MFA defect fixed in separate Draft PR #11
+
+Source review found `mfa_verify` and `mfa_disable` called `response.delete_cookie` without accepting FastAPI's `Response` parameter. The route signatures now inject `Response`, and HTTP-level tests cover cookie clearing after MFA enable and disable.
+
+- PR #11 head: `c11dc9de719a3fb417a0c9760b2cff944aed4d7a`.
+- Backend CI #41646429604: SUCCESS; 1,633 tests passed, 8 warnings; broker-write boundary guard passed.
+- Security CI #41646429541: SUCCESS; CodeQL and dependency audit passed.
+- PR #11 remains Draft and unmerged.
+
+### Audit limits / remaining review
+
+This is a focused source-and-regression-test review, not a formal penetration test, independent security assessment, or certification. It does not establish that every deployment secret, reverse-proxy rule, cloud IAM policy, network ACL, database role, backup, or runtime host is correctly configured. Continue testing authorization against deployed PostgreSQL and multi-user sessions, review rate limits and file upload/storage boundaries, and run independent security testing before any public or LIVE use.
+
+### Safety
+
+PAPER remains mandatory. Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. PRs #9, #10, and #11 remain Draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` is untouched.

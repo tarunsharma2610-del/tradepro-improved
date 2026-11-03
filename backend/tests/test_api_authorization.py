@@ -272,3 +272,34 @@ def test_mfa_disable_revokes_browser_cookies(client):
     assert disabled.status_code == 204
     assert client.cookies.get("access_token") is None
     assert client.cookies.get("refresh_token") is None
+
+
+def test_enabled_mfa_cannot_be_replaced_from_an_authenticated_session(client):
+    import pyotp
+
+    _register_and_login(client, "mfa-replacement@example.com")
+    enrolled = client.post("/api/v1/auth/mfa/enroll")
+    assert enrolled.status_code == 200
+    original_secret = enrolled.json()["secret"]
+
+    enabled = client.post(
+        "/api/v1/auth/mfa/verify",
+        json={"code": pyotp.TOTP(original_secret).now()},
+    )
+    assert enabled.status_code == 204
+
+    # MFA activation revokes the original session; authenticate again using
+    # the existing factor, then attempt to replace it without proving it.
+    login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "mfa-replacement@example.com",
+            "password": "correct-horse-battery-staple",
+            "mfa_code": pyotp.TOTP(original_secret).now(),
+        },
+    )
+    assert login.status_code == 200
+
+    replacement = client.post("/api/v1/auth/mfa/enroll")
+    assert replacement.status_code == 409
+    assert "MFA is already enabled" in replacement.json()["detail"]

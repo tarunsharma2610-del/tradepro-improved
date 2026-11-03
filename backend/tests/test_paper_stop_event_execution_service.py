@@ -230,3 +230,28 @@ async def test_missing_analytics_token_keeps_stop_claim_retryable_without_creati
     assert event.claim_token == token
     assert db_session.query(Order).filter(Order.paper_stop_event_id == event_id).count() == 0
     assert db_session.query(Execution).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_stop_event_is_terminalized_when_indicator_exit_already_closed_position(
+    db_session, portfolio, instrument
+):
+    user, _ = portfolio
+    _, position, event_id, token = _claimed_event(db_session, user, portfolio[1], instrument)
+    # Model the competing indicator-exit path winning the shared portfolio lock
+    # and committing its reduce-only fill before the stop worker acquires it.
+    position.quantity = 0
+    db_session.add(position)
+    db_session.commit()
+
+    with pytest.raises(PaperStopEventExecutionRejected, match="already closed"):
+        await PaperStopEventExecutionService(db_session).execute_claimed(
+            user_id=user.id, event_id=event_id, claim_token=token
+        )
+
+    db_session.expire_all()
+    event = db_session.get(PaperStopEvent, event_id)
+    assert event.state == "FAILED"
+    assert event.last_error_code == "POSITION_ALREADY_CLOSED"
+    assert db_session.query(Order).filter(Order.paper_stop_event_id == event_id).count() == 0
+    assert db_session.query(Execution).count() == 0

@@ -66,3 +66,16 @@ Two additional tests cover:
 - Missing Telegram configuration does not consume the cooldown; after settings are corrected, the same alert can be delivered immediately.
 
 These tests are included in the latest backend CI run. Earlier green CI on commit `fb1d235a0bbbb2f44aca130130f6ea8704908c89` does not verify these follow-up changes. Current code head at the time of this document update: `4f7829a8019758b9eb0fc770dcae80d9cbb1c428`; exact-head CI must pass before this is a verified checkpoint.
+
+
+## External host watchdog follow-up — 3 November 2026
+
+A separate host-side watchdog has now been added because an in-process monitor cannot observe a complete worker-container crash:
+
+- `ops/worker_watchdog.py` checks Docker Compose worker state and restart count.
+- A systemd oneshot service and one-minute timer run outside the worker container.
+- State transitions and Docker restart-count changes are written to the host journal; an optional HTTPS webhook can forward minimal alerts.
+- The watchdog does not restart containers or interact with broker/order paths. Docker's existing restart policy remains responsible for restart.
+- Tests are in `backend/tests/test_host_worker_watchdog.py`.
+
+See `PHASE4_EXTERNAL_WATCHDOG.md` for installation and limitations. This is code and test coverage only; it has not been installed on the Oracle VM. VM/Docker daemon/systemd failure still requires cloud-provider instance monitoring and an independent notification route. A one-minute poll may miss brief failures that recover without incrementing Docker restart count.

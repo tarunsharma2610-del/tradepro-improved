@@ -108,7 +108,7 @@ class RedisDispatchMetricsExporter:
         sequence = self._sequence
         worker_key = f"{_WORKER_KEY_PREFIX}{self.worker_id}"
         dedupe_key = f"{_FLUSH_KEY_PREFIX}{self.worker_id}:{sequence}"
-        args = [86400, self.worker_id, 60, 604800]
+        args = [86400, self.worker_id, 60000, 604800]
         for name, amount in deltas.items():
             args.extend((name, amount))
 

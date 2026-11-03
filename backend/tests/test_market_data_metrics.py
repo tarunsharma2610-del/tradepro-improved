@@ -105,14 +105,21 @@ def test_snapshot_exposes_fixed_zero_initialized_counter_set():
 
 @pytest.mark.asyncio
 async def test_redis_exporter_aggregates_deltas_from_multiple_worker_replicas():
-    before = snapshot()["counters"]
     redis = _FakeRedis()
-    worker_a = RedisDispatchMetricsExporter(worker_id="worker-a")
-    worker_b = RedisDispatchMetricsExporter(worker_id="worker-b")
+    local_a = {name: 0 for name in _ALLOWED_COUNTERS}
+    local_b = {name: 0 for name in _ALLOWED_COUNTERS}
+    provider_a = lambda: {"counters": dict(local_a)}
+    provider_b = lambda: {"counters": dict(local_b)}
+    worker_a = RedisDispatchMetricsExporter(
+        worker_id="worker-a", snapshot_provider=provider_a
+    )
+    worker_b = RedisDispatchMetricsExporter(
+        worker_id="worker-b", snapshot_provider=provider_b
+    )
 
-    increment("market_quote_dispatch_processed_total", 3)
+    local_a["market_quote_dispatch_processed_total"] += 3
     assert await worker_a.flush_once(redis) is True
-    increment("market_quote_dispatch_processed_total", 2)
+    local_b["market_quote_dispatch_processed_total"] += 2
     assert await worker_b.flush_once(redis) is True
 
     result = await fleet_snapshot(redis)
@@ -120,9 +127,7 @@ async def test_redis_exporter_aggregates_deltas_from_multiple_worker_replicas():
     assert result["source"] == "redis_atomic_counters"
     assert result["trading_mode"] == "PAPER"
     assert result["worker_count"] == 2
-    assert result["counters"]["market_quote_dispatch_processed_total"] == (
-        5 + before["market_quote_dispatch_processed_total"]
-    )
+    assert result["counters"]["market_quote_dispatch_processed_total"] == 5
 
 
 @pytest.mark.asyncio
@@ -130,8 +135,12 @@ async def test_redis_exporter_retry_after_lost_response_does_not_double_count():
     import pytest
 
     redis = _FakeRedis()
-    exporter = RedisDispatchMetricsExporter(worker_id="worker-retry")
-    increment("market_quote_dispatch_handler_failures_total", 4)
+    local = {name: 0 for name in _ALLOWED_COUNTERS}
+    exporter = RedisDispatchMetricsExporter(
+        worker_id="worker-retry",
+        snapshot_provider=lambda: {"counters": dict(local)},
+    )
+    local["market_quote_dispatch_handler_failures_total"] += 4
     redis.raise_after_commit_once = True
 
     with pytest.raises(ConnectionError, match="lost Redis response"):
@@ -139,7 +148,7 @@ async def test_redis_exporter_retry_after_lost_response_does_not_double_count():
 
     # New events can arrive while the previous response is uncertain. The
     # exporter must retry the frozen batch first, then flush the new delta.
-    increment("market_quote_dispatch_handler_failures_total", 3)
+    local["market_quote_dispatch_handler_failures_total"] += 3
     assert await exporter.flush_once(redis) is True
     assert await exporter.flush_once(redis) is True
     result = await fleet_snapshot(redis)
@@ -150,8 +159,12 @@ async def test_redis_exporter_retry_after_lost_response_does_not_double_count():
 @pytest.mark.asyncio
 async def test_redis_exporter_does_not_repeat_an_already_flushed_delta():
     redis = _FakeRedis()
-    exporter = RedisDispatchMetricsExporter(worker_id="worker-stable")
-    increment("market_quote_dispatch_exhausted_total", 2)
+    local = {name: 0 for name in _ALLOWED_COUNTERS}
+    exporter = RedisDispatchMetricsExporter(
+        worker_id="worker-stable",
+        snapshot_provider=lambda: {"counters": dict(local)},
+    )
+    local["market_quote_dispatch_exhausted_total"] += 2
 
     assert await exporter.flush_once(redis) is True
     assert await exporter.flush_once(redis) is False

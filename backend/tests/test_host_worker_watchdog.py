@@ -251,3 +251,12 @@ services:
         assert "running=2/2" in recovered[2]
     finally:
         compose("down", "--volumes", "--remove-orphans")
+
+
+def test_systemd_watchdog_is_not_hard_dependent_on_docker_daemon():
+    """The watchdog must still run when Docker itself is unavailable."""
+    service_path = Path(__file__).resolve().parents[2] / "ops/systemd/tradepro-worker-watchdog.service"
+    service = service_path.read_text(encoding="utf-8")
+    unit_section = service.split("[Service]", 1)[0]
+    assert "After=docker.service" in unit_section
+    assert "Requires=docker.service" not in unit_section

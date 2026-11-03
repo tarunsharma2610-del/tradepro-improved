@@ -20,19 +20,25 @@ WEBHOOK_URL = os.environ.get("TRADEPRO_WATCHDOG_WEBHOOK_URL", "").strip()
 
 
 def worker_state() -> tuple[str, str, str]:
-    result = subprocess.run(
-        ["docker", "compose", "-f", str(COMPOSE_FILE), "ps", "-q", "worker"],
-        check=False, capture_output=True, text=True, timeout=10,
-    )
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "-f", str(COMPOSE_FILE), "ps", "-q", "worker"],
+            check=False, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown", "unknown", "Docker Compose inspection unavailable"
     container_id = result.stdout.strip().splitlines()
     if result.returncode != 0:
         return "unknown", "unknown", "Docker Compose inspection failed"
     if not container_id:
         return "missing", "missing", "worker container is absent"
-    inspected = subprocess.run(
-        ["docker", "inspect", "--format", "{{.State.Status}} {{.RestartCount}}", container_id[0]],
-        check=False, capture_output=True, text=True, timeout=10,
-    )
+    try:
+        inspected = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Status}} {{.RestartCount}}", container_id[0]],
+            check=False, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown", "unknown", "Docker worker inspection unavailable"
     if inspected.returncode != 0:
         return "unknown", "unknown", "Docker inspection failed"
     fields = inspected.stdout.strip().split()
@@ -48,6 +54,9 @@ def _notify(state: str, detail: str) -> None:
     message = f"Tradepro Improved host watchdog: worker {state}. {detail}"
     print(message, flush=True)
     if not WEBHOOK_URL:
+        return
+    if not WEBHOOK_URL.startswith("https://"):
+        print("Watchdog webhook must use HTTPS; notification was not forwarded.", file=sys.stderr)
         return
     request = urllib.request.Request(
         WEBHOOK_URL,
@@ -77,7 +86,7 @@ def main() -> int:
         try:
             STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
             temporary = STATE_FILE.with_suffix(".tmp")
-            temporary.write_text(state + "\n", encoding="utf-8")
+            temporary.write_text(fingerprint + "\n", encoding="utf-8")
             temporary.replace(STATE_FILE)
         except OSError:
             print("Watchdog could not persist transition state.", file=sys.stderr)

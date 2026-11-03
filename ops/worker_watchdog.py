@@ -22,32 +22,54 @@ WEBHOOK_URL = os.environ.get("TRADEPRO_WATCHDOG_WEBHOOK_URL", "").strip()
 def worker_state() -> tuple[str, str, str]:
     try:
         result = subprocess.run(
-            ["docker", "compose", "-f", str(COMPOSE_FILE), "ps", "-q", "worker"],
+            ["docker", "compose", "-f", str(COMPOSE_FILE), "ps", "--all", "-q", "worker"],
             check=False, capture_output=True, text=True, timeout=10,
         )
     except (OSError, subprocess.TimeoutExpired):
         return "unknown", "unknown", "Docker Compose inspection unavailable"
-    container_id = result.stdout.strip().splitlines()
+    container_ids = result.stdout.strip().splitlines()
     if result.returncode != 0:
         return "unknown", "unknown", "Docker Compose inspection failed"
-    if not container_id:
-        return "missing", "missing", "worker container is absent"
+    if not container_ids:
+        return "missing", "missing", "worker containers are absent"
     try:
         inspected = subprocess.run(
-            ["docker", "inspect", "--format", "{{.State.Status}} {{.RestartCount}}", container_id[0]],
+            [
+                "docker", "inspect", "--format",
+                "{{.State.Status}} {{.RestartCount}}", *container_ids,
+            ],
             check=False, capture_output=True, text=True, timeout=10,
         )
     except (OSError, subprocess.TimeoutExpired):
         return "unknown", "unknown", "Docker worker inspection unavailable"
     if inspected.returncode != 0:
         return "unknown", "unknown", "Docker inspection failed"
-    fields = inspected.stdout.strip().split()
-    if len(fields) != 2:
-        return "unknown", "unknown", "Docker returned an invalid worker state"
-    status, restart_count = fields
-    if status != "running":
-        return "down", f"down:{status}", f"worker container state is {status}"
-    return "running", f"running:{restart_count}", f"worker container running; restart_count={restart_count}"
+
+    rows = [line.split() for line in inspected.stdout.splitlines() if line.strip()]
+    if len(rows) != len(container_ids) or any(
+        len(row) != 2 or not row[1].isdigit() for row in rows
+    ):
+        return "unknown", "unknown", "Docker returned an invalid worker fleet state"
+
+    states = [(row[0], int(row[1])) for row in rows]
+    running_count = sum(status == "running" for status, _ in states)
+    total_count = len(states)
+    restart_counts = ",".join(str(count) for count in sorted(count for _, count in states))
+    if running_count == total_count:
+        state = "running"
+    elif running_count == 0:
+        state = "down"
+    else:
+        state = "degraded"
+    fingerprint_states = ",".join(
+        f"{status}:{count}" for status, count in sorted(states)
+    )
+    fingerprint = f"{state}:{running_count}/{total_count}:{fingerprint_states}"
+    detail = (
+        f"worker fleet running={running_count}/{total_count}; "
+        f"non_running={total_count - running_count}; restart_counts={restart_counts}"
+    )
+    return state, fingerprint, detail
 
 
 def _notify(state: str, detail: str) -> None:

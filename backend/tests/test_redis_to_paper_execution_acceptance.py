@@ -4,6 +4,7 @@ This test intentionally exercises the production Redis publisher/consumer,
 scanner/dispatcher and durable PAPER stop-event handler. It never invokes a
 broker order-write endpoint; the execution service's market quote is stubbed.
 """
+import asyncio
 import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal

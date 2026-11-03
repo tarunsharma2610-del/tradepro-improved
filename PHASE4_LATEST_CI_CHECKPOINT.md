@@ -1,3 +1,10 @@
+## Pending implementation — watchdog Docker-daemon failure visibility — 3 November 2026
+
+- Removed `Requires=docker.service` from the watchdog unit while retaining `After=docker.service`, so systemd can start the watchdog when Docker is inactive.
+- Added a static unit regression test requiring ordering and forbidding a hard Docker dependency.
+- Commits: `adf38c32cbb73b16f9f23494d7573906b2e23f38`, `e1bcae4a51ced3cd12a4b1af7eeba6c6a989fac4`.
+- This is not verified until Backend and Security workflows pass on the final documentation/implementation head.
+
 ## Latest exact-head documentation checkpoint — 3 November 2026
 
 - Commit: `7c75ebd22c803d4778eea40556a8c87eb5abe0f5`.

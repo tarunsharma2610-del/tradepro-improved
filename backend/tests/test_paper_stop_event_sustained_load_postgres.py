@@ -269,7 +269,10 @@ async def test_postgres_paper_stop_event_handler_sustained_load(monkeypatch, rec
 
         ordered = sorted(completion_latencies_ms)
         def percentile(p):
-            return ordered[min(len(ordered) - 1, int((len(ordered) - 1) * p))]
+            # Nearest-rank percentile: ceil(p * n) - 1. With 12 samples,
+            # p95/p99 correctly resolve to the maximum observed latency.
+            import math
+            return ordered[max(0, min(len(ordered) - 1, math.ceil(p * len(ordered)) - 1))]
 
         metrics = {
             "observations": observation_count,

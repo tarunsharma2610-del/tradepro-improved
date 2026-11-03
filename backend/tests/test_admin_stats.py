@@ -54,7 +54,20 @@ def test_market_data_metrics_requires_admin(client):
     assert client.get("/api/v1/admin/market-data-metrics").status_code == 403
 
 
-def test_market_data_metrics_admin_route_returns_only_fixed_aggregate_counters(client, make_user):
+def test_market_data_metrics_admin_route_returns_only_fixed_aggregate_counters(client, make_user, monkeypatch):
+    from app.services.market_data_metrics import _ALLOWED_COUNTERS
+
+    class FakeRedis:
+        async def hgetall(self, key):
+            return {name: 0 for name in _ALLOWED_COUNTERS}
+
+        async def scard(self, key):
+            return 2
+
+        async def aclose(self):
+            return None
+
+    monkeypatch.setattr("app.api.v1.admin.from_url", lambda *args, **kwargs: FakeRedis())
     make_user(email="metrics-admin@example.com", is_admin=True)
     client.post(
         "/api/v1/auth/login",
@@ -64,7 +77,9 @@ def test_market_data_metrics_admin_route_returns_only_fixed_aggregate_counters(c
     response = client.get("/api/v1/admin/market-data-metrics")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["scope"] == "process_local"
+    assert payload["scope"] == "fleet_aggregated"
+    assert payload["source"] == "redis_atomic_counters"
+    assert payload["worker_count"] == 2
     assert payload["trading_mode"] == "PAPER"
     assert set(payload["counters"]) == {
         "market_quote_dispatch_accepted_unique_total",

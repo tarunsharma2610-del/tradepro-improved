@@ -1,3 +1,18 @@
+## Documentation synchronization checkpoint — 3 November 2026
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; branch: `phase4/redis-market-data-publisher`; PR #9 remains OPEN, Draft, and unmerged.
+- Latest verified implementation/documentation head before this synchronization: `b6d1af8b527a59016fb58f0307ae5480119da772`.
+- Exact-head Backend CI [#41594132321 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41594132321): full pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore and evidence retention all passed.
+- Exact-head Security CI [#41594132339 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41594132339): CodeQL static analysis and Python dependency vulnerability audit passed.
+- The verified metrics implementation remains seven fixed, low-cardinality PAPER dispatch counters exposed through an admin-only endpoint. Counters are process-local; multi-replica aggregation and production alerting are NOT implemented.
+- Remaining next slice: design and test safe multi-replica metric aggregation and scrape identity; then add saturation/worker-failure thresholds and reproducible sustained-load/restart-recovery tests. Continue API ownership/cross-user isolation audit.
+- Scanner deterministic ranking is implemented and CI-verified at `c5b549940a86386b2a48978f1aeac187b52fb8b4`; scanner-to-PAPER end-to-end observation/execution/ledger acceptance still needs completion and review.
+- Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes remain disabled. No deployment, LIVE readiness or production restore is claimed. Original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
+
+> This entry records the verified state before the documentation-only synchronization commit. The new documentation commit is not a green checkpoint until its own exact-head Backend and Security CI runs pass.
+
+---
+
 ## Latest Phase 4 operational observability checkpoint — 3 November 2026
 
 This update supersedes earlier "next step" and latest-head summaries in this document.

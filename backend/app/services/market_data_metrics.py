@@ -73,6 +73,7 @@ class RedisDispatchMetricsExporter:
         self.worker_id = worker_id or uuid4().hex
         self._last_flushed = dict(snapshot()["counters"])
         self._sequence = 0
+        self._pending_batch = None
 
     async def flush_once(self, redis_client) -> bool:
         """Flush one delta batch; safe to retry the same sequence after errors.
@@ -81,13 +82,19 @@ class RedisDispatchMetricsExporter:
         A duplicate sequence is treated as already applied, which handles the
         case where Redis committed but the client lost the response.
         """
-        current = snapshot()["counters"]
-        deltas = {
-            name: current[name] - self._last_flushed[name]
-            for name in sorted(_ALLOWED_COUNTERS)
-        }
-        if any(value < 0 for value in deltas.values()):
-            raise RuntimeError("Process-local metric counters unexpectedly regressed.")
+        if self._pending_batch is None:
+            current = snapshot()["counters"]
+            deltas = {
+                name: current[name] - self._last_flushed[name]
+                for name in sorted(_ALLOWED_COUNTERS)
+            }
+            if any(value < 0 for value in deltas.values()):
+                raise RuntimeError("Process-local metric counters unexpectedly regressed.")
+            # Freeze the exact payload across retries. If Redis committed but
+            # its response was lost, later local increments belong to the next
+            # sequence and must not be marked flushed by the dedupe response.
+            self._pending_batch = (dict(current), dict(deltas))
+        current, deltas = self._pending_batch
 
         sequence = self._sequence
         worker_key = f"{_WORKER_KEY_PREFIX}{self.worker_id}"
@@ -107,6 +114,7 @@ class RedisDispatchMetricsExporter:
         )
         self._last_flushed = dict(current)
         self._sequence += 1
+        self._pending_batch = None
         return any(deltas.values())
 
 

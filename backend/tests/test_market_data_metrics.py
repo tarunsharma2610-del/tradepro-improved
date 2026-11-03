@@ -137,11 +137,13 @@ async def test_redis_exporter_retry_after_lost_response_does_not_double_count():
     with pytest.raises(ConnectionError, match="lost Redis response"):
         await exporter.flush_once(redis)
 
-    # The exporter retries the same sequence. Redis's atomic dedupe marker
-    # reports the prior commit instead of applying the batch twice.
+    # New events can arrive while the previous response is uncertain. The
+    # exporter must retry the frozen batch first, then flush the new delta.
+    increment("market_quote_dispatch_handler_failures_total", 3)
+    assert await exporter.flush_once(redis) is True
     assert await exporter.flush_once(redis) is True
     result = await fleet_snapshot(redis)
-    assert result["counters"]["market_quote_dispatch_handler_failures_total"] == 4
+    assert result["counters"]["market_quote_dispatch_handler_failures_total"] == 7
     assert result["worker_count"] == 1
 
 

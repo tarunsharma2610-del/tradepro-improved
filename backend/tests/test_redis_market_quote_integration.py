@@ -790,3 +790,101 @@ async def test_real_redis_parallel_process_publish_load_preserves_versions_and_m
             ])
         await redis.delete(*cleanup_keys)
         await redis.aclose()
+
+
+@pytest.mark.asyncio
+async def test_real_redis_dispatcher_backpressure_recovers_dropped_snapshots():
+    """A full dispatcher drops unique keys safely, then Redis snapshot sweeps retry them."""
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    user_id = uuid4()
+    instruments = [f"NSE_EQ|BACKPRESSURE{index}" for index in range(4)]
+    publishers = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(
+        redis,
+        user_id,
+        max_age_seconds=15,
+        snapshot_recovery_interval_seconds=0.01,
+    )
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=2)
+    pipeline = MarketScanDispatchPipeline(dispatcher=dispatcher)
+    listener = consumer.listen(
+        instruments,
+        max_reconnect_attempts=1,
+        min_backoff_seconds=0.01,
+        max_backoff_seconds=0.02,
+    )
+    first_waiter = asyncio.create_task(anext(listener))
+    snapshot_keys = [
+        publishers.snapshot_key(instrument) for instrument in instruments
+    ]
+    try:
+        # Do not publish until the real Redis Pub/Sub subscription is active.
+        async with asyncio.timeout(3):
+            while True:
+                subscriptions = await redis.pubsub_numsub(consumer.channel)
+                if subscriptions and subscriptions[0][1] == 1:
+                    break
+                await asyncio.sleep(0.01)
+
+        for index, instrument in enumerate(instruments):
+            now = datetime.now(timezone.utc)
+            tick = MarketTick(
+                instrument_key=instrument,
+                ltp=110.0 + index,
+                exchange_timestamp_ms=int(now.timestamp() * 1000),
+                received_at=now,
+                received_monotonic=time.monotonic(),
+                volume_traded_today=1200,
+                open_interest=4500,
+                total_buy_quantity=700,
+                total_sell_quantity=300,
+                ohlc=({"interval": "1d", "close": 100.0},),
+            )
+            assert await publishers.publish(tick)
+            quote = await asyncio.wait_for(
+                first_waiter if index == 0 else anext(listener),
+                timeout=3,
+            )
+            assert quote["instrument_key"] == instrument
+            accepted = pipeline.on_quote(user_id, quote)
+            assert accepted is (index < dispatcher.capacity)
+
+        # The first two keys fill the bounded queue; the remaining two are
+        # rejected by the dispatcher and cleared from scanner memory for retry.
+        assert dispatcher.pending_keys == 2
+        assert dispatcher.dropped_unique_keys == 2
+        assert pipeline.accepted_observations == 2
+        assert pipeline.rejected_dispatches == 2
+
+        drained = []
+        for _ in range(dispatcher.capacity):
+            item = await dispatcher.get()
+            drained.append(item.instrument_key)
+            dispatcher.task_done()
+        assert set(drained) == set(instruments[:2])
+        assert dispatcher.pending_keys == 0
+
+        # Pub/Sub is only a wake-up path. The periodic authoritative snapshot
+        # sweep must retry the two previously dropped keys after capacity frees.
+        recovered = set()
+        async with asyncio.timeout(4):
+            while len(recovered) < 2:
+                quote = await anext(listener)
+                if pipeline.on_quote(user_id, quote):
+                    recovered.add(quote["instrument_key"])
+
+        assert recovered == set(instruments[2:])
+        assert pipeline.accepted_observations == 4
+        assert pipeline.rejected_dispatches == 2
+        assert dispatcher.pending_keys == 2
+        assert dispatcher.dropped_unique_keys == 2
+    finally:
+        if not first_waiter.done():
+            first_waiter.cancel()
+            await asyncio.gather(first_waiter, return_exceptions=True)
+        await listener.aclose()
+        cleanup = []
+        for key in snapshot_keys:
+            cleanup.extend([key, key + ":version"])
+        await redis.delete(*cleanup)
+        await redis.aclose()

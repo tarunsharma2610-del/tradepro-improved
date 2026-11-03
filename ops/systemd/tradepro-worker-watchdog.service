@@ -1,7 +1,6 @@
 [Unit]
 Description=Tradepro Improved external Docker worker watchdog
 After=docker.service
-Requires=docker.service
 
 [Service]
 Type=oneshot

@@ -1,3 +1,12 @@
+## Latest Phase 4 operational observability checkpoint — 3 November 2026
+
+- Verified implementation commit: `d5f4a3f2bea7f6c086d163a10765d46fe1391a61`; Backend PR CI #41593091254 and Security PR CI #41593091256 passed on this exact SHA. Push Security #41593085684 also passed.
+- Seven fixed low-cardinality PAPER dispatch counters and admin-only metrics endpoint are covered by tests, including real HTTP authorization. Counters are process-local only; no fleet-wide aggregation or production alerting is claimed.
+- Next: multi-replica aggregation design, alert thresholds, sustained-load/restart recovery and API isolation audit.
+- PR #9 remains Draft/unmerged. PAPER mandatory; live broker writes disabled. No deployment or LIVE readiness is claimed. Only `tradepro-improved`; original `Tradepro` untouched.
+
+---
+
 # Upstox Python SDK compatibility audit — 30 October 2026
 
 ## Decision

@@ -61,7 +61,13 @@ def test_market_data_metrics_admin_route_returns_only_fixed_aggregate_counters(c
         async def hgetall(self, key):
             return {name: 0 for name in _ALLOWED_COUNTERS}
 
-        async def scard(self, key):
+        async def time(self):
+            return (2_000_000_000, 0)
+
+        async def zremrangebyscore(self, key, minimum, maximum):
+            return 0
+
+        async def zcard(self, key):
             return 2
 
         async def aclose(self):

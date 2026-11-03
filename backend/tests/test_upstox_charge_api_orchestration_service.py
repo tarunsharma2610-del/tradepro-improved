@@ -56,7 +56,7 @@ async def test_brokerage_api_is_exposed_as_estimate_only_with_scope():
     }
     assert client.calls[0][1] == "secret-token"
     # Null IPFT is preserved in source payload; this service never converts it to zero.
-    assert result.payload["data"]["charges"]["ipft"] is None
+    assert result.payload["data"]["charges"]["otherTaxes"]["ipft"] is None
 
 
 @pytest.mark.asyncio

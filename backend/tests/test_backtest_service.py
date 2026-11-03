@@ -51,12 +51,17 @@ def _make_run(db_session, user_id, instrument_id, **overrides) -> BacktestRun:
 
 
 def _candles_response(prices: list[float]):
-    """Same convention as test_strategy_execution_service.py: `prices`
-    oldest-to-newest, mocked raw array built newest-first to mirror the
-    real (documented) Upstox shape, which parse_candles un-reverses."""
+    """Build documented newest-first V3 rows with valid offset-aware timestamps."""
     newest_first = list(reversed(prices))
-    candles = [[f"2026-08-{i + 1:02d}T10:00:00", p, p, p, p, 10000, 0] for i, p in enumerate(newest_first)]
-    return BrokerCallResult(ok=True, data={"data": {"candles": candles}})
+    latest = datetime(2026, 8, 15, 15, 15, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    candles = [
+        [
+            (latest - timedelta(minutes=5 * i)).isoformat(),
+            p, p, p, p, 10000, 0,
+        ]
+        for i, p in enumerate(newest_first)
+    ]
+    return BrokerCallResult(ok=True, data={"status": "success", "data": {"candles": candles}})
 
 
 def _mock_historical_data(candles_result: BrokerCallResult):

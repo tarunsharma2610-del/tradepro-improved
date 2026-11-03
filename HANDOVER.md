@@ -2725,3 +2725,185 @@ The documentation sync head `5bb6d06e764c00b1ab406409889a2cde9e74dacf` passed Ba
 - This verifies the 27-document refresh for the Upstox response-schema validation increment. The CI result confirms the backend workflow passed; no test count is asserted because the run summary did not expose one.
 - The latest code fix remains `404c1e11ef4f2557c791c720c8d9a3fbc4e93bc1`, passed Backend CI [#40883660756 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40883660756).
 - Current focus: response schema is endpoint-specific, null/missing IPFT remains distinct from zero, estimates and aggregate summaries cannot become per-fill actuals, and PAPER/live-write safeguards remain unchanged. PR #6/#7 remain Draft/unmerged; original `tarunsharma2610-del/Tradepro` remains out of scope.
+
+
+## Phase 4 resume pointer — 29 October 2026
+
+Authoritative Phase 4 planning records:
+- `PHASE4_ROADMAP.md`
+- `PHASE4_PROGRESS.md`
+- `PHASE4_LATEST_CI_CHECKPOINT.md`
+
+Phase 4 branch: `phase4/roadmap-progress-checkpoints`; created from Phase 3 checkpoint `9add7f98ccf89f0c146e4367b79cdd5877104ff3`. This is planning/checkpoint scaffolding only. The Phase 4 repository audit (P4-0) has not yet been completed, and no Phase 4 feature implementation is claimed. Exact-head CI for the new documentation commits is pending verification.
+
+Resume only after verifying the latest head and its own CI. Next task is P4-0 baseline audit and evidence-based gap matrix. Keep work exclusively in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope. Do not update `main` or merge PR #6/#7 without explicit user authorization. PAPER mode mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled. Upstox Brokerage Details is estimate-only; post-trade Trade Charges is aggregate reconciliation-only, never per-fill actual evidence. Real credentialed OAuth smoke test and production Oracle backup/restore remain deployment-gated.
+
+
+## Phase 4 P4-0 continuation — 29 October 2026
+
+- Static baseline audit saved in `PHASE4_P0_BASELINE_AUDIT.md`. Existing market-data streamer, strategy/risk services, paper execution/accounting, and backend migration/restore checks were found; do not rewrite them without a concrete gap.
+- Safety hardening: `backend/app/core/config.py` now normalizes `TRADING_MODE` and rejects anything except `PAPER` at settings load; regression tests are in `backend/tests/test_trading_mode_safety.py`.
+- Code commit: `791ae9858d80ddf5554db71f134db273e55be29b`; regression test commit: `1517b2947709f96083dc48e06edfebe32152d37f`.
+- Draft PR #8: https://github.com/tarunsharma2610-del/tradepro-improved/pull/8 (base `phase3/cross-broker-gst-ipft-resolution`; head `phase4/roadmap-progress-checkpoints`). PR #8 is unmerged; PR #6/#7 remain unmerged; `main` unchanged.
+- Backend CI run #40896797689 is running on exact head `4b4c78b60685f237fced74d1c9fc36117401515d`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40896797689. Do not call green until completed successfully.
+- Next resume step: inspect exact-head CI result; if green, continue P4-0B broker-write call-path audit and test coverage. If failed, inspect logs, fix on this Phase 4 branch, and rerun before a green checkpoint.
+- Safety unchanged: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker writes disabled; no merge authorized; aggregate post-trade API remains reconciliation-only.
+
+
+## Phase 4 resume checkpoint — 29 October 2026 (latest verified code CI)
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; branch: `phase4/roadmap-progress-checkpoints`.
+- Draft PR #8: https://github.com/tarunsharma2610-del/tradepro-improved/pull/8; base is `phase3/cross-broker-gst-ipft-resolution`. PR remains unmerged. `main` has not been updated. PR #6/#7 remain unmerged.
+- **Latest verified code/test head:** `13bcb6c6b25387916b8e653cb0ba8dd3ad3c31ad`.
+- **Backend CI #40898908339: SUCCESS** on that exact head: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40898908339. Backend pytest, broker-write boundary guard, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, and synthetic PostgreSQL/document-volume restore/evidence retention all passed.
+- CI failure on earlier run #40896927805 was traced to the Upstox Brokerage Details test fixture asserting IPFT under the wrong field. Corrected fixture/assertion uses `data.charges.otherTaxes.ipft`, preserving null distinctly; the retry passed.
+- P4-0 static audit saved in `PHASE4_P0_BASELINE_AUDIT.md`. PAPER-only config validation added in `backend/app/core/config.py`; tests added in `backend/tests/test_trading_mode_safety.py`.
+- **Next step on resume:** verify the current branch head and latest CI (documentation updates can trigger a newer head/run); then continue P4-0B broker-write call-path audit and add targeted tests for every route into broker write methods, automated-entry kill switch, stale market data, and risk checks. Fix any failure and re-run before checkpointing green.
+- Safeguards: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; do not update `main` or merge PR #8/#7/#6 without explicit authorization; PAPER mode mandatory; live `place_order`, `modify_order`, `cancel_order` writes disabled; Upstox Brokerage Details remains estimate-only and aggregate Trade Charges remains reconciliation-only; no credentialed live smoke test or production Oracle restore claimed.
+
+## Latest Phase 4 handover — 30 October 2026
+
+Resume from branch `phase4/roadmap-progress-checkpoints`, latest verified code/test commit `24c34dac47e273f9377485dc697f9fa510808a72`. Exact-head Backend CI #41012821073 passed: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41012821073. PR #8 remains Draft and unmerged; do not merge or update `main`.
+
+Completed since the previous checkpoint: P4-0B static AST broker-write guard now detects literal reflective dispatch via `getattr` for `place_order`, `modify_order`, and `cancel_order`. Regression tests cover rejecting write dispatch and permitting a non-write read method. An earlier run #41012807565 failed because test fixture escaping generated invalid Python; the fix is included in the green exact-head commit.
+
+Next task: P4-0C audit/test automated-entry kill switch, confirm strategy exits remain available when new entries are disabled, inspect stale candle/market-data handling and risk enforcement at the execution boundary. Read `PHASE4_LATEST_CI_CHECKPOINT.md`, `PHASE4_PROGRESS.md`, and `PHASE4_ROADMAP.md` before continuing.
+
+Non-negotiables: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` repository is out of scope; PAPER mode mandatory; live broker writes disabled; no main update or PR merge; don't promote charge estimates or aggregate APIs into per-fill actuals; no real Oracle restore or credentialed live smoke test claimed.
+
+## Updated handover — Upstox-first data integration (30 October 2026)
+
+User's standing direction: work smarter, not like a donkey. Use Upstox Developer Console, current official API docs, supported APIs, official SDKs and schemas/proto when they solve the problem. Audit existing code first. Do not add workaround layers or duplicate infrastructure before checking provider-supported capabilities. Any workaround needs a concrete reason and tests. Stale-data checks are safety nets, not the primary freshness solution.
+
+Latest verified prior code head: c8704cf97af3b2a31cd19114ae56f51dd796b08; Backend CI #41013144850 passed on that head. New instruction/docs are not yet CI-verified.
+
+Audit finding and next task: upstox_market_data_streamer.py already implements the V3 WebSocket/protobuf/reconnect path; adapter.py has V3 quote/historical-candle methods; candle_parsing.py still calls itself BEST-EFFORT; strategy execution fetches candles independently and does not yet consume a shared streaming/candle service. Verify official response contracts, then wire the existing V3 stream and REST warm-up/gap-recovery into a shared candle pipeline without changing the strategy's five-minute semantics. Test ordering, timestamps, instrument identity, disconnect/recovery and incomplete candles. Check SDK compatibility before adding dependencies; don't install an SDK just for appearances.
+
+Official references: https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ ; https://upstox.com/developer/api-documentation/v3/get-intra-day-candle-data/ ; https://upstox.com/developer/api-documentation/installing-sdk/.
+
+Safeguards: only tarunsharma2610-del/tradepro-improved; original Tradepro is out of scope; PR #8 Draft/unmerged; no main update; PAPER mandatory; live broker writes disabled.
+
+## Handover update — API-backed current-session candles (30 October 2026)
+
+User directive remains: use official Upstox Developer Console/API/SDK/schema where useful, audit existing code, avoid workaround-first changes.
+
+New code: optional BrokerAdapter.get_intraday_data; Upstox adapter calls the documented V3 intraday candle endpoint with encoded instrument key; strategy fetches historical and intraday V3 candles concurrently and merges timestamp-normalized records, preferring intraday on overlap. Exchange-local date boundaries use Asia/Kolkata. If either required source fails, strategy receives no candle set and holds rather than fabricating history. Added endpoint and source-merge tests.
+
+Current head: d7c786fc164ed297df42f26493c994ceacd337a7. CI pending; last green run #41014529152 applies to earlier head 58e6674dab5c02f725f76401af358397fd47c161 only. Verify latest CI before claiming the current code is green.
+
+Next task: check/fix CI, then audit worker process boundaries before wiring WebSocket stream. MarketDataStreamManager is in-process and cannot be assumed to be the same instance as the separate worker container. Consider streaming only for live LTP requirements; continue using V3 REST candles for five-minute indicators. SDK was reviewed but not added because no demonstrated benefit yet. No authenticated Upstox console/account test was performed.
+
+Safeguards: work only in tarunsharma2610-del/tradepro-improved; PR #8 remains Draft/unmerged; no main update; PAPER-only; live broker writes disabled.
+
+## Handover — timestamped Upstox full quotes (30 October 2026)
+
+Prior exact head d2662b05d4910d9bf93e307fb08f10a1609405ee passed backend CI #41014929096 and migration CI #41014916708.
+
+Added Full Market Quotes V3 because LTP V3 has no last-trade timestamp, while Full Market Quotes V3 includes instrument_token, last_price and last_trade_time. ExecutionService._get_ltp now prefers a fresh subscribed WebSocket tick and otherwise calls get_full_quote; REST quote is accepted only for the exact requested instrument, positive finite LTP, and last_trade_time no older than 15 seconds or more than 60 seconds in the future. Stale/missing quote rejects paper execution. Added endpoint and helper tests and updated execution/strategy fixtures.
+
+Latest code head 65f8070e344eaa4cd8cb82c876732662d02cc3a3; exact-head CI queued/running, not yet green. API WebSocket registry remains process-local to API; worker is separate. Since worker paper fills already use REST fallback, don't add a Redis bridge or duplicate worker stream unless a measured requirement justifies it.
+
+Official refs: https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ ; https://upstox.com/developer/api-documentation/ltp-v3/
+Safeguards unchanged: only tradepro-improved, PR #8 Draft/unmerged, main untouched, PAPER mandatory, live broker writes disabled.
+
+## Handover — WebSocket timestamp integrity and CI correction (30 October 2026)
+
+CI on earlier Full Market Quote V3 integration failed five existing assertions because the rejection text omitted "price"; invalid prices were already rejected. Corrected wording only in 90bb1f5bf9d43767043a653e68a55b374bf0c599.
+
+Audited the streamer and fixed a substantive edge case: do not substitute packet currentTs for missing LTPC last-trade time (LTT). Packet receive time is not proof of a recent trade. Streamer now caches only finite positive LTP with positive exchange LTT; latest_tick validates exchange age and monotonic receive age. Added NaN/Infinity/missing-LTT tests. Current code head 4dd8420d4d787be049c956204e15bfdff9586f3e. CI #41015772900 running on this exact test head at handover; previous correction CI #41015671461 passed. Streamer code CI #41015756833 was still running. Check exact-head CI before claiming green.
+
+Official docs: Full Market Quotes V3 https://upstox.com/developer/api-documentation/get-full-market-quote-v3/ ; Market Data Feed V3 https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
+
+## CI status correction — 30 October 2026
+
+The exact code/test head 4dd8420d4d787be049c956204e15bfdff9586f3e passed Backend pytest (run #41015772900). WebSocket implementation head d7c74a20a4a46741123ebbf4809176e90199643c passed run #41015756833; wording-only correction head 90bb1f5bf9d43767043a653e68a55b374bf0c599 passed run #41015671461. Current synchronized docs head 2589db1e0a6446ea60d12a075d58ce43fa19ed93 is in CI run #41015946896; verify this exact head before calling the latest checkpoint green.
+
+## Handover — 30 October 2026 (latest verified checkpoint)
+
+Latest code/test head `3a74fbb788a63ca3b042ceec400dbc7a83f32571` passed exact-head Backend CI #41016468736: 1,240 passed, 1 warning. CI also passed broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, and isolated synthetic PostgreSQL/document-volume restore drill.
+
+Paper market execution uses Full Market Quotes V3 executable depth. BUY walks asks; SELL walks bids; the simulated fill is the quantity-weighted average for the requested quantity. Snapshot timestamp (not last_trade_time) determines book freshness; mismatched instrument, stale snapshot, invalid prices or insufficient depth rejects the order. Strategy fixtures were updated; obsolete LTPC-only stream monkeypatch removed.
+
+Important next integration: official Upstox docs now distinguish standard daily access tokens from Analytics Tokens for market data and real-time streaming. Audit the existing broker token retrieval sites, add separately encrypted Analytics Token storage, route only supported market-data and stream APIs to it, and keep standard OAuth access token for account/trading scopes. Do not implement a fake refresh-token flow.
+
+PR #8 remains Draft/unmerged; only `tarunsharma2610-del/tradepro-improved`; main and original Tradepro untouched; PAPER mandatory; live broker writes disabled.
+ 
+## Upstox Analytics Token implementation — 30 October 2026
+
+- Added separate encrypted `analytics_token_encrypted` and `analytics_token_expires_at` fields to per-user broker connections with migration `202610300031` (down revision `202610270030`).
+- Added owner-scoped Settings API to save, inspect status and clear Analytics Token. Token is accepted from the user's Upstox Developer Apps > Analytics page; it is never returned, logged or included in API responses. Expiry is tracked as 365 days from local registration; confirm/renew against the Developer Console's actual expiry date.
+- Analytics Token retrieval is independent of standard OAuth `is_connected` state and fails closed when missing/expired. Standard OAuth access-token path remains separate for operations not documented as Analytics Token eligible.
+- Routed strategy historical/intraday candle fetch, paper market quote/charge estimation, queued paper limit-order quotes, and market WebSocket reconnects through Analytics Token. Broker order/trade ingestion continues to use standard OAuth until each endpoint's Analytics Token/static-IP eligibility is deliberately enabled.
+- Analytics Token is read-only. It cannot place, modify or cancel orders. Live trading remains disabled; PAPER-only guard unchanged.
+- Official docs: https://upstox.com/developer/api-documentation/analytics-token/ ; https://upstox.com/developer/api-documentation/announcements/analytics-token-static-ip/ ; https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
+- CI for this new implementation is pending. Do not mark it accepted until exact-head CI passes, including migration round-trip and token isolation tests.
+
+## CI correction — 30 October 2026
+
+- Latest implementation/test head: `083ab17a5150ea3be514438a16ea7c6c888c0be3`.
+- Previous exact-head run #41017634485 had 1,242 passed and one test-only failure caused by SQLite returning a naive datetime in the expiry assertion. Corrected the test to normalize that value to UTC; production expiry checks already normalize it.
+- Exact-head run #41017833952 is running. Acceptance remains pending until the exact head passes pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore drill.
+- PAPER-only guard remains enforced; PR #8 remains Draft/unmerged; no main update; original Tradepro repository untouched.
+
+
+## Upstox V3 full market feed increment — 30 October 2026
+
+- Audited the existing V3 streamer before changing it; retained the existing authorized-URL flow, TLS validation, protobuf decoder, reconnect loop, stale-tick rejection and callback contract.
+- Extended `UpstoxMarketDataStreamer` to subscribe in official V3 `full` mode by default (five-level depth; Upstox documentation calls this `full`, not `full_d5`). LTPC and `option_greeks` remain explicit supported modes. `full_d30` is deliberately rejected because it is a Plus entitlement and not assumed available.
+- Full-mode tick model now exposes bid/ask depth, option Greeks, OI, traded volume, average traded price, total buy/sell quantity and OHLC snapshots. Optional provider fields remain `None` when not supplied; proto3 scalar default zero is not represented as confirmed data. Existing freshness validation remains unchanged.
+- Applied documented individual subscription limits: LTPC 5,000; option Greeks 3,000; full 2,000. The V3 docs also specify a 1,500 combined limit when mixing categories and per-user connection limits; cross-connection aggregate enforcement belongs in a user-scoped subscription manager and remains a follow-up, not claimed complete here.
+- Added regression tests for full-feed decoding, absent-field semantics, mode-specific limits, and exact binary subscription request mode.
+- Code/test head: `8ba7009ef478ec256ba8b882351bdf514a9e324e`. Exact-head CI is pending verification; no green status is claimed for this increment.
+- Official contract checked: https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ . The official documentation describes `full` as LTPC + five market levels + metadata + Greeks, and confirms India VIX instrument key `NSE_INDEX|India VIX`.
+- Next: verify exact-head CI and fix any failures; then implement the official Option Chain REST endpoint using `oi`, `prev_oi`, volume and Greeks, with missing/null/zero kept distinct. Follow with a subscription manager and shared worker/API market-data pipeline.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original Tradepro untouched; PAPER mode mandatory; live broker order writes disabled.
+
+
+## Upstox option-chain + mode-correct streaming increment — 30 October 2026
+
+- Exact preceding docs head `c00278fb33cc094a0f07d6a61d3ca9827f2dcdcf` passed Backend tests #41018852112 and #41018839615. These runs verify the preceding full-feed/doc checkpoint only, not the new code below.
+- Added optional broker-adapter `get_option_chain` capability and Upstox implementation for the documented `GET /v2/option/chain` endpoint. The authenticated API route `GET /api/v1/market-data/option-chain` uses the separately stored Analytics Token only, validates exact ISO expiry or supported relative expiry keywords, and rejects MCX because Upstox documents that exchange as unsupported for this endpoint.
+- Upstox's response supplies strike-wise call/put market data, OI, previous OI, volume, bid/ask and Greeks. The application adds `change_oi = oi - prev_oi` only when both source values are present and finite; otherwise the derived field is `null`. Original provider fields are retained and no missing/null value is converted to zero.
+- Fixed a scope bug found during audit: the stream manager already retrieves Analytics Token, but the HTTP start route was still gating on daily OAuth. Stream start now correctly requires a valid Analytics Token; it does not require daily OAuth for public market-data streaming. The route reports the actual selected feed mode.
+- Added explicit stream mode selection: `ltpc`, `option_greeks`, or `full`, defaulting to `full`. Mode-specific limits are validated before starting: LTPC 5,000; Option Greeks 3,000; Full 2,000. The user-scoped manager runs one stream per user, below Upstox's normal two-connection ceiling. No Plus-only Full D30 assumption.
+- Option Greeks mode decodes the documented first-level bid/ask depth, Greeks and IV. Full mode retains D5 depth, OHLC and extended metadata parsing. Regression tests cover adapter endpoint/query/auth, provider errors, option-chain route, MCX rejection, expiry validation, OI delta semantics, Analytics Token-only stream authorization, selected modes and mode-specific limits.
+- Code/test head: `42be7ad2a33c2e7a6db08842a5ec9c7c30154af5`. Exact-head CI for this increment is pending; do not claim green until the exact current PR head has passed backend tests and all safety/migration checks.
+- Official contracts: https://upstox.com/developer/api-documentation/analytics-token/ ; https://upstox.com/developer/api-documentation/get-pc-option-chain/ ; https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ ; official V3 proto: https://assets.upstox.com/feed/market-data-feed/v3/MarketDataFeed.proto . Analytics Token supports Option Chain and WebSocket without static IP; MCX Option Chain is not available.
+- Next after exact-head CI: add/verify index + India VIX feed presets and subscription lifecycle management (subscribe/change_mode/unsubscribe) with per-user limits; then test WebSocket recovery and option-chain snapshot/stream consistency. Do not create a duplicate market-data service or Redis bridge without a proven process-boundary need.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original Tradepro untouched; PAPER mode mandatory; live broker order writes disabled.
+
+
+## Upstox V3 subscription lifecycle — 30 October 2026
+
+- Verified the official V3 WebSocket contract directly: methods are `sub`, `unsub`, and `change_mode`; requests must be sent as binary protobuf-feed protocol frames containing JSON bytes. The V3 docs specify normal per-category individual limits of LTPC 5,000, Option Greeks 3,000 and Full 2,000; when categories are mixed, the combined limits are 2,000 for LTPC/Greeks and 1,500 for Full. This implementation deliberately uses one mode per user stream, so it enforces the corresponding individual limit and does not claim mixed-mode capacity.
+- Added native live subscription management to the existing streamer: add instrument keys with `sub`, remove keys with `unsub`, and change the mode of the complete user stream with `change_mode`. It preserves the desired subscription set across reconnects and sends the current complete subscription/mode on the next connection.
+- Mode changes invalidate cached ticks so depth/Greeks from a previous feed mode cannot be consumed as if they came from the newly selected mode. Unsubscribed ticks are removed. The final key cannot be removed via partial unsubscribe; use DELETE `/market-data/stream` to stop the stream.
+- Added authenticated API endpoints: POST `/api/v1/market-data/stream/subscribe`, POST `/api/v1/market-data/stream/unsubscribe`, and POST `/api/v1/market-data/stream/change-mode`. Each is user-scoped, checks the Analytics Token, verifies active instrument keys before subscribing, and rejects requests when there is no running stream. Partial mixed-mode changes are intentionally rejected; change mode applies to all keys in the stream to keep one consistent parser/mode contract.
+- Added tests for binary V3 control requests, dynamic subscribe/unsubscribe/change_mode, reconnect replay of updated desired state, per-mode limits, stale tick invalidation, active-instrument validation, and missing-stream conflict responses.
+- Exact previous code/test head `e53ac0f9a24bf3a92a409fa548d59b41206a5042` passed Backend CI #41019403337. Current subscription-lifecycle head: `7aecd1e5b9a77a44fe3b0885a89a88e4826c2d33`; exact-head Backend CI #41019804917 is queued, and prior incremental runs are queued/running. Do not mark this lifecycle increment green until the latest exact head passes all backend, broker-write, SQLite/PostgreSQL migration and synthetic restore checks.
+- Official source: https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ (method semantics, binary request format, India VIX key, and individual/combined limits).
+- Next after exact-head CI: add verified index/India VIX presets based on instrument-master keys, then reconnect/subscribe race tests and end-to-end quote fan-out to the scanner/strategy data path. No second stream service, Redis bridge, or live-order capability is being added without a demonstrated requirement.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original Tradepro untouched; PAPER mode mandatory; live broker order writes disabled.
+
+
+## Verified checkpoint — 30 October 2026 (subscription lifecycle CI green)
+
+- Exact implementation commit `b87245002a24bb0bd002b7e0c7dc5bbc82085357` passed complete Backend CI run #41020300281: backend pytest, broker-write boundary, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration upgrade/downgrade/re-upgrade, synthetic PostgreSQL + document-volume restore drill, and restore evidence retention. Run: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41020300281
+- The lifecycle-test correction now tests partial mode-change rejection with two subscribed instruments, so the test exercises the actual partial-subscription case instead of incorrectly treating a single-instrument complete-stream mode change as partial.
+- Subscription lifecycle implementation includes authenticated user-scoped subscribe/unsubscribe/change-mode routes, active-instrument validation before subscribe, per-mode subscription limits, reconnect replay, and invalidation of cached ticks after mode changes. No live broker order capability was introduced.
+- This is the accepted code/test checkpoint. Documentation synchronization is being committed separately; the exact documentation head must receive its own CI verification before the next code increment.
+- Next implementation: index feed presets backed by dynamically resolved and locally validated Upstox instrument keys (Nifty 50, Nifty Bank, India VIX). Do not hardcode exchange tokens. Use the official Instrument Search API and Upstox developer documentation; preserve provider identifiers and source timestamps. Then implement freshness/recovery observability and scanner/strategy fan-out.
+- Official references: https://upstox.com/developer/api-documentation/instrument-search/ ; https://upstox.com/developer/api-documentation/v3/get-market-data-feed/ ; India VIX key documented as `NSE_INDEX|India VIX`.
+- Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; do not change main or original `Tradepro`; PAPER mode mandatory; all live broker order writes remain disabled. No credentials or tokens in code, logs, docs or chat.
+
+
+## Verified checkpoint — 30 October 2026 (rich market-data snapshot CI green)
+
+- Exact implementation/test commit `036ad952ced862e94b2c4d3af75b79b43a0bbc28` passed full Backend CI run #41022649412: backend pytest, broker-write boundary, SQLite Alembic upgrade/downgrade/re-upgrade, PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, isolated synthetic PostgreSQL + document-volume restore, and evidence retention. Run: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41022649412
+- Corrected the missing-quote stream-status test to apply the normal authenticated-user dependency overrides. Production authentication remains required; the assertion that an absent latest quote is represented as unavailable remains in place.
+- The stream status response now exposes the validated fresh tick snapshot fields needed by downstream read-only consumers: instrument key, LTP, exchange timestamp, receive time, depth, option Greeks, OI, traded volume, average traded price, total buy/sell quantities and OHLC. Missing quotes remain null; do not infer freshness from a missing tick.
+- Index presets are implemented from the locally synchronized official Upstox instrument master and fail closed for missing/ambiguous matches. Do not hardcode dynamic exchange instrument identifiers.
+- Architecture note: the existing WebSocket stream manager is process-local. A worker in a separate process cannot read its in-memory cache. Before scanner/strategy consumers depend on streamed ticks, implement and test a shared cross-process delivery layer using the Redis already present in deployment (or another justified existing shared store). Redis Pub/Sub alone is not durable: pair notification with a TTL-bounded latest-quote cache/snapshot, explicit timestamps, freshness checks, and reconnect/recovery semantics. On Redis loss or stale/missing quote, consumers must fail closed and retain existing candle freshness and PAPER/risk gates.
+- Next work: audit current Redis configuration and Redis Python package APIs; define a small versioned quote envelope and namespaced user/instrument keys; implement publisher + cache write in the existing stream lifecycle; implement worker/API consumer with TTL and timestamp validation; test outage, reconnect, expiry, ownership isolation and process restart; only then connect scanner and paper strategy consumers.
+- This checkpoint does not certify Redis fan-out, scanner integration or strategy integration as complete. No live broker order capability was introduced.
+- Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original `Tradepro` untouched; PAPER mode mandatory; live broker order submission/modification/cancellation disabled; no credentials in code, logs, docs or chat.

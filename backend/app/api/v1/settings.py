@@ -7,6 +7,8 @@ from app.middleware.audit import write_audit_log
 from app.models.user import User
 from app.schemas.broker import (
     BrokerAuthorizeUrl,
+    BrokerAnalyticsTokenOut,
+    BrokerAnalyticsTokenSet,
     BrokerConnectionCreate,
     BrokerConnectionOut,
     BrokerConnectionTestResult,
@@ -99,6 +101,48 @@ async def test_broker_connection(broker: str, db: Session = Depends(get_db), use
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     return BrokerConnectionTestResult(success=ok, message=message)
+
+
+@router.get("/broker/{broker}/analytics-token", response_model=BrokerAnalyticsTokenOut)
+def get_broker_analytics_token_status(
+    broker: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
+    return BrokerCredentialsService(db).analytics_token_status(user.id, broker)
+
+
+@router.put("/broker/{broker}/analytics-token", response_model=BrokerAnalyticsTokenOut)
+def save_broker_analytics_token(
+    broker: str,
+    payload: BrokerAnalyticsTokenSet,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    service = BrokerCredentialsService(db)
+    try:
+        conn = service.save_analytics_token(user.id, broker, payload.analytics_token)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    write_audit_log(
+        db, action="broker_connection.analytics_token_saved", user_id=user.id, request=request,
+        resource_type="broker_connection", resource_id=str(conn.id), metadata={"broker": broker},
+    )
+    return service.analytics_token_status(user.id, broker)
+
+
+@router.delete("/broker/{broker}/analytics-token", status_code=status.HTTP_204_NO_CONTENT)
+def delete_broker_analytics_token(
+    broker: str, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
+    service = BrokerCredentialsService(db)
+    try:
+        service.clear_analytics_token(user.id, broker)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
+    write_audit_log(
+        db, action="broker_connection.analytics_token_cleared", user_id=user.id, request=request,
+        metadata={"broker": broker},
+    )
 
 
 # ---------- Admin-only platform integration settings ----------

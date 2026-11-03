@@ -35,6 +35,10 @@ class BrokerConnection(BaseModel):
     access_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     access_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Independently generated, read-only Upstox Analytics Token (1-year validity).
+    analytics_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    analytics_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     is_connected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)

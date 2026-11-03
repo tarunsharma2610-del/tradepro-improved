@@ -42,6 +42,8 @@ class BrokerConnectionRepository:
         # Changing credentials invalidates any existing session with the broker.
         conn.access_token_encrypted = None
         conn.access_token_expires_at = None
+        conn.analytics_token_encrypted = None
+        conn.analytics_token_expires_at = None
         conn.is_connected = False
         conn.last_error = None
         self.db.add(conn)

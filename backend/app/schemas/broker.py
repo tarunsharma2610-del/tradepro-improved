@@ -39,3 +39,14 @@ class BrokerAuthorizeUrl(BaseModel):
     broker (see app/brokers/upstox/adapter.py:get_authorize_url)."""
 
     authorize_url: str
+
+
+class BrokerAnalyticsTokenSet(BaseModel):
+    """Analytics Token copied by the user from Upstox Developer Apps; never returned."""
+
+    analytics_token: str = Field(min_length=1, max_length=5000)
+
+
+class BrokerAnalyticsTokenOut(BaseModel):
+    configured: bool
+    expires_at: datetime | None = None

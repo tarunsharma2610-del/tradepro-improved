@@ -11,9 +11,11 @@ cost engine, position accounting, and cash accounting a manual trade
 would. See ARCHITECTURE.md, "The shared order/position/execution model."
 """
 
+import asyncio
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
@@ -36,6 +38,7 @@ from app.services.transaction_costs import Segment, Side
 _CANDLE_UNIT = "minutes"
 _CANDLE_INTERVAL = "5"
 _CANDLE_LOOKBACK_DAYS = 10  # calendar days — comfortably covers the ~35-period longest indicator lookback
+_MAX_CANDLE_AGE = timedelta(minutes=15)  # fail closed when the newest 5-minute candle is stale
 
 
 @dataclass
@@ -65,13 +68,18 @@ class StrategyExecutionService:
         if portfolio is None:
             return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Portfolio no longer exists.")
 
-        access_token = self.broker_credentials.get_access_token(portfolio.user_id, "upstox")
+        access_token = self.broker_credentials.get_analytics_token(portfolio.user_id, "upstox")
         if access_token is None:
-            return EvaluationResult(str(strategy.id), Signal.HOLD.value, "No connected broker with a live session.")
+            return EvaluationResult(str(strategy.id), Signal.HOLD.value, "No valid Upstox broker Analytics Token is configured in Settings.")
 
         candles = await self._fetch_candles(access_token, strategy.instrument.instrument_key)
         if candles is None:
             return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Could not fetch candle data.")
+        if not self._latest_candle_is_fresh(candles):
+            return EvaluationResult(
+                str(strategy.id), Signal.HOLD.value,
+                "Latest candle is missing, stale, or has an invalid timestamp; automated evaluation failed closed."
+            )
 
         position = self.positions.get_or_create(portfolio.id, strategy.instrument_id)
         in_position = position.quantity != 0
@@ -205,14 +213,65 @@ class StrategyExecutionService:
         strategy.current_watermark = new_watermark
         return True if hit else None
 
-    async def _fetch_candles(self, access_token: str, instrument_key: str) -> list[Candle] | None:
-        to_date = datetime.now(timezone.utc).date()
-        from_date = to_date - timedelta(days=_CANDLE_LOOKBACK_DAYS)
+    @staticmethod
+    def _latest_candle_is_fresh(candles: list[Candle], *, now: datetime | None = None) -> bool:
+        if not candles:
+            return False
+        timestamp = candles[-1].timestamp
+        if timestamp is None:
+            return False
+        # Upstox normally returns offset-aware exchange timestamps. For a
+        # naive timestamp, interpret it as Indian exchange time, never UTC.
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+        current_time = now or datetime.now(timezone.utc)
+        age = current_time - timestamp.astimezone(timezone.utc)
+        return timedelta(seconds=-60) <= age <= _MAX_CANDLE_AGE
 
-        result = await get_broker_adapter("upstox").get_historical_data(
-            access_token, instrument_key, _CANDLE_UNIT, _CANDLE_INTERVAL, from_date, to_date
+    async def _fetch_candles(self, access_token: str, instrument_key: str) -> list[Candle] | None:
+        # Use exchange-local dates. Upstox has a dedicated current-session
+        # endpoint; historical data alone is not the source of truth for today's
+        # live candles. Fetch both supported endpoints concurrently and merge by
+        # timestamp, preferring the intraday response on overlap.
+        today_ist = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+        from_date = today_ist - timedelta(days=_CANDLE_LOOKBACK_DAYS)
+        adapter = get_broker_adapter("upstox")
+        historical_result, intraday_result = await asyncio.gather(
+            adapter.get_historical_data(
+                access_token, instrument_key, _CANDLE_UNIT, _CANDLE_INTERVAL, from_date, today_ist
+            ),
+            adapter.get_intraday_data(
+                access_token, instrument_key, _CANDLE_UNIT, _CANDLE_INTERVAL
+            ),
         )
-        if not result.ok:
+        if not historical_result.ok or not intraday_result.ok:
             return None
 
-        return parse_candles(result.data)
+        historical = parse_candles(historical_result.data)
+        intraday = parse_candles(intraday_result.data)
+        if historical is None or intraday is None:
+            return None
+
+        merged: dict[datetime, Candle] = {}
+        for candle in historical:
+            timestamp = candle.timestamp
+            if timestamp is None:
+                return None
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            merged[timestamp.astimezone(timezone.utc)] = candle
+        for candle in intraday:
+            timestamp = candle.timestamp
+            if timestamp is None:
+                return None
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            merged[timestamp.astimezone(timezone.utc)] = candle
+
+        def sort_key(candle: Candle) -> datetime:
+            timestamp = candle.timestamp
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            return timestamp.astimezone(timezone.utc)
+
+        return sorted(merged.values(), key=sort_key)

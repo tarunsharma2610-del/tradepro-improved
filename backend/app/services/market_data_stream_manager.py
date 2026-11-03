@@ -1,6 +1,6 @@
 """In-process registry for per-user Upstox market streams.
 
-Streams are ephemeral and restart with the API process. Access tokens are
+Streams are ephemeral and restart with the API process. Analytics Tokens are
 looked up from the encrypted connection store for each reconnect; they are
 never sent to clients or logged.
 """
@@ -15,7 +15,7 @@ class MarketDataStreamManager:
     def __init__(self):
         self._streams: dict[UUID, UpstoxMarketDataStreamer] = {}
 
-    async def start(self, user_id: UUID, instrument_keys: list[str]) -> UpstoxMarketDataStreamer:
+    async def start(self, user_id: UUID, instrument_keys: list[str], mode: str = "full") -> UpstoxMarketDataStreamer:
         current = self._streams.get(user_id)
         if current is not None:
             await current.stop()
@@ -23,11 +23,11 @@ class MarketDataStreamManager:
         async def token_provider() -> str | None:
             db = SessionLocal()
             try:
-                return BrokerCredentialsService(db).get_access_token(user_id, "upstox")
+                return BrokerCredentialsService(db).get_analytics_token(user_id, "upstox")
             finally:
                 db.close()
 
-        streamer = UpstoxMarketDataStreamer(token_provider, instrument_keys)
+        streamer = UpstoxMarketDataStreamer(token_provider, instrument_keys, mode=mode)
         self._streams[user_id] = streamer
         await streamer.start()
         return streamer

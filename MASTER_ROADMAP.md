@@ -2173,3 +2173,51 @@ The documentation sync head `5bb6d06e764c00b1ab406409889a2cde9e74dacf` passed Ba
 - This verifies the 27-document refresh for the Upstox response-schema validation increment. The CI result confirms the backend workflow passed; no test count is asserted because the run summary did not expose one.
 - The latest code fix remains `404c1e11ef4f2557c791c720c8d9a3fbc4e93bc1`, passed Backend CI [#40883660756 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40883660756).
 - Current focus: response schema is endpoint-specific, null/missing IPFT remains distinct from zero, estimates and aggregate summaries cannot become per-fill actuals, and PAPER/live-write safeguards remain unchanged. PR #6/#7 remain Draft/unmerged; original `tarunsharma2610-del/Tradepro` remains out of scope.
+
+
+## Phase 4 resume pointer — 29 October 2026
+
+Authoritative Phase 4 planning records:
+- `PHASE4_ROADMAP.md`
+- `PHASE4_PROGRESS.md`
+- `PHASE4_LATEST_CI_CHECKPOINT.md`
+
+Phase 4 branch: `phase4/roadmap-progress-checkpoints`; created from Phase 3 checkpoint `9add7f98ccf89f0c146e4367b79cdd5877104ff3`. This is planning/checkpoint scaffolding only. The Phase 4 repository audit (P4-0) has not yet been completed, and no Phase 4 feature implementation is claimed. Exact-head CI for the new documentation commits is pending verification.
+
+Resume only after verifying the latest head and its own CI. Next task is P4-0 baseline audit and evidence-based gap matrix. Keep work exclusively in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope. Do not update `main` or merge PR #6/#7 without explicit user authorization. PAPER mode mandatory; live `place_order`, `modify_order`, and `cancel_order` writes disabled. Upstox Brokerage Details is estimate-only; post-trade Trade Charges is aggregate reconciliation-only, never per-fill actual evidence. Real credentialed OAuth smoke test and production Oracle backup/restore remain deployment-gated.
+
+
+## Phase 4 resume checkpoint — 29 October 2026 (latest verified code CI)
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; branch: `phase4/roadmap-progress-checkpoints`.
+- Draft PR #8: https://github.com/tarunsharma2610-del/tradepro-improved/pull/8; base is `phase3/cross-broker-gst-ipft-resolution`. PR remains unmerged. `main` has not been updated. PR #6/#7 remain unmerged.
+- **Latest verified code/test head:** `13bcb6c6b25387916b8e653cb0ba8dd3ad3c31ad`.
+- **Backend CI #40898908339: SUCCESS** on that exact head: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/40898908339. Backend pytest, broker-write boundary guard, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, and synthetic PostgreSQL/document-volume restore/evidence retention all passed.
+- CI failure on earlier run #40896927805 was traced to the Upstox Brokerage Details test fixture asserting IPFT under the wrong field. Corrected fixture/assertion uses `data.charges.otherTaxes.ipft`, preserving null distinctly; the retry passed.
+- P4-0 static audit saved in `PHASE4_P0_BASELINE_AUDIT.md`. PAPER-only config validation added in `backend/app/core/config.py`; tests added in `backend/tests/test_trading_mode_safety.py`.
+- **Next step on resume:** verify the current branch head and latest CI (documentation updates can trigger a newer head/run); then continue P4-0B broker-write call-path audit and add targeted tests for every route into broker write methods, automated-entry kill switch, stale market data, and risk checks. Fix any failure and re-run before checkpointing green.
+- Safeguards: work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; do not update `main` or merge PR #8/#7/#6 without explicit authorization; PAPER mode mandatory; live `place_order`, `modify_order`, `cancel_order` writes disabled; Upstox Brokerage Details remains estimate-only and aggregate Trade Charges remains reconciliation-only; no credentialed live smoke test or production Oracle restore claimed.
+
+## Phase 4 latest checkpoint — 30 October 2026
+
+Exact code/test head `3a74fbb788a63ca3b042ceec400dbc7a83f32571` passed Backend CI #41016468736 (1,240 tests, 1 warning), including broker-write boundary enforcement, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill. Paper market fills now use fresh Full Market Quotes V3 order-book depth with BUY/SELL side-aware depth consumption and weighted average price; stale/invalid/mismatched/insufficient depth fails closed.
+
+Next: implement the separately encrypted Upstox Analytics Token path for market data and streaming, retaining standard OAuth access token for account/trading scopes. Official docs distinguish Analytics Token from the daily standard access token. Do not implement unsupported automatic refresh. Safeguards remain PAPER-only, live writes disabled, PR #8 Draft/unmerged, no main update, original Tradepro untouched.
+ 
+## Upstox Analytics Token implementation — 30 October 2026
+
+- Added separate encrypted `analytics_token_encrypted` and `analytics_token_expires_at` fields to per-user broker connections with migration `202610300031` (down revision `202610270030`).
+- Added owner-scoped Settings API to save, inspect status and clear Analytics Token. Token is accepted from the user's Upstox Developer Apps > Analytics page; it is never returned, logged or included in API responses. Expiry is tracked as 365 days from local registration; confirm/renew against the Developer Console's actual expiry date.
+- Analytics Token retrieval is independent of standard OAuth `is_connected` state and fails closed when missing/expired. Standard OAuth access-token path remains separate for operations not documented as Analytics Token eligible.
+- Routed strategy historical/intraday candle fetch, paper market quote/charge estimation, queued paper limit-order quotes, and market WebSocket reconnects through Analytics Token. Broker order/trade ingestion continues to use standard OAuth until each endpoint's Analytics Token/static-IP eligibility is deliberately enabled.
+- Analytics Token is read-only. It cannot place, modify or cancel orders. Live trading remains disabled; PAPER-only guard unchanged.
+- Official docs: https://upstox.com/developer/api-documentation/analytics-token/ ; https://upstox.com/developer/api-documentation/announcements/analytics-token-static-ip/ ; https://upstox.com/developer/api-documentation/v3/get-market-data-feed/
+- CI for this new implementation is pending. Do not mark it accepted until exact-head CI passes, including migration round-trip and token isolation tests.
+
+## Verified Analytics Token checkpoint — 30 October 2026
+
+- Implementation head `083ab17a5150ea3be514438a16ea7c6c888c0be3` passed exact-head Backend CI run #41017833952: **1,243 tests passed, 1 warning**.
+- Passed broker-write boundary enforcement; SQLite upgrade/downgrade/re-upgrade; PostgreSQL 16 migration round-trips; isolated synthetic PostgreSQL/document-volume restore drill.
+- New Analytics Token implementation is accepted at code/test level: separately encrypted per-user token, owner-scoped save/status/clear endpoints, expiry fail-closed retrieval, and routing for market data, strategy candles, paper quote/charge calls and WebSocket reconnects.
+- This does not mean a real user token has been entered or live Upstox connectivity has been validated. User must generate/copy the Analytics Token from Developer Apps > Analytics and configure it in Settings once UI is available.
+- PAPER-only, live writes disabled, PR #8 Draft/unmerged, main untouched, original Tradepro untouched.

@@ -92,6 +92,7 @@ def test_stream_rejects_invalid_keys_and_unsafe_staleness_configuration():
 async def test_stream_reconnects_after_silence_timeout(monkeypatch):
     streamer = _streamer()
     connects = 0
+    sent_requests = []
 
     async def token_provider():
         return "test-access-token"
@@ -111,8 +112,8 @@ async def test_stream_reconnects_after_silence_timeout(monkeypatch):
         async def __aexit__(self, exc_type, exc, tb):
             return False
 
-        async def send(self, _payload):
-            return None
+        async def send(self, payload):
+            sent_requests.append(payload)
 
         async def recv(self):
             raise asyncio.TimeoutError()
@@ -132,6 +133,12 @@ async def test_stream_reconnects_after_silence_timeout(monkeypatch):
 
     assert connects == 2
     assert streamer.connected is False
+    assert sent_requests
+    import json
+    request = json.loads(sent_requests[0])
+    assert request["method"] == "sub"
+    assert request["data"]["mode"] == "full"
+    assert request["data"]["instrumentKeys"] == ["NSE_EQ|INE002A01018"]
 
 
 @pytest.mark.asyncio
@@ -211,3 +218,261 @@ async def test_authorization_accepts_official_upstox_v3_url_and_headers(monkeypa
     assert captured["url"] == "https://api.upstox.com/v3/feed/market-data-feed/authorize"
     assert captured["headers"]["Authorization"] == "Bearer test-access-token"
     assert captured["headers"]["Accept"] == "application/json"
+
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ltp,ltt", [(float("nan"), 0), (float("inf"), 0), (123.45, 0)])
+async def test_nonfinite_price_or_missing_exchange_trade_time_is_not_cached(ltp, ltt):
+    streamer = _streamer()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    response.feeds["NSE_EQ|INE002A01018"].ltpc.ltp = ltp
+    response.feeds["NSE_EQ|INE002A01018"].ltpc.ltt = ltt
+
+    await streamer._consume(response.SerializeToString())
+
+    assert streamer.latest_tick("NSE_EQ|INE002A01018") is None
+
+
+def test_tick_with_missing_exchange_timestamp_is_rejected_even_if_just_received():
+    streamer = _streamer()
+    streamer._ticks["NSE_EQ|INE002A01018"] = MarketTick(
+        instrument_key="NSE_EQ|INE002A01018",
+        ltp=100,
+        exchange_timestamp_ms=0,
+        received_at=datetime.now(timezone.utc),
+        received_monotonic=time.monotonic(),
+    )
+    assert streamer.latest_tick("NSE_EQ|INE002A01018") is None
+
+
+@pytest.mark.asyncio
+async def test_full_v3_feed_decodes_depth_greeks_oi_volume_and_ohlc():
+    streamer = _streamer()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    market_ff = response.feeds["NSE_EQ|INE002A01018"].fullFeed.marketFF
+    market_ff.ltpc.ltp = 123.45
+    market_ff.ltpc.ltt = now_ms
+    quote = market_ff.marketLevel.bidAskQuote.add()
+    quote.bidQ = 10
+    quote.bidP = 123.4
+    quote.askQ = 12
+    quote.askP = 123.5
+    market_ff.optionGreeks.delta = 0.51
+    market_ff.optionGreeks.theta = -2.1
+    market_ff.optionGreeks.gamma = 0.02
+    market_ff.optionGreeks.vega = 1.5
+    market_ff.optionGreeks.rho = 0.1
+    market_ff.oi = 15000
+    market_ff.vtt = 25000
+    market_ff.atp = 123.2
+    market_ff.tbq = 500
+    market_ff.tsq = 450
+    candle = market_ff.marketOHLC.ohlc.add()
+    candle.interval = "1d"
+    candle.open = 120
+    candle.high = 125
+    candle.low = 119
+    candle.close = 123.45
+    candle.vol = 25000
+    candle.ts = now_ms
+
+    await streamer._consume(response.SerializeToString())
+
+    tick = streamer.latest_tick("NSE_EQ|INE002A01018")
+    assert tick is not None
+    assert tick.depth == ({
+        "bid_quantity": 10, "bid_price": 123.4,
+        "ask_quantity": 12, "ask_price": 123.5,
+    },)
+    assert tick.option_greeks == {
+        "delta": 0.51, "theta": -2.1, "gamma": 0.02, "vega": 1.5, "rho": 0.1,
+    }
+    assert tick.open_interest == 15000
+    assert tick.volume_traded_today == 25000
+    assert tick.average_traded_price == pytest.approx(123.2)
+    assert tick.total_buy_quantity == 500
+    assert tick.total_sell_quantity == 450
+    assert tick.ohlc[0]["interval"] == "1d"
+    assert tick.ohlc[0]["volume"] == 25000
+
+
+def test_full_feed_is_default_and_subscription_limits_are_mode_specific():
+    streamer = _streamer()
+    assert streamer.mode == "full"
+    with pytest.raises(ValueError, match="full_d30"):
+        UpstoxMarketDataStreamer(_no_token, ["NSE_EQ|INE002A01018"], mode="full_d30")
+    with pytest.raises(ValueError, match="2000"):
+        UpstoxMarketDataStreamer(
+            _no_token,
+            [f"NSE_EQ|{index}" for index in range(2001)],
+            mode="full",
+        )
+
+
+@pytest.mark.asyncio
+async def test_full_feed_does_not_fabricate_missing_optional_fields_as_zero():
+    streamer = _streamer()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    market_ff = response.feeds["NSE_EQ|INE002A01018"].fullFeed.marketFF
+    market_ff.ltpc.ltp = 123.45
+    market_ff.ltpc.ltt = now_ms
+
+    await streamer._consume(response.SerializeToString())
+
+    tick = streamer.latest_tick("NSE_EQ|INE002A01018")
+    assert tick is not None
+    assert tick.depth is None
+    assert tick.option_greeks is None
+    assert tick.open_interest is None
+    assert tick.volume_traded_today is None
+    assert tick.average_traded_price is None
+    assert tick.ohlc is None
+
+
+
+@pytest.mark.asyncio
+async def test_option_greeks_mode_decodes_first_level_depth_and_iv():
+    streamer = UpstoxMarketDataStreamer(
+        _no_token, ["NSE_FO|12345"], mode="option_greeks"
+    )
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    response = market_data_pb.FeedResponse()
+    response.currentTs = now_ms
+    feed = response.feeds["NSE_FO|12345"].firstLevelWithGreeks
+    feed.ltpc.ltp = 101.25
+    feed.ltpc.ltt = now_ms
+    feed.firstDepth.bidQ = 100
+    feed.firstDepth.bidP = 101.2
+    feed.firstDepth.askQ = 125
+    feed.firstDepth.askP = 101.3
+    feed.optionGreeks.delta = 0.52
+    feed.optionGreeks.theta = -4.2
+    feed.optionGreeks.gamma = 0.001
+    feed.optionGreeks.vega = 8.1
+    feed.optionGreeks.rho = 1.2
+    feed.iv = 0.18
+    feed.oi = 25000
+    feed.vtt = 4000
+
+    await streamer._consume(response.SerializeToString())
+
+    tick = streamer.latest_tick("NSE_FO|12345")
+    assert tick is not None
+    assert tick.depth == ({
+        "bid_quantity": 100, "bid_price": 101.2,
+        "ask_quantity": 125, "ask_price": 101.3,
+    },)
+    assert tick.option_greeks["delta"] == pytest.approx(0.52)
+    assert tick.option_greeks["iv"] == pytest.approx(0.18)
+    assert tick.open_interest == 25000
+    assert tick.volume_traded_today == 4000
+
+
+
+@pytest.mark.asyncio
+async def test_subscription_lifecycle_sends_binary_v3_sub_unsub_and_change_mode_requests():
+    import json
+
+    streamer = UpstoxMarketDataStreamer(
+        _no_token, ["NSE_EQ|ONE"], mode="ltpc"
+    )
+    sent = []
+
+    class FakeSocket:
+        async def send(self, payload):
+            assert isinstance(payload, bytes)
+            sent.append(json.loads(payload.decode("utf-8")))
+
+    streamer._socket = FakeSocket()
+    streamer._connected = True
+
+    assert await streamer.subscribe(["NSE_EQ|TWO"]) == "sent"
+    assert streamer.instrument_keys == ["NSE_EQ|ONE", "NSE_EQ|TWO"]
+    assert sent[-1]["method"] == "sub"
+    assert sent[-1]["data"] == {
+        "instrumentKeys": ["NSE_EQ|TWO"], "mode": "ltpc"
+    }
+
+    assert await streamer.unsubscribe(["NSE_EQ|ONE"]) == "sent"
+    assert streamer.instrument_keys == ["NSE_EQ|TWO"]
+    assert sent[-1]["method"] == "unsub"
+    assert sent[-1]["data"] == {"instrumentKeys": ["NSE_EQ|ONE"]}
+
+    streamer._ticks["NSE_EQ|TWO"] = MarketTick(
+        instrument_key="NSE_EQ|TWO", ltp=100, exchange_timestamp_ms=1,
+        received_at=datetime.now(timezone.utc), received_monotonic=time.monotonic(),
+    )
+    assert await streamer.change_mode(["NSE_EQ|TWO"], "full") == "sent"
+    assert streamer.mode == "full"
+    assert "NSE_EQ|TWO" not in streamer._ticks
+    assert sent[-1]["method"] == "change_mode"
+    assert sent[-1]["data"] == {
+        "instrumentKeys": ["NSE_EQ|TWO"], "mode": "full"
+    }
+
+
+@pytest.mark.asyncio
+async def test_subscription_changes_while_disconnected_are_replayed_on_reconnect():
+    import json
+
+    streamer = UpstoxMarketDataStreamer(_no_token, ["NSE_EQ|ONE"], mode="ltpc")
+    assert await streamer.subscribe(["NSE_EQ|TWO"]) == "queued_for_reconnect"
+    assert await streamer.change_mode(["NSE_EQ|ONE", "NSE_EQ|TWO"], "full") == "queued_for_reconnect"
+    assert streamer.instrument_keys == ["NSE_EQ|ONE", "NSE_EQ|TWO"]
+    assert streamer.mode == "full"
+
+    sent = []
+
+    class FakeSocket:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def send(self, payload):
+            sent.append(json.loads(payload.decode("utf-8")))
+
+        async def recv(self):
+            streamer._stop.set()
+            raise asyncio.TimeoutError()
+
+    async def token_provider():
+        return "test-access-token"
+
+    async def authorized_url(_token):
+        return "wss://feed.upstox.com/test"
+
+    streamer.token_provider = token_provider
+    streamer._authorized_url = authorized_url
+    streamer._stop.clear()
+    import app.services.upstox_market_data_streamer as streamer_module
+    original_connect = streamer_module.websockets.connect
+    streamer_module.websockets.connect = lambda *_args, **_kwargs: FakeSocket()
+    try:
+        await streamer._run()
+    finally:
+        streamer_module.websockets.connect = original_connect
+
+    assert sent[0]["method"] == "sub"
+    assert sent[0]["data"]["mode"] == "full"
+    assert sent[0]["data"]["instrumentKeys"] == ["NSE_EQ|ONE", "NSE_EQ|TWO"]
+
+
+@pytest.mark.asyncio
+async def test_subscription_lifecycle_enforces_limits_and_keeps_one_key():
+    streamer = UpstoxMarketDataStreamer(_no_token, ["NSE_EQ|ONE"], mode="full")
+    with pytest.raises(ValueError, match="final instruments"):
+        await streamer.unsubscribe(["NSE_EQ|ONE"])
+    with pytest.raises(ValueError, match="2000"):
+        await streamer.subscribe([f"NSE_EQ|{index}" for index in range(2000)])
+    await streamer.subscribe(["NSE_EQ|TWO"])
+    with pytest.raises(ValueError, match="complete user stream"):
+        await streamer.change_mode(["NSE_EQ|ONE"], "ltpc")

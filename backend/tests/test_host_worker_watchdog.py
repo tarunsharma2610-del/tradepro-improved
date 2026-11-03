@@ -52,7 +52,7 @@ def test_main_notifies_only_on_state_or_restart_count_transition(monkeypatch, tm
         ("running", "running:1/1:running:0", "worker running"),
         ("running", "running:1/1:running:1", "worker restarted once"),
     ])
-    notify = Mock()
+    notify = Mock(return_value=True)
     monkeypatch.setattr(watchdog, "worker_state", observe)
     monkeypatch.setattr(watchdog, "_notify", notify)
 
@@ -62,6 +62,42 @@ def test_main_notifies_only_on_state_or_restart_count_transition(monkeypatch, tm
     assert watchdog.main() == 0
     assert state_file.read_text() == "running:1/1:running:1\n"
     assert notify.call_count == 2
+
+
+def test_main_retries_transition_after_webhook_delivery_failure(monkeypatch, tmp_path):
+    state_file = tmp_path / "state" / "last-state"
+    monkeypatch.setattr(watchdog, "STATE_FILE", state_file)
+    monkeypatch.setattr(watchdog, "WEBHOOK_URL", "https://alerts.example.invalid/hook")
+    monkeypatch.setattr(
+        watchdog, "worker_state",
+        Mock(return_value=("down", "down:0/1:exited:1", "worker fleet down")),
+    )
+    notify = Mock(side_effect=[False, True])
+    monkeypatch.setattr(watchdog, "_notify", notify)
+
+    assert watchdog.main() == 1
+    assert not state_file.exists()
+    assert watchdog.main() == 1
+    assert state_file.read_text() == "down:0/1:exited:1\n"
+    assert notify.call_count == 2
+
+
+def test_notify_returns_false_when_https_webhook_fails(monkeypatch, capsys):
+    monkeypatch.setattr(watchdog, "WEBHOOK_URL", "https://alerts.example.invalid/secret-token")
+    monkeypatch.setattr(
+        watchdog.urllib.request, "urlopen",
+        Mock(side_effect=TimeoutError("request timed out")),
+    )
+
+    assert watchdog._notify("down", "worker stopped") is False
+    captured = capsys.readouterr()
+    assert "TimeoutError" in captured.err
+    assert "secret-token" not in captured.out + captured.err
+
+
+def test_notify_treats_journal_as_destination_when_webhook_is_unconfigured(monkeypatch):
+    monkeypatch.setattr(watchdog, "WEBHOOK_URL", "")
+    assert watchdog._notify("running", "worker healthy") is True
 
 
 def test_webhook_rejects_non_https_url(monkeypatch, capsys):

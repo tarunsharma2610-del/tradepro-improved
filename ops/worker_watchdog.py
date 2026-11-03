@@ -72,14 +72,15 @@ def worker_state() -> tuple[str, str, str]:
     return state, fingerprint, detail
 
 
-def _notify(state: str, detail: str) -> None:
+def _notify(state: str, detail: str) -> bool:
+    """Emit to the journal and return whether configured webhook delivery succeeded."""
     message = f"Tradepro Improved host watchdog: worker {state}. {detail}"
     print(message, flush=True)
     if not WEBHOOK_URL:
-        return
+        return True
     if not WEBHOOK_URL.startswith("https://"):
         print("Watchdog webhook must use HTTPS; notification was not forwarded.", file=sys.stderr)
-        return
+        return False
     request = urllib.request.Request(
         WEBHOOK_URL,
         data=json.dumps({"text": message, "service": "tradepro-improved-worker", "state": state}).encode(),
@@ -90,9 +91,12 @@ def _notify(state: str, detail: str) -> None:
         with urllib.request.urlopen(request, timeout=5) as response:
             if not 200 <= response.status < 300:
                 print("Watchdog webhook returned a non-success status.", file=sys.stderr)
+                return False
+            return True
     except Exception as exc:
         # Never print the URL or exception text; URLs may contain credentials.
         print(f"Watchdog webhook delivery failed ({type(exc).__name__}).", file=sys.stderr)
+        return False
 
 
 def main() -> int:
@@ -104,14 +108,15 @@ def main() -> int:
     except OSError:
         previous = ""
     if fingerprint != previous:
-        _notify(state, detail)
-        try:
-            STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            temporary = STATE_FILE.with_suffix(".tmp")
-            temporary.write_text(fingerprint + "\n", encoding="utf-8")
-            temporary.replace(STATE_FILE)
-        except OSError:
-            print("Watchdog could not persist transition state.", file=sys.stderr)
+        delivered = _notify(state, detail)
+        if delivered:
+            try:
+                STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                temporary = STATE_FILE.with_suffix(".tmp")
+                temporary.write_text(fingerprint + "\n", encoding="utf-8")
+                temporary.replace(STATE_FILE)
+            except OSError:
+                print("Watchdog could not persist transition state.", file=sys.stderr)
     return 0 if state == "running" else 1
 
 

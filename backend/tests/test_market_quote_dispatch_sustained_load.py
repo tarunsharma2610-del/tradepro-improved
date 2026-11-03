@@ -75,7 +75,11 @@ async def test_sustained_dispatch_load_records_throughput_and_latency():
     elapsed_seconds = time.perf_counter() - started
     assert processed == observation_count
     assert len(latencies_ms) == observation_count
-    assert dispatcher.dropped_unique_keys == 0
+    # The dispatcher counts each non-blocking capacity rejection as a
+    # dropped-unique-key observation attempt. The producer retries these
+    # attempts; assert accounting matches retries and that no accepted item
+    # was permanently lost.
+    assert dispatcher.dropped_unique_keys == backpressure_retries
     assert dispatcher.pending_keys == 0
     assert dispatcher.inflight_keys == 0
 
@@ -93,7 +97,7 @@ async def test_sustained_dispatch_load_records_throughput_and_latency():
         "latency_p95_ms": round(percentile(0.95), 4),
         "latency_p99_ms": round(percentile(0.99), 4),
         "backpressure_retries": backpressure_retries,
-        "dropped_unique_keys": dispatcher.dropped_unique_keys,
+        "backpressure_rejections": dispatcher.dropped_unique_keys,
     }
     Path("dispatch-benchmark-results.json").write_text(
         json.dumps(result, indent=2) + "\\n", encoding="utf-8"

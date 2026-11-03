@@ -162,3 +162,67 @@ async def test_monitor_alerts_after_worker_heartbeat_absence_threshold(monkeypat
     await monitor.run_once()
     send.assert_awaited_once()
     assert "No active PAPER" in send.await_args.args[2]
+
+@pytest.mark.asyncio
+async def test_two_monitor_replicas_share_redis_alert_deduplication(monkeypatch):
+    redis = _Redis()
+    sent = []
+
+    async def read_metrics(_redis):
+        return _snapshot(dropped=1)
+
+    monkeypatch.setattr(
+        ops, "PlatformSettingsService",
+        lambda db: _Settings(db, {
+            "telegram_bot_token": "test-token",
+            "ops_alert_telegram_chat_id": "12345",
+        }),
+    )
+
+    async def send(token, chat_id, message):
+        sent.append((token, chat_id, message))
+        return type("Result", (), {"ok": True, "error": None})()
+
+    monkeypatch.setattr(ops.telegram_notifier, "send_message", send)
+    first = ops.OperationalAlertMonitor(
+        redis, metrics_reader=read_metrics, session_factory=_Db
+    )
+    second = ops.OperationalAlertMonitor(
+        redis, metrics_reader=read_metrics, session_factory=_Db
+    )
+
+    # Both replicas establish the same initial counter baseline.
+    await first.run_once()
+    await second.run_once()
+    # Both observe the same fleet counter delta; Redis NX allows one delivery.
+    await first.run_once()
+    await second.run_once()
+
+    assert len(sent) == 1
+
+
+@pytest.mark.asyncio
+async def test_missing_destination_does_not_consume_alert_cooldown(monkeypatch):
+    redis = _Redis()
+    configured = {"token": None, "chat_id": None}
+    sent = AsyncMock(return_value=type("Result", (), {"ok": True, "error": None})())
+
+    monkeypatch.setattr(
+        ops, "PlatformSettingsService",
+        lambda db: _Settings(db, {
+            "telegram_bot_token": configured["token"],
+            "ops_alert_telegram_chat_id": configured["chat_id"],
+        }),
+    )
+    monkeypatch.setattr(ops.telegram_notifier, "send_message", sent)
+    monitor = ops.OperationalAlertMonitor(
+        redis, session_factory=_Db
+    )
+
+    assert await monitor._send("config-retry", "test alert") is False
+    assert not redis.keys
+
+    configured["token"] = "test-token"
+    configured["chat_id"] = "12345"
+    assert await monitor._send("config-retry", "test alert") is True
+    sent.assert_awaited_once()

@@ -10,8 +10,9 @@ from app.models.base import BaseModel
 class PaperStopEvent(BaseModel):
     """Durable idempotency/claim record for a PAPER stop observation.
 
-    This table is intentionally storage-only: no worker currently creates
-    events and no state here can authorize broker order writes.
+    Worker services create and recover these records transactionally. Event
+    state and claim tokens coordinate PAPER execution only; they never
+    authorize broker order writes.
     """
 
     __tablename__ = "paper_stop_events"

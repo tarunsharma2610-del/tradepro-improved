@@ -481,3 +481,8 @@ Supersedes earlier statements that the real multi-container watchdog drill was p
 - Remaining gates: install/exercise the external watchdog on Oracle VM; verify an independent notification destination and cloud/instance health monitoring; run sustained load with full database-backed handler work and measure latency/recovery; complete independent security/penetration review.
 - Do not duplicate the passing Docker Compose fault test or PostgreSQL SIGKILL stop-event recovery test. Inspect existing coverage before adding reliability work.
 - The follow-up documentation commit requires its own exact-head Backend and Security CI before becoming a verified documentation checkpoint.
+
+
+## 3 November 2026 — latest CI security status
+
+Implementation `af6d469af969d9705c4527922dcde96c9c373638` passed Security #41674075641 (CodeQL static analysis and Python dependency vulnerability audit) and Backend #41674075611 (1,654 passed, 8 warnings, zero skipped). Broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill passed. This is automated CI evidence, not an independent penetration test or Oracle VM security sign-off. PAPER-only and disabled live broker order writes remain mandatory.

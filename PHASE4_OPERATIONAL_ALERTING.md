@@ -55,3 +55,14 @@ The heartbeat signal counts metrics-exporter processes, not quote-dispatch worke
 ## Safety
 
 PAPER mode remains mandatory. Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. This monitor does not call broker order-write APIs. Original `tarunsharma2610-del/Tradepro` is out of scope and untouched. PR #12 remains Draft/unmerged.
+
+
+## Additional hardening from follow-up review
+
+A code review identified a retryability issue: when Telegram credentials or the destination were missing, the alert's Redis cooldown key could remain for five minutes and suppress immediate delivery after an administrator corrected configuration. The monitor now releases that key when configuration is missing/invalid, allowing the next monitoring pass to retry.
+
+Two additional tests cover:
+- Two independent monitor instances sharing one Redis fake observe the same fleet delta but only one Telegram notification is sent (Redis NX deduplication).
+- Missing Telegram configuration does not consume the cooldown; after settings are corrected, the same alert can be delivered immediately.
+
+These tests are included in the latest backend CI run. Earlier green CI on commit `fb1d235a0bbbb2f44aca130130f6ea8704908c89` does not verify these follow-up changes. Current code head at the time of this document update: `4f7829a8019758b9eb0fc770dcae80d9cbb1c428`; exact-head CI must pass before this is a verified checkpoint.

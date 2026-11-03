@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -50,3 +51,44 @@ class BrokerAnalyticsTokenSet(BaseModel):
 class BrokerAnalyticsTokenOut(BaseModel):
     configured: bool
     expires_at: datetime | None = None
+
+
+class BrokerPortfolioAllocationCreate(BaseModel):
+    broker_connection_id: UUID
+
+
+class BrokerPortfolioAllocationOut(BaseModel):
+    id: UUID
+    portfolio_id: UUID
+    broker_connection_id: UUID
+    broker: str
+    trading_mode: str
+    created_at: datetime
+
+
+class BrokerFundsSnapshotOut(BaseModel):
+    id: UUID
+    portfolio_id: UUID
+    broker_connection_id: UUID
+    total_available_to_trade: Decimal
+    cash_available_to_trade: Decimal
+    pledge_available_to_trade: Decimal
+    unsettled_profit_today: Decimal
+    unsettled_profit_previous_days: Decimal
+    created_at: datetime
+
+
+class BrokerPositionSnapshotOut(BaseModel):
+    id: UUID
+    portfolio_id: UUID
+    broker_connection_id: UUID
+    positions: list[dict]
+    created_at: datetime
+
+
+class BrokerHoldingSnapshotOut(BaseModel):
+    id: UUID
+    portfolio_id: UUID
+    broker_connection_id: UUID
+    holdings: list[dict]
+    created_at: datetime

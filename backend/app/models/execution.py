@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, UniqueConstraint, Uuid
+from sqlalchemy import DateTime, ForeignKey, ForeignKeyConstraint, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -23,6 +23,12 @@ class Execution(BaseModel):
         UniqueConstraint(
             "broker_connection_id", "broker_trade_id",
             name="uq_execution_connection_broker_trade",
+        ),
+        ForeignKeyConstraint(
+            ["order_id", "portfolio_id"],
+            ["orders.id", "orders.portfolio_id"],
+            name="fk_executions_order_portfolio",
+            ondelete="CASCADE",
         ),
     )
 

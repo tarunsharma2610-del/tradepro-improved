@@ -1,0 +1,62 @@
+# Production HTTPS and CORS deployment controls
+
+## Scope
+
+The default `docker-compose.yml` and `nginx/nginx.conf` remain HTTP-only for local development. They are not an approved production deployment configuration.
+
+## Production launch requirements
+
+1. Provision a real DNS name and valid TLS certificate outside Git. Place the certificate chain at `./certs/fullchain.pem` and private key at `./certs/privkey.pem`; restrict filesystem permissions and never commit the directory.
+2. Set `ENVIRONMENT=production`, an explicit stable `SECRET_KEY` (at least 32 characters), a valid `MASTER_ENCRYPTION_KEY`, and `CORS_ORIGINS` as a JSON list of exact HTTPS origins, e.g. `[\"https://trade.example.com\"]`. Production rejects HTTP origins, wildcards, paths, queries, fragments and userinfo.
+3. Start with `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`. The override mounts the production Nginx configuration and TLS material and publishes port 443. Port 80 redirects to HTTPS.
+4. Keep backend and worker ports unpublished. The backend HTTPS middleware trusts `X-Forwarded-Proto` only at the reverse-proxy boundary; production Nginx overwrites this header with the fixed value `https`. Do not expose the backend directly or put an untrusted proxy in front of it.
+5. Verify certificate renewal, redirect behavior, HSTS, browser CORS preflight and the application endpoints before any OAuth redirect URI is registered.
+
+## Important limits
+
+- This repository change provides a production TLS reverse-proxy configuration and an application-side forwarded-protocol guard. It does not provision DNS, issue/renew certificates, configure a cloud firewall, or prove the deployed host is HTTPS reachable.
+- Do not use the default HTTP-only compose stack for production. Do not point real broker OAuth redirects at it.
+- PAPER-only mode remains mandatory. No live broker order writes are enabled by this deployment configuration.
+
+
+## 2 November 2026 — security checkpoint reconciliation
+
+- Session-security implementation verified on PR #9 head `77f44c7299f5e7157a4cdb2f8dfe7fbbfb6c08c6`: Backend CI #41460334989 and Security analysis #41460334979 passed on that exact head. Persisted sessions, refresh-token rotation/replay rejection, logout revocation and reserved JWT `sid`/`jti` handling are covered by tests.
+- Transactional key-rotation service implementation commit `960c099b53d4c8e41daeb4f5691bc0972d5fb7b2`: Backend CI #41456734039 and Security analysis #41456734074 passed. It covers encrypted broker credentials, OAuth access tokens, Upstox Analytics Tokens, platform settings and MFA secrets; unreadable ciphertext fails closed. No production keys/data were rotated or accessed.
+- Current documentation head is being checked separately. Do not call docs checkpoint green until both Backend CI and Security analysis pass on the final documentation head.
+- Security assessment remains incomplete: endpoint IDOR authorization matrix, secret/token redaction review, broker-write reachability, staging DAST, abuse/load and tenant-isolation tests, deployment/restore/incident-response review and independent penetration testing remain.
+- PAPER mandatory; LIVE broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` untouched.
+
+
+## Phase 4 dispatcher integration correction — 2 November 2026 (exact-head CI verified)
+
+- Corrective test commit: `4aba13642f1f3bcb4e11f5c6b5def7433e687ca7`. The Redis-to-scanner dispatcher integration test retrieves and acknowledges the dispatcher item in the same asyncio task, preserving task-scoped ownership; production safeguards were not weakened.
+- Exact-head Backend CI [#41471120955 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41471120955). Redis setup, full backend pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention all passed.
+- Exact-head Security analysis [#41471120975 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41471120975): CodeQL and Python dependency vulnerability audit passed. These are not DAST or penetration-test sign-offs.
+- Remaining Phase 4 gates: full Redis → scanner → dispatcher → durable PAPER stop-event → execution → final position/ledger proof; duplicate/out-of-order quote tests; worker crash/cancellation/recovery; concurrent PAPER exits; multi-process load/backpressure; observability/runbooks; production restore evidence.
+- Security assessment remains incomplete: full IDOR/authorization matrix, secret/token redaction, broker-write reachability, isolated-staging DAST, abuse/load and tenant-isolation testing, deployment/incident response and independent penetration testing.
+- Safeguards: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; LIVE broker `place_order`, `modify_order`, `cancel_order` disabled; PR #9 OPEN/Draft/unmerged; no merge/deployment/LIVE activation.
+
+
+## Phase 4 verification update — 2 November 2026
+
+- Verified code/test head: `4c5b598272e6d99bfb56595eb9d0aad9652e56d8`.
+- Exact-head Backend pytest #41482453315: SUCCESS.
+- Exact-head CodeQL and dependency audit #41482453362: SUCCESS.
+- Dispatcher and Redis coverage includes duplicate/out-of-order quote rejection, bounded queue overflow/backpressure, single-flight processing, cancellation/retry, Redis Pub/Sub reconnect, independent consumer recovery, and real Redis process restart recovery.
+- PAPER stop-event coverage includes durable claim retry, crash-after-claim database recovery, stale-token fencing, concurrent PostgreSQL claim/reclaim races, retry exhaustion, and concurrent duplicate PAPER execution with one order/fill.
+- These are automated regression tests; they do not constitute production load certification or broker live-order validation.
+- Safety invariants unchanged: PAPER mandatory; LIVE broker place/modify/cancel writes disabled; original `tarunsharma2610-del/Tradepro` out of scope; PR #9 remains Draft and unmerged.
+- This documentation synchronization is not a green checkpoint until Backend CI, CodeQL, and dependency audit pass on the resulting exact documentation commit.
+
+
+## Latest verified Phase 4 checkpoint — 3 November 2026 (multi-worker metrics hardening)
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Branch: `phase4/redis-market-data-publisher`. PR #9 remains OPEN, Draft and unmerged.
+- Exact implementation/test head: `15141cdf437419afa2c89ad1f911d4ba863f6ccf`.
+- Backend CI [#41597941401 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41597941401): **1,626 passed, 8 warnings**. Broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill, and evidence retention passed.
+- Security analysis [#41597941400 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41597941400): CodeQL and Python dependency audit passed.
+- Metrics correction verified: independent per-worker counter state; atomic, retry-protected Redis aggregation; expiring Redis heartbeat scores with a 60-second activity window; stale-worker removal; admin metrics regression test models the production Redis time/zset interface.
+- This does not claim Prometheus integration, production alerting, sustained-load acceptance, deployment readiness, or Phase 4 completion.
+- Remaining Phase 4 gates: end-to-end Redis snapshot recovery → scanner/dispatcher → durable stop-event intake → final PAPER ledger/position acceptance; more multi-process/crash-window races; PAPER/LIVE isolation audit; security/authorization/secret-redaction review; sustained-load and backpressure testing; exact-head documentation CI.
+- Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 Draft/unmerged; no merge/deployment/LIVE activation; original `Tradepro` repository untouched.

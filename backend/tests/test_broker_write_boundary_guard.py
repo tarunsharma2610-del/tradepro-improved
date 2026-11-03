@@ -137,3 +137,30 @@ def test_literal_getattr_for_non_write_method_is_allowed(tmp_path):
     )
 
     assert find_violations(app) == []
+
+
+
+def test_stop_event_service_shared_paper_execution_call_is_allowed(tmp_path):
+    app = tmp_path / "app"
+    (app / "services").mkdir(parents=True)
+    (app / "services" / "paper_stop_event_execution_service.py").write_text(
+        "async def execute_claimed(self, user, request):\n"
+        "    return await self.execution.place_order(user, request, commit=False)\n",
+        encoding="utf-8",
+    )
+
+    assert find_violations(app) == []
+
+
+def test_stop_event_service_cannot_call_broker_adapter_directly(tmp_path):
+    app = tmp_path / "app"
+    (app / "services").mkdir(parents=True)
+    (app / "services" / "paper_stop_event_execution_service.py").write_text(
+        "async def execute_claimed(self, adapter, request):\n"
+        "    return await adapter.place_order(token, request)\n",
+        encoding="utf-8",
+    )
+
+    violations = find_violations(app)
+    assert len(violations) == 1
+    assert "paper_stop_event_execution_service.py:2" in violations[0]

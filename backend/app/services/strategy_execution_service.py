@@ -50,8 +50,11 @@ class EvaluationResult:
 
 
 class StrategyExecutionService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, *, scanner=None):
         self.db = db
+        # Worker evaluations share the in-process scanner fed by validated Redis snapshots.
+        # API/manual evaluations may omit it; candle-based indicator evaluation remains unchanged.
+        self.scanner = scanner
         self.portfolios = PortfolioRepository(db)
         self.positions = PositionRepository(db)
         self.broker_credentials = BrokerCredentialsService(db)
@@ -59,14 +62,23 @@ class StrategyExecutionService:
         self.notifications = NotificationService(db)
 
     async def evaluate(self, strategy: Strategy) -> EvaluationResult:
+        # Resolve the owning portfolio and enforce its mode before the inactive
+        # strategy shortcut. A LIVE strategy must never be evaluated as if it
+        # were merely an inactive PAPER strategy; this also guarantees the
+        # mode guard runs before credentials, quotes, or market-data access.
+        portfolio = self.portfolios.get_by_id(strategy.portfolio_id)
+        if portfolio is None:
+            return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Portfolio no longer exists.")
+        if portfolio.trading_mode != "PAPER":
+            return EvaluationResult(
+                str(strategy.id), Signal.HOLD.value,
+                "Automated strategy evaluation is PAPER-only; LIVE automation is not enabled.",
+            )
+
         # The API exposes an immediate-evaluation endpoint as well as the worker.
         # Enforce activation here so manual calls cannot bypass the worker's active check.
         if not strategy.is_active:
             return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Strategy is inactive; activate it before evaluation.")
-
-        portfolio = self.portfolios.get_by_id(strategy.portfolio_id)
-        if portfolio is None:
-            return EvaluationResult(str(strategy.id), Signal.HOLD.value, "Portfolio no longer exists.")
 
         access_token = self.broker_credentials.get_analytics_token(portfolio.user_id, "upstox")
         if access_token is None:
@@ -106,8 +118,15 @@ class StrategyExecutionService:
         # current price (avoids a second network round-trip for an LTP
         # that a 5-minute-old candle already approximates closely enough
         # for a stop check).
-        current_price = candles[-1].close
-        if in_position and signal == Signal.HOLD:
+        observation = (
+            self.scanner.latest(portfolio.user_id, strategy.instrument.instrument_key)
+            if self.scanner is not None else None
+        )
+        current_price = Decimal(str(observation.ltp)) if observation is not None else candles[-1].close
+        if in_position and signal == Signal.HOLD and observation is not None:
+            # A worker-managed trailing stop requires a fresh, user/instrument-scoped
+            # scanner observation. Never substitute an old candle close when the
+            # live observation is unavailable; indicator-driven exits remain intact.
             stop_result = self._check_trailing_stop(strategy, position.quantity, current_price)
             if stop_result is not None:
                 signal = Signal.EXIT
@@ -178,6 +197,7 @@ class StrategyExecutionService:
                 quantity=abs(position_quantity),
                 execution_reason="STRATEGY",
                 strategy_id=strategy.id,
+                reduce_only=True,
             ),
         )
 

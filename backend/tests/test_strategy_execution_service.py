@@ -263,3 +263,203 @@ async def test_stale_candles_fail_closed_without_opening_a_position(db_session, 
     assert "stale" in result.reason.lower()
     from app.repositories.position_repository import PositionRepository
     assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0
+
+
+@pytest.mark.asyncio
+async def test_worker_scanner_ltp_drives_trailing_stop_without_changing_candle_indicators(db_session, portfolio, instrument):
+    from datetime import datetime, timezone
+    from app.services.market_scanner import MarketScanner
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await StrategyExecutionService(db_session).evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+
+    scanner = MarketScanner(max_age_seconds=15)
+    received_at = datetime.now(timezone.utc)
+    observation = scanner.process_quote(user.id, {
+        "user_id": str(user.id), "instrument_key": instrument.instrument_key,
+        "epoch": "worker-test-epoch", "version": 1, "ltp": 100.0,
+        "exchange_timestamp_ms": int(received_at.timestamp() * 1000),
+        "received_at": received_at.isoformat(),
+    })
+    assert observation is not None
+
+    db_session.refresh(strategy)
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        result = await StrategyExecutionService(db_session, scanner=scanner).evaluate(strategy)
+    assert result.signal == Signal.EXIT.value
+    from app.repositories.position_repository import PositionRepository
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0
+
+
+@pytest.mark.asyncio
+async def test_other_users_scanner_observation_cannot_trigger_strategy_trailing_stop(db_session, portfolio, instrument):
+    from datetime import datetime, timezone
+    from app.services.market_scanner import MarketScanner
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await StrategyExecutionService(db_session).evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+
+    scanner = MarketScanner(max_age_seconds=15)
+    received_at = datetime.now(timezone.utc)
+    observation = scanner.process_quote("different-user", {
+        "user_id": "different-user", "instrument_key": instrument.instrument_key,
+        "epoch": "other-user-epoch", "version": 1, "ltp": 1.0,
+        "exchange_timestamp_ms": int(received_at.timestamp() * 1000),
+        "received_at": received_at.isoformat(),
+    })
+    assert observation is not None
+    assert scanner.latest(user.id, instrument.instrument_key) is None
+
+    db_session.refresh(strategy)
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        result = await StrategyExecutionService(db_session, scanner=scanner).evaluate(strategy)
+    assert result.signal == Signal.HOLD.value
+
+
+@pytest.mark.asyncio
+async def test_expired_scanner_observation_cannot_trigger_trailing_stop(db_session, portfolio, instrument, monkeypatch):
+    from datetime import datetime, timezone
+    from app.services import market_scanner as scanner_module
+    from app.services.market_scanner import MarketScanner
+    from app.repositories.position_repository import PositionRepository
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await StrategyExecutionService(db_session).evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+
+    scanner = MarketScanner(max_age_seconds=15)
+    received_at = datetime.now(timezone.utc)
+    monkeypatch.setattr(scanner_module.time, "monotonic", lambda: 100.0)
+    observation = scanner.process_quote(user.id, {
+        "user_id": str(user.id), "instrument_key": instrument.instrument_key,
+        "epoch": "expired-worker-test", "version": 1, "ltp": 1.0,
+        "exchange_timestamp_ms": int(received_at.timestamp() * 1000),
+        "received_at": received_at.isoformat(),
+    })
+    assert observation is not None
+
+    # Expire the quote before evaluation. The candle indicators still say HOLD;
+    # the stale low LTP must not trigger a trailing-stop exit.
+    monkeypatch.setattr(scanner_module.time, "monotonic", lambda: 115.1)
+    db_session.refresh(strategy)
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        result = await StrategyExecutionService(db_session, scanner=scanner).evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == strategy.quantity
+
+
+@pytest.mark.asyncio
+async def test_stale_periodic_exit_after_stop_event_fill_is_rejected_without_reversal(
+    db_session, portfolio, instrument
+):
+    """The shared execution boundary arbitrates event-stop vs periodic exits."""
+    from app.repositories.position_repository import PositionRepository
+    from app.services.execution_service import ExecutionService, PlaceOrderRequest
+    from app.services.transaction_costs import Segment, Side
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+
+    # Establish the open PAPER position through the normal strategy path.
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await StrategyExecutionService(db_session).evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == strategy.quantity
+
+    stale_quantity = strategy.quantity
+
+    # Model the event-driven stop path winning the race and flattening first.
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        stop_order = await ExecutionService(db_session).place_order(
+            user.id,
+            PlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.SELL,
+                order_type="MARKET",
+                segment=Segment(strategy.segment),
+                quantity=stale_quantity,
+                execution_reason="STRATEGY",
+                strategy_id=strategy.id,
+                reduce_only=True,
+            ),
+        )
+    assert stop_order.status == "FILLED"
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0
+
+    # The periodic evaluator now submits its previously-read stale exit.
+    # It must be rejected by the shared locked-position recheck.
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        stale_order = await ExecutionService(db_session).place_order(
+            user.id,
+            PlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.SELL,
+                order_type="MARKET",
+                segment=Segment(strategy.segment),
+                quantity=stale_quantity,
+                execution_reason="STRATEGY",
+                strategy_id=strategy.id,
+                reduce_only=True,
+            ),
+        )
+
+    assert stale_order.status == "REJECTED"
+    assert "reduce-only" in stale_order.rejection_reason.lower()
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == 0
+
+
+@pytest.mark.asyncio
+async def test_same_users_other_instrument_quote_cannot_trigger_strategy_trailing_stop(
+    db_session, portfolio, instrument
+):
+    from datetime import datetime, timezone
+    from app.services.market_scanner import MarketScanner
+    from app.repositories.position_repository import PositionRepository
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    strategy = _make_strategy(db_session, p.id, instrument.id)
+    rising_prices = [100.0 + i * 0.5 for i in range(20)]
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        entry = await StrategyExecutionService(db_session).evaluate(strategy)
+    assert entry.signal == Signal.ENTER_LONG.value
+
+    scanner = MarketScanner(max_age_seconds=15)
+    received_at = datetime.now(timezone.utc)
+    observation = scanner.process_quote(user.id, {
+        "user_id": str(user.id),
+        "instrument_key": "NSE_EQ|INE467B01029",
+        "epoch": "different-instrument-epoch",
+        "version": 1,
+        "ltp": 1.0,
+        "exchange_timestamp_ms": int(received_at.timestamp() * 1000),
+        "received_at": received_at.isoformat(),
+    })
+    assert observation is not None
+    assert scanner.latest(user.id, instrument.instrument_key) is None
+
+    db_session.refresh(strategy)
+    with _mock_broker(_candles_response(rising_prices), str(rising_prices[-1])):
+        result = await StrategyExecutionService(db_session, scanner=scanner).evaluate(strategy)
+
+    assert result.signal == Signal.HOLD.value
+    assert PositionRepository(db_session).get_or_create(p.id, instrument.id).quantity == strategy.quantity

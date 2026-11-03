@@ -20,7 +20,7 @@ class PositionRepository:
             .all()
         )
 
-    def get_or_create(self, portfolio_id: UUID, instrument_id: UUID) -> Position:
+    def get_or_create(self, portfolio_id: UUID, instrument_id: UUID, *, commit: bool = True) -> Position:
         position = (
             self.db.query(Position)
             .filter(Position.portfolio_id == portfolio_id, Position.instrument_id == instrument_id)
@@ -29,12 +29,18 @@ class PositionRepository:
         if position is None:
             position = Position(portfolio_id=portfolio_id, instrument_id=instrument_id, quantity=0, avg_price=0, realized_pnl=0)
             self.db.add(position)
-            self.db.commit()
-            self.db.refresh(position)
+            if commit:
+                self.db.commit()
+                self.db.refresh(position)
+            else:
+                self.db.flush()
         return position
 
-    def save(self, position: Position) -> Position:
+    def save(self, position: Position, *, commit: bool = True) -> Position:
         self.db.add(position)
-        self.db.commit()
-        self.db.refresh(position)
+        if commit:
+            self.db.commit()
+            self.db.refresh(position)
+        else:
+            self.db.flush()
         return position

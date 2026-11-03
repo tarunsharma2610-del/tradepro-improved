@@ -109,6 +109,11 @@ class BrokerAdapter(ABC):
     async def get_order_book(self, access_token: str) -> BrokerCallResult:
         ...
 
+    # --- Account funds (read-only) ---
+    async def get_funds_and_margin(self, access_token: str) -> BrokerCallResult:
+        """Optional read-only account funds snapshot capability."""
+        return BrokerCallResult(ok=False, error=f"{self.broker_name} adapter does not implement funds snapshots.")
+
     # --- Positions & holdings ---
     @abstractmethod
     async def get_positions(self, access_token: str) -> BrokerCallResult:

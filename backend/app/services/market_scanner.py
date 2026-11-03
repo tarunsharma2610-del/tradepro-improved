@@ -1,0 +1,340 @@
+"""Fail-closed live market scanner over validated Redis quote snapshots.
+
+This first scanner slice computes observations only. It does not create trade
+signals, persist orders, or call any broker order endpoint. Historical candles
+remain the source for technical indicators until the PAPER integration gate.
+"""
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from decimal import Decimal
+from math import isfinite
+import time
+from uuid import UUID
+from app.services.candle_parsing import parse_candles
+from app.services.indicators import momentum
+
+
+def _finite_number(value) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if isfinite(number) else None
+
+
+@dataclass(frozen=True)
+class MarketScanObservation:
+    user_id: str
+    instrument_key: str
+    epoch: str
+    version: int
+    ltp: float
+    price_change_pct: float | None
+    volume_traded_today: float | None
+    open_interest: float | None
+    buy_sell_imbalance: float | None
+    option_greeks: dict | None
+    exchange_timestamp_ms: int
+    received_at: str
+    # Optional defaults preserve compatibility for existing observation
+    # producers and tests that construct the pre-depth data shape.
+    best_bid_price: float | None = None
+    best_ask_price: float | None = None
+    spread_bps: float | None = None
+    best_bid_quantity: float | None = None
+    best_ask_quantity: float | None = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+class MarketScanner:
+    """Build per-user, per-instrument observations from validated snapshots."""
+
+    def __init__(self, *, max_age_seconds: float = 15.0) -> None:
+        if max_age_seconds <= 0:
+            raise ValueError("Scanner observation TTL must be positive.")
+        self.max_age_seconds = max_age_seconds
+        self._latest: dict[tuple[str, str], MarketScanObservation] = {}
+        self._latest_seen: dict[tuple[str, str], float] = {}
+
+    def process_quote(
+        self, user_id: UUID | str, quote: dict, *, now: datetime | None = None
+    ) -> MarketScanObservation | None:
+        owner = str(user_id)
+        if not isinstance(quote, dict) or quote.get("user_id") != owner:
+            return None
+        instrument_key, epoch = quote.get("instrument_key"), quote.get("epoch")
+        version, ltp = quote.get("version"), _finite_number(quote.get("ltp"))
+        exchange_timestamp_ms, received_at = quote.get("exchange_timestamp_ms"), quote.get("received_at")
+        if (
+            not isinstance(instrument_key, str) or "|" not in instrument_key
+            or not isinstance(epoch, str) or not epoch
+            or isinstance(version, bool) or not isinstance(version, int) or version <= 0
+            or ltp is None or ltp <= 0
+            or isinstance(exchange_timestamp_ms, bool)
+            or not isinstance(exchange_timestamp_ms, int) or exchange_timestamp_ms <= 0
+            or not isinstance(received_at, str)
+        ):
+            return None
+        try:
+            parsed_received_at = datetime.fromisoformat(received_at)
+        except ValueError:
+            return None
+        if parsed_received_at.tzinfo is None:
+            return None
+
+        current = now or datetime.now(parsed_received_at.tzinfo)
+        if current.tzinfo is None:
+            return None
+        current_utc = current.astimezone(timezone.utc)
+        received_utc = parsed_received_at.astimezone(timezone.utc)
+        received_age = (current_utc - received_utc).total_seconds()
+        exchange_age_ms = current_utc.timestamp() * 1000 - exchange_timestamp_ms
+        if not 0 <= received_age <= self.max_age_seconds:
+            return None
+        # Permit up to 60 seconds of exchange/server clock skew, but reject
+        # future-dated ticks beyond that and ticks older than the scanner TTL.
+        if not -60_000 <= exchange_age_ms <= self.max_age_seconds * 1000:
+            return None
+
+        identity = (owner, instrument_key)
+        previous = self._latest.get(identity)
+        if previous is not None and previous.epoch == epoch and version <= previous.version:
+            return None
+
+        price_change_pct = None
+        ohlc = quote.get("ohlc")
+        if isinstance(ohlc, list):
+            daily = next(
+                (item for item in ohlc if isinstance(item, dict)
+                 and str(item.get("interval", "")).lower() in {"1d", "day", "daily"}),
+                None,
+            )
+            close = _finite_number(daily.get("close")) if daily else None
+            if close is not None and close > 0:
+                price_change_pct = ((ltp - close) / close) * 100.0
+
+        volume = _finite_number(quote.get("volume_traded_today"))
+        open_interest = _finite_number(quote.get("open_interest"))
+        buy, sell = _finite_number(quote.get("total_buy_quantity")), _finite_number(quote.get("total_sell_quantity"))
+        imbalance = None
+        if buy is not None and sell is not None and buy >= 0 and sell >= 0 and buy + sell > 0:
+            imbalance = (buy - sell) / (buy + sell)
+
+        # Market-quality measurements use only the first provider depth
+        # level. Missing, malformed, crossed, or non-positive books stay None;
+        # they must never be interpreted as liquid/zero-spread markets.
+        best_bid = best_ask = spread_bps = bid_quantity = ask_quantity = None
+        raw_depth = quote.get("depth")
+        if isinstance(raw_depth, list) and raw_depth and isinstance(raw_depth[0], dict):
+            level = raw_depth[0]
+            bid = _finite_number(level.get("bid_price"))
+            ask = _finite_number(level.get("ask_price"))
+            bid_qty = _finite_number(level.get("bid_quantity"))
+            ask_qty = _finite_number(level.get("ask_quantity"))
+            if bid is not None and ask is not None and bid > 0 and ask >= bid:
+                midpoint = (bid + ask) / 2.0
+                if midpoint > 0:
+                    best_bid, best_ask = bid, ask
+                    spread_bps = ((ask - bid) / midpoint) * 10_000.0
+            if bid_qty is not None and bid_qty >= 0:
+                bid_quantity = bid_qty
+            if ask_qty is not None and ask_qty >= 0:
+                ask_quantity = ask_qty
+
+        raw_greeks = quote.get("option_greeks")
+        greeks = None
+        if isinstance(raw_greeks, dict):
+            valid = {key: number for key, raw in raw_greeks.items()
+                     if (number := _finite_number(raw)) is not None}
+            greeks = valid or None
+
+        observation = MarketScanObservation(
+            user_id=owner, instrument_key=instrument_key, epoch=epoch, version=version,
+            ltp=ltp, price_change_pct=price_change_pct,
+            volume_traded_today=volume if volume is not None and volume >= 0 else None,
+            open_interest=open_interest if open_interest is not None and open_interest >= 0 else None,
+            buy_sell_imbalance=imbalance,
+            best_bid_price=best_bid, best_ask_price=best_ask,
+            spread_bps=spread_bps,
+            best_bid_quantity=bid_quantity, best_ask_quantity=ask_quantity,
+            option_greeks=greeks,
+            exchange_timestamp_ms=exchange_timestamp_ms, received_at=received_at,
+        )
+        self._latest[identity] = observation
+        self._latest_seen[identity] = time.monotonic()
+        return observation
+
+    @staticmethod
+    def historical_momentum_from_response(response_data: dict, *, period: int = 10):
+        """Return the shared momentum score from validated Upstox candles.
+
+        Provider errors, malformed rows, or insufficient history yield None.
+        This is an advisory scanner feature; it never creates an order signal.
+        """
+        if isinstance(period, bool) or not isinstance(period, int) or period <= 0:
+            return None
+        candles = parse_candles(response_data)
+        if candles is None or len(candles) < period + 1:
+            return None
+        return momentum(candles, period=period)
+
+    @staticmethod
+    def relative_volume_from_response(response_data: dict, *, lookback_sessions: int = 20):
+        """Compare the latest candle with prior candles at the same local time.
+
+        Requires a full same-time-of-day baseline from distinct dates. It
+        returns a Decimal ratio (e.g. 1.5 means 1.5x usual volume), or None
+        when the baseline is incomplete/zero. This is advisory scanner data.
+        """
+        if (
+            isinstance(lookback_sessions, bool)
+            or not isinstance(lookback_sessions, int)
+            or lookback_sessions <= 0
+        ):
+            return None
+        candles = parse_candles(response_data)
+        if candles is None or len(candles) < lookback_sessions + 1:
+            return None
+        current = candles[-1]
+        slot = (
+            current.timestamp.hour,
+            current.timestamp.minute,
+            current.timestamp.second,
+            current.timestamp.utcoffset(),
+        )
+        prior = [
+            candle for candle in candles[:-1]
+            if (
+                candle.timestamp.hour,
+                candle.timestamp.minute,
+                candle.timestamp.second,
+                candle.timestamp.utcoffset(),
+            ) == slot
+            and candle.timestamp.date() != current.timestamp.date()
+        ]
+        # Keep the most recent sample per session/date; duplicate dates do not
+        # inflate the baseline even if a provider returns repeated intervals.
+        by_date = {}
+        for candle in prior:
+            by_date[candle.timestamp.date()] = candle
+        samples = sorted(by_date.values(), key=lambda item: item.timestamp)[-lookback_sessions:]
+        if len(samples) != lookback_sessions:
+            return None
+        average_volume = Decimal(sum(item.volume for item in samples)) / Decimal(lookback_sessions)
+        if average_volume <= 0:
+            return None
+        return Decimal(current.volume) / average_volume
+
+    @staticmethod
+    def rank_opportunities(candidates: list[dict], *, weights: dict[str, float]) -> list[dict]:
+        """Rank advisory scanner candidates using explicit normalized factors.
+
+        Candidate factors must be finite numbers in [0, 1]. Missing/invalid
+        factors exclude a candidate (fail closed). Weights must be finite,
+        non-negative, contain exactly the supported factor names, and have a
+        positive total. Ties are resolved by instrument_key ascending.
+        """
+        factor_names = ("momentum", "relative_volume", "liquidity")
+        if not isinstance(weights, dict) or set(weights) != set(factor_names):
+            return []
+        parsed_weights = {}
+        for name in factor_names:
+            value = _finite_number(weights.get(name))
+            if value is None or value < 0:
+                return []
+            parsed_weights[name] = value
+        total_weight = sum(parsed_weights.values())
+        if total_weight <= 0:
+            return []
+
+        ranked = []
+        seen = set()
+        for candidate in candidates if isinstance(candidates, list) else []:
+            if not isinstance(candidate, dict):
+                continue
+            key = candidate.get("instrument_key")
+            if not isinstance(key, str) or not key or key in seen:
+                continue
+            factors = candidate.get("factors")
+            if not isinstance(factors, dict):
+                continue
+            values = {}
+            valid = True
+            for name in factor_names:
+                value = _finite_number(factors.get(name))
+                if value is None or not 0 <= value <= 1:
+                    valid = False
+                    break
+                values[name] = value
+            if not valid:
+                continue
+            seen.add(key)
+            contributions = {
+                name: (values[name] * parsed_weights[name]) / total_weight
+                for name in factor_names
+            }
+            score = sum(contributions.values())
+            ranked.append({
+                "instrument_key": key,
+                "score": score,
+                "factors": values,
+                "weighted_contributions": contributions,
+            })
+        ranked.sort(key=lambda item: (-item["score"], item["instrument_key"]))
+        return [
+            {**item, "rank": index}
+            for index, item in enumerate(ranked, start=1)
+        ]
+
+    @staticmethod
+    def passes_market_quality(
+        observation: MarketScanObservation,
+        *,
+        max_spread_bps: float,
+        min_bid_quantity: float = 0.0,
+        min_ask_quantity: float = 0.0,
+    ) -> bool:
+        """Apply caller-supplied liquidity limits; unknown data fails closed.
+
+        Thresholds are deliberately explicit inputs rather than universal
+        constants because acceptable spreads/depth differ by segment and
+        instrument. This is a scanner filter only, never an execution rule.
+        """
+        limits = (max_spread_bps, min_bid_quantity, min_ask_quantity)
+        if any(_finite_number(value) is None for value in limits):
+            return False
+        if max_spread_bps < 0 or min_bid_quantity < 0 or min_ask_quantity < 0:
+            return False
+        if (
+            observation.spread_bps is None
+            or observation.best_bid_quantity is None
+            or observation.best_ask_quantity is None
+        ):
+            return False
+        return (
+            observation.spread_bps <= max_spread_bps
+            and observation.best_bid_quantity >= min_bid_quantity
+            and observation.best_ask_quantity >= min_ask_quantity
+        )
+
+    def latest(self, user_id: UUID | str, instrument_key: str) -> MarketScanObservation | None:
+        identity = (str(user_id), instrument_key)
+        seen = self._latest_seen.get(identity)
+        if seen is None or time.monotonic() - seen > self.max_age_seconds:
+            self._latest.pop(identity, None)
+            self._latest_seen.pop(identity, None)
+            return None
+        return self._latest.get(identity)
+
+    def clear_instrument(self, user_id: UUID | str, instrument_key: str) -> None:
+        """Allow one capacity-dropped Redis snapshot to be validated again."""
+        identity = (str(user_id), instrument_key)
+        self._latest.pop(identity, None)
+        self._latest_seen.pop(identity, None)
+
+    def clear_user(self, user_id: UUID | str) -> None:
+        owner = str(user_id)
+        for identity in [key for key in self._latest if key[0] == owner]:
+            self._latest.pop(identity, None)
+            self._latest_seen.pop(identity, None)

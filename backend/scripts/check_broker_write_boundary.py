@@ -16,6 +16,7 @@ from pathlib import Path
 
 WRITE_METHODS = {"place_order", "modify_order", "cancel_order"}
 PAPER_EXECUTION_CALLER = Path("services/strategy_execution_service.py")
+PAPER_STOP_EVENT_EXECUTION_CALLER = Path("services/paper_stop_event_execution_service.py")
 PAPER_PORTFOLIO_ENDPOINTS = Path("api/v1/portfolios.py")
 
 
@@ -33,6 +34,14 @@ def _is_approved_paper_execution_call(
 ) -> bool:
     if (
         relative == PAPER_EXECUTION_CALLER
+        and node.attr.lower() == "place_order"
+        and chain == ["execution", "self"]
+    ):
+        return True
+
+    if (
+        relative == PAPER_STOP_EVENT_EXECUTION_CALLER
+        and function_name == "execute_claimed"
         and node.attr.lower() == "place_order"
         and chain == ["execution", "self"]
     ):

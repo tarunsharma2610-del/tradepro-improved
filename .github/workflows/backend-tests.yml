@@ -28,6 +28,15 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -38,6 +47,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install Redis server for restart recovery integration tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y redis-server
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -46,7 +59,8 @@ jobs:
         env:
           DATABASE_URL: "sqlite:///:memory:"
           TEST_POSTGRES_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
-          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
+          REDIS_TEST_URL: "redis://localhost:6379/15"
+          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPoUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
           UPSTOX_CHARGE_ESTIMATES_ENABLED: "false"
         run: python -m pytest -q
@@ -55,17 +69,21 @@ jobs:
       - name: Verify Alembic upgrade, downgrade and re-upgrade on SQLite
         env:
           DATABASE_URL: "sqlite:///./migration-check.db"
-          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
+          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPoUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: |
           alembic upgrade head
           alembic downgrade 202610170001
           alembic upgrade head
 
+      - name: Create isolated PostgreSQL 16 migration database
+        env:
+          PGPASSWORD: postgres
+        run: createdb -h localhost -p 5432 -U postgres tradepro_migration_check
       - name: Verify Alembic upgrade, downgrade and re-upgrade on PostgreSQL 16
         env:
-          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_test"
-          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPUoZMkwOZDHZFlAZA-u24="
+          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/tradepro_migration_check"
+          MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPoUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
         run: |
           alembic upgrade head

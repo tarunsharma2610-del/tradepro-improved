@@ -35,7 +35,14 @@ def needs_rehash(password_hash: str) -> bool:
 TokenType = Literal["access", "refresh"]
 
 
-def create_token(user_id: UUID, token_type: TokenType, extra_claims: dict[str, Any] | None = None) -> str:
+def create_token(
+    user_id: UUID,
+    token_type: TokenType,
+    extra_claims: dict[str, Any] | None = None,
+    *,
+    session_id: UUID | None = None,
+    token_id: str | None = None,
+) -> str:
     now = datetime.now(timezone.utc)
     if token_type == "access":
         expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -48,7 +55,17 @@ def create_token(user_id: UUID, token_type: TokenType, extra_claims: dict[str, A
         "iat": now,
         "exp": expire,
     }
+    if session_id is not None:
+        payload["sid"] = str(session_id)
+    if token_id is not None:
+        payload["jti"] = token_id
+
     if extra_claims:
+        reserved_claims = {"sub", "type", "iat", "exp", "sid", "jti"}
+        overridden = reserved_claims.intersection(extra_claims)
+        if overridden:
+            names = ", ".join(sorted(overridden))
+            raise ValueError(f"Extra token claims cannot override reserved claims: {names}")
         payload.update(extra_claims)
 
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)

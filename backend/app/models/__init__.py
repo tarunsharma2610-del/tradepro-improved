@@ -1,6 +1,11 @@
 from app.models.base import BaseModel  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.auth_session import AuthSession  # noqa: F401
 from app.models.broker_connection import BrokerConnection  # noqa: F401
+from app.models.broker_portfolio_allocation import BrokerPortfolioAllocation  # noqa: F401
+from app.models.broker_funds_snapshot import BrokerFundsSnapshot  # noqa: F401
+from app.models.broker_position_snapshot import BrokerPositionSnapshot  # noqa: F401
+from app.models.broker_holding_snapshot import BrokerHoldingSnapshot  # noqa: F401
 from app.models.broker_order import BrokerOrder  # noqa: F401
 from app.models.broker_trade_record import BrokerTradeRecord  # noqa: F401
 from app.models.broker_charge_evidence import BrokerChargeEvidence  # noqa: F401
@@ -15,6 +20,7 @@ from app.models.live_position import LivePosition  # noqa: F401
 from app.models.platform_setting import PlatformSetting  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.instrument import Instrument  # noqa: F401
+from app.models.market_universe import MarketUniverseSnapshot, MarketUniverseMembership  # noqa: F401
 from app.models.portfolio import Portfolio  # noqa: F401
 from app.models.order import Order  # noqa: F401
 from app.models.position import Position  # noqa: F401
@@ -25,12 +31,19 @@ from app.models.backtest_trade import BacktestTrade  # noqa: F401
 from app.models.news_feed_source import NewsFeedSource  # noqa: F401
 from app.models.news_item import NewsItem  # noqa: F401
 from app.models.telegram_link import TelegramBotState, TelegramLink  # noqa: F401
+from app.models.market_data_subscription import MarketDataSubscription  # noqa: F401
+from app.models.paper_stop_event import PaperStopEvent  # noqa: F401
 from app.models.live_order_records import LiveOrderIntent, LiveOrderEvent, LiveOrderOutbox, BrokerFillIdentity, LiveReconciliationLease  # noqa: F401
 
 __all__ = [
     "BaseModel",
     "User",
+    "AuthSession",
     "BrokerConnection",
+    "BrokerPortfolioAllocation",
+    "BrokerFundsSnapshot",
+    "BrokerPositionSnapshot",
+    "BrokerHoldingSnapshot",
     "BrokerOrder",
     "BrokerTradeRecord",
     "BrokerChargeEvidence",
@@ -43,11 +56,14 @@ __all__ = [
     "PlatformSetting",
     "AuditLog",
     "Instrument",
+    "MarketUniverseSnapshot",
+    "MarketUniverseMembership",
     "Portfolio",
     "Order",
     "Position",
     "Execution",
     "Strategy",
+    "PaperStopEvent",
     "BacktestRun",
     "BacktestTrade",
     "NewsFeedSource",

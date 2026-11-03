@@ -145,6 +145,15 @@ class UpstoxAdapter(BrokerAdapter):
         # VERIFIED: upstox.com/developer/api-documentation/get-order-book
         return await self._get(f"{API_V2}/order/retrieve-all", access_token)
 
+    # --- Account funds (read-only) ---
+    async def get_funds_and_margin(self, access_token: str) -> BrokerCallResult:
+        """Fetch Upstox Funds V3. This is account margin data, not withdrawable cash."""
+        return await self._get(
+            f"{API_V3}/user/get-funds-and-margin",
+            access_token,
+            headers={"Api-Version": "3.0"},
+        )
+
     # --- Positions & holdings ---
     async def get_positions(self, access_token: str) -> BrokerCallResult:
         # VERIFIED: upstox.com/developer/api-documentation/get-positions
@@ -155,8 +164,8 @@ class UpstoxAdapter(BrokerAdapter):
         return await self._get(f"{API_V2}/portfolio/long-term-holdings", access_token)
 
     # --- internal helpers ---
-    async def _get(self, url: str, access_token: str, params: dict[str, Any] | None = None) -> BrokerCallResult:
-        headers = {"Accept": "application/json", "Authorization": f"Bearer {access_token}"}
+    async def _get(self, url: str, access_token: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None) -> BrokerCallResult:
+        headers = {"Accept": "application/json", "Authorization": f"Bearer {access_token}", **(headers or {})}
         async with httpx.AsyncClient(timeout=15) as client:
             try:
                 resp = await client.get(url, headers=headers, params=params)

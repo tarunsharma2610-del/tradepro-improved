@@ -24,18 +24,19 @@ def _get_redis() -> redis.Redis:
 
 
 def _check_and_increment(key: str, max_attempts: int, window_seconds: int) -> None:
-    """Shared by both limiter flavors below. Fails open on Redis being
-    briefly unavailable — see the module-level reasoning in
-    tests/conftest.py's _clean_redis_rate_limits fixture, which exists
-    specifically because this fail-open behavior is real and was
-    confirmed against a live Redis, not just assumed."""
+    """Shared by both limiter flavors below. Fail closed when Redis is
+    unavailable: request protection cannot be bypassed during an outage.
+    The API returns HTTP 503 so callers can retry after Redis recovers."""
     try:
         r = _get_redis()
         count = r.incr(key)
         if count == 1:
             r.expire(key, window_seconds)
-    except redis.RedisError:
-        return
+    except redis.RedisError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Request protection is temporarily unavailable. Please retry shortly.",
+        ) from exc
 
     if count > max_attempts:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts. Try again in a few minutes.")

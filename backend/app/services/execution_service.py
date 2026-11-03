@@ -56,6 +56,7 @@ class PlaceOrderRequest:
     limit_price: Decimal | None = None
     execution_reason: str = "MANUAL"  # "STRATEGY" when called from strategy_execution_service
     strategy_id: UUID | None = None
+    reduce_only: bool = False  # internal strategy exits may only reduce an existing position
 
 
 class ExecutionService:
@@ -67,9 +68,29 @@ class ExecutionService:
         self.instruments = InstrumentRepository(db)
         self.broker_credentials = BrokerCredentialsService(db)
 
-    async def place_order(self, user_id: UUID, req: PlaceOrderRequest) -> Order:
+    async def place_order(
+        self, user_id: UUID, req: PlaceOrderRequest, *, commit: bool = True,
+        paper_stop_event_id: UUID | None = None,
+    ) -> Order:
+        """Place a PAPER order; internal orchestrators may retain transaction ownership.
+
+        A stop-event reference is accepted only for an internal strategy MARKET
+        order. Existing event orders are returned after portfolio ownership is
+        locked and validated, making delivery retries idempotent.
+        """
         # Validate at the service boundary as well as the HTTP schema: strategy
         # automation and future internal callers do not pass through Pydantic.
+        if paper_stop_event_id is not None and (
+            req.execution_reason != "STRATEGY" or req.strategy_id is None
+            or req.order_type != "MARKET" or not req.reduce_only
+        ):
+            raise OrderValidationError(
+                "PAPER stop-event orders must be strategy-owned reduce-only MARKET orders."
+            )
+        if req.reduce_only and (
+            req.execution_reason != "STRATEGY" or req.strategy_id is None or req.order_type != "MARKET"
+        ):
+            raise OrderValidationError("Reduce-only orders must be strategy-owned MARKET orders.")
         if req.quantity <= 0:
             raise OrderValidationError("Quantity must be greater than zero.")
         if req.order_type not in {"MARKET", "LIMIT"}:
@@ -83,6 +104,26 @@ class ExecutionService:
         portfolio = self.portfolios.get_for_user_for_update(user_id, req.portfolio_id)
         if portfolio is None:
             raise OrderValidationError("Portfolio not found.")
+
+        if portfolio.trading_mode != "PAPER":
+            raise OrderValidationError("This execution path is PAPER-only; LIVE execution is not enabled.")
+
+        if paper_stop_event_id is not None:
+            existing = self.orders.get_for_paper_stop_event(paper_stop_event_id)
+            if existing is not None:
+                same_request = (
+                    existing.portfolio_id == portfolio.id
+                    and existing.instrument_id == req.instrument_id
+                    and existing.strategy_id == req.strategy_id
+                    and existing.execution_reason == "STRATEGY"
+                    and existing.trading_mode == "PAPER"
+                    and existing.side == req.side.value
+                    and existing.quantity == req.quantity
+                    and existing.order_type == "MARKET"
+                )
+                if not same_request:
+                    raise OrderValidationError("Stop-event idempotency key is already bound to a different order.")
+                return existing
 
         instrument = self.instruments.get_by_id(req.instrument_id)
         if instrument is None:
@@ -101,27 +142,58 @@ class ExecutionService:
             trading_mode="PAPER",
             execution_reason=req.execution_reason,
             strategy_id=req.strategy_id,
+            paper_stop_event_id=paper_stop_event_id,
             placed_at=now,
         )
+
+        if req.reduce_only:
+            # Portfolio is already locked above. Lock and re-read the current
+            # position under that same transaction so a stale strategy snapshot
+            # cannot turn an exit into a new short/long position after another
+            # worker has already flattened or reversed it.
+            current_position = (
+                self.db.query(Position)
+                .filter(
+                    Position.portfolio_id == portfolio.id,
+                    Position.instrument_id == instrument.id,
+                )
+                .with_for_update(of=Position)
+                .first()
+            )
+            can_reduce = (
+                current_position is not None
+                and current_position.quantity != 0
+                and (
+                    (req.side == Side.SELL and current_position.quantity > 0)
+                    or (req.side == Side.BUY and current_position.quantity < 0)
+                )
+                and req.quantity <= abs(current_position.quantity)
+            )
+            if not can_reduce:
+                return self._reject(
+                    order,
+                    "Reduce-only strategy exit rejected: no matching open position remains or quantity exceeds it.",
+                    commit=commit,
+                )
 
         if req.order_type == "LIMIT":
             risk_reason = check_portfolio_order(
                 self.db, portfolio, instrument, side=req.side.value, quantity=req.quantity,
                 estimated_price=Decimal(str(req.limit_price)),
-                reducing_position=self._is_reducing_position(portfolio.id, instrument.id, req.side, req.quantity),
+                reducing_position=req.reduce_only or self._is_reducing_position(portfolio.id, instrument.id, req.side, req.quantity),
             )
             if risk_reason:
-                return self._reject(order, risk_reason)
+                return self._reject(order, risk_reason, commit=commit)
             # The worker rechecks relevant limits before filling the order.
-            return self.orders.create(order)
+            return self.orders.create(order, commit=commit)
 
         access_token = self.broker_credentials.get_analytics_token(user_id, "upstox")
         if access_token is None:
-            return self._reject(order, "No valid Upstox broker Analytics Token is configured in Settings.")
+            return self._reject(order, "No valid Upstox broker Analytics Token is configured in Settings.", commit=commit)
 
         ltp, quote_error = await self._get_ltp(portfolio.user_id, instrument.instrument_key, access_token, req.side, req.quantity)
         if ltp is None:
-            return self._reject(order, quote_error or "No fresh market price is available.")
+            return self._reject(order, quote_error or "No fresh market price is available.", commit=commit)
 
         risk_reason = check_portfolio_order(
             self.db, portfolio, instrument, side=req.side.value, quantity=req.quantity,
@@ -129,7 +201,7 @@ class ExecutionService:
             reducing_position=self._is_reducing_position(portfolio.id, instrument.id, req.side, req.quantity),
         )
         if risk_reason:
-            return self._reject(order, risk_reason)
+            return self._reject(order, risk_reason, commit=commit)
 
         estimate = await self._estimate_paper_costs(
             access_token, instrument.instrument_key, req.segment, req.side, req.quantity, ltp
@@ -140,17 +212,18 @@ class ExecutionService:
         if req.side == Side.BUY:
             required_cash = costs.gross_value + costs.total_charges
             if Decimal(str(portfolio.cash_balance)) < required_cash:
-                return self._reject(order, f"Insufficient virtual capital: need {required_cash}, have {portfolio.cash_balance}.")
+                return self._reject(order, f"Insufficient virtual capital: need {required_cash}, have {portfolio.cash_balance}.", commit=commit)
 
         if req.side == Side.SELL and req.segment == Segment.EQUITY_DELIVERY:
-            position = self.positions.get_or_create(portfolio.id, instrument.id)
+            position = self.positions.get_or_create(portfolio.id, instrument.id, commit=False)
             if position.quantity < req.quantity:
                 return self._reject(
                     order,
                     f"Insufficient holdings for a delivery sell: hold {position.quantity}, tried to sell {req.quantity}.",
+                    commit=commit,
                 )
 
-        return self._fill(order, portfolio, instrument, req, ltp, costs, charge_source=charge_source)
+        return self._fill(order, portfolio, instrument, req, ltp, costs, charge_source=charge_source, commit=commit)
 
     def cancel_order(self, user_id: UUID, portfolio_id: UUID, order_id: UUID) -> Order:
         """Cancel a user's pending paper order; filled/rejected orders are immutable."""
@@ -356,18 +429,23 @@ class ExecutionService:
             return position.quantity > 0 and quantity <= position.quantity
         return position.quantity < 0 and quantity <= abs(position.quantity)
 
-    def _reject(self, order: Order, reason: str) -> Order:
+    def _reject(self, order: Order, reason: str, *, commit: bool = True) -> Order:
         order.status = "REJECTED"
         order.rejection_reason = reason
-        return self.orders.create(order)
+        return self.orders.create(order, commit=commit)
 
-    def _fill(self, order: Order, portfolio: Portfolio, instrument: Instrument, req: PlaceOrderRequest, ltp: Decimal, costs, *, charge_source: str = "PAPER_ESTIMATE") -> Order:
+    def _fill(
+        self, order: Order, portfolio: Portfolio, instrument: Instrument,
+        req: PlaceOrderRequest, ltp: Decimal, costs, *,
+        charge_source: str = "PAPER_ESTIMATE", commit: bool = True,
+    ) -> Order:
+        """Apply one PAPER fill; all ledger writes share one transaction."""
         now = datetime.now(timezone.utc)
         order.status = "FILLED"
         order.filled_at = now
-        order = self.orders.create(order)
+        order = self.orders.create(order, commit=False)
 
-        position = self.positions.get_or_create(portfolio.id, instrument.id)
+        position = self.positions.get_or_create(portfolio.id, instrument.id, commit=False)
         update = apply_fill(
             position_quantity=position.quantity,
             position_avg_price=Decimal(str(position.avg_price)),
@@ -378,10 +456,10 @@ class ExecutionService:
         position.quantity = update.new_quantity
         position.avg_price = update.new_avg_price
         position.realized_pnl = Decimal(str(position.realized_pnl)) + update.realized_pnl
-        self.positions.save(position)
+        self.positions.save(position, commit=False)
 
         portfolio.cash_balance = Decimal(str(portfolio.cash_balance)) + costs.net_cash_impact
-        self.portfolios.save(portfolio)
+        self.portfolios.save(portfolio, commit=False)
 
         execution = Execution(
             order_id=order.id,
@@ -412,7 +490,11 @@ class ExecutionService:
         # field null when not sourced, and includes it only when explicitly present.
         recompute_execution_total_charges(execution)
         self.db.add(execution)
-        self.db.commit()
+        if commit:
+            self.db.commit()
+            self.db.refresh(order)
+        else:
+            self.db.flush()
 
         return order
 

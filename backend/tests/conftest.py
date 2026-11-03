@@ -21,13 +21,14 @@ def _clean_redis_rate_limits():
     one rate-limit bucket (keyed by the test client's fixed fake IP)
     across the whole session if a real Redis happens to be reachable at
     the default URL -- enough registrations across the suite would trip
-    the real limit, and a later test's login would legitimately 401
-    because its registration got rate-limited, not because anything is
+    the real limit, and a later test's login would legitimately 429
+    because its registration was rate-limited, not because anything is
     broken. Confirmed by validating this suite against a real Postgres +
     Redis stack, where this exact thing happened before this fixture
-    existed. Fails open (does nothing) if Redis isn't reachable, matching
-    the application code's own fail-open behavior -- this suite passes the
-    same way whether or not a local Redis happens to be running."""
+    existed. If Redis is unavailable, this cleanup fixture does not mask
+    the outage: the application rate limiter fails closed with HTTP 503.
+    The Backend CI workflow provisions Redis, so rate-limited API tests
+    exercise the same fail-closed dependency contract as the application."""
     import redis
 
     try:
@@ -47,6 +48,8 @@ def db_session():
     @event.listens_for(engine, "connect")
     def _configure_sqlite_transaction_boundaries(dbapi_connection, _connection_record):
         dbapi_connection.isolation_level = None
+        # Keep the shared legacy unit-test fixture's historical FK semantics.
+        # The mode-mismatch constraint is exercised by an isolated DB test.
 
     @event.listens_for(engine, "begin")
     def _begin_sqlite_transaction(connection):
@@ -82,6 +85,34 @@ def db_session():
             BEFORE DELETE ON tariff_estimate_variance_records
             BEGIN
                 SELECT RAISE(ABORT, 'tariff estimate variance records are append-only');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_market_universe_membership_no_update
+            BEFORE UPDATE ON market_universe_memberships
+            BEGIN
+                SELECT RAISE(ABORT, 'market universe membership snapshots are immutable');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_market_universe_membership_no_delete
+            BEFORE DELETE ON market_universe_memberships
+            BEGIN
+                SELECT RAISE(ABORT, 'market universe membership snapshots are immutable');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_market_universe_snapshot_content_no_update
+            BEFORE UPDATE OF universe_key, as_of_date, source, member_count ON market_universe_snapshots
+            BEGIN
+                SELECT RAISE(ABORT, 'market universe snapshot content is immutable');
+            END
+        """)
+        connection.exec_driver_sql("""
+            CREATE TRIGGER trg_market_universe_snapshot_no_delete
+            BEFORE DELETE ON market_universe_snapshots
+            BEGIN
+                SELECT RAISE(ABORT, 'market universe snapshots are retained for audit');
             END
         """)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

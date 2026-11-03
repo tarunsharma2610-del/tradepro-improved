@@ -50,15 +50,39 @@ class PortfolioRepository:
         anything handling a live user request."""
         return self.db.get(Portfolio, portfolio_id)
 
-    def create(self, *, user_id: UUID, name: str, virtual_capital: Decimal) -> Portfolio:
-        portfolio = Portfolio(user_id=user_id, name=name, virtual_capital=virtual_capital, cash_balance=virtual_capital)
+    def create(
+        self, *, user_id: UUID, name: str, virtual_capital: Decimal | None, trading_mode: str = "PAPER"
+    ) -> Portfolio:
+        if trading_mode not in {"PAPER", "LIVE"}:
+            raise ValueError("Unsupported trading mode.")
+        if trading_mode == "PAPER":
+            if virtual_capital is None or virtual_capital <= 0:
+                raise ValueError("PAPER portfolios require positive simulated starting capital.")
+            starting_capital = virtual_capital
+            cash_balance = virtual_capital
+            balance_source = "SIMULATED"
+        else:
+            if virtual_capital is not None:
+                raise ValueError("LIVE portfolios cannot be initialized with simulated capital.")
+            starting_capital = Decimal("0")
+            cash_balance = Decimal("0")
+            balance_source = "UNAVAILABLE"
+        portfolio = Portfolio(
+            user_id=user_id, name=name, trading_mode=trading_mode,
+            virtual_capital=starting_capital, cash_balance=cash_balance,
+            balance_source=balance_source,
+        )
         self.db.add(portfolio)
         self.db.commit()
         self.db.refresh(portfolio)
         return portfolio
 
-    def save(self, portfolio: Portfolio) -> Portfolio:
+    def save(self, portfolio: Portfolio, *, commit: bool = True) -> Portfolio:
+        """Persist a portfolio; callers may retain transaction ownership."""
         self.db.add(portfolio)
-        self.db.commit()
-        self.db.refresh(portfolio)
+        if commit:
+            self.db.commit()
+            self.db.refresh(portfolio)
+        else:
+            self.db.flush()
         return portfolio

@@ -1,3 +1,36 @@
+## Latest Phase 4 operational observability checkpoint — 3 November 2026
+
+This update supersedes earlier "next step" and latest-head summaries in this document.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Branch: `phase4/redis-market-data-publisher`. PR #9 remains OPEN, Draft, and unmerged.
+- Verified implementation commit: `d5f4a3f2bea7f6c086d163a10765d46fe1391a61`.
+- Backend PR CI [#41593091254 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41593091254) on the exact commit: full pytest, broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore and evidence retention passed.
+- Security PR CI [#41593091256 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41593091256) on the exact commit: CodeQL and Python dependency vulnerability audit passed. Push-triggered Security [#41593085684 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41593085684) also passed on the same SHA.
+- Earlier observability work remains verified at `b932ed039f9c2ab51347e3938fad31510ac8e9ac`: fixed process-local PAPER counters for dispatcher accept/coalesce/drop/reject/process/failure/exhaustion and admin-only `GET /api/v1/admin/market-data-metrics`.
+- Hardening in `d5f4a3f`: metric names restricted to a fixed seven-counter allowlist; zero-initialized snapshots; tests for arbitrary-name rejection, actual HTTP endpoint authorization (401 unauthenticated / 403 non-admin / 200 admin), aggregate-only payload and no user/instrument identifiers.
+- CI also revalidated the dependency-aware `/ready` endpoint and the bounded 512-instrument / 64-slot dispatcher burst regression from earlier commits in the same branch history.
+- Metrics remain explicitly PROCESS-LOCAL, not fleet-wide. No Prometheus/Redis aggregation or production alerting is claimed. Do not treat a single replica's counters as system-wide totals.
+- Next work, in order: design safe multi-replica aggregation and scrape identity; add queue saturation / worker failure thresholds; run reproducible sustained-load and restart-recovery tests; complete API authorization and cross-user isolation review; synchronize documentation and verify exact docs commit CI.
+- Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes remain disabled. No deployment, LIVE readiness or production restore is claimed. Original `tarunsharma2610-del/Tradepro` remains out of scope and unmodified.
+
+---
+
+# Current definitive product requirements — supersedes older PAPER-only wording
+
+**Product target: one application with two selectable, isolated modes: PAPER and LIVE.**
+
+1. One application supports PAPER and LIVE.
+2. The user can select either mode whenever they want, subject to explicit safety and authorization controls.
+3. Balances, orders, positions and P&L are separate between modes; no cross-mode transfer or accidental reuse.
+4. PAPER uses simulated execution and its own accounting.
+5. LIVE uses actual Upstox broker execution, but only after the separately approved live-readiness gates are met.
+6. Switching modes cannot accidentally submit, copy, modify, cancel or transfer real orders.
+7. AI strategies must obey the selected mode and its risk controls; AI cannot grant itself LIVE authority or bypass the live-write gateway.
+
+**Current operational restriction:** PAPER remains the default for development, tests, CI and unverified workflows. LIVE broker place/modify/cancel writes remain disabled. This target requirement does not authorize enabling live writes. Keep mode-specific credentials, balances, orders, positions, P&L, audit trails and risk limits isolated. Original `tarunsharma2610-del/Tradepro` remains out of scope; PR #9 remains Draft/unmerged.
+
+---
+
 <!-- Phase 3 checkpoint update — 27 Oct 2026. Latest code/test head 8feeb0cbb0c35e1e37012302c9075d43f1f33eb1 passed Backend CI #40458822529: 1,097 passed, 1 warning. Broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention passed. DP completeness checks require a consistent KNOWN + explicit valid finite nonnegative paise-exact amount, or NOT_APPLICABLE + no amount; invalid status, UNKNOWN-with-amount, KNOWN-without-amount, NOT_APPLICABLE-with-amount, NaN, negative and fractional-paise amounts fail closed. DP canonical manifests are checked against persisted broker trade → child order → local order mappings; only mapped equity-delivery SELL fills are accepted. Delivery SELL still requires reviewed/reconciled DP evidence and durable per-fill allocation; DP is included once in total and replay identity. Maintained docs are being synchronized after the green code run; exact-head CI on the final docs/checkpoint commit must pass before it is called green. PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled; original Tradepro repository out of scope. -->
 
 ## Latest authoritative checkpoint — 26 October 2026, 21:06 IST
@@ -1690,3 +1723,259 @@ Token scopes are distinct: Analytics Token for officially supported market-data/
 - Next work: audit current Redis configuration and Redis Python package APIs; define a small versioned quote envelope and namespaced user/instrument keys; implement publisher + cache write in the existing stream lifecycle; implement worker/API consumer with TTL and timestamp validation; test outage, reconnect, expiry, ownership isolation and process restart; only then connect scanner and paper strategy consumers.
 - This checkpoint does not certify Redis fan-out, scanner integration or strategy integration as complete. No live broker order capability was introduced.
 - Safety: work only in `tarunsharma2610-del/tradepro-improved`; PR #8 remains Draft/unmerged; main and original `Tradepro` untouched; PAPER mode mandatory; live broker order submission/modification/cancellation disabled; no credentials in code, logs, docs or chat.
+
+
+## Phase 4 architecture addendum — Redis market quote publication (30 October 2026)
+
+The Upstox V3 stream manager now routes its per-user asynchronous tick callback to `RedisMarketQuotePublisher`. The publisher writes a versioned latest-quote snapshot under a user-scoped key with TTL and publishes a per-user Pub/Sub notification. The snapshot is authoritative; Pub/Sub is only a wake-up signal. The publisher validates instrument-key shape, finite positive LTP, positive exchange timestamp, timezone-aware receive timestamp, and configured freshness bounds. Redis failure is logged and the tick is unavailable to downstream consumers; no in-memory fallback is permitted. The version counter also expires to avoid unbounded key retention. Exact-head Backend CI #41024607462 passed on `72b22a647f2b9a38ac7afc0aaee9547a67b16fcf`. Consumer-side validation/recovery and real cross-process tests are not yet implemented; scanner and strategy do not yet consume Redis snapshots.
+
+
+## Phase 4 market-data delivery — Redis checkpoint (30 October 2026)
+
+The Upstox V3 streamer remains the process-local WebSocket ingress and its existing async tick callback publishes validated ticks through `RedisMarketQuotePublisher`. Redis is the cross-process quote transport/cache; it is not a second market-data provider. The publisher uses a Lua script to atomically allocate per-user/per-instrument versions, write expiring authoritative snapshots, and publish lightweight wake-up notifications. Consumers must read and validate snapshots; Pub/Sub payloads are never trusted as quote values.
+
+Backend CI provisions Redis 7 and PostgreSQL 16. Exact-head Backend CI #41026567279 passed on `1c70e17a0ea54f8e8f219ae27d90aa46a02ea16e`. Current limits: consumer reconnect/resubscribe after Redis outage, actual Redis server restart recovery, and independent OS-process tests remain pending. Scanner and strategy do not yet consume this shared quote stream. Downstream components must enforce user isolation, TTL, exchange timestamp, schema/version checks, and fail-closed stale-data handling.
+
+
+## Phase 4 Redis version-counter lifecycle — 30 October 2026
+
+Exact-head Backend pytest CI #41031153316 passed on `3088e49cf24317f58f7e04a60d6cd54e065143b4`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41031153316. The Redis publisher no longer applies TTL to the version counter; the authoritative quote snapshot continues to expire. A real Redis integration test verifies that deleting/expiring a snapshot and publishing a subsequent tick produces the next version rather than resetting the version sequence.
+
+This addresses ordinary snapshot expiry, not Redis data-loss epochs. A Redis server restart can erase volatile counters and snapshots; consumer-local high-water marks must be reset/reconciled safely and a post-reconnect authoritative snapshot sweep must occur. Persistent version keys also need an explicit bounded-retention/cleanup policy for instruments no longer subscribed. Independent OS-process delivery and sustained multi-tenant load remain pending; scanner and PAPER strategy do not yet consume this transport.
+
+
+## Phase 4 Redis bounded epoch/version lifecycle — 30 October 2026
+
+Exact-head full Backend CI #41032764754 passed on `7268edd6e7ddb7ef6d472799d1d0164b4210b135`: https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41032764754. Redis quote snapshots retain a short TTL (15 seconds by default); per-user/per-instrument version state has bounded retention (24 hours by default) and includes a unique epoch. A Lua script atomically allocates epoch/version, writes the snapshot and publishes the notification. Legacy integer-only counters are migrated on the next publish.
+
+When a counter expires or Redis loses volatile data, the next publish creates a new epoch and starts at version 1. Consumers compare epoch and version together, allowing a version reset only across epochs. Real Redis tests cover snapshot expiry, counter expiry/new epoch, Pub/Sub disconnect recovery, server process restart, independent OS-process delivery, two-user isolation and concurrent publishing.
+
+Current architectural boundary: `RedisMarketQuoteConsumer` is implemented and tested, but the background worker does not yet manage consumer instances or durable per-user subscription discovery. `app/worker.py` still evaluates strategies through the existing historical/intraday candle path. Scanner and PAPER strategy Redis integrations remain future milestones. Multi-user/multi-instrument scale testing and worker lifecycle/shutdown testing remain pending.
+
+
+## Phase 4 Redis consumer recovery and integration boundary — 30 October 2026
+
+The Redis quote consumer validates user-scoped authoritative snapshots (schema, instrument, TTL, received/exchange timestamps, epoch and version), treats Pub/Sub events only as wake-up signals, sweeps snapshots after subscribe/reconnect, and uses Pub/Sub PING/PONG to detect idle dead connections. On connection failure it clears process-local epoch/version high-water marks before re-reading the authoritative snapshot, allowing a new Redis epoch to restart at version 1 after volatile data loss.
+
+Backend CI #41060945704 passed on `f7c863977ed17a3d705b83db8dcc6b7ba421cccf`. New tests on `a5e352bef2c78f27141b61bca5893fdfa0fd049a` cover old epoch version 8 -> new epoch version 1 and idle Pub/Sub heartbeat; exact-head CI #41061518847 is pending.
+
+Important boundary: `backend/app/worker.py` does not yet manage Redis consumer instances; strategy evaluation still uses the existing candle path. Durable subscription discovery, single-owner coordination across worker replicas, graceful consumer cancellation/shutdown, and scanner/PAPER strategy integration remain incomplete. Do not treat publisher/consumer tests as proof of end-to-end scanner delivery or production deployment.
+
+
+## Phase 4 current checkpoint — 30 October 2026
+
+The transactional PAPER stop-event claim implementation at `6ac3882a98f3c66abb4cd62848971b6277ab3be7` passed exact-head Backend CI #41080156436. The claim service validates tenant and strategy ownership, uses portfolio → strategy → position locks, rejects ambiguous shared-position ownership and duplicate quote identity, and stores a bounded claim lease. It is not connected to quote dispatch or order execution. Next gates: PostgreSQL 16 multi-worker concurrency, lease reclaim/crash recovery, explicit shared-position ownership, then controlled PAPER integration. PR #9 stays Draft/unmerged; PAPER-only; live broker writes disabled; original Tradepro repository out of scope.
+
+
+## 2026-10-30 — Phase 4 PostgreSQL 16 stop-claim concurrency checkpoint
+
+Exact implementation SHA `0d3700f0a12add3239457bc4009eb019d77c78a0` passed [Backend CI #41090051358](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41090051358). Verified: backend pytest with PostgreSQL 16 multi-session claim-race coverage, broker-write boundary, SQLite and isolated PostgreSQL 16 Alembic upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore. Migration validation is isolated in `tradepro_migration_check`. Next work is lifecycle transition and lease recovery design/testing; no broker order submission is in scope. PR #9 remains Draft/unmerged, PAPER mandatory, live writes disabled, and only Tradepro Improved is authorized.
+
+## Trading-mode isolation architecture decision — 1 November 2026
+
+### Current verified state
+The current execution service creates PAPER orders explicitly. Portfolio rows do not carry a trading mode. Position rows are keyed by portfolio and instrument, and strategy rows reference a portfolio. Order rows have a trading_mode field. This is not sufficient evidence of complete dual-mode isolation.
+
+### Required target model
+1. A portfolio/account has an immutable trading_mode: PAPER or LIVE. A user's PAPER and LIVE portfolios are distinct rows with independent capital, cash, risk controls and lifecycle.
+2. Positions, orders, fills, charges, realized/unrealized P&L and ledger entries must derive their mode from the owning portfolio/account. Never accept a client-supplied mode that can disagree with the portfolio.
+3. Strategy ownership is bound to exactly one portfolio/account and therefore one mode. A strategy cannot switch the mode of an existing position or order. To run the same strategy in both modes, create two separately configured strategy instances attached to the two portfolios.
+4. Every order creation and fill path must verify order mode equals portfolio mode inside the same transaction/lock boundary. Add database constraints or composite foreign-key/trigger enforcement where supported; do not rely only on UI or request validation.
+5. PAPER execution remains simulated and cannot invoke broker place/modify/cancel methods. LIVE execution, when eventually authorized, must use a separate deny-by-default gateway with explicit user authorization, broker-account binding, idempotency keys, audit events, risk checks and kill switch.
+6. Mode switching in the UI selects another isolated portfolio. It does not mutate a portfolio's mode, transfer cash/positions, or rewrite historical orders.
+7. Migration plan: existing portfolios are backfilled as PAPER; existing orders remain PAPER and are checked against their owning portfolio; fail migration if inconsistent records exist rather than guessing. LIVE portfolios are created only through an explicit, separately authorized onboarding flow.
+8. Test requirements: cross-mode read/write denial; user/portfolio ownership; concurrent mode selection; strategy-mode mismatch; order/portfolio mismatch; positions and ledger isolation; retries/idempotency; PAPER cannot reach broker-write methods; LIVE gateway deny-by-default; mode switch cannot transfer state; upgrade/downgrade/re-upgrade on SQLite and PostgreSQL 16.
+
+### Implementation sequence
+A. Inventory every portfolio/order/position/fill/charge/ledger/P&L query and mutation, including API routes, background workers, strategy execution and reporting.
+B. Add portfolio trading_mode and backfill/constraints in a reversible migration; add repository/service mode scoping.
+C. Enforce portfolio-derived mode at order, fill, ledger and strategy boundaries; add adversarial cross-mode tests.
+D. Update API schemas and UI to select an isolated portfolio rather than mutate mode.
+E. Only after separate authorization and independent review, consider implementing the LIVE broker gateway. Keep live writes disabled until explicit approval.
+
+This decision is an architecture plan, not an implementation claim. Current Phase 4 runtime remains PAPER-only; LIVE place/modify/cancel are disabled.
+
+
+## 2026-11-01 — Superseding Phase 4 status (verified through Backend CI #41316803274)
+
+This section is the current-status authority as of 2026-11-01 and supersedes older undated or stale “current status/next step” statements elsewhere in this document. Earlier entries remain historical records and must not be interpreted as the current implementation state.
+
+- Latest verified green implementation commit: `d0d26eb98ff5d77ce4f3ed1baee943bccaca51e4` on `phase4/redis-market-data-publisher`.
+- Exact-head Backend CI: [#41316803274 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41316803274). Verified stages: backend pytest, broker-write safety boundary, SQLite migration round-trips, PostgreSQL 16 migration round-trips, synthetic PostgreSQL restore and documentation-volume restore drill.
+- The preceding LIVE balance-source implementation and its corrected test fixtures were included in green CI #41315704407 on commit `9314703f31ff3ad31f2b97090cbfa1a5d4096a8c`.
+- Mode-aware portfolio analytics was added: analytics queries join executions to their owning orders, constrain portfolio identity and trading mode, and the portfolio API passes the portfolio's mode. Regression coverage checks PAPER and LIVE analytics independently and rejects an unsupported mode. This is verified by CI #41316803274.
+- LIVE balance safety: LIVE portfolios do not treat simulated starting capital as broker funds; balance source remains unavailable until a verified broker sync. PAPER simulated balances remain supported.
+- Important scope limitation: green CI proves the listed automated checks, not production LIVE trading readiness. LIVE broker place/modify/cancel writes remain disabled. No LIVE broker gateway activation or deployment is authorized.
+- Still outstanding: verify/fix the LIVE positions API so it cannot expose PAPER positions as LIVE; design explicit broker-account-to-LIVE-portfolio allocation; implement verified LIVE funds/positions synchronization; finish realized and market-price/freshness-gated unrealized P&L; complete Redis-to-execution and multi-worker end-to-end isolation/recovery; frontend mode selection; security/load/operational review; final documentation-head CI.
+- PR #9 remains Draft and unmerged, targeting `phase4/roadmap-progress-checkpoints`. Only `tarunsharma2610-del/tradepro-improved` is in scope. The original `tarunsharma2610-del/Tradepro` repository must remain untouched.
+- Next implementation gate: inspect current LIVE positions route and its tests, then add fail-closed mode-aware behavior with regression tests. Do not start broker allocation or UI work until the positions boundary is proven.
+- Documentation rule: after the next code milestone, update all maintained project documents and run exact-head CI on the documentation commit before declaring the documentation checkpoint current.
+
+
+
+## Phase 4 authoritative audit/status — 2 November 2026
+This section supersedes older Phase 4 resume pointers where they conflict; older entries remain historical.
+- Scope only tarunsharma2610-del/tradepro-improved, branch phase4/redis-market-data-publisher. PR #9 targets phase4/roadmap-progress-checkpoints and remains OPEN, Draft, unmerged. Original tarunsharma2610-del/Tradepro remains untouched.
+- Latest verified code/test head before this docs repair: 654b0a5d2cb898a0b6dcd4dcb6556b0af6c2ccc2. Exact-head Backend CI #41398555424 PASSED on that SHA, including the stale LIVE broker-position snapshot regression. Preceding commit 502303d2f2d9be1ed0ece0ecb5b280ed5f7db2e4 passed #41398528946.
+- Earlier API/Redis safeguards passed: #41397210305 (3281618), #41397227429 (a65c463), #41397602437 (d01146f), #41397616502 (147d59b). Prior docs CI #41398105822 passed on 027850d; this docs sync needs its own exact-head CI.
+### Completed, CI-backed Phase 4 scope
+- PAPER is the only enabled execution path. Broker place_order/modify_order/cancel_order writes remain disabled; the AST broker-write boundary is enforced in Backend CI.
+- Mode-aware portfolio analytics and ownership/isolation checks are implemented. LIVE balance does not fall back to simulated starting capital; LIVE positions fail closed rather than exposing PAPER positions.
+- Read-only Upstox LIVE funds, positions and holdings sync uses the allocated owner-scoped broker connection and immutable portfolio/user/connection-bound snapshots. Failed sync retains the prior snapshot and does not mutate PAPER accounting.
+- Analytics Token storage/ownership/expiry controls, Upstox V3 stream lifecycle, feed-mode subscription/reconnect/startup recovery and SDK compatibility review have prior green CI.
+- Redis publisher/consumer includes user-scoped TTL snapshots, schema/version and epoch/version checks, atomic publishing, Pub/Sub notifications, real Redis tests, restart/recovery and independent process delivery tests.
+- Worker-managed Redis consumer lifecycle, lease/replica coordination, scanner intake and 15-second scanner TTL are implemented. Scanner-to-PAPER trailing-stop evaluation consumes fresh user/instrument-scoped LTP while five-minute candles remain the indicator source.
+- Durable PAPER stop-event claim/state/lease/retry/recovery, PostgreSQL 16 concurrency tests, bounded dispatcher and PAPER worker wiring have prior green CI. Full end-to-end market-to-ledger acceptance remains outstanding.
+- Read-only LIVE unrealized P&L endpoint GET /api/v1/portfolios/{portfolio_id}/live-unrealized-pnl is implemented; it checks owner/mode/current allocation/snapshot binding, reads exact instrument keys through the user-scoped Redis consumer, fails closed on stale/missing/invalid quotes and Redis outage, and does not mutate accounting.
+- LIVE position snapshots older than 120 seconds, future-dated or missing timestamps are rejected. Exact-head CI #41398555424 passed.
+### Remaining gates
+1. Full authenticated LIVE P&L API integration test using real ephemeral Redis publisher/consumer in the same test flow (component-level Redis tests already exist).
+2. Internal realized-P&L ledger and broker fill/trade reconciliation; keep broker daily P&L, broker realized P&L and internal lifetime realized P&L distinct.
+3. Frontend LIVE read-only P&L display with separate realized/unrealized values, freshness and unavailable states.
+4. Full Redis→scanner→dispatcher→durable stop claim→PAPER fill→ledger/position/cash end-to-end tests, including crashes, retries, duplicate/out-of-order events and competing exits.
+5. Multi-user/multi-instrument load/backpressure, metrics/alerts, runbooks, worker recovery; production Oracle restore and credentialed Upstox smoke tests remain deployment gates.
+6. LIVE order readiness is not achieved; any future write gateway needs separate design, deny-by-default authorization, idempotency, audit and explicit approval.
+### Security audit status
+- PHASE4_P0_BASELINE_AUDIT.md exists (29 Oct) but is a static source/workflow audit; it explicitly did not perform runtime or credentialed smoke testing.
+- Existing controls include broker-write AST enforcement, ownership/mode checks, encrypted Analytics Token handling, Redis tenant namespacing/freshness, PostgreSQL concurrency, migration/restore CI and audit logging.
+- Comprehensive Phase 4 security assessment is NOT COMPLETE. No verified full IDOR sweep, SAST/DAST report, dependency vulnerability scan, authenticated/independent penetration test or production configuration review is evidenced. Do not claim penetration-tested or production security-approved.
+- Remaining security: endpoint authorization matrix and adversarial IDOR tests; secret redaction/storage review; rate-limit/abuse tests; dependency/SAST; DAST on safe staging; broker-write reachability tests; tenant isolation/load; backup/restore and incident response.
+### Safeguards
+PAPER only; LIVE place/modify/cancel writes disabled; PR #9 Draft/unmerged; no deployment or LIVE gateway activation authorized. After docs sync, run CI on exact new docs head before saving a green checkpoint.
+
+
+
+## Phase 4 security remediation checkpoint — 2 November 2026
+This is the latest security/code checkpoint and supersedes older Phase 4 security next-step statements where they conflict.
+- Latest verified code/test head: 2a98a07a8516c4cca4a46f8a0f511afcb2159e74.
+- Exact-head Backend CI #41400727799 PASSED: 1,549 passed, 1 warning. Full workflow includes pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and evidence retention.
+- Confirmed finding fixed: Redis-backed rate limits previously failed open on Redis errors. The limiter now returns HTTP 503 when Redis is unavailable; test now asserts fail-closed behavior. Commits 62b7bdbdde812ed89d9eb3189b44c7922a7e63d7 and fdd00da6cd58242e2fe0cbf720f9cd66ee306ff8.
+- Confirmed finding fixed: MFA disable previously required only an authenticated session. It now requires password re-verification and, when MFA is enabled, a current TOTP. Schema/service/API/tests are in 19a99b8, c369bb0, e6306be and 2a98a07. Exact-head CI above verifies the complete change.
+- The Phase 4 P0 baseline audit exists but was a static source/workflow review, not a penetration test. These two findings are remediated; comprehensive security assessment remains NOT COMPLETE.
+- Remaining security work: endpoint-by-endpoint IDOR/authorization matrix and adversarial tests; secret/token redaction/storage review; dependency vulnerability scan and SAST; DAST against isolated staging; broker-write reachability review; abuse/rate-limit and replay testing; tenant-isolation/load testing; deployment/backup/incident-response review; independent penetration test before any LIVE broker write.
+- Other Phase 4 gates remain: authenticated LIVE P&L API against real Redis integration test; internal realized-P&L ledger and broker fill reconciliation; frontend LIVE read-only P&L; full Redis-to-PAPER-stop-to-ledger end-to-end proof; multi-user load/backpressure and operational runbooks.
+- PAPER execution only; LIVE broker place/modify/cancel writes disabled; PR #9 remains Draft/open/unmerged; original Tradepro remains untouched. No deployment or LIVE gateway activation authorized.
+
+
+
+
+## Phase 4 authoritative audit synchronization — 2 November 2026
+
+This synchronization reconciles this document with the current Phase 4 PR head. Historical checkpoints above remain historical.
+- Repository: `tarunsharma2610-del/tradepro-improved` only; branch: `phase4/redis-market-data-publisher`.
+- PR #9 targets `phase4/roadmap-progress-checkpoints`; OPEN, Draft, unmerged.
+- Code/test head before this documentation sync: `3ad06a045c16251b6daf1e2ec429837ddd390c59`.
+- Exact-head Backend CI #41402165142 PASSED: **1,550 passed, 1 warning**. Redis-backed pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention passed.
+- Latest milestone: authenticated LIVE unrealized-P&L API integration test publishes a user-scoped quote through the real Redis publisher and validates the API result (₹40.00) without changing accounting.
+- Security fixes are verified: rate limiting returns HTTP 503 on Redis outage; MFA disable requires password re-verification and current TOTP when enabled.
+- Security audit remains **NOT COMPLETE**: full IDOR/authorization matrix, adversarial cross-tenant tests, SAST, dependency scanning, DAST, secret-redaction review, broker-write reachability, load/abuse testing, deployment hardening and independent penetration test remain open.
+- Remaining engineering gates: realized-P&L ledger and broker-fill reconciliation; frontend LIVE read-only P&L; Redis→scanner→dispatcher→durable stop→PAPER execution→ledger end-to-end tests; multi-user load/backpressure, observability/runbooks, credentialed Upstox smoke test and production Oracle restore.
+- PAPER remains the only enabled execution path; LIVE `place_order`, `modify_order`, `cancel_order` writes remain disabled. Do not merge PR #9. Original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
+- This documentation commit is not a green checkpoint until CI passes on its final resulting head.
+
+
+## Cross-tenant security regression checkpoint — 2 November 2026
+
+- Added authenticated two-user regression coverage for unauthorized contract-note upload/download, source-component create/review/reject, reconciliation run/issue access, and broker-settings connection scoping. The test exercises foreign broker-connection identifiers and verifies no cross-user data access.
+- Exact PR-head Backend CI [#41404633900 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41404633900) on `e8f8783fc32a96e43e710289721992e077dc4d82`; PR #9 head matches this SHA. All workflow steps passed: pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention.
+- This verifies the added regression coverage and existing workflow safeguards; it does not establish a complete IDOR sweep or penetration test. Comprehensive security assessment remains NOT COMPLETE.
+- Next security gates: continue endpoint-by-endpoint authorization matrix, secret/token redaction/storage review, dependency scan/SAST, isolated-staging DAST, broker-write reachability, abuse/load testing, deployment/incident-response review and independent penetration test.
+- PAPER remains mandatory; LIVE broker place/modify/cancel writes disabled; PR #9 remains OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` remains out of scope.
+
+
+## Security scanning and dependency remediation checkpoint — 2 November 2026
+
+- Added GitHub Actions security workflow `.github/workflows/security-analysis.yml` with CodeQL Python static analysis and `pip-audit` over `backend/requirements.txt`. CodeQL and dependency audit both completed successfully on exact commit `8be6a0369c81a519c00712d69095b2ab3ceb5faa`: [CodeQL run #41406851928](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41406851928), [dependency audit #41406857558](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41406857558). Dependency audit reported zero known vulnerabilities for the resolved backend dependency set.
+- Dependency remediation upgraded FastAPI to the compatible `0.143.x` line; CI resolved FastAPI `0.143.5` and Starlette `1.10.0`. This replaced the previously vulnerable Starlette `0.46.2` resolution. Compatibility was verified by the full backend workflow, not assumed from version numbers.
+- Full Backend CI [#41406857547 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41406857547) on the same exact SHA. Pytest, broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, and synthetic restore/evidence-retention checks passed.
+- Security scope remains incomplete: CodeQL and pip-audit are automated static/dependency checks, not DAST or penetration testing. Continue endpoint-by-endpoint authorization/IDOR matrix, secret/token redaction review, authenticated API negative tests, broker-write reachability, staging DAST, abuse/load testing, deployment hardening and independent penetration test. Review new CodeQL findings on every run; a successful workflow does not imply no security defects outside its rules.
+- Prior rate-limit fail-closed, MFA step-up, and cross-tenant contract-note/reconciliation regression protections remain recorded in prior checkpoints.
+- PAPER remains mandatory; LIVE broker place/modify/cancel writes disabled; PR #9 remains OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` remains out of scope.
+
+
+## Authentication hardening and security verification — 2 November 2026
+
+- Hardened JWT creation: optional extra claims can no longer override reserved `sub`, `type`, `iat`, or `exp` claims. Added parameterized regression tests for each reserved claim and a positive test proving non-reserved claims remain supported.
+- Corrected stale rate-limiter documentation: Redis outage behavior is fail-closed with HTTP 503; it is not fail-open.
+- Exact code commit verified: `4ebc24c0ae129cf53614cd58c46c41cc55a204ab`. Backend CI [#41408254466 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41408254466); CodeQL and Python dependency audit [#41408254462 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41408254462). All three checks completed successfully on the exact same SHA.
+- Dependency audit reported zero known vulnerabilities for the resolved backend dependency set; prior FastAPI/Starlette compatibility remediation remains in place.
+- Security assessment is still INCOMPLETE. These checks do not establish absence of vulnerabilities or replace the remaining endpoint authorization/IDOR matrix, secret/token redaction and storage review, staging DAST, broker-write reachability review, abuse/load tests, deployment hardening and independent penetration testing.
+- Existing rate-limit fail-closed, MFA step-up, cross-tenant contract-note/reconciliation regressions and CodeQL/pip-audit workflow remain in scope and must not be regressed.
+- PAPER mode remains mandatory; LIVE broker place/modify/cancel writes remain disabled; PR #9 remains OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` remains strictly out of scope.
+
+
+## Authoritative Phase 4 checkpoint — 2 November 2026, 18:30 IST
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Working branch: `phase4/redis-market-data-publisher`. Latest code/test commit: `d6619a58cd585ef35b79126d866c90bb903cb890`.
+- Exact-head Backend tests [#41410058905 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41410058905): Backend pytest passed on the exact commit above.
+- Exact-head Security analysis [#41410058894 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41410058894): CodeQL static analysis and Python dependency vulnerability audit both passed on the same commit. This does not establish absence of vulnerabilities or replace DAST/penetration testing.
+- Latest security test addition: production settings reject missing explicit `SECRET_KEY` and `MASTER_ENCRYPTION_KEY`; explicit valid secrets are accepted; development fallback remains available. Earlier 2 Nov JWT reserved-claim hardening and fail-closed Redis rate-limit documentation are retained.
+- PR #9 is OPEN, Draft and unmerged; head is the exact commit above; base is `phase4/roadmap-progress-checkpoints`. Do not merge or mark ready without explicit authorization.
+- Already implemented and not to be repeated: user-scoped Redis quote snapshots/TTL/epoch-version ordering and Pub/Sub; Upstox V3 WebSocket reconnect/subscription recovery; Redis consumer recovery; scanner freshness/dispatcher; durable PAPER stop-event claims and atomic PAPER execution; PostgreSQL concurrency/rollback tests; worker runtime wiring and PAPER reduce-only protections.
+- Remaining Phase 4 engineering: full end-to-end Redis snapshot → scanner → dispatcher → durable stop-event → PAPER ledger/position tests; multi-process/multi-replica races and crash-window tests (especially indicator exits versus stop-event exits); complete PAPER/LIVE data and API/UI isolation audit; operational observability/alerting and sustained load/backpressure tests.
+- Remaining security audit: endpoint-by-endpoint authorization/IDOR matrix, secret/token storage and redaction review, authenticated negative tests, broker-write reachability proof, staging DAST, abuse/load tests, deployment hardening and independent penetration testing. CodeQL and pip-audit are baseline automated checks only.
+- Safeguards: PAPER mandatory for development/tests/CI/unverified workflows; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled; no live smoke test or production deployment is claimed; original `tarunsharma2610-del/Tradepro` remains strictly out of scope.
+- This checkpoint records the latest verified code head. Documentation synchronization commits that follow require their own exact-head Backend + Security CI before being called green. Continue from the remaining work above; do not repeat completed items.
+
+
+## Production bootstrap secret hardening — verified code checkpoint, 2 November 2026
+
+- Production configuration now fails closed unless an explicit stable `SECRET_KEY` (minimum 32 characters) and `MASTER_ENCRYPTION_KEY` are configured. Development retains its local random fallback. Regression tests cover missing secrets, valid production configuration and development fallback.
+- Verified code/test commit: `d6619a58cd585ef35b79126d866c90bb903cb890`. Backend CI [#41410058905](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41410058905) and Security analysis [#41410058894](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41410058894) passed on that exact SHA. Security workflow includes CodeQL and pip-audit; this is not a penetration-test claim.
+- Earlier JWT reserved-claim hardening remains verified on `4ebc24c0ae129cf53614cd58c46c41cc55a204ab`: Backend CI #41408254466 and Security analysis #41408254462 passed on that exact SHA. Redis rate limiting remains fail-closed (HTTP 503) on Redis failure; MFA disable requires password re-verification and current TOTP when MFA is enabled.
+- This is part of the exact 28-document maintained set from the JWT checkpoint. Current documentation head before this batch: `4083cb6dfd382f0dfe5802a1ebc1dbcf3beea873`. The resulting documentation commit requires exact-head Backend CI and Security analysis before it is called green.
+- Security assessment remains INCOMPLETE: HTTPS/production CORS, secret rotation and recovery, authentication-session controls, endpoint-by-endpoint authorization/IDOR, secret/token storage and redaction, broker-write reachability, isolated-staging DAST, abuse/load testing, deployment/incident response and independent penetration testing remain open.
+- Safeguards unchanged: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PAPER mandatory for development/tests/unverified workflows; LIVE broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 remains OPEN/Draft/unmerged; no deployment or LIVE gateway activation authorized.
+
+
+## 2 November 2026 — security checkpoint reconciliation
+
+- Session-security implementation verified on PR #9 head `77f44c7299f5e7157a4cdb2f8dfe7fbbfb6c08c6`: Backend CI #41460334989 and Security analysis #41460334979 passed on that exact head. Persisted sessions, refresh-token rotation/replay rejection, logout revocation and reserved JWT `sid`/`jti` handling are covered by tests.
+- Transactional key-rotation service implementation commit `960c099b53d4c8e41daeb4f5691bc0972d5fb7b2`: Backend CI #41456734039 and Security analysis #41456734074 passed. It covers encrypted broker credentials, OAuth access tokens, Upstox Analytics Tokens, platform settings and MFA secrets; unreadable ciphertext fails closed. No production keys/data were rotated or accessed.
+- Current documentation head is being checked separately. Do not call docs checkpoint green until both Backend CI and Security analysis pass on the final documentation head.
+- Security assessment remains incomplete: endpoint IDOR authorization matrix, secret/token redaction review, broker-write reachability, staging DAST, abuse/load and tenant-isolation tests, deployment/restore/incident-response review and independent penetration testing remain.
+- PAPER mandatory; LIVE broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN/Draft/unmerged; original `tarunsharma2610-del/Tradepro` untouched.
+
+
+## Phase 4 dispatcher integration correction — 2 November 2026 (exact-head CI verified)
+
+- Corrective test commit: `4aba13642f1f3bcb4e11f5c6b5def7433e687ca7`. The Redis-to-scanner dispatcher integration test now retrieves and acknowledges the dispatcher item in the same asyncio task, preserving task-scoped ownership; production ownership safeguards were not weakened.
+- Exact-head Backend CI [#41471120955 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41471120955). All job steps passed: Redis setup, full backend pytest, broker-write boundary enforcement, SQLite migration upgrade/downgrade/re-upgrade, PostgreSQL 16 migration upgrade/downgrade/re-upgrade, synthetic PostgreSQL/document-volume restore, and evidence retention.
+- Exact-head Security analysis [#41471120975 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41471120975): CodeQL static analysis and Python dependency vulnerability audit both passed. This is not a DAST or penetration-test sign-off.
+- This verifies the correction commit only. Remaining Phase 4 work: complete Redis → scanner → dispatcher → durable PAPER stop-event → execution → final position/ledger end-to-end proof; duplicate/out-of-order quote cases; worker crash/cancellation/recovery; concurrent PAPER exits and ledger consistency; multi-process/multi-replica load and backpressure; operational alerting/runbooks; and deployment/restore evidence.
+- Security assessment remains incomplete: endpoint-by-endpoint authorization/IDOR and adversarial coverage, secret/token redaction review, broker-write reachability, isolated-staging DAST, abuse/load and tenant-isolation tests, deployment/incident response, and independent penetration testing remain open.
+- Safety invariants: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PAPER mandatory; LIVE broker `place_order`, `modify_order`, and `cancel_order` writes disabled; PR #9 OPEN/Draft/unmerged; no merge, deployment, or LIVE gateway activation authorized.
+
+
+## Phase 4 verification update — 2 November 2026
+
+- Verified code/test head: `4c5b598272e6d99bfb56595eb9d0aad9652e56d8`.
+- Exact-head Backend pytest #41482453315: SUCCESS.
+- Exact-head CodeQL and dependency audit #41482453362: SUCCESS.
+- Dispatcher and Redis coverage includes duplicate/out-of-order quote rejection, bounded queue overflow/backpressure, single-flight processing, cancellation/retry, Redis Pub/Sub reconnect, independent consumer recovery, and real Redis process restart recovery.
+- PAPER stop-event coverage includes durable claim retry, crash-after-claim database recovery, stale-token fencing, concurrent PostgreSQL claim/reclaim races, retry exhaustion, and concurrent duplicate PAPER execution with one order/fill.
+- These are automated regression tests; they do not constitute production load certification or broker live-order validation.
+- Safety invariants unchanged: PAPER mandatory; LIVE broker place/modify/cancel writes disabled; original `tarunsharma2610-del/Tradepro` out of scope; PR #9 remains Draft and unmerged.
+- This documentation synchronization is not a green checkpoint until Backend CI, CodeQL, and dependency audit pass on the resulting exact documentation commit.
+
+
+## Phase 4 authoritative resume checkpoint — 2 November 2026, 23:06 IST
+
+- Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600` on `phase4/redis-market-data-publisher`. Backend tests [#41492213645](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213645) and Security analysis [#41492213677](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213677) both PASSED on this exact head.
+- Nifty 500 universe: dated/validated 500-member snapshots, exact NSE instrument mapping, atomic replacement, history retention, admin import and regression tests implemented. New endpoint `POST /api/v1/market-data/stream/universe/nifty-500` subscribes the authenticated user's existing Upstox stream in LTPC mode using the active complete snapshot, requires Analytics Token, preserves compatible subscriptions, rejects feed-mode conflicts and persists subscription state. No order writes.
+- Previous Phase 4 work remains verified: Redis quote/dispatcher safeguards and recovery tests; durable PAPER stop-event claim/lease/retry/fencing and PostgreSQL concurrency coverage; persisted auth sessions, refresh rotation/replay rejection, logout revocation, JWT claim protections, MFA step-up, transactional key-rotation implementation; HTTPS/CORS and broker credential/Analytics Token two-user isolation regression.
+- Remaining: scanner quote ordering/staleness and subscription lifecycle tests; scanner filters/ranking; full Redis→scanner→dispatcher→durable PAPER stop→execution→position/ledger proof; multi-process crash/recovery and concurrent exit tests; realized-P&L/fill reconciliation; read-only LIVE P&L UI; load/backpressure/observability/runbooks; remaining IDOR/secret review/DAST/broker-write reachability/independent penetration test; authorized read-only Upstox smoke test and production restore evidence.
+- Next session (3 Nov): first verify the final documentation commit's exact-head Backend CI, CodeQL and dependency audit; then continue quote ordering/staleness and subscription lifecycle, not already-green implementation steps.
+- Documentation commit is not green until its own exact-head CI passes. PR #9 OPEN/Draft/unmerged; only `tradepro-improved`; original Tradepro untouched; PAPER mandatory; LIVE broker order writes disabled; no merge/deploy/LIVE activation.
+
+
+## Latest verified Phase 4 checkpoint — 3 November 2026 (multi-worker metrics hardening)
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Branch: `phase4/redis-market-data-publisher`. PR #9 remains OPEN, Draft and unmerged.
+- Exact implementation/test head: `15141cdf437419afa2c89ad1f911d4ba863f6ccf`.
+- Backend CI [#41597941401 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41597941401): **1,626 passed, 8 warnings**. Broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill, and evidence retention passed.
+- Security analysis [#41597941400 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41597941400): CodeQL and Python dependency audit passed.
+- Metrics correction verified: independent per-worker counter state; atomic, retry-protected Redis aggregation; expiring Redis heartbeat scores with a 60-second activity window; stale-worker removal; admin metrics regression test models the production Redis time/zset interface.
+- This does not claim Prometheus integration, production alerting, sustained-load acceptance, deployment readiness, or Phase 4 completion.
+- Remaining Phase 4 gates: end-to-end Redis snapshot recovery → scanner/dispatcher → durable stop-event intake → final PAPER ledger/position acceptance; more multi-process/crash-window races; PAPER/LIVE isolation audit; security/authorization/secret-redaction review; sustained-load and backpressure testing; exact-head documentation CI.
+- Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 Draft/unmerged; no merge/deployment/LIVE activation; original `Tradepro` repository untouched.

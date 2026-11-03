@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -16,6 +16,18 @@ class Order(BaseModel):
     than a schema migration plus a rewrite of this table."""
 
     __tablename__ = "orders"
+
+    __table_args__ = (
+        UniqueConstraint("paper_stop_event_id", name="uq_orders_paper_stop_event"),
+        UniqueConstraint("id", "portfolio_id", name="uq_orders_id_portfolio_id"),
+        CheckConstraint("trading_mode IN ('PAPER', 'LIVE')", name="ck_orders_trading_mode"),
+        ForeignKeyConstraint(
+            ["portfolio_id", "trading_mode"],
+            ["portfolios.id", "portfolios.trading_mode"],
+            name="fk_orders_portfolio_trading_mode",
+            ondelete="CASCADE",
+        ),
+    )
 
     portfolio_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
     instrument_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("instruments.id"), index=True)
@@ -33,6 +45,10 @@ class Order(BaseModel):
     trading_mode: Mapped[str] = mapped_column(String(5), nullable=False, default="PAPER")  # PAPER, LIVE — see app/core/config.py
     execution_reason: Mapped[str] = mapped_column(String(20), nullable=False, default="MANUAL")  # MANUAL today; STRATEGY/BACKTEST in later phases
     strategy_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)  # populated starting Phase 3
+    # Nullable for ordinary/manual PAPER orders; unique when tied to a durable stop event.
+    paper_stop_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("paper_stop_events.id", ondelete="RESTRICT"), nullable=True
+    )
 
     placed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     filled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

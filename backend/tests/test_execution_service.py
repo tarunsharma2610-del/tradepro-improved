@@ -3,6 +3,7 @@ from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.brokers.base import BrokerCallResult
 from app.models.execution import Execution
@@ -795,3 +796,237 @@ def test_market_depth_rejects_stale_snapshot_and_insufficient_liquidity():
     assert _extract_fresh_market_depth_price(
         stale, "NSE_EQ|INE002A01018", side=Side.BUY, quantity=2, now=now
     ) is None
+
+
+@pytest.mark.asyncio
+async def test_paper_fill_can_remain_in_caller_owned_transaction(db_session, portfolio, instrument):
+    """A caller can roll back order, position, cash and execution as one unit."""
+    from app.models.position import Position
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    initial_cash = Decimal(str(p.cash_balance))
+    initial_orders = db_session.query(Order).count()
+    initial_executions = db_session.query(Execution).count()
+
+    with patch("app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED", False), _mock_quote("2500.00"):
+        order = await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=2,
+            ),
+            commit=False,
+        )
+
+    assert order.status == "FILLED"
+    assert db_session.query(Execution).filter(Execution.order_id == order.id).count() == 1
+    position = db_session.query(Position).filter_by(portfolio_id=p.id, instrument_id=instrument.id).one()
+    assert position.quantity == 2
+    assert Decimal(str(p.cash_balance)) < initial_cash
+
+    db_session.rollback()
+
+    assert db_session.query(Order).count() == initial_orders
+    assert db_session.query(Execution).count() == initial_executions
+    assert db_session.query(Position).filter_by(portfolio_id=p.id, instrument_id=instrument.id).count() == 0
+    db_session.refresh(p)
+    assert Decimal(str(p.cash_balance)) == initial_cash
+
+
+@pytest.mark.asyncio
+async def test_paper_stop_event_order_retry_returns_existing_fill_without_second_accounting(
+    db_session, portfolio, instrument
+):
+    """A repeated delivery for one stop event must not create another fill."""
+    from uuid import uuid4
+
+    user, p = portfolio
+    _connect_fake_broker(db_session, user.id)
+    event_id = uuid4()
+    from app.models.position import Position
+
+    db_session.add(Position(
+        portfolio_id=p.id, instrument_id=instrument.id,
+        quantity=-2, avg_price=Decimal("2500.00"), realized_pnl=Decimal("0"),
+    ))
+    db_session.commit()
+    request = ServicePlaceOrderRequest(
+        portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+        order_type="MARKET", segment=Segment.EQUITY_DELIVERY, quantity=2,
+        execution_reason="STRATEGY",
+        strategy_id=uuid4(),
+        reduce_only=True,
+    )
+    service = ExecutionService(db_session)
+    with patch("app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED", False), _mock_quote("2500.00"):
+        first = await service.place_order(
+            user.id, request, paper_stop_event_id=event_id,
+        )
+    assert first.status == "FILLED"
+    cash_after_first = Decimal(str(p.cash_balance))
+    executions_after_first = db_session.query(Execution).filter(Execution.order_id == first.id).count()
+
+    # Deliberately no broker quote mock on retry: idempotency recovery must
+    # return the committed result before asking the broker for another quote.
+    second = await service.place_order(
+        user.id, request, paper_stop_event_id=event_id,
+    )
+
+    assert second.id == first.id
+    assert second.paper_stop_event_id == event_id
+    assert db_session.query(Order).filter(Order.paper_stop_event_id == event_id).count() == 1
+    assert db_session.query(Execution).filter(Execution.order_id == first.id).count() == executions_after_first == 1
+    db_session.refresh(p)
+    assert Decimal(str(p.cash_balance)) == cash_after_first
+
+
+@pytest.mark.asyncio
+async def test_paper_stop_event_id_rejects_non_strategy_or_limit_orders(db_session, portfolio, instrument):
+    from uuid import uuid4
+
+    user, p = portfolio
+    service = ExecutionService(db_session)
+    with pytest.raises(OrderValidationError, match="strategy-owned reduce-only MARKET"):
+        await service.place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id, instrument_id=instrument.id, side=Side.BUY,
+                order_type="LIMIT", segment=Segment.EQUITY_DELIVERY, quantity=1,
+                limit_price=Decimal("2500"),
+            ),
+            paper_stop_event_id=uuid4(),
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "position_quantity,side,quantity",
+    [
+        (0, Side.SELL, 1),       # another worker already flattened the position
+        (1, Side.SELL, 2),       # stale request exceeds the remaining long position
+        (-1, Side.SELL, 1),      # stale direction would increase/reverse exposure
+    ],
+)
+async def test_reduce_only_strategy_exit_cannot_open_or_reverse_a_position(
+    db_session, portfolio, instrument, position_quantity, side, quantity
+):
+    from app.models.position import Position
+
+    user, p = portfolio
+    position = Position(
+        portfolio_id=p.id, instrument_id=instrument.id,
+        quantity=position_quantity, avg_price=Decimal("100"),
+        realized_pnl=Decimal("0"),
+    )
+    db_session.add(position)
+    db_session.commit()
+
+    order = await ExecutionService(db_session).place_order(
+        user.id,
+        ServicePlaceOrderRequest(
+            portfolio_id=p.id,
+            instrument_id=instrument.id,
+            side=side,
+            order_type="MARKET",
+            segment=Segment.EQUITY_INTRADAY,
+            quantity=quantity,
+            execution_reason="STRATEGY",
+            strategy_id=__import__("uuid").uuid4(),
+            reduce_only=True,
+        ),
+    )
+
+    db_session.refresh(position)
+    assert order.status == "REJECTED"
+    assert "reduce-only" in order.rejection_reason.lower()
+    assert position.quantity == position_quantity
+    assert db_session.query(Execution).filter(Execution.order_id == order.id).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_paper_execution_fails_closed_for_live_mode_portfolio(db_session, portfolio, instrument):
+    user, p = portfolio
+    p.trading_mode = "LIVE"
+    p.balance_source = "UNAVAILABLE"
+    p.virtual_capital = Decimal("0")
+    p.cash_balance = Decimal("0")
+    db_session.commit()
+
+    with pytest.raises(OrderValidationError, match="PAPER-only"):
+        await ExecutionService(db_session).place_order(
+            user.id,
+            ServicePlaceOrderRequest(
+                portfolio_id=p.id,
+                instrument_id=instrument.id,
+                side=Side.BUY,
+                order_type="MARKET",
+                segment=Segment.EQUITY_DELIVERY,
+                quantity=1,
+            ),
+        )
+
+    db_session.refresh(p)
+    assert p.balance_source == "UNAVAILABLE"
+    assert p.cash_balance == Decimal("0")
+    assert db_session.query(Order).filter(Order.portfolio_id == p.id).count() == 0
+
+
+def test_database_rejects_order_mode_that_differs_from_portfolio():
+    """Exercise the composite FK with SQLite enforcement enabled in isolation."""
+    import uuid
+
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.core.database import Base
+    from app.core.security import hash_password
+    from app.models.user import User
+    from app.repositories.portfolio_repository import PortfolioRepository
+
+    engine = create_engine("sqlite:///:memory:", poolclass=StaticPool)
+
+    @event.listens_for(engine, "connect")
+    def _enable_foreign_keys(connection, _record):
+        connection.execute("PRAGMA foreign_keys=ON")
+
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+    try:
+        user = User(
+            id=uuid.uuid4(),
+            email="mode-isolation@example.com",
+            password_hash=hash_password("test-password"),
+            full_name="Mode Isolation Test",
+            is_admin=False,
+        )
+        session.add(user)
+        session.commit()
+        portfolio = PortfolioRepository(session).create(
+            user_id=user.id,
+            name="PAPER",
+            virtual_capital=Decimal("100000"),
+        )
+        InstrumentService(session).seed_defaults()
+        from app.repositories.instrument_repository import InstrumentRepository
+        instrument = InstrumentRepository(session).search("RELIANCE")[0]
+
+        session.add(Order(
+            portfolio_id=portfolio.id,
+            instrument_id=instrument.id,
+            side="BUY",
+            order_type="LIMIT",
+            segment="EQUITY_DELIVERY",
+            quantity=1,
+            status="PENDING",
+            trading_mode="LIVE",
+            execution_reason="MANUAL",
+            placed_at=datetime.now(timezone.utc),
+        ))
+        with pytest.raises(IntegrityError):
+            session.commit()
+        session.rollback()
+    finally:
+        session.close()
+        engine.dispose()

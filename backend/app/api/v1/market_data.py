@@ -7,10 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.models.instrument import Instrument
+from app.models.market_data_subscription import MarketDataSubscription
+from app.models.market_universe import MarketUniverseSnapshot
 from app.models.user import User
 from app.schemas.market_data import MarketDataStreamChangeMode, MarketDataStreamKeys, MarketDataStreamStart
 from app.services.broker_credentials_service import BrokerCredentialsService
 from app.services.market_data_stream_manager import market_data_stream_manager
+from app.services.market_data_subscription_service import MarketDataSubscriptionService
+from app.services.market_universe_service import MarketUniverseService
 from app.brokers.registry import get_broker_adapter
 
 router = APIRouter(prefix="/market-data", tags=["market-data"])
@@ -113,6 +117,17 @@ def _validate_active_instruments(db: Session, instrument_keys: list[str]) -> Non
         )
 
 
+def _stream_http_status(exc: ValueError) -> int:
+    """Preserve conflict semantics when a requested stream is not running."""
+    message = str(exc)
+    if message in {
+        "Start a market-data stream before adding subscriptions.",
+        "No running market-data stream exists.",
+    }:
+        return status.HTTP_409_CONFLICT
+    return status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 def _require_analytics_token(db: Session, user: User) -> None:
     if BrokerCredentialsService(db).get_analytics_token(user.id, "upstox") is None:
         raise HTTPException(
@@ -120,6 +135,85 @@ def _require_analytics_token(db: Session, user: User) -> None:
             "Configure a valid Upstox Analytics Token in Settings before managing a market stream.",
         )
 
+
+
+@router.post("/stream/universe/nifty-500", status_code=status.HTTP_202_ACCEPTED)
+async def subscribe_nifty500_universe(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Subscribe the authenticated user's Upstox stream to the active Nifty 500 snapshot.
+
+    Constituents are sourced only from the latest validated, complete universe
+    snapshot. The route records desired state but never submits broker orders.
+    """
+    _require_analytics_token(db, user)
+    instruments = MarketUniverseService(db).active_nifty500_instruments()
+    if len(instruments) != MarketUniverseService.EXPECTED_MEMBERS:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A complete active Nifty 500 snapshot is not available; import and validate one first.",
+        )
+
+    snapshot = (
+        db.query(MarketUniverseSnapshot)
+        .filter(
+            MarketUniverseSnapshot.universe_key == "NIFTY_500",
+            MarketUniverseSnapshot.is_active.is_(True),
+        )
+        .order_by(MarketUniverseSnapshot.created_at.desc())
+        .first()
+    )
+    if snapshot is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "No active Nifty 500 snapshot is available.")
+    instrument_keys = sorted(item.instrument_key for item in instruments)
+    streamer = market_data_stream_manager.get(user.id)
+    try:
+        if streamer is None or not streamer.running:
+            streamer = await market_data_stream_manager.start(
+                user.id, instrument_keys, mode="ltpc",
+            )
+            delivery = "stream_started"
+        else:
+            existing_modes = streamer.subscriptions
+            conflicting = [
+                key for key in instrument_keys
+                if key in streamer.instrument_keys
+                and any(key in keys for mode, keys in existing_modes.items() if mode != "ltpc")
+            ]
+            if conflicting:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "Some Nifty 500 instruments are already subscribed in another feed mode; "
+                    "change those instruments to ltpc before applying this universe preset.",
+                )
+            additions = [key for key in instrument_keys if key not in streamer.instrument_keys]
+            if additions:
+                streamer, delivery = await market_data_stream_manager.subscribe(
+                    user.id, additions, "ltpc",
+                )
+            else:
+                delivery = "already_subscribed"
+
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(_stream_http_status(exc), str(exc)) from exc
+
+    return {
+        "subscribed": True,
+        "universe": "NIFTY_500",
+        "snapshot_as_of_date": snapshot.as_of_date,
+        "delivery": delivery,
+        "mode": "ltpc",
+        "instrument_count": len(instrument_keys),
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
+    }
 
 
 @router.post("/stream", status_code=status.HTTP_202_ACCEPTED)
@@ -131,7 +225,19 @@ async def start_market_data_stream(
     _require_analytics_token(db, user)
     _validate_active_instruments(db, payload.instrument_keys)
 
-    streamer = await market_data_stream_manager.start(user.id, payload.instrument_keys, mode=payload.mode)
+    try:
+        # Always go through the manager: its per-user lock serializes this
+        # request with concurrent start, stop, subscribe and mode changes.
+        streamer = await market_data_stream_manager.start(
+            user.id, payload.instrument_keys, mode=payload.mode,
+        )
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
+    except ValueError as exc:
+        raise HTTPException(_stream_http_status(exc), str(exc))
     return {
         "started": True,
         "connected": streamer.connected,
@@ -148,18 +254,30 @@ async def subscribe_market_data(
     user: User = Depends(get_current_user),
 ):
     _require_analytics_token(db, user)
-    streamer = market_data_stream_manager.get(user.id)
-    if streamer is None or not streamer.running:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Start a market-data stream before adding subscriptions.")
+    current = market_data_stream_manager.get(user.id)
+    if current is None or not current.running:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Start a market-data stream before adding subscriptions.",
+        )
     _validate_active_instruments(db, payload.instrument_keys)
+    feed_mode = payload.mode or current.mode
     try:
-        delivery = await streamer.subscribe(payload.instrument_keys)
+        streamer, delivery = await market_data_stream_manager.subscribe(
+            user.id, payload.instrument_keys, feed_mode,
+        )
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(_stream_http_status(exc), str(exc))
     return {
         "subscribed": True,
         "delivery": delivery,
-        "mode": streamer.mode,
+        "mode": feed_mode,
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
         "instrument_count": len(streamer.instrument_keys),
         "instrument_keys": streamer.instrument_keys,
     }
@@ -175,14 +293,34 @@ async def unsubscribe_market_data(
     streamer = market_data_stream_manager.get(user.id)
     if streamer is None or not streamer.running:
         raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
+    requested = set(payload.instrument_keys) & set(streamer.instrument_keys)
+    if payload.mode:
+        requested &= set(streamer.subscriptions.get(payload.mode, set()))
+    if requested and len(requested) == len(streamer.instrument_keys):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Cannot remove the final instruments; use DELETE /market-data/stream to stop the stream.",
+        )
+    removals_by_mode = {
+        mode: requested & mode_keys
+        for mode, mode_keys in streamer.subscriptions.items()
+        if requested & mode_keys
+    }
     try:
-        delivery = await streamer.unsubscribe(payload.instrument_keys)
+        streamer, delivery = await market_data_stream_manager.unsubscribe(
+            user.id, list(requested),
+        )
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(_stream_http_status(exc), str(exc))
     return {
         "unsubscribed": True,
         "delivery": delivery,
-        "mode": streamer.mode,
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
         "instrument_count": len(streamer.instrument_keys),
         "instrument_keys": streamer.instrument_keys,
     }
@@ -195,17 +333,22 @@ async def change_market_data_stream_mode(
     user: User = Depends(get_current_user),
 ):
     _require_analytics_token(db, user)
-    streamer = market_data_stream_manager.get(user.id)
-    if streamer is None or not streamer.running:
-        raise HTTPException(status.HTTP_409_CONFLICT, "No running market-data stream exists.")
     try:
-        delivery = await streamer.change_mode(payload.instrument_keys, payload.mode)
+        streamer, delivery = await market_data_stream_manager.change_mode(
+            user.id, payload.instrument_keys, payload.mode,
+        )
+        MarketDataSubscriptionService(db).replace_modes_for_user(
+            user_id=user.id,
+            broker="upstox",
+            subscriptions_by_mode=streamer.subscriptions_by_mode,
+        )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(_stream_http_status(exc), str(exc))
     return {
         "mode_changed": True,
         "delivery": delivery,
         "mode": streamer.mode,
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
         "instrument_count": len(streamer.instrument_keys),
         "instrument_keys": streamer.instrument_keys,
     }
@@ -262,7 +405,7 @@ async def get_option_chain(
 def market_data_stream_status(user: User = Depends(get_current_user)):
     streamer = market_data_stream_manager.get(user.id)
     if streamer is None:
-        return {"running": False, "connected": False, "quotes": {}}
+        return {"running": False, "connected": False, "quotes": {}, "market_status": None}
 
     quotes = {}
     for key in streamer.instrument_keys:
@@ -280,19 +423,28 @@ def market_data_stream_status(user: User = Depends(get_current_user)):
             "total_buy_quantity": tick.total_buy_quantity,
             "total_sell_quantity": tick.total_sell_quantity,
             "ohlc": tick.ohlc,
+            "indicative_equilibrium_price": tick.indicative_equilibrium_price,
+            "reference_price": tick.reference_price,
+            "indicative_equilibrium_quantity": tick.indicative_equilibrium_quantity,
+            "indicative_interest_quantity_total": tick.indicative_interest_quantity_total,
+            "indicative_interest_quantity_market": tick.indicative_interest_quantity_market,
+            "cas_eligible": tick.cas_eligible,
             "stale": False,
         }
     return {
         "running": streamer.running,
         "connected": streamer.connected,
         "mode": streamer.mode,
+        "subscriptions_by_mode": streamer.subscriptions_by_mode,
         "instrument_count": len(streamer.instrument_keys),
         "instrument_keys": streamer.instrument_keys,
         "quotes": quotes,
+        "market_status": streamer.market_info,
     }
 
 
 @router.delete("/stream")
-async def stop_market_data_stream(user: User = Depends(get_current_user)):
+async def stop_market_data_stream(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    MarketDataSubscriptionService(db).deactivate_for_user(user_id=user.id, broker="upstox")
     stopped = await market_data_stream_manager.stop(user.id)
     return {"stopped": stopped}

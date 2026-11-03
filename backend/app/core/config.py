@@ -13,8 +13,9 @@ MASTER_ENCRYPTION_KEY below. See ARCHITECTURE.md, "Credential tiers".
 """
 
 import secrets
+from urllib.parse import urlsplit
 
-from pydantic import field_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +38,34 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 14
     JWT_ALGORITHM: str = "HS256"
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+
+    @field_validator("CORS_ORIGINS")
+    @classmethod
+    def validate_production_cors_origins(cls, origins: list[str], info: ValidationInfo) -> list[str]:
+        """Production browser origins must be exact HTTPS origins, never wildcards."""
+        environment = str(info.data.get("ENVIRONMENT", "development")).strip().lower()
+        if environment == "development":
+            return origins
+        if not origins:
+            raise ValueError("CORS_ORIGINS must contain at least one approved HTTPS origin in production.")
+        for origin in origins:
+            parsed = urlsplit(origin)
+            if (
+                parsed.scheme != "https"
+                or not parsed.netloc
+                or parsed.hostname is None
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.path != ""
+                or parsed.query
+                or parsed.fragment
+                or "*" in origin
+            ):
+                raise ValueError(
+                    "Every production CORS_ORIGINS entry must be an exact HTTPS origin "
+                    "(scheme + host + optional port only; no wildcard, path, query or fragment)."
+                )
+        return origins
 
     # Trading mode safety switch — see PAPER/LIVE separation in ARCHITECTURE.md
     # and the full safeguards design (regulatory landscape + what's actually
@@ -65,6 +94,23 @@ class Settings(BaseSettings):
     AUTOMATED_ENTRIES_ENABLED: bool = True
     # Use Upstox's pre-trade charge calculator for paper fills; deterministic local rates remain fallback.
     UPSTOX_CHARGE_ESTIMATES_ENABLED: bool = True
+
+    @model_validator(mode="after")
+    def require_production_bootstrap_secrets(self) -> "Settings":
+        """Production must use stable, explicitly provisioned signing/encryption keys.
+
+        The development-only random SECRET_KEY fallback is process-local and
+        must never silently become a production signing key. Likewise, an
+        empty MASTER_ENCRYPTION_KEY would make stored credentials unusable.
+        """
+        if self.ENVIRONMENT.strip().lower() != "development":
+            if "SECRET_KEY" not in self.model_fields_set:
+                raise ValueError("SECRET_KEY must be explicitly configured outside development.")
+            if len(self.SECRET_KEY) < 32:
+                raise ValueError("SECRET_KEY must contain at least 32 characters outside development.")
+            if not self.MASTER_ENCRYPTION_KEY.strip():
+                raise ValueError("MASTER_ENCRYPTION_KEY must be configured outside development.")
+        return self
 
     @property
     def is_live_trading_enabled(self) -> bool:

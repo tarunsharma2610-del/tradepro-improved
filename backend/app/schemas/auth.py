@@ -20,6 +20,10 @@ class LoginResult(BaseModel):
     mfa_required: bool = False
 
 
+class MfaEnrollRequest(BaseModel):
+    password: str = Field(min_length=10, max_length=128)
+
+
 class MfaEnrollResponse(BaseModel):
     otpauth_uri: str  # render as a QR code client-side
     secret: str  # shown once so the user can also type it in manually

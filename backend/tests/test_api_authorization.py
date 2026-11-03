@@ -216,3 +216,105 @@ def test_oauth_callback_state_cannot_be_used_by_another_user(client):
     )
     assert callback.status_code == 400
     assert "must-not-be-exchanged" not in callback.text
+
+def test_mfa_verify_revokes_browser_cookies(client):
+    import pyotp
+
+    _register_and_login(client, "mfa-verify@example.com")
+    enrolled = client.post("/api/v1/auth/mfa/enroll", json={"password": "correct-horse-battery-staple"})
+    assert enrolled.status_code == 200
+    secret = enrolled.json()["secret"]
+
+    verified = client.post(
+        "/api/v1/auth/mfa/verify",
+        json={"code": pyotp.TOTP(secret).now()},
+    )
+    assert verified.status_code == 204
+    assert client.cookies.get("access_token") is None
+    assert client.cookies.get("refresh_token") is None
+
+
+def test_mfa_disable_revokes_browser_cookies(client):
+    import pyotp
+
+    _register_and_login(client, "mfa-disable@example.com")
+    enrolled = client.post("/api/v1/auth/mfa/enroll", json={"password": "correct-horse-battery-staple"})
+    assert enrolled.status_code == 200
+    secret = enrolled.json()["secret"]
+
+    enabled = client.post(
+        "/api/v1/auth/mfa/verify",
+        json={"code": pyotp.TOTP(secret).now()},
+    )
+    assert enabled.status_code == 204
+    assert client.cookies.get("access_token") is None
+
+    # MFA activation revokes the previous session; log in with the TOTP
+    # before testing the explicit disable flow.
+    login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "mfa-disable@example.com",
+            "password": "correct-horse-battery-staple",
+            "mfa_code": pyotp.TOTP(secret).now(),
+        },
+    )
+    assert login.status_code == 200
+    assert client.cookies.get("access_token")
+
+    disabled = client.post(
+        "/api/v1/auth/mfa/disable",
+        json={
+            "password": "correct-horse-battery-staple",
+            "mfa_code": pyotp.TOTP(secret).now(),
+        },
+    )
+    assert disabled.status_code == 204
+    assert client.cookies.get("access_token") is None
+    assert client.cookies.get("refresh_token") is None
+
+
+def test_enabled_mfa_cannot_be_replaced_from_an_authenticated_session(client):
+    import pyotp
+
+    _register_and_login(client, "mfa-replacement@example.com")
+    enrolled = client.post("/api/v1/auth/mfa/enroll", json={"password": "correct-horse-battery-staple"})
+    assert enrolled.status_code == 200
+    original_secret = enrolled.json()["secret"]
+
+    enabled = client.post(
+        "/api/v1/auth/mfa/verify",
+        json={"code": pyotp.TOTP(original_secret).now()},
+    )
+    assert enabled.status_code == 204
+
+    # MFA activation revokes the original session; authenticate again using
+    # the existing factor, then attempt to replace it without proving it.
+    login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "mfa-replacement@example.com",
+            "password": "correct-horse-battery-staple",
+            "mfa_code": pyotp.TOTP(original_secret).now(),
+        },
+    )
+    assert login.status_code == 200
+
+    replacement = client.post("/api/v1/auth/mfa/enroll", json={"password": "correct-horse-battery-staple"})
+    assert replacement.status_code == 409
+    assert "MFA is already enabled" in replacement.json()["detail"]
+
+
+def test_mfa_enrollment_requires_password_reauthentication(client):
+    _register_and_login(client, "mfa-password-stepup@example.com")
+    rejected = client.post(
+        "/api/v1/auth/mfa/enroll", json={"password": "wrong-password"}
+    )
+    assert rejected.status_code == 401
+    assert rejected.json()["detail"] == "Incorrect password."
+
+    accepted = client.post(
+        "/api/v1/auth/mfa/enroll",
+        json={"password": "correct-horse-battery-staple"},
+    )
+    assert accepted.status_code == 200

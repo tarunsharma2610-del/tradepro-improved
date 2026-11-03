@@ -148,6 +148,8 @@ def test_two_postgres_workers_execute_one_stop_event_once():
     )
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, expire_on_commit=False)
+    import app.services.paper_stop_event_dispatch_handler as handler
+    monkeypatch.setattr(handler, "SessionLocal", Session)
     ids = _seed_execution_fixture(Session, uuid4().hex[:12])
     user_id, portfolio_id, instrument_id, strategy_id = ids
 
@@ -378,7 +380,7 @@ def test_postgres_indicator_exit_and_stop_event_race_flatten_position_once():
         engine.dispose()
 
 
-def test_sigkilled_execution_worker_recovers_paper_stop_without_redis(tmp_path):
+def test_sigkilled_execution_worker_recovers_paper_stop_without_redis(tmp_path, monkeypatch):
     """A real OS process dies after the claim commit; PostgreSQL recovery executes once.
 
     The child uses the production _execute_event path and is SIGKILLed only
@@ -502,12 +504,7 @@ asyncio.run(_execute_event(UUID(os.environ["PAPER_STOP_EVENT_ID"]), UUID(os.envi
             "app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED",
             False,
         ):
-            recovered = asyncio.run(
-                __import__(
-                    "app.services.paper_stop_event_dispatch_handler",
-                    fromlist=["recover_expired_paper_stop_events_once"],
-                ).recover_expired_paper_stop_events_once()
-            )
+            recovered = asyncio.run(handler.recover_expired_paper_stop_events_once())
 
         assert recovered == 1
         assert adapter.get_full_quote.await_count == 1
@@ -531,6 +528,23 @@ asyncio.run(_execute_event(UUID(os.environ["PAPER_STOP_EVENT_ID"]), UUID(os.envi
             assert len(executions) == 1
             assert position.quantity == 0
             assert portfolio.cash_balance != Decimal("100000.00")
+
+        # The token held by the killed process is fenced after recovery.
+        from app.services.paper_stop_event_execution_service import PaperStopEventExecutionRejected
+        with Session() as stale_session:
+            with pytest.raises(PaperStopEventExecutionRejected, match="Claim token"):
+                asyncio.run(PaperStopEventExecutionService(stale_session).execute_claimed(
+                    user_id=user_id,
+                    event_id=event_id,
+                    claim_token=original_token,
+                ))
+        with Session() as verify_session:
+            assert verify_session.query(Order).filter(
+                Order.paper_stop_event_id == event_id
+            ).count() == 1
+            assert verify_session.query(Execution).join(
+                Order, Execution.order_id == Order.id
+            ).filter(Order.paper_stop_event_id == event_id).count() == 1
     finally:
         if child is not None and child.poll() is None:
             child.kill()

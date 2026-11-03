@@ -202,3 +202,62 @@ async def test_fleet_worker_count_excludes_workers_without_recent_heartbeat():
 
     redis.now_ms += 61_000
     assert (await fleet_snapshot(redis))["worker_count"] == 0
+
+
+
+@pytest.mark.asyncio
+async def test_real_redis_concurrent_worker_exporters_preserve_fleet_totals():
+    """Exercise concurrent independent exporter replicas against real Redis."""
+    import asyncio
+    import os
+    from uuid import uuid4
+
+    from redis.asyncio import Redis
+    from app.services import market_data_metrics as metrics
+
+    redis_url = os.getenv("REDIS_TEST_URL")
+    if not redis_url:
+        pytest.skip("REDIS_TEST_URL is required for real Redis metrics integration")
+
+    redis = Redis.from_url(redis_url, decode_responses=True)
+    replica_count = 8
+    flushes_per_replica = 25
+    counter = "market_quote_dispatch_processed_total"
+    worker_ids = [f"load-{uuid4().hex}" for _ in range(replica_count)]
+    exporters = []
+    try:
+        before = await fleet_snapshot(redis)
+        for worker_id in worker_ids:
+            local = {name: 0 for name in _ALLOWED_COUNTERS}
+            exporters.append((
+                local,
+                RedisDispatchMetricsExporter(
+                    worker_id=worker_id,
+                    snapshot_provider=lambda state=local: {"counters": dict(state)},
+                ),
+            ))
+
+        async def run_replica(local, exporter):
+            for _ in range(flushes_per_replica):
+                local[counter] += 1
+                assert await exporter.flush_once(redis) is True
+
+        await asyncio.gather(*(run_replica(local, exporter) for local, exporter in exporters))
+
+        after = await fleet_snapshot(redis)
+        assert after["counters"][counter] - before["counters"][counter] == (
+            replica_count * flushes_per_replica
+        )
+        assert after["worker_count"] >= replica_count
+        assert all(local[counter] == flushes_per_replica for local, _ in exporters)
+    finally:
+        await redis.zrem(metrics._WORKERS_KEY, *worker_ids)
+        cleanup_keys = [f"{metrics._WORKER_KEY_PREFIX}{worker_id}" for worker_id in worker_ids]
+        cleanup_keys.extend(
+            f"{metrics._FLUSH_KEY_PREFIX}{worker_id}:{sequence}"
+            for worker_id in worker_ids
+            for sequence in range(flushes_per_replica)
+        )
+        if cleanup_keys:
+            await redis.delete(*cleanup_keys)
+        await redis.aclose()

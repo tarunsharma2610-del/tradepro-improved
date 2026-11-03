@@ -1,3 +1,15 @@
+## Latest exact-head documentation checkpoint — 3 November 2026
+
+- Commit: `7c75ebd22c803d4778eea40556a8c87eb5abe0f5`.
+- Backend [#41675822283 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41675822283): **1,654 passed, 8 warnings, zero skipped**; broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore passed.
+- Security [#41675822246 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41675822246): CodeQL and Python dependency audit passed.
+- PR #12 remains OPEN, Draft, unmerged; base `phase4/sustained-load-benchmark`.
+- Already-green prior engineering checks: Docker Compose worker-fleet kill/recovery (#41671768895 / #41671768838); watchdog notification retry (#41674075611 / #41674075641); PostgreSQL SIGKILL PAPER stop-event recovery.
+- Remaining operational gates: Oracle VM watchdog installation/drill, independent VM/cloud monitoring, realistic database-backed sustained load, independent penetration review.
+- This is a CI checkpoint, not Oracle deployment or production-scale performance sign-off.
+
+---
+
 ## Documentation synchronization pointer — 3 November 2026
 
 - Nine-file documentation batch: `43cd7f1275dbab1e555078b89959955c3fdf86af`.

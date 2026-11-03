@@ -186,3 +186,19 @@ def test_mfa_security_change_revokes_existing_sessions(db_session, make_user):
     assert service.verify_and_enable_mfa(user, pyotp.TOTP(secret).now()) is True
     db_session.refresh(session)
     assert session.revoked_at is not None
+
+
+def test_mfa_enrollment_cannot_replace_an_already_enabled_factor(db_session, make_user):
+    import pyotp
+
+    user = make_user()
+    service = AuthService(db_session)
+    original_secret, _ = service.start_mfa_enrollment(user)
+    assert service.verify_and_enable_mfa(user, pyotp.TOTP(original_secret).now()) is True
+    encrypted_original = user.mfa_secret_encrypted
+
+    with pytest.raises(AuthError, match="MFA is already enabled"):
+        service.start_mfa_enrollment(user)
+
+    assert user.mfa_secret_encrypted == encrypted_original
+    assert pyotp.TOTP(original_secret).verify(pyotp.TOTP(original_secret).now(), valid_window=1)

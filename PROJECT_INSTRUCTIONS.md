@@ -2511,3 +2511,13 @@ Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`.
 - Next gates: sustained multi-process Redis load with measured throughput/latency; queue saturation/backpressure and recovery metrics; full Redis snapshot → scanner/dispatcher → durable PAPER stop-event → execution → ledger/position reconciliation; final PAPER/LIVE isolation, authorization, IDOR, secret-redaction and broker-write reachability audit.
 - Safety unchanged: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN, Draft and unmerged; no deployment or LIVE activation; original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
 - Documentation synchronization is pending verification: this section must be present in all five core documents and the resulting documentation commit must pass its own exact-head CI before being treated as a verified documentation checkpoint.
+
+
+## Latest Phase 4 verified checkpoint — 3 November 2026
+
+- Verified implementation head: `a198472a6725306497799e105b386ffc59ecedd3`; Backend CI #41604337768 passed with **1,629 passed, 8 warnings**; Security analysis #41604337969 passed.
+- Verified documentation head: `5cfbb0b788e828716c1b9877bbc6f0d2e100e792`. Backend CI #41606074665 and Security analysis #41606074838 are the required exact-head checks; do not call this documentation checkpoint green until both complete successfully. (An additional duplicate CodeQL run #41606065627 was also observed.)
+- The exact backend workflow runs `python -m pytest -q` from `backend/`; it also runs broker-write boundary enforcement, SQLite and PostgreSQL 16 migration round-trips, and isolated synthetic restore verification. GitHub's 2,500+ count is workflow-run history, not individual pytest cases.
+- The crash-recovery integration test verifies OS-process termination, Redis lease expiry and replacement-worker quote consumption. This is bounded recovery coverage only; sustained load and measured latency/throughput/backpressure acceptance remain open.
+- Next: sustained multi-process Redis quote publishing/consumption with measured latency and throughput, bounded queue saturation/backpressure and recovery, then end-to-end PAPER ledger reconciliation and final PAPER/LIVE isolation/security audit.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker order writes disabled; PR #9 remains OPEN/Draft/unmerged; no deployment or LIVE activation.

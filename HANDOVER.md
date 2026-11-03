@@ -1,3 +1,15 @@
+## Phase 4 handover — 3 November 2026 (ranking CI green)
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; original `Tradepro` out of scope.
+- Branch `phase4/redis-market-data-publisher`; PR #9 open, Draft, unmerged.
+- Exact verified implementation `c5b549940a86386b2a48978f1aeac187b52fb8b4`.
+- Backend #41588921062 and Security #41588921048 passed on exact head. Backend includes pytest, PAPER broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic restore and evidence retention. Security includes CodeQL and dependency audit.
+- Scanner capabilities: depth quality, configurable liquidity guard, validated-candle momentum, same-time-of-day relative volume, deterministic weighted ranking with factor contributions and stable tie-break.
+- Next: review current scanner/API schema and integrate ranked output without breaking compatibility; add end-to-end scanner-to-PAPER observation tests. Then check official Upstox SDK/API parity before extending integration.
+- PAPER mandatory; live order writes disabled; no deployment, production Oracle restore, credentialed live smoke test or LIVE readiness claimed.
+
+---
+
 ## Phase 4 handover — 3 November 2026 (scanner relative-volume CI verified)
 
 - Work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.

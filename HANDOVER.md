@@ -1,3 +1,7 @@
+## 3 November 2026 — watchdog Docker-daemon failure visibility
+
+The systemd watchdog unit no longer hard-requires `docker.service`; it retains ordering only. This lets the timer-launched watchdog execute when Docker is inactive and report an `unknown` inspection state through the host journal/optional HTTPS webhook. Regression test added. Changes: `adf38c32cbb73b16f9f23494d7573906b2e23f38`, `e1bcae4a51ced3cd12a4b1af7eeba6c6a989fac4`. Verify Backend and Security CI on the final head before considering it complete. This does not detect a powered-off VM; independent cloud monitoring remains open.
+
 ## Current verified Phase 4 checkpoint — 3 November 2026
 
 - Repository: `tarunsharma2610-del/tradepro-improved` only; implementation branch: `phase4/operational-alerting`.

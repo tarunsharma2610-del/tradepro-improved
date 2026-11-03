@@ -4270,3 +4270,19 @@ The in-process heartbeat alert measures active Redis metrics-exporter heartbeats
 Code review found and fixed a cooldown edge case: missing/invalid Telegram configuration previously could leave a Redis dedupe key active for the full five-minute cooldown. The monitor now releases that key so correcting the admin destination allows immediate retry. Added automated tests for two independent monitor instances sharing Redis (only one notification is sent for the same fleet delta) and configuration correction/retry without waiting for cooldown.
 
 See `PHASE4_OPERATIONAL_ALERTING.md`. Latest alert code commit before this documentation sync: `4f7829a8019758b9eb0fc770dcae80d9cbb1c428`. Backend and Security CI are running for the code follow-up; this documentation sync itself will trigger fresh exact-head workflows. Do not treat earlier green CI as verification of these new tests. Worker heartbeat remains an exporter heartbeat only; external monitoring is required to detect total container/process loss.
+
+
+## External worker watchdog — 3 November 2026
+
+Added host-side watchdog files:
+- `ops/worker_watchdog.py` inspects the Compose worker state and Docker restart count from outside the worker container.
+- `ops/systemd/tradepro-worker-watchdog.service` and `ops/systemd/tradepro-worker-watchdog.timer` run the check as a root-owned oneshot each minute.
+- `ops/worker-watchdog.env.example` documents an optional HTTPS incident webhook; real URLs/credentials must remain in a root-owned 0600 host file.
+- `backend/tests/test_host_worker_watchdog.py` covers running/missing/unavailable Docker, state/restart transitions and HTTPS-only webhook enforcement.
+- `PHASE4_EXTERNAL_WATCHDOG.md` is the installation runbook; `PHASE4_OPERATIONAL_ALERTING.md` records the integration boundary.
+
+The watchdog only observes Docker state; Docker's existing restart policy remains responsible for restart. It does not call broker APIs. It is not installed on the Oracle VM yet. Without an HTTPS webhook, notifications remain in the host journal. VM/Docker daemon/systemd failure still requires independent cloud-provider instance monitoring. One-minute polling may miss short transient states, although Docker restart-count changes are detected.
+
+Latest implementation commit before documentation synchronization: `996ccbcd9f52d539e17912940ce690ab9b9fa2d5`. Backend and Security CI were triggered on that commit; final documentation synchronization requires its own exact-head CI. Do not mark this checkpoint verified until both workflows pass on the final docs head.
+
+PAPER-only remains mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. PR #12 remains Draft/unmerged; original `Tradepro` remains untouched.

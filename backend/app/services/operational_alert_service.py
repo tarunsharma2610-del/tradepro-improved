@@ -108,6 +108,10 @@ class OperationalAlertMonitor:
             chat_id_raw = settings.get_decrypted("ops_alert_telegram_chat_id")
             if not token or not chat_id_raw or not re.fullmatch(r"-?\d{1,20}", chat_id_raw.strip()):
                 logger.warning("PAPER operational alert not delivered: Telegram operations destination is not configured.")
+                try:
+                    await self.redis.delete(dedupe_key)
+                except Exception:
+                    pass
                 return False
             result = await telegram_notifier.send_message(
                 token, int(chat_id_raw), f"Tradepro PAPER operational alert\n{message}"

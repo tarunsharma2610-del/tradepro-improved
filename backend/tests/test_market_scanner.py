@@ -166,3 +166,27 @@ def test_scanner_rejects_crossed_or_invalid_top_of_book_spread():
     assert invalid.spread_bps is None
     assert invalid.best_bid_quantity is None
     assert invalid.best_ask_quantity is None
+
+
+def test_market_quality_filter_uses_explicit_thresholds_and_fails_closed():
+    user_id, scanner = uuid4(), MarketScanner()
+    observation = scanner.process_quote(user_id, quote(user_id))
+    assert observation is not None
+    assert scanner.passes_market_quality(
+        observation, max_spread_bps=25, min_bid_quantity=200, min_ask_quantity=250
+    )
+    assert not scanner.passes_market_quality(
+        observation, max_spread_bps=10, min_bid_quantity=200, min_ask_quantity=250
+    )
+    assert not scanner.passes_market_quality(
+        observation, max_spread_bps=25, min_bid_quantity=300, min_ask_quantity=250
+    )
+    assert not scanner.passes_market_quality(
+        observation, max_spread_bps=float("nan")
+    )
+
+    no_depth = scanner.process_quote(
+        user_id, quote(user_id, version=2, depth=None)
+    )
+    assert no_depth is not None
+    assert not scanner.passes_market_quality(no_depth, max_spread_bps=100)

@@ -1,3 +1,15 @@
+## Phase 4 latest verified recovery checkpoint — 3 November 2026
+
+- Verified implementation: `2ee2939969b9679dda859086278ef07c4355d173`; Backend #41610938641 and Security #41610938496 both passed on this exact commit.
+- Backend: 1,631 passed, 8 warnings; broker-write boundary guard, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill and evidence retention passed.
+- Verified recovery coverage already present: real Redis 7 connection loss/re-subscription; real Redis server-process restart with volatile snapshot/version loss, fresh epoch/version reset and stale-quote rejection; multi-process publisher/consumer; four-process 400-quote load; bounded queue saturation and authoritative-snapshot retry; worker cancellation/release and supervised PAPER fill/ledger acceptance with duplicate-delivery idempotency.
+- These tests are bounded integration/stress checks, not production-scale performance certification or proof of deployment readiness.
+- Latest documentation synchronization: `61792d6649351a68f68da49aa2494f3656717ba1`; Backend #41611831152 and Security #41611831095 passed on that exact documentation commit.
+- Next engineering review: inspect the worker's exhausted-retry recovery callback and its coupling to scanner high-water reset / authoritative Redis snapshot replay; add a focused regression only if a concrete uncovered failure mode is found. Then update the checkpoint documents and verify their exact-head CI.
+- Safety remains mandatory: PAPER only; live broker order writes disabled; PR #9 OPEN, Draft, unmerged; only `tradepro-improved` in scope; original `Tradepro` untouched.
+
+---
+
 ## Documentation synchronization checkpoint — 3 November 2026
 
 - Repository: `tarunsharma2610-del/tradepro-improved` only; branch: `phase4/redis-market-data-publisher`; PR #9 remains OPEN, Draft, and unmerged.

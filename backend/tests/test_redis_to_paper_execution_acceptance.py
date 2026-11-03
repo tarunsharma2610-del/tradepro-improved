@@ -22,6 +22,7 @@ from app.models.portfolio import Portfolio
 from app.models.position import Position
 from app.models.strategy import Strategy
 from app.services.market_quote_dispatcher import MarketQuoteDispatcher
+from app.services.market_quote_dispatch_worker import MarketQuoteDispatchWorker
 from app.services.market_scan_dispatch_pipeline import MarketScanDispatchPipeline
 from app.services.paper_stop_event_dispatch_handler import handle_paper_market_observation
 from app.services.redis_market_quote_consumer import RedisMarketQuoteConsumer
@@ -119,6 +120,20 @@ async def test_real_redis_snapshot_reaches_durable_paper_fill_and_ledger(
     dispatcher = MarketQuoteDispatcher(max_pending_keys=8)
     pipeline = MarketScanDispatchPipeline(dispatcher=dispatcher)
     instrument_key = instrument.instrument_key
+    dispatched_items = []
+
+    async def handle_and_capture(dispatched):
+        dispatched_items.append(dispatched)
+        await handle_paper_market_observation(dispatched)
+
+    dispatch_worker = MarketQuoteDispatchWorker(
+        dispatcher,
+        handle_and_capture,
+        min_backoff_seconds=0,
+        max_backoff_seconds=0,
+        max_attempts=2,
+    )
+    worker_task = None
 
     try:
         assert await redis.ping()
@@ -135,18 +150,21 @@ async def test_real_redis_snapshot_reaches_durable_paper_fill_and_ledger(
 
         recovered = await consumer.get_quote(instrument_key)
         assert recovered is not None
-        assert pipeline.on_quote(user.id, recovered) is True
-        dispatched = await dispatcher.get()
-        assert dispatched.observation.ltp == 97.0
-        assert dispatched.observation.price_change_pct == -3.0
-
         with patch(
             "app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED",
             False,
         ), _quote_patch(instrument):
-            await handle_paper_market_observation(dispatched)
+            worker_task = asyncio.create_task(dispatch_worker.run())
+            assert pipeline.on_quote(user.id, recovered) is True
+            async with asyncio.timeout(3):
+                while dispatch_worker.processed_count != 1:
+                    await asyncio.sleep(0.01)
 
-        dispatcher.task_done()
+        dispatched = dispatched_items[0]
+        assert dispatched.observation.ltp == 97.0
+        assert dispatched.observation.price_change_pct == -3.0
+        assert dispatcher.pending_keys == 0
+        assert dispatcher.inflight_keys == 0
         db_session.expire_all()
         saved_event = db_session.query(PaperStopEvent).filter(
             PaperStopEvent.user_id == user.id,
@@ -180,6 +198,9 @@ async def test_real_redis_snapshot_reaches_durable_paper_fill_and_ledger(
             Execution.order_id == saved_order.id
         ).count() == 1
     finally:
+        if worker_task is not None:
+            worker_task.cancel()
+            await asyncio.gather(worker_task, return_exceptions=True)
         await redis.delete(
             publisher.snapshot_key(instrument_key),
             publisher.snapshot_key(instrument_key) + ":version",

@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
     LoginResult,
+    MfaEnrollRequest,
     MfaEnrollResponse,
     MfaVerifyRequest,
     MfaDisableRequest,
@@ -118,12 +119,17 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
 
 
 @router.post("/mfa/enroll", response_model=MfaEnrollResponse)
-def mfa_enroll(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def mfa_enroll(
+    payload: MfaEnrollRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     service = AuthService(db)
     try:
-        secret, uri = service.start_mfa_enrollment(user)
+        secret, uri = service.start_mfa_enrollment(user, password=payload.password)
     except AuthError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+        code = status.HTTP_409_CONFLICT if user.mfa_enabled else status.HTTP_401_UNAUTHORIZED
+        raise HTTPException(code, str(exc)) from exc
     return MfaEnrollResponse(otpauth_uri=uri, secret=secret)
 
 

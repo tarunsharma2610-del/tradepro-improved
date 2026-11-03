@@ -30,6 +30,7 @@ from app.repositories.strategy_repository import StrategyRepository
 from app.services.execution_service import ExecutionService
 from app.services.news_service import NewsService
 from app.services.market_scanner import MarketScanner
+from app.services.market_data_metrics import RedisDispatchMetricsExporter
 from app.services.market_quote_dispatcher import MarketQuoteDispatcher
 from app.services.market_quote_dispatch_worker import MarketQuoteDispatchWorker
 from app.services.market_scan_dispatch_pipeline import MarketScanDispatchPipeline
@@ -155,6 +156,22 @@ async def main() -> None:
     dispatcher = MarketQuoteDispatcher(max_pending_keys=MARKET_DISPATCH_QUEUE_CAPACITY)
     pipeline = MarketScanDispatchPipeline(scanner=scanner, dispatcher=dispatcher)
     quote_worker = RedisMarketQuoteWorker(on_quote=pipeline.on_quote)
+    metrics_exporter = RedisDispatchMetricsExporter()
+
+    async def export_dispatch_metrics() -> None:
+        while True:
+            try:
+                await metrics_exporter.flush_once(quote_worker.redis)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Metrics must never stop quote ingress or PAPER evaluation.
+                logger.exception("Could not export PAPER dispatch metrics to Redis")
+            await asyncio.sleep(5)
+
+    metrics_export_task = asyncio.create_task(
+        export_dispatch_metrics(), name="paper-dispatch-metrics-export"
+    )
     quote_worker_task = asyncio.create_task(
         quote_worker.run_forever(), name="redis-market-quote-worker"
     )
@@ -214,6 +231,14 @@ async def main() -> None:
         await asyncio.gather(
             *dispatch_worker_tasks, stop_recovery_task, return_exceptions=True
         )
+        metrics_export_task.cancel()
+        await asyncio.gather(metrics_export_task, return_exceptions=True)
+        # Final flush after dispatch consumers stop; a repeated sequence is
+        # safe if a previous Redis response was lost after its Lua commit.
+        try:
+            await metrics_exporter.flush_once(quote_worker.redis)
+        except Exception:
+            logger.exception("Final PAPER dispatch metrics flush failed")
         await quote_worker.close()
 
 

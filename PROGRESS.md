@@ -4263,3 +4263,10 @@ PR #12 head is subject to exact-head Backend and Security CI. A successful CI ru
 ### Alerting monitoring boundary clarification
 
 The in-process heartbeat alert measures active Redis metrics-exporter heartbeats, not quote-dispatch worker health independently. Since the monitor itself runs inside the worker container, it cannot report a total crash of that same container. An external uptime/health watchdog is still required for complete worker-process-loss detection. This limitation is explicitly recorded in `PHASE4_OPERATIONAL_ALERTING.md`; do not describe the in-process monitor as a substitute for external infrastructure monitoring.
+
+
+## Operational alert follow-up — 3 November 2026
+
+Code review found and fixed a cooldown edge case: missing/invalid Telegram configuration previously could leave a Redis dedupe key active for the full five-minute cooldown. The monitor now releases that key so correcting the admin destination allows immediate retry. Added automated tests for two independent monitor instances sharing Redis (only one notification is sent for the same fleet delta) and configuration correction/retry without waiting for cooldown.
+
+See `PHASE4_OPERATIONAL_ALERTING.md`. Latest alert code commit before this documentation sync: `4f7829a8019758b9eb0fc770dcae80d9cbb1c428`. Backend and Security CI are running for the code follow-up; this documentation sync itself will trigger fresh exact-head workflows. Do not treat earlier green CI as verification of these new tests. Worker heartbeat remains an exporter heartbeat only; external monitoring is required to detect total container/process loss.

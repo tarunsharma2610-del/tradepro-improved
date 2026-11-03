@@ -226,9 +226,16 @@ def test_relative_volume_uses_same_time_slot_across_distinct_sessions():
 
     rows = []
     today = datetime(2026, 11, 3, 10, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
-    for days_ago in range(20, 0, -1):
-        stamp = (today - timedelta(days=days_ago)).isoformat()
-        rows.append([stamp, 100, 101, 99, 100, 1000, 0])
+    cursor = today
+    sessions = 0
+    while sessions < 20:
+        cursor -= timedelta(days=1)
+        if cursor.weekday() >= 5:
+            continue
+        rows.append([cursor.isoformat(), 100, 101, 99, 100, 1000, 0])
+        # A different intraday slot must not contaminate the baseline.
+        rows.append([(cursor + timedelta(minutes=5)).isoformat(), 100, 101, 99, 100, 9000, 0])
+        sessions += 1
     rows.append([today.isoformat(), 100, 101, 99, 100, 2500, 0])
     payload = {"status": "success", "data": {"candles": list(reversed(rows))}}
 

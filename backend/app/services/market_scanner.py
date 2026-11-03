@@ -29,6 +29,11 @@ class MarketScanObservation:
     volume_traded_today: float | None
     open_interest: float | None
     buy_sell_imbalance: float | None
+    best_bid_price: float | None
+    best_ask_price: float | None
+    spread_bps: float | None
+    best_bid_quantity: float | None
+    best_ask_quantity: float | None
     option_greeks: dict | None
     exchange_timestamp_ms: int
     received_at: str
@@ -111,6 +116,27 @@ class MarketScanner:
         if buy is not None and sell is not None and buy >= 0 and sell >= 0 and buy + sell > 0:
             imbalance = (buy - sell) / (buy + sell)
 
+        # Market-quality measurements use only the first provider depth
+        # level. Missing, malformed, crossed, or non-positive books stay None;
+        # they must never be interpreted as liquid/zero-spread markets.
+        best_bid = best_ask = spread_bps = bid_quantity = ask_quantity = None
+        raw_depth = quote.get("depth")
+        if isinstance(raw_depth, list) and raw_depth and isinstance(raw_depth[0], dict):
+            level = raw_depth[0]
+            bid = _finite_number(level.get("bid_price"))
+            ask = _finite_number(level.get("ask_price"))
+            bid_qty = _finite_number(level.get("bid_quantity"))
+            ask_qty = _finite_number(level.get("ask_quantity"))
+            if bid is not None and ask is not None and bid > 0 and ask >= bid:
+                midpoint = (bid + ask) / 2.0
+                if midpoint > 0:
+                    best_bid, best_ask = bid, ask
+                    spread_bps = ((ask - bid) / midpoint) * 10_000.0
+            if bid_qty is not None and bid_qty >= 0:
+                bid_quantity = bid_qty
+            if ask_qty is not None and ask_qty >= 0:
+                ask_quantity = ask_qty
+
         raw_greeks = quote.get("option_greeks")
         greeks = None
         if isinstance(raw_greeks, dict):
@@ -123,7 +149,11 @@ class MarketScanner:
             ltp=ltp, price_change_pct=price_change_pct,
             volume_traded_today=volume if volume is not None and volume >= 0 else None,
             open_interest=open_interest if open_interest is not None and open_interest >= 0 else None,
-            buy_sell_imbalance=imbalance, option_greeks=greeks,
+            buy_sell_imbalance=imbalance,
+            best_bid_price=best_bid, best_ask_price=best_ask,
+            spread_bps=spread_bps,
+            best_bid_quantity=bid_quantity, best_ask_quantity=ask_quantity,
+            option_greeks=greeks,
             exchange_timestamp_ms=exchange_timestamp_ms, received_at=received_at,
         )
         self._latest[identity] = observation

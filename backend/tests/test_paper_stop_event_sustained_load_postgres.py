@@ -155,9 +155,14 @@ async def test_postgres_paper_stop_event_handler_sustained_load(monkeypatch, rec
         execution_service.settings, "UPSTOX_CHARGE_ESTIMATES_ENABLED", False
     )
 
+    quote_requests = []
+
     class FakeAdapter:
         async def get_full_quote(self, access_token, instrument_tokens):
             instrument_key = instrument_tokens[0]
+            quote_requests.append(instrument_key)
+            # Let other dispatch workers overlap their DB-backed execution path.
+            await asyncio.sleep(0.005)
             now = datetime.now(timezone.utc)
             level = {"price": "97.00", "quantity": 100000, "orders": 10}
             quote = {
@@ -237,6 +242,7 @@ async def test_postgres_paper_stop_event_handler_sustained_load(monkeypatch, rec
         assert sum(worker.processed_count for worker in workers) == observation_count
         assert sum(worker.failure_count for worker in workers) == 0
         assert len(completion_latencies_ms) == observation_count
+        assert len(quote_requests) == observation_count
         assert dispatcher.pending_keys == 0
         assert dispatcher.inflight_keys == 0
 

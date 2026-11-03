@@ -1,3 +1,15 @@
+## Latest verified Phase 4 scanner checkpoint — 3 November 2026
+
+- Exact implementation head: `c5b549940a86386b2a48978f1aeac187b52fb8b4`.
+- Backend [#41588921062 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41588921062): full pytest (including deterministic ranking regressions), PAPER broker-write boundary, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore and evidence retention all passed.
+- Security [#41588921048 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41588921048): CodeQL and Python dependency audit passed.
+- Verified scanner capabilities: market-depth quality observations; configurable fail-closed liquidity filter; historical momentum using validated Upstox candles/shared indicator engine; same-time-of-day relative volume over distinct prior sessions; deterministic explainable weighted ranking for momentum, relative volume and liquidity.
+- Ranking rejects invalid weights/factors, ignores duplicate instrument keys, exposes weighted contributions, and uses instrument-key ascending as stable tie-break for equal scores. Scanner remains advisory and cannot authorize orders.
+- Next: integrate ranking into the scanner's persisted/API-facing opportunity output only after checking existing API contracts, then perform end-to-end scanner-to-PAPER observation regression. Review official Upstox SDK/API coverage before custom integration.
+- Only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched. PAPER mandatory; live `place_order`, `modify_order`, `cancel_order` writes disabled. PR #9 open, Draft, unmerged. No deployment or LIVE readiness claimed.
+
+---
+
 ## Latest verified scanner checkpoint — 3 November 2026
 
 This section supersedes earlier latest-checkpoint claims below; historical entries remain.

@@ -107,3 +107,12 @@ Latest PR #11 head: `8061500a90ec4a3aeaa52cce51f850773ef0414e`. New backend and 
 ### Remaining MFA review
 
 Review enrollment pending-state expiry, TOTP attempt throttling, recovery codes, notification of security-factor changes, and deployment/session revocation behavior. Do not claim MFA security is fully complete based on these fixes alone.
+
+
+## MFA enrollment password step-up — latest Draft PR #11 update
+
+A third MFA hardening step now requires password reauthentication before initial enrollment. The service validates the password before generating or storing a new TOTP secret; the API returns 401 on incorrect password. Already-enabled factors continue to be non-replaceable from enrollment and return 409; replacement requires the existing password + current TOTP disable flow first.
+
+Regression tests cover wrong-password rejection with no secret persisted, correct-password enrollment, and prevention of replacing an enabled factor. The API enrollment contract now requires a JSON password field.
+
+Latest PR #11 head: `10657cf099aaed17c7d4a18f2878ebd4d48f9f1a`. Backend CI #41648211858 is running and Security CI #41648211953 is queued. Previous green checks apply only to earlier PR #11 heads and do not verify this update. MFA remains under review; recovery codes, pending enrollment expiry, attempt throttling, and security-change notifications are not yet verified.

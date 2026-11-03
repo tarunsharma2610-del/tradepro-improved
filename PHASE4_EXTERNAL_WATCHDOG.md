@@ -84,3 +84,17 @@ Supersedes earlier statements that the real multi-container watchdog drill was p
 - Remaining gates: install/exercise the external watchdog on Oracle VM; verify an independent notification destination and cloud/instance health monitoring; run sustained load with full database-backed handler work and measure latency/recovery; complete independent security/penetration review.
 - Do not duplicate the passing Docker Compose fault test or PostgreSQL SIGKILL stop-event recovery test. Inspect existing coverage before adding reliability work.
 - The follow-up documentation commit requires its own exact-head Backend and Security CI before becoming a verified documentation checkpoint.
+
+
+## Verified notification retry correction — 3 November 2026
+
+The current watchdog implementation is `af6d469af969d9705c4527922dcde96c9c373638`.
+
+- Backend workflow [#41674075611 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41674075611): **1,654 passed, 8 warnings, zero skipped**; broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore drill passed.
+- Security workflow [#41674075641 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41674075641): CodeQL and Python dependency vulnerability audit passed.
+- `_notify()` returns delivery success. With no webhook configured, the system journal is the intended destination. Failed HTTPS delivery, non-2xx response, or rejected non-HTTPS URL returns failure.
+- The transition fingerprint is persisted only after successful configured delivery (or journal-only operation), so a failed webhook remains retryable on the next timer invocation.
+- Regression tests cover failed delivery followed by successful retry, credential non-disclosure, and journal-only behavior.
+- This is CI verification only. No webhook endpoint has been configured/contacted and no Oracle VM installation or alert-delivery drill is claimed.
+
+Next: verify the deployment host prerequisites, install the watchdog reversibly under systemd, and test delivery/retry on the Oracle VM without enabling broker writes. Add independent cloud/VM monitoring because the host watchdog cannot report host or Docker-daemon failure.

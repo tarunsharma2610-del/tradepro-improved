@@ -1,3 +1,9 @@
+## Phase 4 scanner status — 3 November 2026
+
+Verified implementation `76e3ad10b21f9fb2e954cfe8ef5bbdf8de54e70b`; Backend #41587542980 and Security #41587542875 passed on that exact head. Implemented scanner slices: market-depth quality, configurable fail-closed liquidity filtering, validated-candle momentum via shared indicator, and same-time-of-day relative volume across distinct prior sessions. Full pytest, PAPER broker-write boundary, SQLite/PostgreSQL 16 migrations, synthetic restore/evidence retention, CodeQL and dependency audit passed. Scanner outputs are advisory and cannot authorize orders. Next: deterministic explainable ranking with stable tie-breaks. PR #9 Draft/unmerged; PAPER mandatory; LIVE writes disabled.
+
+---
+
 <!-- Phase 3 checkpoint update — 27 Oct 2026. Latest code/test head 8feeb0cbb0c35e1e37012302c9075d43f1f33eb1 passed Backend CI #40458822529: 1,097 passed, 1 warning. Broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention passed. DP completeness checks require a consistent KNOWN + explicit valid finite nonnegative paise-exact amount, or NOT_APPLICABLE + no amount; invalid status, UNKNOWN-with-amount, KNOWN-without-amount, NOT_APPLICABLE-with-amount, NaN, negative and fractional-paise amounts fail closed. DP canonical manifests are checked against persisted broker trade → child order → local order mappings; only mapped equity-delivery SELL fills are accepted. Delivery SELL still requires reviewed/reconciled DP evidence and durable per-fill allocation; DP is included once in total and replay identity. Maintained docs are being synchronized after the green code run; exact-head CI on the final docs/checkpoint commit must pass before it is called green. PR #6/#7 Draft/unmerged; PAPER mandatory; live broker order writes disabled; original Tradepro repository out of scope. -->
 
 ## Latest authoritative checkpoint — 26 October 2026, 21:06 IST

@@ -276,13 +276,19 @@ async def test_postgres_paper_stop_event_handler_sustained_load(monkeypatch, rec
             positions = db.query(Position).filter(
                 Position.portfolio_id.in_(portfolio_ids),
             ).all()
+            portfolios = db.query(Portfolio).filter(
+                Portfolio.id.in_(portfolio_ids),
+            ).all()
             assert len(events) == observation_count
             assert all(event.state == "COMPLETED" for event in events)
             assert len(orders) == observation_count
             assert all(order.status == "FILLED" and order.trading_mode == "PAPER" for order in orders)
             assert len(executions) == observation_count
+            assert len({execution.order_id for execution in executions}) == observation_count
             assert len(positions) == observation_count
             assert all(position.quantity == 0 for position in positions)
+            assert len(portfolios) == observation_count
+            assert all(portfolio.cash_balance > Decimal("100000.00") for portfolio in portfolios)
     finally:
         _cleanup(Session, ids)
         engine.dispose()

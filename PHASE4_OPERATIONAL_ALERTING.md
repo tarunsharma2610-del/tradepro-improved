@@ -86,3 +86,12 @@ See `PHASE4_EXTERNAL_WATCHDOG.md` for installation and limitations. This is code
 Added an integration test in `backend/tests/test_operational_alert_service.py` that uses the CI-provided `REDIS_TEST_URL` service and two independent Redis clients. Both clients concurrently attempt to claim the same unique alert fingerprint through Redis `SET NX EX`; the test requires exactly one successful claim and exactly one Telegram send. The test is skipped only when the dedicated Redis integration URL is absent (local environments without Redis); the backend CI workflow provisions Redis 7 and sets this URL.
 
 This strengthens the previous in-memory fake test but remains a focused atomic-deduplication integration test, not a full multi-process deployment or Telegram network smoke test. Real Telegram delivery and multi-container fault injection remain deployment gates. Exact-head Backend and Security CI are required for this test and the subsequent documentation sync.
+
+
+## PostgreSQL recovery-sweeper fault-window coverage — 3 November 2026
+
+Added `test_postgres_recovery_sweeper_resumes_expired_executing_worker` to `backend/tests/test_paper_stop_event_claim_postgres_concurrency.py`. It uses the CI PostgreSQL 16 service, persists an EXECUTING stop-event claim with an expired lease (representing loss of the original worker after its transaction closed), invokes the actual `recover_expired_paper_stop_events_once` sweeper without Redis redelivery, verifies the old claim token is replaced, and completes the event using the replacement token. It asserts the durable row is COMPLETED with attempt_count=2. The execution service's broker-facing method is stubbed at the boundary so this recovery test exercises database lifecycle orchestration without any broker or order-write call.
+
+This is a PostgreSQL-backed recovery-sweeper integration test, not an OS-level SIGKILL of a worker process or a full end-to-end fill test. The earlier PostgreSQL concurrency tests continue to cover duplicate execution, indicator-vs-stop exit, concurrent expired-lease reclaim, stale-token fencing, and retry exhaustion. Corrected a stale model docstring that incorrectly said workers did not create stop events.
+
+Exact-head Backend and Security CI are required for this change and the final documentation sync. Do not infer a green result from the previous checkpoint.

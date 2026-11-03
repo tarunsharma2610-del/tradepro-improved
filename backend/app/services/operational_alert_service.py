@@ -112,7 +112,7 @@ class OperationalAlertMonitor:
                 token, int(chat_id_raw), f"Tradepro PAPER operational alert\n{message}"
             )
             if not result.ok:
-                logger.error("PAPER operational alert delivery failed: %s", result.error or "Telegram error")
+                logger.error("PAPER operational alert delivery failed: Telegram request was rejected or unavailable.")
                 try:
                     await self.redis.delete(dedupe_key)
                 except Exception:

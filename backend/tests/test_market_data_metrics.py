@@ -185,3 +185,20 @@ async def test_redis_exporter_does_not_repeat_an_already_flushed_delta():
     assert await exporter.flush_once(redis) is False
     result = await fleet_snapshot(redis)
     assert result["counters"]["market_quote_dispatch_exhausted_total"] == 2
+
+
+@pytest.mark.asyncio
+async def test_fleet_worker_count_excludes_workers_without_recent_heartbeat():
+    redis = _FakeRedis()
+    local = {name: 0 for name in _ALLOWED_COUNTERS}
+    exporter = RedisDispatchMetricsExporter(
+        worker_id="worker-temporary",
+        snapshot_provider=lambda: {"counters": dict(local)},
+    )
+    local["market_quote_dispatch_processed_total"] = 1
+    await exporter.flush_once(redis)
+
+    assert (await fleet_snapshot(redis))["worker_count"] == 1
+
+    redis.now_ms += 61_000
+    assert (await fleet_snapshot(redis))["worker_count"] == 0

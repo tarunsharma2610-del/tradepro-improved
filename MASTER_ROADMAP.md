@@ -1,3 +1,15 @@
+## Latest Phase 4 Redis supervised-dispatch verification — 3 November 2026
+
+- Latest verified engineering head: `2ee2939969b9679dda859086278ef07c4355d173` — added the missing `asyncio` import to the real Redis-to-PAPER supervised dispatch acceptance test after the prior run exposed a test-harness NameError.
+- Backend CI #41610938641: SUCCESS on this exact head; pytest: 1,631 passed, 8 warnings. Broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill and evidence retention all passed.
+- Security CI #41610938496: SUCCESS on this exact head; CodeQL and Python dependency vulnerability audit passed.
+- The prior failing run #41610130321 is diagnostic history only and is not a checkpoint.
+- Recovery coverage now includes real Redis multi-process quote publishing, bounded queue backpressure followed by authoritative snapshot-sweep retry, and supervised dispatch-worker execution through the PAPER ledger acceptance path. These are bounded integration tests, not production-scale performance certification.
+- Next gate: inspect and extend worker restart/failure recovery and sustained-load behavior, then synchronize all remaining project records and verify the resulting documentation commit's own exact-head CI.
+- Safeguards: PAPER mandatory; live broker order writes remain disabled; PR #9 stays OPEN, Draft and unmerged; only `tradepro-improved` is in scope. Original `Tradepro` remains untouched.
+
+---
+
 ## Latest Phase 4 operational observability checkpoint — 3 November 2026
 
 This update supersedes earlier "next step" and latest-head summaries in this document.

@@ -577,6 +577,7 @@ async def test_real_redis_worker_process_crash_expires_lease_and_allows_failover
     env["TEST_MARKER"] = marker_key
     child = None
     replacement = None
+    replacement_loop = None
     try:
         child = subprocess.Popen(
             [sys.executable, "-c", child_script],
@@ -617,7 +618,7 @@ async def test_real_redis_worker_process_crash_expires_lease_and_allows_failover
             lease_seconds=3,
             reconcile_seconds=0.05,
         )
-        await replacement.reconcile_once()
+        replacement_loop = asyncio.create_task(replacement.run_forever())
         async with asyncio.timeout(8):
             while replacement.latest_quote(user_id, instrument) is None:
                 await asyncio.sleep(0.05)
@@ -630,6 +631,9 @@ async def test_real_redis_worker_process_crash_expires_lease_and_allows_failover
         if child is not None and child.poll() is None:
             child.kill()
             child.wait(timeout=3)
+        if replacement_loop is not None:
+            replacement_loop.cancel()
+            await asyncio.gather(replacement_loop, return_exceptions=True)
         if replacement is not None:
             await replacement.close()
         await redis.delete(marker_key, lease_key)

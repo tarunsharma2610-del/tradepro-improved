@@ -266,3 +266,42 @@ def test_relative_volume_fails_closed_for_incomplete_or_zero_baseline():
     assert MarketScanner.relative_volume_from_response(
         zero_payload, lookback_sessions=3
     ) is None
+
+
+def test_opportunity_ranking_is_weighted_explainable_and_deterministic():
+    candidates = [
+        {"instrument_key": "NSE_EQ|BBB", "factors": {"momentum": 0.8, "relative_volume": 0.6, "liquidity": 1.0}},
+        {"instrument_key": "NSE_EQ|AAA", "factors": {"momentum": 0.8, "relative_volume": 0.6, "liquidity": 1.0}},
+        {"instrument_key": "NSE_EQ|CCC", "factors": {"momentum": 0.2, "relative_volume": 0.2, "liquidity": 0.2}},
+    ]
+    weights = {"momentum": 0.5, "relative_volume": 0.3, "liquidity": 0.2}
+    ranked = MarketScanner.rank_opportunities(candidates, weights=weights)
+
+    assert [item["instrument_key"] for item in ranked] == [
+        "NSE_EQ|AAA", "NSE_EQ|BBB", "NSE_EQ|CCC"
+    ]
+    assert [item["rank"] for item in ranked] == [1, 2, 3]
+    assert ranked[0]["score"] == 0.74
+    assert ranked[0]["weighted_contributions"] == {
+        "momentum": 0.4, "relative_volume": 0.18, "liquidity": 0.2
+    }
+
+
+def test_opportunity_ranking_rejects_invalid_weights_and_excludes_bad_factors():
+    valid = {"instrument_key": "NSE_EQ|AAA", "factors": {"momentum": 1, "relative_volume": 1, "liquidity": 1}}
+    invalid = {"instrument_key": "NSE_EQ|BAD", "factors": {"momentum": float("nan"), "relative_volume": 1, "liquidity": 1}}
+    weights = {"momentum": 1, "relative_volume": 1, "liquidity": 1}
+
+    assert MarketScanner.rank_opportunities([valid], weights={"momentum": -1, "relative_volume": 1, "liquidity": 1}) == []
+    assert MarketScanner.rank_opportunities([valid], weights={"momentum": 0, "relative_volume": 0, "liquidity": 0}) == []
+    assert MarketScanner.rank_opportunities([valid], weights={"momentum": 1}) == []
+    ranked = MarketScanner.rank_opportunities([invalid, valid], weights=weights)
+    assert [item["instrument_key"] for item in ranked] == ["NSE_EQ|AAA"]
+
+
+def test_opportunity_ranking_ignores_duplicate_instrument_keys():
+    candidate = {"instrument_key": "NSE_EQ|AAA", "factors": {"momentum": 0.5, "relative_volume": 0.5, "liquidity": 0.5}}
+    ranked = MarketScanner.rank_opportunities(
+        [candidate, candidate], weights={"momentum": 1, "relative_volume": 1, "liquidity": 1}
+    )
+    assert len(ranked) == 1

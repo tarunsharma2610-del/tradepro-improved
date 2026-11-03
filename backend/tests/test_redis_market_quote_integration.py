@@ -566,6 +566,15 @@ async def test_real_redis_worker_process_crash_expires_lease_and_allows_failover
                 reconcile_seconds=0.05,
             )
             await worker.reconcile_once()
+            task = worker._tasks[__import__("uuid").UUID(user_id)][1]
+            deadline = asyncio.get_running_loop().time() + 6
+            while await client.get(marker) != "ready":
+                if task.done():
+                    error = task.exception()
+                    raise RuntimeError(f"worker consumer task exited before readiness: {error!r}")
+                if asyncio.get_running_loop().time() >= deadline:
+                    raise TimeoutError("worker consumer did not become ready")
+                await asyncio.sleep(0.05)
             await asyncio.Future()
 
         asyncio.run(main())

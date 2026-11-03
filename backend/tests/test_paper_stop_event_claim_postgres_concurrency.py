@@ -567,6 +567,15 @@ async def test_postgres_recovery_sweeper_resumes_expired_executing_worker(
             assert saved.state == "COMPLETED"
             assert saved.claim_token == resumed[0][1]
             assert saved.attempt_count == 2
+
+        # A worker that resumes after lease recovery must be fenced out even
+        # after the replacement worker has completed the durable event.
+        with Session.begin() as db:
+            stale_completion = PaperStopEventLifecycle(db).complete(
+                event_id=event_id,
+                claim_token=original_token,
+            )
+            assert stale_completion is None
     finally:
         _cleanup_claim_fixture(Session, ids)
         engine.dispose()

@@ -30,8 +30,10 @@ if redis.call('EXISTS', KEYS[3]) == 1 then
     return 0
 end
 redis.call('SET', KEYS[3], '1', 'EX', ARGV[1])
-redis.call('SADD', KEYS[4], ARGV[2])
-redis.call('EXPIRE', KEYS[4], ARGV[3])
+local now = redis.call('TIME')
+local now_ms = (tonumber(now[1]) * 1000) + math.floor(tonumber(now[2]) / 1000)
+redis.call('ZADD', KEYS[4], now_ms, ARGV[2])
+redis.call('ZREMRANGEBYSCORE', KEYS[4], '-inf', now_ms - ARGV[3])
 for i = 5, #ARGV, 2 do
     redis.call('HINCRBY', KEYS[1], ARGV[i], ARGV[i + 1])
     redis.call('HINCRBY', KEYS[2], ARGV[i], ARGV[i + 1])
@@ -125,6 +127,14 @@ class RedisDispatchMetricsExporter:
         return any(deltas.values())
 
 
+async def _active_worker_count(redis_client) -> int:
+    """Count workers with a heartbeat in the last 60 seconds."""
+    server_time = await redis_client.time()
+    now_ms = (int(server_time[0]) * 1000) + (int(server_time[1]) // 1000)
+    await redis_client.zremrangebyscore(_WORKERS_KEY, "-inf", now_ms - 60000)
+    return int(await redis_client.zcard(_WORKERS_KEY))
+
+
 async def fleet_snapshot(redis_client) -> dict[str, object]:
     """Read shared PAPER counters; caller handles Redis availability errors."""
     raw = await redis_client.hgetall(_TOTALS_KEY)
@@ -137,7 +147,7 @@ async def fleet_snapshot(redis_client) -> dict[str, object]:
     return {
         "scope": "fleet_aggregated",
         "source": "redis_atomic_counters",
-        "worker_count": int(await redis_client.scard(_WORKERS_KEY)),
+        "worker_count": int(await _active_worker_count(redis_client)),
         "trading_mode": "PAPER",
         "counters": counters,
     }

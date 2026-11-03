@@ -1,3 +1,5 @@
+import pytest
+
 from app.services.market_data_metrics import (
     RedisDispatchMetricsExporter,
     _ALLOWED_COUNTERS,
@@ -101,6 +103,7 @@ def test_snapshot_exposes_fixed_zero_initialized_counter_set():
     assert all(isinstance(value, int) and value >= 0 for value in result["counters"].values())
 
 
+@pytest.mark.asyncio
 async def test_redis_exporter_aggregates_deltas_from_multiple_worker_replicas():
     before = snapshot()["counters"]
     redis = _FakeRedis()
@@ -122,6 +125,7 @@ async def test_redis_exporter_aggregates_deltas_from_multiple_worker_replicas():
     )
 
 
+@pytest.mark.asyncio
 async def test_redis_exporter_retry_after_lost_response_does_not_double_count():
     import pytest
 
@@ -141,6 +145,7 @@ async def test_redis_exporter_retry_after_lost_response_does_not_double_count():
     assert result["worker_count"] == 1
 
 
+@pytest.mark.asyncio
 async def test_redis_exporter_does_not_repeat_an_already_flushed_delta():
     redis = _FakeRedis()
     exporter = RedisDispatchMetricsExporter(worker_id="worker-stable")

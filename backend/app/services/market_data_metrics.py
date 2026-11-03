@@ -8,6 +8,7 @@ available for unit tests and process diagnostics; admin reads use fleet totals.
 No user or instrument identifiers are recorded.
 """
 from threading import Lock
+from typing import Callable
 from uuid import uuid4
 
 _ALLOWED_COUNTERS = frozenset({
@@ -69,9 +70,15 @@ def snapshot() -> dict[str, object]:
 class RedisDispatchMetricsExporter:
     """Idempotently export local counter deltas into shared Redis totals."""
 
-    def __init__(self, *, worker_id: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        worker_id: str | None = None,
+        snapshot_provider: Callable[[], dict[str, object]] = snapshot,
+    ) -> None:
         self.worker_id = worker_id or uuid4().hex
-        self._last_flushed = dict(snapshot()["counters"])
+        self._snapshot_provider = snapshot_provider
+        self._last_flushed = dict(snapshot_provider()["counters"])
         self._sequence = 0
         self._pending_batch = None
 
@@ -83,7 +90,7 @@ class RedisDispatchMetricsExporter:
         case where Redis committed but the client lost the response.
         """
         if self._pending_batch is None:
-            current = snapshot()["counters"]
+            current = self._snapshot_provider()["counters"]
             deltas = {
                 name: current[name] - self._last_flushed[name]
                 for name in sorted(_ALLOWED_COUNTERS)

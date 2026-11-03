@@ -1,3 +1,18 @@
+## Superseding operational checkpoint — 3 November 2026
+
+This entry supersedes the stale summaries immediately below it.
+
+- Latest verified documentation/PR head before this update: `7c75ebd22c803d4778eea40556a8c87eb5abe0f5`; Backend [#41675822283 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41675822283), **1,654 passed, 8 warnings, zero skipped**; broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill passed. Security [#41675822246 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41675822246), CodeQL and dependency audit passed.
+- PR #12: OPEN, Draft, unmerged; base `phase4/sustained-load-benchmark`.
+- The real Docker Compose two-replica watchdog drill already passed on `ff0a4b42a9a6aab021dffa10835b29d6228a93e4`: running 2/2 → kill one = degraded 1/2 → kill second = down 0/2 → recreate = running 2/2. Backend #41671768895 and Security #41671768838 passed. Do not list this as pending.
+- PostgreSQL 16 SIGKILL recovery of the PAPER stop-event execution worker is already verified; do not duplicate.
+- Watchdog failed-webhook retry is verified on `af6d469af969d9705c4527922dcde96c9c373638`: Backend #41674075611 (1,654 passed, 8 warnings, zero skipped) and Security #41674075641 passed.
+- The existing sustained-load test `backend/tests/test_market_quote_dispatch_sustained_load.py` is a 5,000-observation in-process dispatcher smoke benchmark. It does not exercise full database-backed execution handlers or prove production capacity.
+- Remaining: actual Oracle VM systemd deployment and alert retry drill; independent cloud/VM monitoring; sustained load with realistic database-backed PAPER handler work and end-to-end latency/resource metrics; independent penetration review.
+- Safety: PAPER-only; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
+
+---
+
 ## Current verified Phase 4 checkpoint — 3 November 2026
 
 - Repository: `tarunsharma2610-del/tradepro-improved` only; implementation branch: `phase4/operational-alerting`.

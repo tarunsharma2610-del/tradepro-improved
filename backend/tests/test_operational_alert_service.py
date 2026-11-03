@@ -168,8 +168,15 @@ async def test_two_monitor_replicas_share_redis_alert_deduplication(monkeypatch)
     redis = _Redis()
     sent = []
 
+    snapshots = iter([
+        _snapshot(dropped=0),
+        _snapshot(dropped=0),
+        _snapshot(dropped=1),
+        _snapshot(dropped=1),
+    ])
+
     async def read_metrics(_redis):
-        return _snapshot(dropped=1)
+        return next(snapshots)
 
     monkeypatch.setattr(
         ops, "PlatformSettingsService",

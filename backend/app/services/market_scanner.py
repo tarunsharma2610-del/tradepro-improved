@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from math import isfinite
 import time
 from uuid import UUID
+from app.services.candle_parsing import parse_candles
+from app.services.indicators import momentum
 
 
 def _finite_number(value) -> float | None:
@@ -161,6 +163,20 @@ class MarketScanner:
         self._latest[identity] = observation
         self._latest_seen[identity] = time.monotonic()
         return observation
+
+    @staticmethod
+    def historical_momentum_from_response(response_data: dict, *, period: int = 10):
+        """Return the shared momentum score from validated Upstox candles.
+
+        Provider errors, malformed rows, or insufficient history yield None.
+        This is an advisory scanner feature; it never creates an order signal.
+        """
+        if isinstance(period, bool) or not isinstance(period, int) or period <= 0:
+            return None
+        candles = parse_candles(response_data)
+        if candles is None or len(candles) < period + 1:
+            return None
+        return momentum(candles, period=period)
 
     @staticmethod
     def passes_market_quality(

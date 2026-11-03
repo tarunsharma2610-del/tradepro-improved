@@ -170,3 +170,10 @@ PAPER-only remains mandatory; live broker `place_order`, `modify_order`, and `ca
 ## Real Redis multi-client alert test — 3 November 2026
 
 Added a CI-backed integration test using two independent Redis clients against the workflow's Redis 7 service. Both concurrently attempt the same unique alert fingerprint via atomic Redis `SET NX EX`; exactly one claim and one Telegram send are required. See `PHASE4_OPERATIONAL_ALERTING.md`. This is stronger than the in-memory fake but does not replace multi-container fault injection or a credentialed Telegram deployment smoke test. Backend and Security CI must pass on the final documentation head before checkpoint verification.
+
+
+## PostgreSQL worker-loss recovery test — 3 November 2026
+
+Added a PostgreSQL 16-backed recovery-sweeper test for an expired EXECUTING PAPER stop event. It simulates worker loss after the claim transaction is committed, invokes the real expired-event sweeper without Redis redelivery, verifies claim-token rotation, and completes the durable event using the replacement token. The broker-facing execution method is stubbed; this test does not submit orders. See `PHASE4_PAPER_STOP_EVENT_POSTGRES_CONCURRENCY.md`.
+
+This is a DB-backed recovery integration test, not an OS-level worker SIGKILL or a full end-to-end order-fill test. The prior PostgreSQL concurrency cases remain in place. The stop-event model docstring was corrected to reflect worker ownership. Exact-head Backend and Security CI must pass after the final documentation sync.

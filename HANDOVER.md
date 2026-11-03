@@ -1,3 +1,19 @@
+## Phase 4 handover — 3 November 2026 (latest verified implementation)
+
+- Work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is strictly out of scope.
+- Branch: `phase4/redis-market-data-publisher`; PR #9 remains open, Draft, unmerged.
+- Latest verified implementation commit: `535e4c69b1b3b54b19864e5215c01039d399b143`.
+- Backend tests [#41584709216 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41584709216); Security analysis [#41584709200 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41584709200). Exact same implementation SHA.
+- Passed: complete pytest suite (including PostgreSQL 16 independent indicator-exit vs stop-event race), broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention, CodeQL, dependency audit.
+- New lifecycle behavior: a stop event whose position is already flat is terminalized as `FAILED` with `POSITION_ALREADY_CLOSED`; regression test verifies no duplicate stop order/execution.
+- Race acceptance verifies only one filled exit/execution, flat non-reversed position, and terminal stop-event state when an indicator exit races a durable stop event.
+- Previous Redis-to-PAPER acceptance head `d1f62e86574822b59c396134263126a68fad5017` also passed exact-head Backend and Security workflows.
+- Resume next with uncovered PAPER execution concurrency/recovery edges; then scanner intelligence (liquidity filters, momentum, relative volume, deterministic ranking). Before custom Upstox work, compare existing integration with official SDK/API capabilities. Keep scanner output advisory only.
+- Current restrictions: PAPER mandatory; live broker order writes disabled; no deployment or LIVE activation; no real Oracle restore or credentialed broker smoke test claimed. PR #9 must remain Draft/unmerged until explicitly authorized.
+- Documentation checkpoint must be rerun through CI after this docs sync.
+
+---
+
 # Current definitive product requirements — supersedes older PAPER-only wording
 
 **Product target: one application with two selectable, isolated modes: PAPER and LIVE.**

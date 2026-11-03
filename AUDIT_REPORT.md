@@ -1,3 +1,9 @@
+## Phase 4 scanner ranking verification — 3 November 2026
+
+Exact head `c5b549940a86386b2a48978f1aeac187b52fb8b4` passed Backend #41588921062 and Security #41588921048. Full pytest includes deterministic ranking regression coverage; PAPER broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore/evidence retention, CodeQL and dependency audit passed. Ranking uses explicit weights for momentum, relative volume and liquidity, exposes weighted contributions and stable tie-breaks, and excludes invalid candidates. This verifies tested implementation only, not production market-data completeness or live readiness. Ranking is advisory and cannot authorize orders.
+
+---
+
 ## Phase 4 scanner status — 3 November 2026
 
 Verified implementation `76e3ad10b21f9fb2e954cfe8ef5bbdf8de54e70b`; Backend #41587542980 and Security #41587542875 passed on that exact head. Implemented scanner slices: market-depth quality, configurable fail-closed liquidity filtering, validated-candle momentum via shared indicator, and same-time-of-day relative volume across distinct prior sessions. Full pytest, PAPER broker-write boundary, SQLite/PostgreSQL 16 migrations, synthetic restore/evidence retention, CodeQL and dependency audit passed. Scanner outputs are advisory and cannot authorize orders. Next: deterministic explainable ranking with stable tie-breaks. PR #9 Draft/unmerged; PAPER mandatory; LIVE writes disabled.

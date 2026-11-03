@@ -51,6 +51,7 @@ class MarketQuoteDispatcher:
             or isinstance(version, bool) or not isinstance(version, int) or version <= 0
         ):
             self.rejected_updates += 1
+            increment("market_quote_dispatch_rejected_total")
             return False
 
         key = (user_id, instrument_key)
@@ -58,6 +59,7 @@ class MarketQuoteDispatcher:
         if previous is not None:
             if previous.epoch == epoch and version <= previous.version:
                 self.rejected_updates += 1
+                increment("market_quote_dispatch_rejected_total")
                 return False
             self._pending[key] = DispatchedMarketObservation(
                 user_id, instrument_key, epoch, version, observation

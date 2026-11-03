@@ -1124,3 +1124,8 @@ This synchronization reconciles this document with the current Phase 4 PR head. 
 - Backend gates also passed on the code head: broker-write boundary guard; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade; isolated synthetic PostgreSQL/document-volume restore and evidence retention.
 - Remaining gates: longer-duration multi-process/multi-replica load with recorded acceptance thresholds; broader end-to-end queue saturation/backpressure metrics under sustained traffic; Redis snapshot → scanner/dispatcher → durable PAPER stop-event → execution → final ledger/position reconciliation; final PAPER/LIVE isolation, endpoint authorization/IDOR, secret-redaction and broker-write reachability audits; operational alerts/runbooks and independent security testing.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN, Draft and unmerged; no merge, deployment or LIVE activation.
+
+
+## 2026-11-03 — Phase 4 host watchdog notification reliability
+
+Fixed notification fingerprint persistence so failed configured HTTPS webhook delivery is retried on the next timer invocation. Added regression tests for failure/retry/success, journal-only mode, and credential non-disclosure. Verified on `af6d469af969d9705c4527922dcde96c9c373638`: Backend #41674075611 (1,654 passed, 8 warnings, zero skipped) and Security #41674075641 (CodeQL and dependency audit) passed. Oracle VM deployment and real endpoint delivery remain pending.

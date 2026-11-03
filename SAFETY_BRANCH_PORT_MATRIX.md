@@ -335,3 +335,15 @@ Current Phase 4 status (historical notes above remain historical):
 - These are automated regression tests; they do not constitute production load certification or broker live-order validation.
 - Safety invariants unchanged: PAPER mandatory; LIVE broker place/modify/cancel writes disabled; original `tarunsharma2610-del/Tradepro` out of scope; PR #9 remains Draft and unmerged.
 - This documentation synchronization is not a green checkpoint until Backend CI, CodeQL, and dependency audit pass on the resulting exact documentation commit.
+
+
+## Latest verified Phase 4 checkpoint — 3 November 2026 (multi-worker metrics hardening)
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Branch: `phase4/redis-market-data-publisher`. PR #9 remains OPEN, Draft and unmerged.
+- Exact implementation/test head: `15141cdf437419afa2c89ad1f911d4ba863f6ccf`.
+- Backend CI [#41597941401 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41597941401): **1,626 passed, 8 warnings**. Broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill, and evidence retention passed.
+- Security analysis [#41597941400 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41597941400): CodeQL and Python dependency audit passed.
+- Metrics correction verified: independent per-worker counter state; atomic, retry-protected Redis aggregation; expiring Redis heartbeat scores with a 60-second activity window; stale-worker removal; admin metrics regression test models the production Redis time/zset interface.
+- This does not claim Prometheus integration, production alerting, sustained-load acceptance, deployment readiness, or Phase 4 completion.
+- Remaining Phase 4 gates: end-to-end Redis snapshot recovery → scanner/dispatcher → durable stop-event intake → final PAPER ledger/position acceptance; more multi-process/crash-window races; PAPER/LIVE isolation audit; security/authorization/secret-redaction review; sustained-load and backpressure testing; exact-head documentation CI.
+- Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 Draft/unmerged; no merge/deployment/LIVE activation; original `Tradepro` repository untouched.

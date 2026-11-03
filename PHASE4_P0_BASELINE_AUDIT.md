@@ -237,3 +237,15 @@ Historical entries above are retained as historical evidence. Current authoritat
 ## Phase 4 authoritative resume checkpoint — 2 November 2026, 23:06 IST
 
 Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`. Backend tests [#41492213645](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213645) and Security analysis [#41492213677](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41492213677) both PASSED on that exact head. Nifty 500 universe snapshots and the Upstox LTPC subscription endpoint are implemented; no broker order writes. Remaining work: quote ordering/staleness and subscription lifecycle tests; scanner filters/ranking; full Redis→scanner→dispatcher→durable PAPER stop→execution→ledger proof; multi-process crash/concurrency tests; realized-P&L reconciliation; observability/load; remaining security review and independent penetration test. Next session: verify final docs-head CI, then continue quote-integrity integration. PR #9 Draft/unmerged; only tradepro-improved; original Tradepro untouched; PAPER mandatory; LIVE order writes disabled. Documentation head requires fresh exact-head CI.
+
+
+## Latest verified Phase 4 checkpoint — 3 November 2026 (multi-worker metrics hardening)
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Branch: `phase4/redis-market-data-publisher`. PR #9 remains OPEN, Draft and unmerged.
+- Exact implementation/test head: `15141cdf437419afa2c89ad1f911d4ba863f6ccf`.
+- Backend CI [#41597941401 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41597941401): **1,626 passed, 8 warnings**. Broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore drill, and evidence retention passed.
+- Security analysis [#41597941400 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41597941400): CodeQL and Python dependency audit passed.
+- Metrics correction verified: independent per-worker counter state; atomic, retry-protected Redis aggregation; expiring Redis heartbeat scores with a 60-second activity window; stale-worker removal; admin metrics regression test models the production Redis time/zset interface.
+- This does not claim Prometheus integration, production alerting, sustained-load acceptance, deployment readiness, or Phase 4 completion.
+- Remaining Phase 4 gates: end-to-end Redis snapshot recovery → scanner/dispatcher → durable stop-event intake → final PAPER ledger/position acceptance; more multi-process/crash-window races; PAPER/LIVE isolation audit; security/authorization/secret-redaction review; sustained-load and backpressure testing; exact-head documentation CI.
+- Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 Draft/unmerged; no merge/deployment/LIVE activation; original `Tradepro` repository untouched.

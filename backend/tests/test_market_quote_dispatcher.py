@@ -231,3 +231,57 @@ def test_dispatcher_release_prefers_newest_quote_after_consumer_cancellation():
         assert dispatcher.inflight_keys == 0
 
     asyncio.run(scenario())
+
+
+def test_dispatcher_stays_bounded_under_burst_load_and_coalesces_latest_values():
+    capacity = 64
+    unique_keys = 512
+    updates_per_key = 100
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=capacity)
+
+    # Burst many more unique instruments than the configured queue capacity.
+    accepted = []
+    for index in range(unique_keys):
+        instrument = f"NSE_EQ|BURST{index:04d}"
+        if dispatcher.publish(obs(instrument=instrument, version=1, ltp=100.0)):
+            accepted.append(instrument)
+
+    assert len(accepted) == capacity
+    assert dispatcher.pending_keys == capacity
+    assert dispatcher.inflight_keys == 0
+    assert dispatcher.dropped_unique_keys == unique_keys - capacity
+
+    # Churn updates for every admitted key. Updates coalesce in place and
+    # must not consume additional queue slots or displace other admitted keys.
+    for version in range(2, updates_per_key + 1):
+        for instrument in accepted:
+            assert dispatcher.publish(
+                obs(instrument=instrument, version=version, ltp=100.0 + version)
+            )
+
+    assert dispatcher.pending_keys == capacity
+    assert dispatcher.inflight_keys == 0
+    assert dispatcher.dropped_unique_keys == unique_keys - capacity
+    assert dispatcher.rejected_updates == 0
+
+    async def drain():
+        received = []
+        for _ in range(capacity):
+            item = await dispatcher.get()
+            received.append(item)
+            dispatcher.task_done()
+        await asyncio.wait_for(dispatcher._queue.join(), timeout=1)
+        return received
+
+    received = asyncio.run(drain())
+    assert {item.instrument_key for item in received} == set(accepted)
+    assert all(item.version == updates_per_key for item in received)
+    assert all(item.observation.ltp == 100.0 + updates_per_key for item in received)
+    assert dispatcher.pending_keys == 0
+    assert dispatcher.inflight_keys == 0
+
+    # Capacity is reusable after successful acknowledgement.
+    assert dispatcher.publish(
+        obs(instrument="NSE_EQ|AFTER_DRAIN", version=1, ltp=200.0)
+    )
+    assert dispatcher.dropped_unique_keys == unique_keys - capacity

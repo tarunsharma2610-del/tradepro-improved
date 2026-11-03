@@ -29,6 +29,7 @@ from app.models.strategy import Strategy
 from app.repositories.strategy_repository import StrategyRepository
 from app.services.execution_service import ExecutionService
 from app.services.news_service import NewsService
+from app.services.operational_alert_service import OperationalAlertMonitor
 from app.services.market_scanner import MarketScanner
 from app.services.market_data_metrics import RedisDispatchMetricsExporter
 from app.services.market_quote_dispatcher import MarketQuoteDispatcher
@@ -194,6 +195,10 @@ async def main() -> None:
     stop_recovery_task = asyncio.create_task(
         run_paper_stop_event_recovery(), name="paper-stop-event-recovery"
     )
+    operational_alert_task = asyncio.create_task(
+        OperationalAlertMonitor(quote_worker.redis).run_forever(),
+        name="paper-operational-alert-monitor",
+    )
 
     try:
         while True:
@@ -228,8 +233,10 @@ async def main() -> None:
         for task in dispatch_worker_tasks:
             task.cancel()
         stop_recovery_task.cancel()
+        operational_alert_task.cancel()
         await asyncio.gather(
-            *dispatch_worker_tasks, stop_recovery_task, return_exceptions=True
+            *dispatch_worker_tasks, stop_recovery_task, operational_alert_task,
+            return_exceptions=True
         )
         metrics_export_task.cancel()
         await asyncio.gather(metrics_export_task, return_exceptions=True)

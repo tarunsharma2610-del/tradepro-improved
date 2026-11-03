@@ -178,8 +178,34 @@ class PaperStopEventExecutionService:
                 .with_for_update(of=Position)
                 .first()
             )
+
+            # An indicator-driven reduce-only exit may win the portfolio lock
+            # before this already-claimed stop event. Such an event is obsolete,
+            # not retryable: terminalize it so recovery cannot reclaim it forever.
             if position is None or position.quantity == 0:
-                raise PaperStopEventExecutionRejected("Stop event has no open position to close.")
+                executing = self.lifecycle.begin_execution(
+                    event_id=event.id,
+                    claim_token=claim_token,
+                    now=current,
+                )
+                if executing is None:
+                    raise PaperStopEventExecutionRejected(
+                        "Stop-event claim could not enter EXECUTING state."
+                    )
+                failed = self.lifecycle.fail(
+                    event_id=event.id,
+                    claim_token=claim_token,
+                    error_code="POSITION_ALREADY_CLOSED",
+                    now=datetime.now(timezone.utc),
+                )
+                if failed is None:
+                    raise PaperStopEventExecutionRejected(
+                        "Stop-event lease/token changed before obsolete-event recording."
+                    )
+                self.db.commit()
+                raise PaperStopEventExecutionRejected(
+                    "Stop event is obsolete because the PAPER position was already closed."
+                )
 
             # Missing/expired Analytics Token is a retryable prerequisite, not
             # a terminal rejected PAPER order. Keep the durable claim intact so

@@ -344,3 +344,16 @@ A third MFA hardening step now requires password reauthentication before initial
 Regression tests cover wrong-password rejection with no secret persisted, correct-password enrollment, and prevention of replacing an enabled factor. The API enrollment contract now requires a JSON password field.
 
 Latest PR #11 head: `10657cf099aaed17c7d4a18f2878ebd4d48f9f1a`. Backend CI #41648211858 is running and Security CI #41648211953 is queued. Previous green checks apply only to earlier PR #11 heads and do not verify this update. MFA remains under review; recovery codes, pending enrollment expiry, attempt throttling, and security-change notifications are not yet verified.
+
+
+## Exact-head MFA verification — 3 November 2026
+
+Draft PR #11 MFA hardening is now verified on its latest head `10657cf099aaed17c7d4a18f2878ebd4d48f9f1a`.
+
+- Backend workflow #41648211858: SUCCESS — 1,637 passed, 8 warnings; broker-write boundary guard passed.
+- Security workflow #41648211953: SUCCESS — CodeQL and Python dependency vulnerability audit passed.
+- PR #11 remains Draft/unmerged.
+
+The changes require password reauthentication for initial MFA enrollment, reject replacement while an MFA factor is enabled, and inject FastAPI Response so MFA enable/disable can clear browser cookies. Earlier failed backend runs on intermediate commits are superseded by this exact-head green result.
+
+Documentation checkpoint before this addendum was verified on `22570af88916ea2c940831051ed429da5a701319` (Backend #41648348189 and Security #41648348210 both SUCCESS). This addendum creates a new documentation commit and therefore requires fresh exact-head CI before it becomes a verified checkpoint.

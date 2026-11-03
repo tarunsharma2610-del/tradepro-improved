@@ -3630,3 +3630,16 @@ Draft PR #11 MFA hardening is now verified on its latest head `10657cf099aaed17c
 The changes require password reauthentication for initial MFA enrollment, reject replacement while an MFA factor is enabled, and inject FastAPI Response so MFA enable/disable can clear browser cookies. Earlier failed backend runs on intermediate commits are superseded by this exact-head green result.
 
 Documentation checkpoint before this addendum was verified on `22570af88916ea2c940831051ed429da5a701319` (Backend #41648348189 and Security #41648348210 both SUCCESS). This addendum creates a new documentation commit and therefore requires fresh exact-head CI before it becomes a verified checkpoint.
+
+
+## Operational alerting implementation — 3 November 2026
+
+Draft PR #12 adds a PAPER worker-fleet alert monitor and admin-configured Telegram delivery. See `PHASE4_OPERATIONAL_ALERTING.md` for conditions, thresholds, configuration, tests, failure semantics, and remaining deployment gates.
+
+- Alerts: dropped unique observations, exhausted dispatch retries, ≥5 handler failures per interval, ≥25 rejected observations per interval, no worker heartbeat for ≥60 seconds, and unavailable shared metrics; recovery notification on heartbeat return.
+- Poll interval: 30 seconds; Redis-backed per-fingerprint cooldown: 300 seconds. Process-local cooldown is used if Redis is unavailable; cross-replica dedupe is not guaranteed during Redis outage.
+- Admin-only encrypted platform key added: `ops_alert_telegram_chat_id`; configure it alongside `telegram_bot_token` through Settings → Platform.
+- Monitor runs as an independent worker task. Delivery is best-effort and must not block/rollback PAPER execution.
+- Automated tests cover threshold deltas, aggregate-only content, Telegram delivery/dedupe, invalid destination and missing-worker threshold.
+
+PR #12 head is subject to exact-head Backend and Security CI. A successful CI run does not prove live Telegram delivery; a credentialed deployment smoke test and multi-replica fault-injection remain required. PAPER-only and broker-write restrictions remain unchanged. PR #12 is Draft/unmerged.

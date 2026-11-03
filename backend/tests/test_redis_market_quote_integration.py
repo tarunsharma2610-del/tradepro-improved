@@ -552,6 +552,7 @@ async def test_real_redis_worker_process_crash_expires_lease_and_allows_failover
                 self.client, self.marker = client, marker
             async def listen(self, keys):
                 await self.client.set(self.marker, "ready", ex=20)
+                yield {"instrument_key": keys[0], "ltp": 2500.0}
                 await asyncio.Future()
 
         async def main():

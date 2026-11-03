@@ -1320,3 +1320,8 @@ Supersedes earlier statements that the real multi-container watchdog drill was p
 - Remaining gates: install/exercise the external watchdog on Oracle VM; verify an independent notification destination and cloud/instance health monitoring; run sustained load with full database-backed handler work and measure latency/recovery; complete independent security/penetration review.
 - Do not duplicate the passing Docker Compose fault test or PostgreSQL SIGKILL stop-event recovery test. Inspect existing coverage before adding reliability work.
 - This documentation commit requires its own exact-head Backend and Security CI before becoming a verified documentation checkpoint.
+
+
+## 3 November 2026 — watchdog notification retry verified
+
+Implementation commit `af6d469af969d9705c4527922dcde96c9c373638` passed Backend [#41674075611](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41674075611) (**1,654 passed, 8 warnings, zero skipped**) and Security [#41674075641](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41674075641) (CodeQL and dependency audit passed). Broker-write guard, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill passed. Watchdog now persists alert fingerprints only after successful webhook delivery; failed configured delivery is retried on the next timer tick. Oracle VM installation and real endpoint delivery remain unverified. The documentation changes themselves require exact-head CI.

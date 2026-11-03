@@ -35,6 +35,7 @@ from app.services.market_quote_dispatcher import (
 )
 from app.services.market_quote_dispatch_worker import MarketQuoteDispatchWorker
 from app.services.market_scanner import MarketScanObservation
+from app.services.paper_stop_event_claim_service import PaperStopEventClaimService
 from app.services.paper_stop_event_dispatch_handler import handle_paper_market_observation
 
 
@@ -186,6 +187,25 @@ async def test_postgres_paper_stop_event_handler_sustained_load(monkeypatch, rec
 
     now = datetime.now(timezone.utc)
     epoch = f"paper-load-{uuid4().hex}"
+    # Seed committed durable claims first. PostgreSQL intake ordering/claim
+    # creation has its own concurrent integration suite; this benchmark isolates
+    # the production dispatch-to-execution handler and accounting workload.
+    with Session.begin() as db:
+        for index, (portfolio_id, instrument_id, strategy_id) in enumerate(
+            zip(portfolio_ids, instrument_ids, strategy_ids, strict=True)
+        ):
+            event = PaperStopEventClaimService(db).claim_trailing_stop(
+                user_id=user_id,
+                portfolio_id=portfolio_id,
+                strategy_id=strategy_id,
+                instrument_id=instrument_id,
+                quote_epoch=epoch,
+                quote_version=index + 1,
+                trigger_price=Decimal("97.00"),
+                now=now,
+            )
+            assert event is not None
+
     for index, instrument_id in enumerate(instrument_ids):
         with Session() as db:
             instrument = db.get(Instrument, instrument_id)

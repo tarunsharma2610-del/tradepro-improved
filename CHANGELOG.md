@@ -1,3 +1,17 @@
+## Latest Phase 4 uncertain-commit recovery test — 3 November 2026
+
+- New implementation/test commit: `215650c3b059f9aabee307ac1665d6a7549d29e5`.
+- Backend CI #41638885400: SUCCESS on this exact commit.
+- Security CI #41638885315: SUCCESS on this exact commit; dependency audit and CodeQL passed.
+- Added/extended `backend/tests/test_redis_to_paper_execution_acceptance.py` to simulate a durable PAPER handler commit followed by a lost response, five failed attempts, exhausted-retry scanner high-water clearing, and replay of the same authoritative Redis snapshot. The acceptance path asserts the replay does not create duplicate durable PAPER effects.
+- Source review confirmed runtime wiring in `backend/app/worker.py`: four PAPER dispatch workers use five attempts and an exhaustion callback that clears only the affected user's instrument scanner high-water state. Redis snapshot recovery can then reoffer the authoritative snapshot.
+- This is a focused uncertain-commit recovery regression; it does not certify production-scale performance or LIVE readiness.
+- Previous engineering checkpoint `2ee2939969b9679dda859086278ef07c4355d173` had 1,631 passed, 8 warnings; previous docs head `a70d8802c22da856086c810daf0bbbd33da09dc1` had Backend #41612751211 and Security #41612751390 passed.
+- Next: review multi-process/multi-replica crash windows and concurrent indicator-exit versus stop-event-exit; then synchronize remaining maintained docs and verify exact-head CI.
+- Safeguards: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN, Draft and unmerged.
+
+---
+
 ## Phase 4 latest verified recovery checkpoint — 3 November 2026
 
 - Verified implementation: `2ee2939969b9679dda859086278ef07c4355d173`; Backend #41610938641 and Security #41610938496 both passed on this exact commit.

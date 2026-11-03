@@ -155,7 +155,7 @@ class OperationalAlertMonitor:
             elif now - self._zero_workers_since >= self.no_worker_seconds:
                 await self._send(
                     "no_active_workers",
-                    "No active PAPER market-data metrics workers have reported a heartbeat for at least one minute.",
+                    "No active PAPER metrics-exporter heartbeat has been observed for at least one minute.",
                 )
         else:
             if self._zero_workers_since is not None:

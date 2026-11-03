@@ -115,3 +115,103 @@ def test_worker_state_fails_closed_when_inspect_omits_a_replica(monkeypatch):
     assert watchdog.worker_state() == (
         "unknown", "unknown", "Docker returned an invalid worker fleet state"
     )
+
+
+def _docker_compose_available():
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "version"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def test_real_compose_worker_replica_kill_and_recovery(monkeypatch, tmp_path):
+    """Exercise the host watchdog against two real Compose containers."""
+    import os
+    import time
+    import uuid
+
+    import pytest
+
+    if not _docker_compose_available():
+        pytest.skip("Docker Compose is unavailable in this environment")
+
+    compose_file = tmp_path / "watchdog-compose.yml"
+    compose_file.write_text(
+        """
+services:
+  worker:
+    image: busybox:1.36
+    command: ["sh", "-c", "while true; do sleep 1; done"]
+    restart: "no"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    project_name = f"watchdog-test-{uuid.uuid4().hex[:12]}"
+    monkeypatch.setenv("COMPOSE_PROJECT_NAME", project_name)
+    monkeypatch.setattr(watchdog, "COMPOSE_FILE", compose_file)
+
+    def compose(*args):
+        result = subprocess.run(
+            ["docker", "compose", "-f", str(compose_file), *args],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=os.environ.copy(),
+        )
+        assert result.returncode == 0, result.stderr
+        return result
+
+    def wait_for_state(expected):
+        deadline = time.monotonic() + 20
+        last = None
+        while time.monotonic() < deadline:
+            last = watchdog.worker_state()
+            if last[0] == expected:
+                return last
+            time.sleep(0.2)
+        pytest.fail(f"watchdog did not report {expected}; last state={last}")
+
+    try:
+        compose("up", "-d", "--scale", "worker=2")
+        running = wait_for_state("running")
+        assert "running=2/2" in running[2]
+
+        worker_ids = compose("ps", "-q", "worker").stdout.splitlines()
+        assert len(worker_ids) == 2
+
+        killed = subprocess.run(
+            ["docker", "kill", worker_ids[0]],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert killed.returncode == 0, killed.stderr
+        degraded = wait_for_state("degraded")
+        assert "running=1/2" in degraded[2]
+
+        killed = subprocess.run(
+            ["docker", "kill", worker_ids[1]],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert killed.returncode == 0, killed.stderr
+        down = wait_for_state("down")
+        assert "running=0/2" in down[2]
+
+        compose("up", "-d", "--scale", "worker=2")
+        recovered = wait_for_state("running")
+        assert "running=2/2" in recovered[2]
+    finally:
+        compose("down", "--volumes", "--remove-orphans")

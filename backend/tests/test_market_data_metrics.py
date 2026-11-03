@@ -261,3 +261,104 @@ async def test_real_redis_concurrent_worker_exporters_preserve_fleet_totals():
         if cleanup_keys:
             await redis.delete(*cleanup_keys)
         await redis.aclose()
+
+
+def _run_metrics_exporter_process(redis_url, worker_id, flush_count, result_queue):
+    """Run one isolated OS process with its own counters and Redis connection."""
+    import asyncio
+    from redis.asyncio import Redis
+    from app.services.market_data_metrics import (
+        RedisDispatchMetricsExporter,
+        _ALLOWED_COUNTERS,
+    )
+
+    async def run():
+        redis = Redis.from_url(redis_url, decode_responses=True)
+        local = {name: 0 for name in _ALLOWED_COUNTERS}
+        exporter = RedisDispatchMetricsExporter(
+            worker_id=worker_id,
+            snapshot_provider=lambda: {"counters": dict(local)},
+        )
+        counter = "market_quote_dispatch_processed_total"
+        try:
+            for _ in range(flush_count):
+                local[counter] += 1
+                await exporter.flush_once(redis)
+            result_queue.put((worker_id, local[counter], None))
+        except Exception as exc:
+            result_queue.put((worker_id, local[counter], repr(exc)))
+            raise
+        finally:
+            await redis.aclose()
+
+    import asyncio
+    asyncio.run(run())
+
+
+@pytest.mark.asyncio
+async def test_real_redis_exporters_aggregate_across_independent_os_processes():
+    """Prove fleet totals across processes, not only asyncio tasks."""
+    import multiprocessing
+    import os
+    from uuid import uuid4
+
+    from redis.asyncio import Redis
+    from app.services import market_data_metrics as metrics
+
+    redis_url = os.getenv("REDIS_TEST_URL")
+    if not redis_url:
+        pytest.skip("REDIS_TEST_URL is required for process-level Redis integration")
+
+    process_count = 4
+    flushes_per_process = 20
+    counter = "market_quote_dispatch_processed_total"
+    worker_ids = [f"process-{uuid4().hex}" for _ in range(process_count)]
+    redis = Redis.from_url(redis_url, decode_responses=True)
+    context = multiprocessing.get_context("spawn")
+    result_queue = context.Queue()
+    processes = []
+    try:
+        before = await fleet_snapshot(redis)
+        for worker_id in worker_ids:
+            process = context.Process(
+                target=_run_metrics_exporter_process,
+                args=(redis_url, worker_id, flushes_per_process, result_queue),
+            )
+            processes.append(process)
+            process.start()
+
+        for process in processes:
+            process.join(timeout=30)
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=5)
+                pytest.fail("Metrics exporter child process exceeded 30 seconds")
+            assert process.exitcode == 0
+
+        results = [result_queue.get(timeout=5) for _ in range(process_count)]
+        assert all(error is None for _, _, error in results)
+        assert {worker_id for worker_id, _, _ in results} == set(worker_ids)
+        assert all(count == flushes_per_process for _, count, _ in results)
+
+        after = await fleet_snapshot(redis)
+        assert after["counters"][counter] - before["counters"][counter] == (
+            process_count * flushes_per_process
+        )
+        assert after["worker_count"] >= process_count
+    finally:
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=5)
+        await redis.zrem(metrics._WORKERS_KEY, *worker_ids)
+        cleanup_keys = [f"{metrics._WORKER_KEY_PREFIX}{worker_id}" for worker_id in worker_ids]
+        cleanup_keys.extend(
+            f"{metrics._FLUSH_KEY_PREFIX}{worker_id}:{sequence}"
+            for worker_id in worker_ids
+            for sequence in range(flushes_per_process)
+        )
+        if cleanup_keys:
+            await redis.delete(*cleanup_keys)
+        result_queue.close()
+        result_queue.join_thread()
+        await redis.aclose()

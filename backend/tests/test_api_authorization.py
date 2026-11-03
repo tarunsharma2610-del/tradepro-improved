@@ -221,7 +221,7 @@ def test_mfa_verify_revokes_browser_cookies(client):
     import pyotp
 
     _register_and_login(client, "mfa-verify@example.com")
-    enrolled = client.post("/api/v1/auth/mfa/enroll")
+    enrolled = client.post("/api/v1/auth/mfa/enroll", json={"password": "correct-horse-battery-staple"})
     assert enrolled.status_code == 200
     secret = enrolled.json()["secret"]
 
@@ -238,7 +238,7 @@ def test_mfa_disable_revokes_browser_cookies(client):
     import pyotp
 
     _register_and_login(client, "mfa-disable@example.com")
-    enrolled = client.post("/api/v1/auth/mfa/enroll")
+    enrolled = client.post("/api/v1/auth/mfa/enroll", json={"password": "correct-horse-battery-staple"})
     assert enrolled.status_code == 200
     secret = enrolled.json()["secret"]
 
@@ -278,7 +278,7 @@ def test_enabled_mfa_cannot_be_replaced_from_an_authenticated_session(client):
     import pyotp
 
     _register_and_login(client, "mfa-replacement@example.com")
-    enrolled = client.post("/api/v1/auth/mfa/enroll")
+    enrolled = client.post("/api/v1/auth/mfa/enroll", json={"password": "correct-horse-battery-staple"})
     assert enrolled.status_code == 200
     original_secret = enrolled.json()["secret"]
 
@@ -300,6 +300,21 @@ def test_enabled_mfa_cannot_be_replaced_from_an_authenticated_session(client):
     )
     assert login.status_code == 200
 
-    replacement = client.post("/api/v1/auth/mfa/enroll")
+    replacement = client.post("/api/v1/auth/mfa/enroll", json={"password": "correct-horse-battery-staple"})
     assert replacement.status_code == 409
     assert "MFA is already enabled" in replacement.json()["detail"]
+
+
+def test_mfa_enrollment_requires_password_reauthentication(client):
+    _register_and_login(client, "mfa-password-stepup@example.com")
+    rejected = client.post(
+        "/api/v1/auth/mfa/enroll", json={"password": "wrong-password"}
+    )
+    assert rejected.status_code == 401
+    assert rejected.json()["detail"] == "Incorrect password."
+
+    accepted = client.post(
+        "/api/v1/auth/mfa/enroll",
+        json={"password": "correct-horse-battery-staple"},
+    )
+    assert accepted.status_code == 200

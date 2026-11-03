@@ -3683,3 +3683,6 @@ Added a CI-backed integration test using two independent Redis clients against t
 Added a PostgreSQL 16-backed recovery-sweeper test for an expired EXECUTING PAPER stop event. It simulates worker loss after the claim transaction is committed, invokes the real expired-event sweeper without Redis redelivery, verifies claim-token rotation, and completes the durable event using the replacement token. The broker-facing execution method is stubbed; this test does not submit orders. See `PHASE4_PAPER_STOP_EVENT_POSTGRES_CONCURRENCY.md`.
 
 This is a DB-backed recovery integration test, not an OS-level worker SIGKILL or a full end-to-end order-fill test. The prior PostgreSQL concurrency cases remain in place. The stop-event model docstring was corrected to reflect worker ownership. Exact-head Backend and Security CI must pass after the final documentation sync.
+
+
+Follow-up test-harness correction: the stubbed `execute_claimed` method now uses an instance-method-compatible signature, so the PostgreSQL recovery-sweeper test exercises the handler call shape correctly. This creates a new exact-head CI requirement; previous runs on earlier commits do not verify this final correction.

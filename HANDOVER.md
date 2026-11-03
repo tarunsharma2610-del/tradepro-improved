@@ -3643,3 +3643,8 @@ Draft PR #12 adds a PAPER worker-fleet alert monitor and admin-configured Telegr
 - Automated tests cover threshold deltas, aggregate-only content, Telegram delivery/dedupe, invalid destination and missing-worker threshold.
 
 PR #12 head is subject to exact-head Backend and Security CI. A successful CI run does not prove live Telegram delivery; a credentialed deployment smoke test and multi-replica fault-injection remain required. PAPER-only and broker-write restrictions remain unchanged. PR #12 is Draft/unmerged.
+
+
+### Alerting monitoring boundary clarification
+
+The in-process heartbeat alert measures active Redis metrics-exporter heartbeats, not quote-dispatch worker health independently. Since the monitor itself runs inside the worker container, it cannot report a total crash of that same container. An external uptime/health watchdog is still required for complete worker-process-loss detection. This limitation is explicitly recorded in `PHASE4_OPERATIONAL_ALERTING.md`; do not describe the in-process monitor as a substitute for external infrastructure monitoring.

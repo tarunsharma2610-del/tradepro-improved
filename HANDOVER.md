@@ -3443,3 +3443,14 @@ Static review covered the 13 routers registered by `backend/app/api/v1/router.py
 - Next: confirm the integration test is wired to a real Redis service in CI (not skipped), then add OS-process-level load/backpressure and crash/restart tests; finish end-to-end Redis snapshot → scanner/dispatcher → durable PAPER stop-event → final PAPER ledger/position acceptance; complete PAPER/LIVE isolation and security/authorization/secret-redaction audits; sustained-load acceptance.
 - Safety unchanged: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 remains OPEN, Draft and unmerged; no deployment or LIVE activation; original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
 - Documentation changes are not verified until CI passes on the resulting documentation commit.
+
+
+## Verified Phase 4 checkpoint — 3 November 2026 (OS-process Redis metrics integration)
+
+- Exact verified head: `235cb1000b372ee6c11cef1f75edfb5d0514265b`.
+- Backend CI [#41600876668 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41600876668): **1,628 passed, 8 warnings**. Four independent spawned OS processes each performed 20 Redis exporter flushes (80 total); backend pytest passed. Broker-write boundary guard passed; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade passed; isolated synthetic PostgreSQL/document-volume restore drill and evidence retention passed.
+- Security CI [#41600876683 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41600876683): CodeQL and Python dependency vulnerability audit passed.
+- Scope note: this validates a bounded process-level integration test, not sustained load, throughput/latency SLOs, failover under prolonged load, production alerting or deployment readiness.
+- Next gates: inspect/record the test's process exit and exact Redis delta evidence; add crash/restart and worker termination tests; sustained load, queue saturation and backpressure; complete Redis snapshot → scanner/dispatcher → durable PAPER stop-event → ledger/position acceptance; finish PAPER/LIVE isolation and security/authorization/secret-redaction audit.
+- Safety unchanged: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN, Draft and unmerged; no deployment/LIVE activation; original `tarunsharma2610-del/Tradepro` untouched.
+- This checkpoint is for code head `235cb100...`; docs updates must themselves pass CI before the documentation checkpoint is declared green.

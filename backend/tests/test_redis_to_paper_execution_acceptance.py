@@ -23,6 +23,7 @@ from app.models.portfolio import Portfolio
 from app.models.position import Position
 from app.models.strategy import Strategy
 from app.services.market_quote_dispatcher import MarketQuoteDispatcher
+from app.services.market_scanner import MarketScanner
 from app.services.market_quote_dispatch_worker import MarketQuoteDispatchWorker
 from app.services.market_scan_dispatch_pipeline import MarketScanDispatchPipeline
 from app.services.paper_stop_event_dispatch_handler import handle_paper_market_observation
@@ -119,20 +120,32 @@ async def test_real_redis_snapshot_reaches_durable_paper_fill_and_ledger(
     publisher = RedisMarketQuotePublisher(redis, user.id, ttl_seconds=15)
     consumer = RedisMarketQuoteConsumer(redis, user.id, max_age_seconds=15)
     dispatcher = MarketQuoteDispatcher(max_pending_keys=8)
-    pipeline = MarketScanDispatchPipeline(dispatcher=dispatcher)
+    scanner = MarketScanner()
+    pipeline = MarketScanDispatchPipeline(scanner=scanner, dispatcher=dispatcher)
     instrument_key = instrument.instrument_key
     dispatched_items = []
+    handler_attempts = 0
 
     async def handle_and_capture(dispatched):
+        nonlocal handler_attempts
+        handler_attempts += 1
         dispatched_items.append(dispatched)
+        # Simulate an uncertain response after the durable PAPER transaction:
+        # the event/order/fill may already be committed when the worker sees
+        # an exception and retries the same quote identity.
         await handle_paper_market_observation(dispatched)
+        if handler_attempts <= 5:
+            raise RuntimeError("simulated post-commit response loss")
 
     dispatch_worker = MarketQuoteDispatchWorker(
         dispatcher,
         handle_and_capture,
         min_backoff_seconds=0,
         max_backoff_seconds=0,
-        max_attempts=2,
+        max_attempts=5,
+        on_exhausted=lambda item: scanner.clear_instrument(
+            item.user_id, item.instrument_key
+        ),
     )
     worker_task = None
 
@@ -158,9 +171,23 @@ async def test_real_redis_snapshot_reaches_durable_paper_fill_and_ledger(
             worker_task = asyncio.create_task(dispatch_worker.run())
             assert pipeline.on_quote(user.id, recovered) is True
             async with asyncio.timeout(3):
+                while dispatch_worker.exhausted_count != 1:
+                    await asyncio.sleep(0.01)
+
+            # Exhaustion must clear scanner high-water state so the same
+            # authoritative Redis snapshot can be admitted again.
+            replayed = await consumer.recover([instrument_key])
+            assert instrument_key in replayed
+            assert replayed[instrument_key]["epoch"] == recovered["epoch"]
+            assert replayed[instrument_key]["version"] == recovered["version"]
+            assert pipeline.on_quote(user.id, replayed[instrument_key]) is True
+            async with asyncio.timeout(3):
                 while dispatch_worker.processed_count != 1:
                     await asyncio.sleep(0.01)
 
+        assert handler_attempts == 6
+        assert dispatch_worker.exhausted_count == 1
+        assert dispatch_worker.processed_count == 1
         dispatched = dispatched_items[0]
         assert dispatched.observation.ltp == 97.0
         assert dispatched.observation.price_change_pct == -3.0

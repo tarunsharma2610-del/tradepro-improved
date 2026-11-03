@@ -29,14 +29,16 @@ class MarketScanObservation:
     volume_traded_today: float | None
     open_interest: float | None
     buy_sell_imbalance: float | None
-    best_bid_price: float | None
-    best_ask_price: float | None
-    spread_bps: float | None
-    best_bid_quantity: float | None
-    best_ask_quantity: float | None
     option_greeks: dict | None
     exchange_timestamp_ms: int
     received_at: str
+    # Optional defaults preserve compatibility for existing observation
+    # producers and tests that construct the pre-depth data shape.
+    best_bid_price: float | None = None
+    best_ask_price: float | None = None
+    spread_bps: float | None = None
+    best_bid_quantity: float | None = None
+    best_ask_quantity: float | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)

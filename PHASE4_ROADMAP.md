@@ -1,3 +1,20 @@
+## Authoritative end-of-day checkpoint — 3 November 2026
+
+This entry supersedes older "latest/current/next step" summaries below it. Historical entries remain audit history.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; original `tarunsharma2610-del/Tradepro` is out of scope and must remain untouched.
+- PR #12 is OPEN, Draft, unmerged. Head branch `phase4/operational-alerting`; keep Draft/unmerged absent explicit approval.
+- Verified implementation/test head: `4becf8bb3ee9f4d9f664cc30f5ca7d35edc65fe4`.
+- Backend CI #41682006365 SUCCESS on exact head: full pytest, benchmark evidence retention, broker-write boundary enforcement, SQLite migration round-trip, PostgreSQL 16 migration round-trip, and synthetic PostgreSQL/document-volume restore drill passed.
+- Security CI #41682006641 SUCCESS on exact head: CodeQL and Python dependency vulnerability audit passed.
+- Today's measurement correction in `backend/tests/test_paper_stop_event_sustained_load_postgres.py`: p50/p95/p99 now use nearest-rank indexing (`ceil(p*n)-1`), preventing tail latency under-reporting with 12 samples. No trading/execution/accounting behavior changed.
+- The PostgreSQL 16 smoke benchmark runs 12 durable PAPER stop claims with four concurrent workers through the production PAPER handler/execution/accounting path; it verifies completed events, filled PAPER orders, executions, flat positions and cash mutations, and records throughput/latency. Synthetic depth and pre-seeded claims mean it is not a long soak, production capacity certification, or combined Redis+PostgreSQL pipeline proof.
+- Already completed; do not repeat absent a newly demonstrated gap: PostgreSQL stop-worker SIGKILL recovery/stale-token fencing; duplicate execution and indicator-exit/stop-event race; Redis restart/reconnect and supervised PAPER acceptance tests; real Docker Compose two-worker watchdog kill/recovery; watchdog failed-notification retry; Docker-daemon-independent watchdog visibility.
+- Next distinct integration gap: combined real Redis 7 + PostgreSQL 16 end-to-end PAPER acceptance across quote publish/consume, scanner/dispatch, durable claim, PAPER handler, fill/ledger effects, and duplicate/retry behavior. Existing Redis-to-PAPER acceptance uses SQLite DB fixtures; existing PostgreSQL concurrency/load tests do not prove the combined pipeline. Inspect/reuse current fixtures before coding.
+- Other remaining gates: realistic longer PostgreSQL-backed soak with CPU/memory/connection-pool/queue metrics and explicit thresholds; Oracle VM watchdog installation and notification drill; independent cloud/VM monitoring; independent penetration review; scanner-to-PAPER proof/API ranking validation; final Phase 4 acceptance.
+- PAPER mode mandatory. Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. CI does not certify LIVE readiness, production deployment, live Telegram delivery, Oracle VM installation, or production-scale capacity.
+- Tomorrow: refresh PR #12 and exact-head CI, verify both workflows on the final documentation commit, then inspect only the combined Redis+PostgreSQL gap and existing tests. No broad re-audit or repetition of green tests unless targeted inspection finds a concrete reason.
+
 ## Superseding verified Phase 4 checkpoint — 3 November 2026
 
 - Latest implementation head: `1d5776724a02aa3a74c791cd3c775019c44ab499`.

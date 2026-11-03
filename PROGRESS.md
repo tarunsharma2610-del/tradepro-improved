@@ -1,3 +1,18 @@
+<!-- Latest Phase 4 scanner checkpoint — 3 Nov 2026: exact implementation head 76e3ad10b21f9fb2e954cfe8ef5bbdf8de54e70b passed Backend #41587542980 and Security #41587542875. Relative-volume same-time-of-day baseline feature verified; full pytest, PAPER broker-write boundary, SQLite/PostgreSQL 16 migrations, synthetic restore/evidence retention, CodeQL and dependency audit passed. Earlier scanner slices: depth quality, configurable liquidity filter, historical momentum through shared candle parser/indicator. PR #9 Draft/unmerged; PAPER mandatory; LIVE writes disabled; original Tradepro untouched. -->
+
+## Phase 4 progress — 3 November 2026 (scanner relative-volume milestone)
+
+- Exact implementation head: `76e3ad10b21f9fb2e954cfe8ef5bbdf8de54e70b`.
+- Backend #41587542980 and Security #41587542875 passed on this exact head.
+- Relative volume compares the latest candle with the same intraday time slot across distinct prior dates; requires complete history and rejects zero average volume. Tests cover weekday sessions and unrelated time slots.
+- Earlier verified scanner slices: depth observations/backward compatibility (`3f4c14e`), fail-closed liquidity filter (`9231913`), validated-candle momentum via shared indicator (`ae76ea6`).
+- Backend run #41587542980 completed successfully, including all safety, migration and restore steps.
+- Next: deterministic ranking with explicit configurable weights, stable tie-breaks and auditable factor explanations. Scanner output remains advisory.
+- Not completed: production history acquisition, ranking, production Oracle restore, credentialed broker smoke tests, deployment or LIVE readiness.
+- Safeguards: only `tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker writes disabled; PR #9 Draft/open/unmerged.
+
+---
+
 <!-- Latest Phase 4 checkpoint — 3 Nov 2026: implementation head 535e4c69b1b3b54b19864e5215c01039d399b143 passed Backend tests #41584709216 (run 4549) and Security analysis #41584709200 (run 481). Backend pytest, broker-write safety, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention passed. CodeQL and dependency audit passed. Added Redis-to-PAPER acceptance, obsolete stop-event terminalization, and PostgreSQL 16 indicator-exit vs stop-event concurrency coverage; race asserts one filled order/execution, flat non-reversed position, terminal event. PR #9 Draft/unmerged; PAPER mandatory; LIVE broker writes disabled; original Tradepro repository out of scope. Documentation sync follows; exact-head CI must be rerun for docs commit. -->
 
 ## Phase 4 progress — 3 November 2026 (latest implementation CI green)

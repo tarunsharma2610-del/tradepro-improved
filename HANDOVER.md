@@ -1,3 +1,16 @@
+## Phase 4 handover — 3 November 2026 (scanner relative-volume CI verified)
+
+- Work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` is out of scope.
+- Branch: `phase4/redis-market-data-publisher`; PR #9 open, Draft, unmerged.
+- Latest verified implementation: `76e3ad10b21f9fb2e954cfe8ef5bbdf8de54e70b`.
+- Backend #41587542980 and Security #41587542875 passed on this exact head. Backend includes full pytest, broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, synthetic restore and evidence retention; security includes CodeQL and dependency audit.
+- Verified scanner slices: depth observations with backward-compatible defaults; configurable fail-closed spread/depth filter; validated Upstox candle/shared-indicator momentum; same-time-slot relative volume across distinct sessions with complete nonzero baseline.
+- CI operational issue resolved: run #41587542980 completed successfully; every required job step is successful.
+- Next: deterministic opportunity ranking with configurable weights, stable tie-breakers and factor-level explanations; no order authority. Then review official Upstox SDK/API coverage before custom work.
+- PAPER mandatory; live broker writes disabled; no deployment, production Oracle restore, credentialed live smoke test or LIVE readiness claimed. Docs commit requires its own exact-head CI verification.
+
+---
+
 ## Phase 4 handover — 3 November 2026 (latest verified implementation)
 
 - Work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is strictly out of scope.

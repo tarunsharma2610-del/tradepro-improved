@@ -1,3 +1,24 @@
+## Latest verified scanner checkpoint — 3 November 2026
+
+This section supersedes earlier latest-checkpoint claims below; historical entries remain.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; branch `phase4/redis-market-data-publisher`; PR #9 open, Draft, unmerged.
+- Exact implementation head: `76e3ad10b21f9fb2e954cfe8ef5bbdf8de54e70b`.
+- Backend [#41587542980 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41587542980): full pytest, broker-write boundary, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore and evidence retention all passed.
+- Security [#41587542875 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41587542875): CodeQL and Python dependency audit passed.
+- Verified scanner slices: depth observations/backward-compatible optional fields (`3f4c14e`); configurable fail-closed liquidity filter (`9231913`); validated-candle historical momentum using shared indicator (`ae76ea6`); same-time-of-day relative volume across distinct prior sessions (`76e3ad1`).
+- Relative volume requires a complete, nonzero baseline; otherwise it returns no value. Scanner data remains advisory and cannot authorize orders.
+- CI operational issue resolved: Backend run #41587542980 completed successfully and all required job steps report success. Earlier log unavailability did not indicate a failed or stuck run.
+- Next: deterministic opportunity ranking with configurable/explainable factors and stable tie-breaking; then exact-head CI. Review Upstox SDK/API contracts before custom integration.
+
+### Safety invariants
+- Only `tradepro-improved`; original `Tradepro` untouched.
+- PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled.
+- PR #9 remains Draft/open/unmerged. No merge, deployment, or LIVE activation without explicit authorization.
+- No production Oracle restore, credentialed live broker smoke test, or LIVE-readiness approval claimed.
+
+---
+
 # Phase 4 Latest CI Checkpoint
 
 ## Latest verified checkpoint — 3 November 2026

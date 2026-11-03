@@ -6,6 +6,7 @@ remain the source for technical indicators until the PAPER integration gate.
 """
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from decimal import Decimal
 from math import isfinite
 import time
 from uuid import UUID
@@ -177,6 +178,53 @@ class MarketScanner:
         if candles is None or len(candles) < period + 1:
             return None
         return momentum(candles, period=period)
+
+    @staticmethod
+    def relative_volume_from_response(response_data: dict, *, lookback_sessions: int = 20):
+        """Compare the latest candle with prior candles at the same local time.
+
+        Requires a full same-time-of-day baseline from distinct dates. It
+        returns a Decimal ratio (e.g. 1.5 means 1.5x usual volume), or None
+        when the baseline is incomplete/zero. This is advisory scanner data.
+        """
+        if (
+            isinstance(lookback_sessions, bool)
+            or not isinstance(lookback_sessions, int)
+            or lookback_sessions <= 0
+        ):
+            return None
+        candles = parse_candles(response_data)
+        if candles is None or len(candles) < lookback_sessions + 1:
+            return None
+        current = candles[-1]
+        slot = (
+            current.timestamp.hour,
+            current.timestamp.minute,
+            current.timestamp.second,
+            current.timestamp.utcoffset(),
+        )
+        prior = [
+            candle for candle in candles[:-1]
+            if (
+                candle.timestamp.hour,
+                candle.timestamp.minute,
+                candle.timestamp.second,
+                candle.timestamp.utcoffset(),
+            ) == slot
+            and candle.timestamp.date() != current.timestamp.date()
+        ]
+        # Keep the most recent sample per session/date; duplicate dates do not
+        # inflate the baseline even if a provider returns repeated intervals.
+        by_date = {}
+        for candle in prior:
+            by_date[candle.timestamp.date()] = candle
+        samples = sorted(by_date.values(), key=lambda item: item.timestamp)[-lookback_sessions:]
+        if len(samples) != lookback_sessions:
+            return None
+        average_volume = Decimal(sum(item.volume for item in samples)) / Decimal(lookback_sessions)
+        if average_volume <= 0:
+            return None
+        return Decimal(current.volume) / average_volume
 
     @staticmethod
     def passes_market_quality(

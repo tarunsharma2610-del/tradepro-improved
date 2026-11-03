@@ -267,3 +267,15 @@ Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`.
 - This does not claim Prometheus integration, production alerting, sustained-load acceptance, deployment readiness, or Phase 4 completion.
 - Remaining Phase 4 gates: end-to-end Redis snapshot recovery → scanner/dispatcher → durable stop-event intake → final PAPER ledger/position acceptance; more multi-process/crash-window races; PAPER/LIVE isolation audit; security/authorization/secret-redaction review; sustained-load and backpressure testing; exact-head documentation CI.
 - Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 Draft/unmerged; no merge/deployment/LIVE activation; original `Tradepro` repository untouched.
+
+
+## Latest sustained-load and alerting checkpoint — 3 November 2026
+
+- Exact verified benchmark head: `edec040c5bb43ea572419345c5ecd50b76ab1c86` on Draft PR #10.
+- Backend CI #41645265983: SUCCESS on this exact head; 1,632 passed, 8 warnings; broker-write boundary guard passed.
+- Security CI #41645266170: SUCCESS on this exact head; CodeQL and dependency audit passed.
+- Concurrent synthetic PAPER dispatcher smoke test: 5,000 observations, 8 workers, queue capacity 512, 112,920.26 observations/second, p50 3.2393 ms, p95 4.3143 ms, p99 4.4683 ms; 21 bounded-queue rejections were retried and all observations were processed. This is an in-process CI smoke benchmark, not production or end-to-end capacity evidence.
+- Full measurements and limitations: `PHASE4_SUSTAINED_LOAD_REPORT.md`.
+- Alerting is NOT implemented. Compose currently has PostgreSQL, Redis, backend, worker, frontend and Nginx, but no independent Prometheus/Alertmanager/notification service. Proposed thresholds are design candidates only, not approved production settings.
+- Remaining: independent alert delivery/failure recovery; endpoint-by-endpoint IDOR/cross-user authorization review; realistic sustained-load and multi-replica crash-window testing; final documentation synchronization and exact-head CI.
+- Safety unchanged: PAPER mandatory; live broker order writes disabled; PR #9 and #10 Draft/unmerged; only `tradepro-improved`; original `Tradepro` untouched.

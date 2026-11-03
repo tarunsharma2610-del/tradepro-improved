@@ -2644,3 +2644,8 @@ This synchronization reconciles this document with the current Phase 4 PR head. 
 - This does not claim Prometheus integration, production alerting, sustained-load acceptance, deployment readiness, or Phase 4 completion.
 - Remaining Phase 4 gates: end-to-end Redis snapshot recovery → scanner/dispatcher → durable stop-event intake → final PAPER ledger/position acceptance; more multi-process/crash-window races; PAPER/LIVE isolation audit; security/authorization/secret-redaction review; sustained-load and backpressure testing; exact-head documentation CI.
 - Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 Draft/unmerged; no merge/deployment/LIVE activation; original `Tradepro` repository untouched.
+
+
+## Addendum — 3 November 2026: host watchdog notification retry
+
+The previous watchdog acknowledged a state transition even when configured HTTPS delivery failed, preventing retries until another transition. Corrected in `af6d469af969d9705c4527922dcde96c9c373638`: `_notify()` reports delivery success; `main()` persists the transition fingerprint only after successful delivery. With no webhook configured, journal output is the intended local destination. Tests cover retry-after-failure, journal-only mode and secret non-disclosure. Backend #41674075611 passed (1,654 passed, 8 warnings, zero skipped); Security #41674075641 passed (CodeQL and dependency audit). Residual: no real webhook endpoint or Oracle VM deployment has been exercised; this is not an independent penetration test.

@@ -128,6 +128,7 @@ def mfa_enroll(db: Session = Depends(get_db), user: User = Depends(get_current_u
 def mfa_verify(
     payload: MfaVerifyRequest,
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -143,6 +144,7 @@ def mfa_verify(
 def mfa_disable(
     payload: MfaDisableRequest,
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):

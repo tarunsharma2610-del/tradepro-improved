@@ -1,3 +1,16 @@
+## Current verified Phase 4 checkpoint — 3 November 2026
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; implementation branch: `phase4/operational-alerting`.
+- Verified implementation commit: `b91a03b7ee70fcf4392bb4c4bcde783185ea1c24`.
+- Backend CI [#41667865847 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41667865847): **1,647 passed, 8 warnings**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration round-trips passed; synthetic PostgreSQL/document-volume restore drill passed.
+- Security analysis [#41667865822 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41667865822): CodeQL and Python dependency audit passed.
+- New verified fault-injection coverage: `test_sigkilled_execution_worker_recovers_paper_stop_without_redis` starts a separate Python worker process on PostgreSQL 16, waits for the production claim path to commit and enter execution, kills that OS process, and recovers the event from PostgreSQL without Redis redelivery. It verifies a new claim token, rejection of the killed worker's stale token, exactly one filled PAPER order and execution, a flat position, and one cash-balance mutation.
+- Existing Redis market-data worker process-kill/restart coverage, concurrent duplicate stop execution, indicator-exit/stop-event race, lease recovery, and database-level replay tests remain in place; this new test fills the distinct stop-execution process-crash gap rather than duplicating them.
+- PR #12 remains **OPEN, Draft, and unmerged**. No merge or live broker order-write enablement is authorized.
+- Safety remains mandatory: PAPER-only; live broker `place_order`, `modify_order`, and `cancel_order` writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
+- Remaining Phase 4 gates: multi-container/replica failure injection; realistic sustained load using full database handler work (not just dispatcher throughput); Oracle VM watchdog installation and failure drill; external VM monitoring; final independent security/penetration review. The current CI suite is not production-scale performance certification or deployment sign-off.
+
+Historical checkpoint notes below are retained as history; this section supersedes their older "next step", test-count, commit, and PR-number summaries.
 # Phase 4 Sustained Dispatch Benchmark — 3 November 2026
 
 ## Verified checkpoint

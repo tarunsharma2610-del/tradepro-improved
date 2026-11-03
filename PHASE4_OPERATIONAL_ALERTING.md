@@ -95,3 +95,6 @@ Added `test_postgres_recovery_sweeper_resumes_expired_executing_worker` to `back
 This is a PostgreSQL-backed recovery-sweeper integration test, not an OS-level SIGKILL of a worker process or a full end-to-end fill test. The earlier PostgreSQL concurrency tests continue to cover duplicate execution, indicator-vs-stop exit, concurrent expired-lease reclaim, stale-token fencing, and retry exhaustion. Corrected a stale model docstring that incorrectly said workers did not create stop events.
 
 Exact-head Backend and Security CI are required for this change and the final documentation sync. Do not infer a green result from the previous checkpoint.
+
+
+Follow-up test-harness correction: the stubbed `execute_claimed` method now uses an instance-method-compatible signature, so the PostgreSQL recovery-sweeper test exercises the handler call shape correctly. This creates a new exact-head CI requirement; previous runs on earlier commits do not verify this final correction.

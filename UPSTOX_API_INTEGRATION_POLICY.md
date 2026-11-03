@@ -1,3 +1,17 @@
+## Latest Phase 4 operational observability checkpoint — 3 November 2026
+
+This update supersedes earlier "next step" and latest-head summaries in this document.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Branch: `phase4/redis-market-data-publisher`. PR #9 remains OPEN, Draft, and unmerged.
+- Verified implementation commit: `d5f4a3f2bea7f6c086d163a10765d46fe1391a61`.
+- Backend PR CI [#41593091254 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41593091254) and Security PR CI [#41593091256 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41593091256) passed on the exact implementation commit. Push-triggered Security [#41593085684 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41593085684) also passed on the same SHA.
+- Metrics: seven fixed low-cardinality PAPER dispatch counters; admin-only endpoint; real HTTP authorization tests; user/instrument identifiers excluded. Metrics are process-local only, not fleet-wide.
+- CI revalidated full pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention.
+- Next: design multi-replica aggregation, operational thresholds, sustained-load/restart-recovery tests and remaining API authorization/cross-user isolation audit. No production alerting or fleet-wide metrics are claimed.
+- Safety remains unchanged: PAPER mandatory; live broker order writes disabled; PR #9 Draft/unmerged; no deployment or LIVE readiness claimed; original `tarunsharma2610-del/Tradepro` remains out of scope and unmodified.
+
+---
+
 <!-- Phase 3 continuation sync: 27 October 2026. Latest verified code/test head: 31ce2a10bcc789c223608c6566082b24aea7358c; Backend CI #40383076131 SUCCESS. Current maintained-doc synchronization head at the time of this update: fbcefc1ae44f863b5d16d5e32fd819d277b0ead8; documentation CI #40384521664 SUCCESS. DP/demat Execution persistence and central charge-total recomputation are implemented; next gate is focused audit of unknown-vs-zero semantics, delivery/non-delivery rules, migration round-trips, idempotency, rollback, and integration with per-fill allocation/reconciliation. GST/IPFT implementation is not being restarted. PR #6/#7 stay Draft/unmerged; PAPER mandatory; live broker writes disabled; original Tradepro repository out of scope. -->
 
 ## Authoritative Phase 3 checkpoint — 26 October 2026 (latest verified CI)

@@ -1,3 +1,17 @@
+## Latest Phase 4 operational observability checkpoint — 3 November 2026
+
+This update supersedes earlier "next step" and latest-head summaries in this document.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Branch: `phase4/redis-market-data-publisher`. PR #9 remains OPEN, Draft, and unmerged.
+- Verified implementation commit: `d5f4a3f2bea7f6c086d163a10765d46fe1391a61`.
+- Backend PR CI [#41593091254 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41593091254) and Security PR CI [#41593091256 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41593091256) passed on the exact implementation commit. Push-triggered Security [#41593085684 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41593085684) also passed on the same SHA.
+- Metrics: seven fixed low-cardinality PAPER dispatch counters; admin-only endpoint; real HTTP authorization tests; user/instrument identifiers excluded. Metrics are process-local only, not fleet-wide.
+- CI revalidated full pytest, broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, synthetic PostgreSQL/document-volume restore and evidence retention.
+- Next: design multi-replica aggregation, operational thresholds, sustained-load/restart-recovery tests and remaining API authorization/cross-user isolation audit. No production alerting or fleet-wide metrics are claimed.
+- Safety remains unchanged: PAPER mandatory; live broker order writes disabled; PR #9 Draft/unmerged; no deployment or LIVE readiness claimed; original `tarunsharma2610-del/Tradepro` remains out of scope and unmodified.
+
+---
+
 # Phase 4 P4-0 Baseline Audit — 29 October 2026
 
 ## Scope and method

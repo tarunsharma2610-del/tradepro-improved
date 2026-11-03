@@ -4069,3 +4069,15 @@ Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`.
 - Next gates: inspect/record the test's process exit and exact Redis delta evidence; add crash/restart and worker termination tests; sustained load, queue saturation and backpressure; complete Redis snapshot → scanner/dispatcher → durable PAPER stop-event → ledger/position acceptance; finish PAPER/LIVE isolation and security/authorization/secret-redaction audit.
 - Safety unchanged: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN, Draft and unmerged; no deployment/LIVE activation; original `tarunsharma2610-del/Tradepro` untouched.
 - This checkpoint is for code head `235cb100...`; docs updates must themselves pass CI before the documentation checkpoint is declared green.
+
+## Verified Phase 4 checkpoint — 3 November 2026 (Redis worker crash/lease failover)
+
+- Exact verified code head: `a198472a6725306497799e105b386ffc59ecedd3`.
+- Backend CI [#41604337768 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41604337768): **1,629 passed, 8 warnings**. The new integration test starts a separate worker OS process, confirms it has acquired its Redis lease and started quote consumption, kills it without graceful cleanup, verifies the lease remains until expiry, then runs a replacement worker and verifies that it takes ownership and consumes a quote.
+- Security CI [#41604337969 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41604337969): CodeQL and Python dependency audit passed.
+- Additional backend gates in the successful run: broker-write boundary guard passed; SQLite and PostgreSQL 16 migration checks passed; isolated synthetic PostgreSQL restore drill and evidence verification passed.
+- Test-harness correction: the child consumer fixture was changed to an asynchronous generator, matching the worker's `async for` contract. The preceding failed run was a fixture error (`listen()` returned a coroutine), not a Redis service failure. The corrected exact-head run is green.
+- Scope limit: this is a bounded crash/lease-expiry/failover integration test, not sustained production load, high-availability Redis failover, throughput/latency SLO acceptance, or deployment readiness.
+- Next gates: sustained multi-process Redis load with measured throughput/latency; queue saturation/backpressure and recovery metrics; full Redis snapshot → scanner/dispatcher → durable PAPER stop-event → execution → ledger/position reconciliation; final PAPER/LIVE isolation, authorization, IDOR, secret-redaction and broker-write reachability audit.
+- Safety unchanged: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN, Draft and unmerged; no deployment or LIVE activation; original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
+- Documentation synchronization is pending verification: this section must be present in all five core documents and the resulting documentation commit must pass its own exact-head CI before being treated as a verified documentation checkpoint.

@@ -30,7 +30,7 @@ def test_worker_state_reports_missing_container(monkeypatch):
         Mock(return_value=SimpleNamespace(returncode=0, stdout="")),
     )
     assert watchdog.worker_state() == (
-        "missing", "missing", "worker container is absent"
+        "missing", "missing", "worker containers are absent"
     )
 
 

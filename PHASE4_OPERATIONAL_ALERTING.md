@@ -15,9 +15,9 @@ A worker-side monitor polls the shared Redis market-data fleet metrics. Alerts a
 - Any positive delta in exhausted dispatch retries.
 - Five or more handler failures during a monitoring interval.
 - Twenty-five or more rejected observations during a monitoring interval.
-- No active worker heartbeat sustained for at least 60 seconds.
+- No active metrics-exporter heartbeat sustained for at least 60 seconds.
 - Shared Redis market-data metrics unavailable.
-- Recovery notification when a previously absent worker heartbeat returns.
+- Recovery notification when a previously absent metrics-exporter heartbeat returns.
 
 The monitor polls every 30 seconds by default. Repeated alert fingerprints are deduplicated across healthy Redis-connected replicas for a 300-second cooldown. If Redis is unavailable, a process-local cooldown prevents repeated log/notification spam; this fallback does not promise cross-replica deduplication during a Redis outage.
 
@@ -42,7 +42,7 @@ If credentials or destination are missing/invalid, the monitor logs that deliver
 
 ## Verification boundary
 
-This is implementation and automated-test coverage, not proof of live Telegram delivery or deployed operational readiness. After exact-head CI passes, configure a dedicated operations Telegram chat and perform a credentialed smoke test. Verify alerts and recovery on the deployed worker fleet, including Redis outage and multiple-replica behavior. Do not claim delivery is active until that smoke test succeeds.
+The heartbeat signal counts metrics-exporter processes, not quote-dispatch workers independently. Because this monitor runs inside the worker container, it cannot report a complete crash of that same container; an external uptime/health watchdog is still required to detect total worker-process loss. This is implementation and automated-test coverage, not proof of live Telegram delivery or deployed operational readiness. After exact-head CI passes, configure a dedicated operations Telegram chat and perform a credentialed smoke test. Verify alerts and recovery on the deployed worker fleet, including Redis outage and multiple-replica behavior. Do not claim delivery is active until that smoke test succeeds.
 
 ## Remaining operational work
 

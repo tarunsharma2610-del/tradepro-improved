@@ -37,7 +37,7 @@ def test_mfa_enroll_then_login_requires_code(db_session, make_user):
     user = make_user()
     service = AuthService(db_session)
 
-    secret, uri = service.start_mfa_enrollment(user)
+    secret, uri = service.start_mfa_enrollment(user, password="correct-horse-battery-staple")
     assert user.email in uri or "otpauth://" in uri
 
     import pyotp
@@ -59,7 +59,7 @@ def test_mfa_enroll_then_login_requires_code(db_session, make_user):
 def test_disabling_mfa_requires_password_and_current_totp(db_session, make_user):
     user = make_user()
     service = AuthService(db_session)
-    secret, _ = service.start_mfa_enrollment(user)
+    secret, _ = service.start_mfa_enrollment(user, password="correct-horse-battery-staple")
 
     import pyotp
 
@@ -181,7 +181,7 @@ def test_mfa_security_change_revokes_existing_sessions(db_session, make_user):
     session = db_session.query(AuthSession).filter_by(user_id=user.id).one()
     assert session.revoked_at is None
 
-    secret, _ = service.start_mfa_enrollment(user)
+    secret, _ = service.start_mfa_enrollment(user, password="correct-horse-battery-staple")
     import pyotp
     assert service.verify_and_enable_mfa(user, pyotp.TOTP(secret).now()) is True
     db_session.refresh(session)
@@ -193,12 +193,20 @@ def test_mfa_enrollment_cannot_replace_an_already_enabled_factor(db_session, mak
 
     user = make_user()
     service = AuthService(db_session)
-    original_secret, _ = service.start_mfa_enrollment(user)
+    original_secret, _ = service.start_mfa_enrollment(user, password="correct-horse-battery-staple")
     assert service.verify_and_enable_mfa(user, pyotp.TOTP(original_secret).now()) is True
     encrypted_original = user.mfa_secret_encrypted
 
     with pytest.raises(AuthError, match="MFA is already enabled"):
-        service.start_mfa_enrollment(user)
+        service.start_mfa_enrollment(user, password="correct-horse-battery-staple")
 
     assert user.mfa_secret_encrypted == encrypted_original
     assert pyotp.TOTP(original_secret).verify(pyotp.TOTP(original_secret).now(), valid_window=1)
+
+
+def test_mfa_enrollment_requires_correct_password(db_session, make_user):
+    user = make_user()
+    service = AuthService(db_session)
+    with pytest.raises(AuthError, match="Incorrect password"):
+        service.start_mfa_enrollment(user, password="wrong-password")
+    assert user.mfa_secret_encrypted is None

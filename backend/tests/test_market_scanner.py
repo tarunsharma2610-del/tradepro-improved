@@ -281,7 +281,7 @@ def test_opportunity_ranking_is_weighted_explainable_and_deterministic():
         "NSE_EQ|AAA", "NSE_EQ|BBB", "NSE_EQ|CCC"
     ]
     assert [item["rank"] for item in ranked] == [1, 2, 3]
-    assert ranked[0]["score"] == 0.74
+    assert ranked[0]["score"] == 0.78
     assert ranked[0]["weighted_contributions"] == {
         "momentum": 0.4, "relative_volume": 0.18, "liquidity": 0.2
     }

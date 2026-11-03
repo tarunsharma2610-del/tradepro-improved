@@ -202,6 +202,7 @@ async def test_postgres_paper_stop_event_handler_sustained_load(monkeypatch, rec
                 quote_epoch=epoch,
                 quote_version=index + 1,
                 trigger_price=Decimal("97.00"),
+                lease_seconds=120,
                 now=now,
             )
             assert event is not None

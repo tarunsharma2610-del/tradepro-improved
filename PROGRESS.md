@@ -4369,3 +4369,8 @@ Supersedes earlier statements that the real multi-container watchdog drill was p
 - Remaining gates: install/exercise the external watchdog on Oracle VM; verify an independent notification destination and cloud/instance health monitoring; run sustained load with full database-backed handler work and measure latency/recovery; complete independent security/penetration review.
 - Do not duplicate the passing Docker Compose fault test or PostgreSQL SIGKILL stop-event recovery test. Inspect existing coverage before adding reliability work.
 - This documentation commit requires its own exact-head Backend and Security CI before becoming a verified documentation checkpoint.
+
+
+## Latest Phase 4 checkpoint — 3 November 2026
+
+Watchdog notification retry correction committed as `af6d469af969d9705c4527922dcde96c9c373638`. Backend CI #41674075611 passed (1,654 passed, 8 warnings, zero skipped); Security CI #41674075641 passed (CodeQL and dependency audit). Broker-write boundary, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore drill passed. Failed webhook delivery no longer advances the notification fingerprint; next timer run retries. Oracle VM installation/alert delivery remain outstanding. PR #12 remains Draft/unmerged; PAPER-only and disabled live broker writes remain mandatory.

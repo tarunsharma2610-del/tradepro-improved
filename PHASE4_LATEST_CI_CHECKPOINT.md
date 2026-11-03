@@ -1,5 +1,40 @@
 # Phase 4 Latest CI Checkpoint
 
+## Latest verified checkpoint — 3 November 2026
+
+This section supersedes older checkpoint claims below. Historical entries are retained for audit history.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Original `tarunsharma2610-del/Tradepro` remains strictly out of scope and was not modified.
+- Working branch / PR: `phase4/redis-market-data-publisher`, PR #9. PR #9 is open, Draft, and unmerged.
+- Verified implementation head: `535e4c69b1b3b54b19864e5215c01039d399b143`.
+- Backend workflow: [Backend tests run #41584709216 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41584709216) (workflow run number 4549), on the exact implementation head above.
+- Security workflow: [Security analysis run #41584709200 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41584709200) (workflow run number 481), on the exact implementation head above.
+- Backend job passed the complete pytest suite, broker-write boundary enforcement, SQLite upgrade/downgrade/re-upgrade, PostgreSQL 16 migration round-trip, synthetic PostgreSQL + document-volume restore, and restore evidence retention.
+- Security job passed CodeQL static analysis and Python dependency vulnerability audit.
+- New acceptance coverage: Redis snapshot → scanner/dispatcher → PAPER stop-event execution and replay; superseded stop-event lifecycle handling; PostgreSQL 16 independent indicator-exit versus stop-event race. The race test asserts exactly one filled order and execution, a flat non-reversed position, and a terminal stop-event state.
+- Lifecycle correction: when a claimed stop event discovers that the PAPER position has already been closed by another reduce-only exit, it records `FAILED` / `POSITION_ALREADY_CLOSED` rather than leaving an obsolete event retryable.
+- Previous green acceptance commit `d1f62e86574822b59c396134263126a68fad5017` also passed its exact-head Backend and Security workflows.
+
+## Remaining Phase 4 work
+
+1. Continue review of concurrency, claim/lease expiry, recovery and idempotency across PAPER execution paths; add tests only for uncovered behavior.
+2. Continue scanner intelligence: liquidity/market-quality filters, momentum and relative-volume features, deterministic opportunity ranking, and auditable signal explanations. Scanner signals must not authorize orders.
+3. Review Upstox SDK/API contracts before adding custom integration; preserve read-only Analytics Token boundaries and existing freshness/recovery controls.
+4. Continue security hardening, observability, UI, and deployment readiness as separate gated workstreams. Production deployment, real Oracle restore, credentialed broker smoke tests, and LIVE order readiness are not claimed by this checkpoint.
+5. Update maintained documentation and rerun exact-head CI after documentation synchronization; this file is part of that docs sync.
+
+## Safety invariants
+
+- Only `tarunsharma2610-del/tradepro-improved` is in scope; never modify original `tarunsharma2610-del/Tradepro`.
+- PAPER mode remains mandatory for current execution and tests.
+- Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled.
+- PR #9 remains Draft/open/unmerged; do not merge, deploy, or enable LIVE without explicit user authorization.
+- No production Oracle restore, credentialed live broker smoke test, or LIVE-readiness approval is claimed.
+
+---
+
+# Phase 4 Latest CI Checkpoint
+
 ## Current checkpoint state
 - Repository: `tarunsharma2610-del/tradepro-improved` only.
 - Branch: `phase4/roadmap-progress-checkpoints`.

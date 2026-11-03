@@ -514,8 +514,8 @@ async def test_postgres_recovery_sweeper_resumes_expired_executing_worker(
                 quote_epoch=f"postgres-worker-crash-{uuid4()}",
                 quote_version=1,
                 trigger_price=Decimal("98.25"),
-                lease_seconds=10,
-                now=now - timedelta(minutes=2),
+                lease_seconds=120,
+                now=now - timedelta(seconds=50),
             )
             assert event is not None
             event_id = event.id

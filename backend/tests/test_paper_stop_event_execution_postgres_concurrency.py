@@ -148,8 +148,6 @@ def test_two_postgres_workers_execute_one_stop_event_once():
     )
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, expire_on_commit=False)
-    import app.services.paper_stop_event_dispatch_handler as handler
-    monkeypatch.setattr(handler, "SessionLocal", Session)
     ids = _seed_execution_fixture(Session, uuid4().hex[:12])
     user_id, portfolio_id, instrument_id, strategy_id = ids
 
@@ -400,6 +398,8 @@ def test_sigkilled_execution_worker_recovers_paper_stop_without_redis(tmp_path, 
     )
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, expire_on_commit=False)
+    import app.services.paper_stop_event_dispatch_handler as handler
+    monkeypatch.setattr(handler, "SessionLocal", Session)
     ids = _seed_execution_fixture(Session, uuid4().hex[:12])
     user_id, portfolio_id, instrument_id, strategy_id = ids
 

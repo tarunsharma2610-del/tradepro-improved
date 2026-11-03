@@ -1,0 +1,17 @@
+[Unit]
+Description=Tradepro Improved external Docker worker watchdog
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/tradepro/worker-watchdog.env
+Environment=TRADEPRO_COMPOSE_FILE=/opt/tradepro-improved/docker-compose.yml
+Environment=TRADEPRO_WATCHDOG_STATE=/var/lib/tradepro-watchdog/last-state
+ExecStart=/usr/bin/python3 /opt/tradepro-improved/ops/worker_watchdog.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tradepro-watchdog

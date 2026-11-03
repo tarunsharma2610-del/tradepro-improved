@@ -190,3 +190,31 @@ def test_market_quality_filter_uses_explicit_thresholds_and_fails_closed():
     )
     assert no_depth is not None
     assert not scanner.passes_market_quality(no_depth, max_spread_bps=100)
+
+
+def test_historical_momentum_uses_validated_upstox_candles_and_shared_indicator():
+    from app.services.market_scanner import MarketScanner
+
+    rows = []
+    for index in reversed(range(12)):
+        close = 100 + index
+        stamp = f"2026-11-03T10:{index:02d}:00+05:30"
+        rows.append([stamp, close, close + 1, close - 1, close, 1000, 0])
+    payload = {"status": "success", "data": {"candles": rows}}
+    score = MarketScanner.historical_momentum_from_response(payload, period=10)
+    assert score is not None
+    assert score > 0
+
+    assert MarketScanner.historical_momentum_from_response(
+        {"status": "error", "data": {"candles": rows}}, period=10
+    ) is None
+    assert MarketScanner.historical_momentum_from_response(
+        {"status": "success", "data": {"candles": rows[:5]}}, period=10
+    ) is None
+    assert MarketScanner.historical_momentum_from_response(payload, period=0) is None
+
+
+def test_historical_momentum_rejects_malformed_candle_rows():
+    rows = [["2026-11-03T10:00:00+05:30", 100, 101, 99, 100, 1000, 0]]
+    payload = {"status": "success", "data": {"candles": rows}}
+    assert MarketScanner.historical_momentum_from_response(payload, period=1) is None

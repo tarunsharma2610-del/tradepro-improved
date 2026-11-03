@@ -216,3 +216,59 @@ def test_oauth_callback_state_cannot_be_used_by_another_user(client):
     )
     assert callback.status_code == 400
     assert "must-not-be-exchanged" not in callback.text
+
+def test_mfa_verify_revokes_browser_cookies(client):
+    import pyotp
+
+    _register_and_login(client, "mfa-verify@example.com")
+    enrolled = client.post("/api/v1/auth/mfa/enroll")
+    assert enrolled.status_code == 200
+    secret = enrolled.json()["secret"]
+
+    verified = client.post(
+        "/api/v1/auth/mfa/verify",
+        json={"code": pyotp.TOTP(secret).now()},
+    )
+    assert verified.status_code == 204
+    assert client.cookies.get("access_token") is None
+    assert client.cookies.get("refresh_token") is None
+
+
+def test_mfa_disable_revokes_browser_cookies(client):
+    import pyotp
+
+    _register_and_login(client, "mfa-disable@example.com")
+    enrolled = client.post("/api/v1/auth/mfa/enroll")
+    assert enrolled.status_code == 200
+    secret = enrolled.json()["secret"]
+
+    enabled = client.post(
+        "/api/v1/auth/mfa/verify",
+        json={"code": pyotp.TOTP(secret).now()},
+    )
+    assert enabled.status_code == 204
+    assert client.cookies.get("access_token") is None
+
+    # MFA activation revokes the previous session; log in with the TOTP
+    # before testing the explicit disable flow.
+    login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "mfa-disable@example.com",
+            "password": "correct-horse-battery-staple",
+            "mfa_code": pyotp.TOTP(secret).now(),
+        },
+    )
+    assert login.status_code == 200
+    assert client.cookies.get("access_token")
+
+    disabled = client.post(
+        "/api/v1/auth/mfa/disable",
+        json={
+            "password": "correct-horse-battery-staple",
+            "mfa_code": pyotp.TOTP(secret).now(),
+        },
+    )
+    assert disabled.status_code == 204
+    assert client.cookies.get("access_token") is None
+    assert client.cookies.get("refresh_token") is None

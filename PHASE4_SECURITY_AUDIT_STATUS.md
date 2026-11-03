@@ -1,3 +1,18 @@
+## Phase 4 concurrency and safety audit update — 3 November 2026
+
+Source review confirms these items are already implemented and covered; do not keep them on the unstarted list:
+- PostgreSQL 16 independent-worker race between indicator exit and durable stop-event exit: `test_postgres_indicator_exit_and_stop_event_race_flatten_position_once` in `backend/tests/test_paper_stop_event_execution_postgres_concurrency.py`. It asserts one filled order, one execution, flat non-negative position, and an obsolete stop event when the indicator exit wins.
+- Concurrent duplicate stop-event execution by two PostgreSQL workers returns the same filled order and creates one execution.
+- Trading mode configuration fails closed unless PAPER: `backend/tests/test_trading_mode_safety.py`.
+- Broker write boundary AST guard rejects direct/dynamic `place_order`, `modify_order`, and `cancel_order` bypasses: `backend/tests/test_broker_write_boundary_guard.py`.
+- Existing owner-scoped API isolation tests cover portfolios, broker allocations/snapshots, reconciliation and broker evidence.
+
+Remaining work is narrower: verify CI actually ran the PostgreSQL 16 tests in the relevant workflow (not merely that test code exists); complete an adversarial review of mode switching and every API/worker boundary; continue crash-window/multi-replica coverage outside the already-tested races; review alerting and sustained-load evidence. Runtime configuration remains PAPER-only and live broker writes disabled.
+
+Verified code checkpoint for these tests: `215650c3b059f9aabee307ac1665d6a7549d29e5` (Backend #41638885400 and Security #41638885315 passed). Latest docs checkpoint before this note: `4b9f10e2c41bc296ee45f9db7eb6e10b162e7db2` (Backend #41639526130 and Security #41639526161 passed). This note itself requires exact-head CI before it becomes a new docs checkpoint.
+
+---
+
 ## Phase 4 latest verified recovery checkpoint — 3 November 2026
 
 - Verified implementation: `2ee2939969b9679dda859086278ef07c4355d173`; Backend #41610938641 and Security #41610938496 both passed on this exact commit.

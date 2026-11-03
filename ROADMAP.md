@@ -2167,3 +2167,8 @@ Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`.
 - This does not claim Prometheus integration, production alerting, sustained-load acceptance, deployment readiness, or Phase 4 completion.
 - Remaining Phase 4 gates: end-to-end Redis snapshot recovery → scanner/dispatcher → durable stop-event intake → final PAPER ledger/position acceptance; more multi-process/crash-window races; PAPER/LIVE isolation audit; security/authorization/secret-redaction review; sustained-load and backpressure testing; exact-head documentation CI.
 - Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 Draft/unmerged; no merge/deployment/LIVE activation; original `Tradepro` repository untouched.
+
+
+## Phase 4 status — 3 November 2026
+
+Watchdog retry logic is now CI-verified (`af6d469af969d9705c4527922dcde96c9c373638`; Backend #41674075611, 1,654 passed/8 warnings/zero skipped; Security #41674075641 passed). Next operational gate is deployment-host verification and reversible Oracle VM systemd installation, followed by controlled host failure/alert retry testing. CI does not equal production deployment verification.

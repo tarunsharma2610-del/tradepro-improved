@@ -242,3 +242,137 @@ def test_two_postgres_workers_execute_one_stop_event_once():
     finally:
         _cleanup_execution_fixture(Session, ids)
         engine.dispose()
+
+
+def test_postgres_indicator_exit_and_stop_event_race_flatten_position_once():
+    """Independent indicator and stop workers race; only one reduce-only fill wins."""
+    from app.models.portfolio import Portfolio
+    from app.models.strategy import Strategy
+    from app.services.strategy_execution_service import StrategyExecutionService
+
+    engine = create_engine(
+        os.environ["TEST_POSTGRES_URL"],
+        pool_size=4,
+        max_overflow=0,
+        pool_pre_ping=True,
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    ids = _seed_execution_fixture(Session, uuid4().hex[:12])
+    user_id, portfolio_id, instrument_id, strategy_id = ids
+
+    with Session.begin() as db:
+        event = PaperStopEventClaimService(db).claim_trailing_stop(
+            user_id=user_id,
+            portfolio_id=portfolio_id,
+            strategy_id=strategy_id,
+            instrument_id=instrument_id,
+            quote_epoch=f"postgres-exit-race-{uuid4()}",
+            quote_version=1,
+            trigger_price=Decimal("98.25"),
+            lease_seconds=120,
+        )
+        assert event is not None
+        event_id, claim_token = event.id, event.claim_token
+
+    with Session() as db:
+        instrument_key = db.get(Instrument, instrument_id).instrument_key
+    now = datetime.now(timezone.utc).isoformat()
+    level = {"price": "99.00", "quantity": 100000, "orders": 10}
+    quote = {
+        "instrument_token": instrument_key,
+        "last_price": "99.00",
+        "last_trade_time": "1600000000000",
+        "timestamp": now,
+        "depth": {"buy": [level], "sell": [level]},
+    }
+    adapter = type("FakeAdapter", (), {
+        "get_full_quote": AsyncMock(return_value=BrokerCallResult(
+            ok=True, data={"data": {instrument_key: quote}}
+        ))
+    })()
+    barrier = threading.Barrier(2)
+    results = []
+    result_lock = threading.Lock()
+
+    def indicator_exit():
+        with Session() as db:
+            portfolio = db.get(Portfolio, portfolio_id)
+            strategy = db.get(Strategy, strategy_id)
+            barrier.wait(timeout=10)
+            try:
+                result = asyncio.run(
+                    StrategyExecutionService(db)._exit(
+                        strategy, portfolio, 5, Decimal("0.25")
+                    )
+                )
+                outcome = ("indicator", result.order_id, result.reason)
+            except Exception as exc:
+                outcome = ("indicator_error", type(exc).__name__, str(exc))
+            with result_lock:
+                results.append(outcome)
+
+    def stop_exit():
+        with Session() as db:
+            barrier.wait(timeout=10)
+            try:
+                order = asyncio.run(
+                    PaperStopEventExecutionService(db).execute_claimed(
+                        user_id=user_id,
+                        event_id=event_id,
+                        claim_token=claim_token,
+                    )
+                )
+                outcome = ("stop_filled", str(order.id), order.status)
+            except Exception as exc:
+                # POSITION_ALREADY_CLOSED is the expected losing outcome when
+                # the indicator worker acquired the portfolio lock first.
+                outcome = ("stop_obsolete", type(exc).__name__, str(exc))
+            with result_lock:
+                results.append(outcome)
+
+    try:
+        with patch(
+            "app.services.execution_service.get_broker_adapter",
+            return_value=adapter,
+        ), patch(
+            "app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED",
+            False,
+        ):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(indicator_exit), pool.submit(stop_exit)]
+                for future in futures:
+                    future.result(timeout=60)
+
+        assert len(results) == 2, results
+        assert not [result for result in results if result[0] == "indicator_error"], results
+        assert not [result for result in results if result[0] not in {
+            "indicator", "stop_filled", "stop_obsolete"
+        }], results
+
+        with Session() as db:
+            saved_event = db.get(PaperStopEvent, event_id)
+            saved_position = db.query(Position).filter_by(
+                portfolio_id=portfolio_id,
+                instrument_id=instrument_id,
+            ).one()
+            orders = db.query(Order).filter(
+                Order.portfolio_id == portfolio_id,
+                Order.instrument_id == instrument_id,
+            ).all()
+            executions = db.query(Execution).filter(
+                Execution.portfolio_id == portfolio_id
+            ).all()
+            filled_orders = [order for order in orders if order.status == "FILLED"]
+            assert len(filled_orders) == 1, [(o.id, o.status, o.rejection_reason) for o in orders]
+            assert len(executions) == 1
+            assert saved_position.quantity == 0
+            assert saved_position.quantity >= 0
+            assert saved_event.state in {"COMPLETED", "FAILED"}
+            if saved_event.state == "FAILED":
+                assert saved_event.last_error_code == "POSITION_ALREADY_CLOSED"
+            else:
+                assert saved_event.state == "COMPLETED"
+    finally:
+        _cleanup_execution_fixture(Session, ids)
+        engine.dispose()

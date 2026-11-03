@@ -1,3 +1,17 @@
+<!-- Latest Phase 4 scanner checkpoint — 3 Nov 2026: c5b549940a86386b2a48978f1aeac187b52fb8b4 passed Backend #41588921062 and Security #41588921048. Ranking implementation and regression tests verified. PAPER mandatory, live broker writes disabled, PR #9 Draft/unmerged; original Tradepro untouched. -->
+
+## Phase 4 progress — 3 November 2026 (deterministic scanner ranking verified)
+
+- Exact head `c5b549940a86386b2a48978f1aeac187b52fb8b4`; Backend #41588921062 and Security #41588921048 passed.
+- Full pytest, PAPER broker-write boundary, SQLite/PostgreSQL 16 migrations, synthetic restore and evidence retention passed.
+- Scanner now has verified depth quality, fail-closed liquidity filter, historical momentum, same-time-slot relative volume and deterministic weighted ranking with factor explanations and stable tie-breaks.
+- Ranking validation rejects invalid weights/factors and duplicate keys; scores are advisory only and cannot authorize orders.
+- Next: wire ranking into existing scanner opportunity output/API after checking schema compatibility; add scanner-to-PAPER observation regression.
+- Remaining: production history acquisition, API integration, production Oracle restore, credentialed broker smoke test, deployment and LIVE readiness.
+- Safeguards unchanged: only tradepro-improved; PAPER mandatory; live order writes disabled; PR #9 Draft/open/unmerged.
+
+---
+
 <!-- Latest Phase 4 scanner checkpoint — 3 Nov 2026: exact implementation head 76e3ad10b21f9fb2e954cfe8ef5bbdf8de54e70b passed Backend #41587542980 and Security #41587542875. Relative-volume same-time-of-day baseline feature verified; full pytest, PAPER broker-write boundary, SQLite/PostgreSQL 16 migrations, synthetic restore/evidence retention, CodeQL and dependency audit passed. Earlier scanner slices: depth quality, configurable liquidity filter, historical momentum through shared candle parser/indicator. PR #9 Draft/unmerged; PAPER mandatory; LIVE writes disabled; original Tradepro untouched. -->
 
 ## Phase 4 progress — 3 November 2026 (scanner relative-volume milestone)

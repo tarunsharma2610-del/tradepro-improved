@@ -227,6 +227,67 @@ class MarketScanner:
         return Decimal(current.volume) / average_volume
 
     @staticmethod
+    def rank_opportunities(candidates: list[dict], *, weights: dict[str, float]) -> list[dict]:
+        """Rank advisory scanner candidates using explicit normalized factors.
+
+        Candidate factors must be finite numbers in [0, 1]. Missing/invalid
+        factors exclude a candidate (fail closed). Weights must be finite,
+        non-negative, contain exactly the supported factor names, and have a
+        positive total. Ties are resolved by instrument_key ascending.
+        """
+        factor_names = ("momentum", "relative_volume", "liquidity")
+        if not isinstance(weights, dict) or set(weights) != set(factor_names):
+            return []
+        parsed_weights = {}
+        for name in factor_names:
+            value = _finite_number(weights.get(name))
+            if value is None or value < 0:
+                return []
+            parsed_weights[name] = value
+        total_weight = sum(parsed_weights.values())
+        if total_weight <= 0:
+            return []
+
+        ranked = []
+        seen = set()
+        for candidate in candidates if isinstance(candidates, list) else []:
+            if not isinstance(candidate, dict):
+                continue
+            key = candidate.get("instrument_key")
+            if not isinstance(key, str) or not key or key in seen:
+                continue
+            factors = candidate.get("factors")
+            if not isinstance(factors, dict):
+                continue
+            values = {}
+            valid = True
+            for name in factor_names:
+                value = _finite_number(factors.get(name))
+                if value is None or not 0 <= value <= 1:
+                    valid = False
+                    break
+                values[name] = value
+            if not valid:
+                continue
+            seen.add(key)
+            contributions = {
+                name: (values[name] * parsed_weights[name]) / total_weight
+                for name in factor_names
+            }
+            score = sum(contributions.values())
+            ranked.append({
+                "instrument_key": key,
+                "score": score,
+                "factors": values,
+                "weighted_contributions": contributions,
+            })
+        ranked.sort(key=lambda item: (-item["score"], item["instrument_key"]))
+        return [
+            {**item, "rank": index}
+            for index, item in enumerate(ranked, start=1)
+        ]
+
+    @staticmethod
     def passes_market_quality(
         observation: MarketScanObservation,
         *,

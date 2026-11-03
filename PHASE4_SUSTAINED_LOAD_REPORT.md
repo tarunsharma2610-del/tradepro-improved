@@ -1,3 +1,15 @@
+## Superseding current status — 3 November 2026
+
+- Exact verified documentation head before this correction: `7c75ebd22c803d4778eea40556a8c87eb5abe0f5`; Backend #41675822283 passed (1,654 passed, 8 warnings, zero skipped); Security #41675822246 passed (CodeQL and dependency audit).
+- Real Docker Compose two-replica worker fault drill is already complete on `ff0a4b42a9a6aab021dffa10835b29d6228a93e4`, with Backend #41671768895 and Security #41671768838 green. Remove any older statement below that says the real multi-container drill is pending.
+- Watchdog failed-notification retry is green on `af6d469af969d9705c4527922dcde96c9c373638`, Backend #41674075611 and Security #41674075641.
+- Existing `test_market_quote_dispatch_sustained_load.py` processes 5,000 observations with eight in-process workers and a bounded queue. It is a CI smoke benchmark, not a full PAPER execution/database benchmark. The prior 112,920 observations/second result is not a production SLA.
+- PostgreSQL SIGKILL recovery of the durable PAPER stop-event worker is already verified and must not be duplicated.
+- Remaining: realistic DB-backed PAPER execution sustained load with end-to-end latency/resource metrics; Oracle VM watchdog deployment and controlled notification retry; independent cloud/VM monitoring; independent penetration review.
+- PR #12 remains OPEN, Draft, unmerged; PAPER-only and disabled live broker writes remain mandatory.
+
+---
+
 ## Current verified operational checkpoint — 3 November 2026
 
 - Latest verified watchdog implementation: `af6d469af969d9705c4527922dcde96c9c373638`.

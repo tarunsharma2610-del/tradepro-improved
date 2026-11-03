@@ -1,3 +1,15 @@
+## Superseding operational status — 3 November 2026
+
+- Latest verified head before this documentation correction: `7c75ebd22c803d4778eea40556a8c87eb5abe0f5`; Backend #41675822283 and Security #41675822246 both passed on the exact head. Backend: 1,654 passed, 8 warnings, zero skipped; broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore passed. CodeQL and dependency audit passed.
+- PR #12 remains OPEN, Draft, unmerged; base branch `phase4/sustained-load-benchmark`.
+- Real Docker Compose two-replica worker kill/recovery drill is complete and green on `ff0a4b42a9a6aab021dffa10835b29d6228a93e4` (Backend #41671768895, Security #41671768838). It must not remain marked pending.
+- PostgreSQL subprocess SIGKILL recovery for the PAPER stop-event path is complete. Watchdog notification retry is also complete and CI-green on `af6d469af969d9705c4527922dcde96c9c373638`.
+- Existing sustained-load coverage is only the 5,000-observation in-process dispatcher smoke test; realistic DB-backed handler/load and end-to-end latency remain open.
+- Next gates: (1) Oracle VM preflight + reversible systemd install + real watchdog failure/notification retry drill; (2) independent cloud/VM monitoring; (3) DB-backed PAPER execution sustained load with CPU/memory and p50/p95/p99 end-to-end latency; (4) independent security/penetration review.
+- Preserve PAPER-only and disabled live broker writes; do not modify original Tradepro.
+
+---
+
 ## Phase 4 latest verified recovery checkpoint — 3 November 2026
 
 - Verified implementation: `2ee2939969b9679dda859086278ef07c4355d173`; Backend #41610938641 and Security #41610938496 both passed on this exact commit.

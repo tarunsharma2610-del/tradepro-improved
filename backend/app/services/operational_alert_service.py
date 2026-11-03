@@ -100,8 +100,9 @@ class OperationalAlertMonitor:
                 return False
             self._local_sent_at[fingerprint] = now
 
-        db = self.session_factory()
+        db = None
         try:
+            db = self.session_factory()
             settings = PlatformSettingsService(db)
             token = settings.get_decrypted("telegram_bot_token")
             chat_id_raw = settings.get_decrypted("ops_alert_telegram_chat_id")
@@ -128,7 +129,8 @@ class OperationalAlertMonitor:
                 pass
             return False
         finally:
-            db.close()
+            if db is not None:
+                db.close()
 
     async def run_once(self) -> None:
         try:

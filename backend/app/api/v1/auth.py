@@ -120,7 +120,10 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
 @router.post("/mfa/enroll", response_model=MfaEnrollResponse)
 def mfa_enroll(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     service = AuthService(db)
-    secret, uri = service.start_mfa_enrollment(user)
+    try:
+        secret, uri = service.start_mfa_enrollment(user)
+    except AuthError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     return MfaEnrollResponse(otpauth_uri=uri, secret=secret)
 
 

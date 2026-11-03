@@ -23,9 +23,10 @@ class _FakeRedis:
 
     def __init__(self):
         self.hashes = {}
-        self.sets = {}
+        self.sorted_sets = {}
         self.dedupe = set()
         self.raise_after_commit_once = False
+        self.now_ms = 1_800_000_000_000
 
     async def eval(self, script, numkeys, *args):
         assert numkeys == 4
@@ -34,7 +35,11 @@ class _FakeRedis:
         if dedupe_key in self.dedupe:
             return 0
         self.dedupe.add(dedupe_key)
-        self.sets.setdefault(workers_key, set()).add(worker_id)
+        workers = self.sorted_sets.setdefault(workers_key, {})
+        workers[worker_id] = self.now_ms
+        for stale_id, score in list(workers.items()):
+            if score <= self.now_ms - int(worker_ttl):
+                workers.pop(stale_id, None)
         totals = self.hashes.setdefault(totals_key, {})
         worker = self.hashes.setdefault(worker_key, {})
         for index in range(8, len(args), 2):
@@ -49,8 +54,18 @@ class _FakeRedis:
     async def hgetall(self, key):
         return dict(self.hashes.get(key, {}))
 
-    async def scard(self, key):
-        return len(self.sets.get(key, set()))
+    async def time(self):
+        return (self.now_ms // 1000, (self.now_ms % 1000) * 1000)
+
+    async def zremrangebyscore(self, key, minimum, maximum):
+        workers = self.sorted_sets.setdefault(key, {})
+        stale = [worker for worker, score in workers.items() if score <= int(maximum)]
+        for worker in stale:
+            workers.pop(worker, None)
+        return len(stale)
+
+    async def zcard(self, key):
+        return len(self.sorted_sets.get(key, {}))
 
 
 def test_market_data_metrics_are_aggregate_process_local_and_paper_only():

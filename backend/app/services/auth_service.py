@@ -120,6 +120,11 @@ class AuthService:
 
     # --- MFA ---
     def start_mfa_enrollment(self, user: User) -> tuple[str, str]:
+        # Never replace an active factor from an ordinary authenticated
+        # session. The user must prove the existing factor through the
+        # password + TOTP disable flow before enrolling a replacement.
+        if user.mfa_enabled:
+            raise AuthError("MFA is already enabled; verify the current factor to disable it before enrolling a replacement.")
         secret = pyotp.random_base32()
         user.mfa_secret_encrypted = encrypt_value(secret)
         self.users.save(user)

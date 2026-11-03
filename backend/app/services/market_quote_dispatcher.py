@@ -9,6 +9,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 
+from app.services.market_data_metrics import increment
+
 
 @dataclass(frozen=True)
 class DispatchedMarketObservation:
@@ -41,6 +43,7 @@ class MarketQuoteDispatcher:
             version = observation.version
         except (AttributeError, TypeError):
             self.rejected_updates += 1
+            increment("market_quote_dispatch_rejected_total")
             return False
         if (
             not user_id or not isinstance(instrument_key, str) or not instrument_key
@@ -59,16 +62,19 @@ class MarketQuoteDispatcher:
             self._pending[key] = DispatchedMarketObservation(
                 user_id, instrument_key, epoch, version, observation
             )
+            increment("market_quote_dispatch_coalesced_total")
             return True
 
         if len(self._pending) + len(self._inflight) >= self._queue.maxsize:
             self.dropped_unique_keys += 1
+            increment("market_quote_dispatch_dropped_unique_total")
             return False
 
         self._pending[key] = DispatchedMarketObservation(
             user_id, instrument_key, epoch, version, observation
         )
         self._queue.put_nowait(key)
+        increment("market_quote_dispatch_accepted_unique_total")
         return True
 
     async def get(self) -> DispatchedMarketObservation:

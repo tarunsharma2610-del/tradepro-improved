@@ -9,6 +9,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 
+from app.services.market_data_metrics import increment
 from app.services.market_quote_dispatcher import (
     DispatchedMarketObservation,
     MarketQuoteDispatcher,
@@ -58,6 +59,7 @@ class MarketQuoteDispatchWorker:
                     except Exception as exc:
                         failures += 1
                         self.failure_count += 1
+                        increment("market_quote_dispatch_handler_failures_total")
                         logger.exception(
                             "Market quote handler failed user=%s instrument=%s attempt=%s/%s error=%s",
                             item.user_id, item.instrument_key, failures,
@@ -85,6 +87,7 @@ class MarketQuoteDispatchWorker:
                                     raise
                             self.dispatcher.task_done()
                             self.exhausted_count += 1
+                            increment("market_quote_dispatch_exhausted_total")
                             break
 
                         delay = min(
@@ -96,6 +99,7 @@ class MarketQuoteDispatchWorker:
                     else:
                         self.dispatcher.task_done()
                         self.processed_count += 1
+                        increment("market_quote_dispatch_processed_total")
                         break
             except asyncio.CancelledError:
                 # The current observation (or its newest coalesced successor)

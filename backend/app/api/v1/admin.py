@@ -33,3 +33,11 @@ def platform_stats(db: Session = Depends(get_db), _admin: User = Depends(require
         total_news_items=db.query(func.count(NewsItem.id)).scalar(),
         total_backtest_runs=db.query(func.count(BacktestRun.id)).scalar(),
     )
+
+
+@router.get("/market-data-metrics")
+def market_data_metrics(_admin: User = Depends(require_admin)):
+    """Expose aggregate process-local PAPER dispatch counters to admins only."""
+    from app.services.market_data_metrics import snapshot
+
+    return snapshot()

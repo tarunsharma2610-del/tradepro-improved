@@ -1100,3 +1100,93 @@ Static review covered the 13 routers registered by `backend/app/api/v1/router.py
 - Backend gates also passed on the code head: broker-write boundary guard; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade; isolated synthetic PostgreSQL/document-volume restore and evidence retention.
 - Remaining gates: longer-duration multi-process/multi-replica load with recorded acceptance thresholds; broader end-to-end queue saturation/backpressure metrics under sustained traffic; Redis snapshot → scanner/dispatcher → durable PAPER stop-event → execution → final ledger/position reconciliation; final PAPER/LIVE isolation, endpoint authorization/IDOR, secret-redaction and broker-write reachability audits; operational alerts/runbooks and independent security testing.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN, Draft and unmerged; no merge, deployment or LIVE activation.
+
+
+## Latest sustained-load and alerting checkpoint — 3 November 2026
+
+- Exact verified benchmark head: `edec040c5bb43ea572419345c5ecd50b76ab1c86` on Draft PR #10.
+- Backend CI #41645265983: SUCCESS on this exact head; 1,632 passed, 8 warnings; broker-write boundary guard passed.
+- Security CI #41645266170: SUCCESS on this exact head; CodeQL and dependency audit passed.
+- Concurrent synthetic PAPER dispatcher smoke test: 5,000 observations, 8 workers, queue capacity 512, 112,920.26 observations/second, p50 3.2393 ms, p95 4.3143 ms, p99 4.4683 ms; 21 bounded-queue rejections were retried and all observations were processed. This is an in-process CI smoke benchmark, not production or end-to-end capacity evidence.
+- Full measurements and limitations: `PHASE4_SUSTAINED_LOAD_REPORT.md`.
+- Alerting is NOT implemented. Compose currently has PostgreSQL, Redis, backend, worker, frontend and Nginx, but no independent Prometheus/Alertmanager/notification service. Proposed thresholds are design candidates only, not approved production settings.
+- Remaining: independent alert delivery/failure recovery; endpoint-by-endpoint IDOR/cross-user authorization review; realistic sustained-load and multi-replica crash-window testing; final documentation synchronization and exact-head CI.
+- Safety unchanged: PAPER mandatory; live broker order writes disabled; PR #9 and #10 Draft/unmerged; only `tradepro-improved`; original `Tradepro` untouched.
+
+
+## Endpoint authorization and PAPER/LIVE audit addendum — 3 November 2026
+
+### Scope and inspected routes
+
+Source-reviewed the versioned API routers for portfolios, strategies, backtests, broker charge evidence, reconciliation, settings, users, and Upstox charge APIs. The review focused on authentication dependencies, owner scoping, child-resource lookups, admin-only operations, and execution-mode checks.
+
+### Verified safeguards in source and existing regression tests
+
+- Portfolio lookup is scoped through `PortfolioRepository.get_for_user(user.id, portfolio_id)`; child position/order/execution and broker snapshot reads occur only after the portfolio ownership check.
+- Strategy routes first verify portfolio ownership; strategy reads/updates/deletes/evaluation are constrained to the route's portfolio. Activation also verifies PAPER mode.
+- Backtest list/get/trades/delete operations use user-scoped repository methods.
+- Broker connection and Analytics Token settings are user-scoped; credential/token values are not returned in API responses.
+- Broker charge evidence is joined to the owning broker connection; cross-user access returns not found. Cross-user review is restricted to platform admins, and review also requires a different reviewer from the extractor.
+- Reconciliation queries are filtered by the authenticated user's ID.
+- Platform settings require the admin dependency.
+- Upstox charge operations resolve the connected token through the authenticated user's broker connection.
+- Existing API isolation tests cover cross-user portfolio, strategy, backtest, pending-order cancellation, broker evidence/reconciliation, broker credentials/tokens, market-data stream state, and OAuth callback state.
+- Existing PAPER/LIVE tests verify immutable trading mode, LIVE order rejection before broker access, LIVE strategy activation denial, fail-closed LIVE positions/balances, and broker allocation constraints.
+
+### MFA defect fixed in separate Draft PR #11
+
+Source review found `mfa_verify` and `mfa_disable` called `response.delete_cookie` without accepting FastAPI's `Response` parameter. The route signatures now inject `Response`, and HTTP-level tests cover cookie clearing after MFA enable and disable.
+
+- PR #11 head: `c11dc9de719a3fb417a0c9760b2cff944aed4d7a`.
+- Backend CI #41646429604: SUCCESS; 1,633 tests passed, 8 warnings; broker-write boundary guard passed.
+- Security CI #41646429541: SUCCESS; CodeQL and dependency audit passed.
+- PR #11 remains Draft and unmerged.
+
+### Audit limits / remaining review
+
+This is a focused source-and-regression-test review, not a formal penetration test, independent security assessment, or certification. It does not establish that every deployment secret, reverse-proxy rule, cloud IAM policy, network ACL, database role, backup, or runtime host is correctly configured. Continue testing authorization against deployed PostgreSQL and multi-user sessions, review rate limits and file upload/storage boundaries, and run independent security testing before any public or LIVE use.
+
+### Safety
+
+PAPER remains mandatory. Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. PRs #9, #10, and #11 remain Draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` is untouched.
+
+
+## MFA factor replacement hardening — 3 November 2026
+
+A deeper authentication review found that an authenticated user could call MFA enrollment while MFA was already enabled; the service would overwrite the stored encrypted secret without verifying the existing factor. This could permit replacement of an active factor from a compromised authenticated session.
+
+### Correction submitted in Draft PR #11
+
+- `AuthService.start_mfa_enrollment` now rejects replacement when `user.mfa_enabled` is true.
+- The API maps the service rejection to HTTP 409 Conflict.
+- Existing-factor replacement requires the user to prove the current factor through the password + TOTP disable flow before enrolling again.
+- Added service-level regression coverage proving the encrypted original secret is unchanged.
+- Added HTTP regression coverage proving an authenticated session cannot replace an already-enabled factor without disabling it through the protected flow.
+
+Latest PR #11 head: `8061500a90ec4a3aeaa52cce51f850773ef0414e`. New backend and security CI are running; do not transfer the previous head's green status to this commit. Previous exact-head verification at `c11dc9de719a3fb417a0c9760b2cff944aed4d7a` passed (1,633 backend tests, 8 warnings; CodeQL and dependency audit passed), but is superseded by the new factor-replacement hardening commit.
+
+### Remaining MFA review
+
+Review enrollment pending-state expiry, TOTP attempt throttling, recovery codes, notification of security-factor changes, and deployment/session revocation behavior. Do not claim MFA security is fully complete based on these fixes alone.
+
+
+## MFA enrollment password step-up — latest Draft PR #11 update
+
+A third MFA hardening step now requires password reauthentication before initial enrollment. The service validates the password before generating or storing a new TOTP secret; the API returns 401 on incorrect password. Already-enabled factors continue to be non-replaceable from enrollment and return 409; replacement requires the existing password + current TOTP disable flow first.
+
+Regression tests cover wrong-password rejection with no secret persisted, correct-password enrollment, and prevention of replacing an enabled factor. The API enrollment contract now requires a JSON password field.
+
+Latest PR #11 head: `10657cf099aaed17c7d4a18f2878ebd4d48f9f1a`. Backend CI #41648211858 is running and Security CI #41648211953 is queued. Previous green checks apply only to earlier PR #11 heads and do not verify this update. MFA remains under review; recovery codes, pending enrollment expiry, attempt throttling, and security-change notifications are not yet verified.
+
+
+## Exact-head MFA verification — 3 November 2026
+
+Draft PR #11 MFA hardening is now verified on its latest head `10657cf099aaed17c7d4a18f2878ebd4d48f9f1a`.
+
+- Backend workflow #41648211858: SUCCESS — 1,637 passed, 8 warnings; broker-write boundary guard passed.
+- Security workflow #41648211953: SUCCESS — CodeQL and Python dependency vulnerability audit passed.
+- PR #11 remains Draft/unmerged.
+
+The changes require password reauthentication for initial MFA enrollment, reject replacement while an MFA factor is enabled, and inject FastAPI Response so MFA enable/disable can clear browser cookies. Earlier failed backend runs on intermediate commits are superseded by this exact-head green result.
+
+Documentation checkpoint before this addendum was verified on `22570af88916ea2c940831051ed429da5a701319` (Backend #41648348189 and Security #41648348210 both SUCCESS). This addendum creates a new documentation commit and therefore requires fresh exact-head CI before it becomes a verified checkpoint.

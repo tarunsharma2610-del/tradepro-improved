@@ -6,6 +6,7 @@ import subprocess
 import shutil
 import socket
 import sys
+import time
 import textwrap
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -647,4 +648,145 @@ async def test_real_redis_worker_process_crash_expires_lease_and_allows_failover
         if replacement is not None:
             await replacement.close()
         await redis.delete(marker_key, lease_key)
+        await redis.aclose()
+
+
+@pytest.mark.asyncio
+async def test_real_redis_parallel_process_publish_load_preserves_versions_and_measures_latency():
+    """Exercise concurrent publisher processes against Redis 7, not an in-memory fake."""
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    process_count = 4
+    publishes_per_process = 100
+    instrument = "NSE_EQ|MULTIPROCESS_LOAD"
+    workers = [
+        {
+            "worker_id": f"load-worker-{index}",
+            "user_id": str(uuid4()),
+            "base_price": 1000.0 + (index * 100.0),
+        }
+        for index in range(process_count)
+    ]
+    child_script = textwrap.dedent(
+        """
+        import asyncio
+        import json
+        import os
+        import time
+        from datetime import datetime, timezone
+        from uuid import UUID
+
+        from redis.asyncio import Redis
+        from app.services.redis_market_quote_publisher import RedisMarketQuotePublisher
+        from app.services.upstox_market_data_streamer import MarketTick
+
+        async def main():
+            redis = Redis.from_url(os.environ["REDIS_TEST_URL"], decode_responses=True)
+            user_id = UUID(os.environ["LOAD_USER_ID"])
+            instrument = os.environ["LOAD_INSTRUMENT"]
+            count = int(os.environ["LOAD_COUNT"])
+            base_price = float(os.environ["LOAD_BASE_PRICE"])
+            publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+            latencies_ms = []
+            started = time.perf_counter()
+            for sequence in range(1, count + 1):
+                now = datetime.now(timezone.utc)
+                tick = MarketTick(
+                    instrument_key=instrument,
+                    ltp=base_price + sequence,
+                    exchange_timestamp_ms=int(now.timestamp() * 1000),
+                    received_at=now,
+                    received_monotonic=time.monotonic(),
+                )
+                publish_started = time.perf_counter()
+                if not await publisher.publish(tick):
+                    raise RuntimeError(f"Redis rejected quote sequence {sequence}")
+                latencies_ms.append((time.perf_counter() - publish_started) * 1000)
+                await asyncio.sleep(0.005)
+            ordered = sorted(latencies_ms)
+            p95 = ordered[min(len(ordered) - 1, int(len(ordered) * 0.95))]
+            print(json.dumps({
+                "worker_id": os.environ["LOAD_WORKER_ID"],
+                "published": count,
+                "elapsed_ms": (time.perf_counter() - started) * 1000,
+                "p95_publish_ms": p95,
+                "max_publish_ms": max(latencies_ms),
+            }), flush=True)
+            await redis.aclose()
+
+        asyncio.run(main())
+        """
+    )
+    processes = []
+    started = time.perf_counter()
+    try:
+        for worker in workers:
+            env = os.environ.copy()
+            env.update({
+                "REDIS_TEST_URL": REDIS_TEST_URL,
+                "LOAD_WORKER_ID": worker["worker_id"],
+                "LOAD_USER_ID": worker["user_id"],
+                "LOAD_INSTRUMENT": instrument,
+                "LOAD_COUNT": str(publishes_per_process),
+                "LOAD_BASE_PRICE": str(worker["base_price"]),
+            })
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                child_script,
+                cwd=os.getcwd(),
+                env=env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            processes.append((worker, process))
+
+        async with asyncio.timeout(30):
+            outputs = await asyncio.gather(
+                *(process.communicate() for _, process in processes)
+            )
+
+        wall_seconds = time.perf_counter() - started
+        observations = []
+        for (worker, process), (stdout, stderr) in zip(processes, outputs):
+            assert process.returncode == 0, (
+                f"{worker['worker_id']} exited {process.returncode}: "
+                f"{stderr.decode(errors='replace')}"
+            )
+            result = json.loads(stdout.decode().strip())
+            assert result["worker_id"] == worker["worker_id"]
+            assert result["published"] == publishes_per_process
+            assert result["elapsed_ms"] > 0
+            assert result["p95_publish_ms"] >= 0
+            assert result["max_publish_ms"] >= result["p95_publish_ms"]
+            observations.append(result)
+
+        total_published = sum(item["published"] for item in observations)
+        observed_throughput = total_published / wall_seconds
+        observed_p95_ms = max(item["p95_publish_ms"] for item in observations)
+        assert total_published == process_count * publishes_per_process
+        assert wall_seconds > 0
+        assert observed_throughput > 0
+        assert observed_p95_ms >= 0
+
+        for worker in workers:
+            user_id = UUID(worker["user_id"])
+            consumer = RedisMarketQuoteConsumer(redis, user_id, max_age_seconds=15)
+            quote = await consumer.get_quote(instrument)
+            assert quote is not None
+            assert quote["user_id"] == worker["user_id"]
+            assert quote["version"] == publishes_per_process
+            assert quote["ltp"] == worker["base_price"] + publishes_per_process
+    finally:
+        for _, process in processes:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+        cleanup_keys = []
+        for worker in workers:
+            publisher = RedisMarketQuotePublisher(redis, UUID(worker["user_id"]))
+            cleanup_keys.extend([
+                publisher.snapshot_key(instrument),
+                publisher.snapshot_key(instrument) + ":version",
+            ])
+        await redis.delete(*cleanup_keys)
         await redis.aclose()

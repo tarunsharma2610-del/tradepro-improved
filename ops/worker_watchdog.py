@@ -19,29 +19,29 @@ STATE_FILE = Path(os.environ.get("TRADEPRO_WATCHDOG_STATE", "/var/lib/tradepro-w
 WEBHOOK_URL = os.environ.get("TRADEPRO_WATCHDOG_WEBHOOK_URL", "").strip()
 
 
-def worker_state() -> tuple[str, str]:
+def worker_state() -> tuple[str, str, str]:
     result = subprocess.run(
         ["docker", "compose", "-f", str(COMPOSE_FILE), "ps", "-q", "worker"],
         check=False, capture_output=True, text=True, timeout=10,
     )
     container_id = result.stdout.strip().splitlines()
     if result.returncode != 0:
-        return "unknown", "Docker Compose inspection failed"
+        return "unknown", "unknown", "Docker Compose inspection failed"
     if not container_id:
-        return "missing", "worker container is absent"
+        return "missing", "missing", "worker container is absent"
     inspected = subprocess.run(
         ["docker", "inspect", "--format", "{{.State.Status}} {{.RestartCount}}", container_id[0]],
         check=False, capture_output=True, text=True, timeout=10,
     )
     if inspected.returncode != 0:
-        return "unknown", "Docker inspection failed"
+        return "unknown", "unknown", "Docker inspection failed"
     fields = inspected.stdout.strip().split()
     if len(fields) != 2:
-        return "unknown", "Docker returned an invalid worker state"
+        return "unknown", "unknown", "Docker returned an invalid worker state"
     status, restart_count = fields
     if status != "running":
-        return "down", f"worker container state is {status}"
-    return "running", f"worker container running; restart_count={restart_count}"
+        return "down", f"down:{status}", f"worker container state is {status}"
+    return "running", f"running:{restart_count}", f"worker container running; restart_count={restart_count}"
 
 
 def _notify(state: str, detail: str) -> None:
@@ -65,14 +65,14 @@ def _notify(state: str, detail: str) -> None:
 
 
 def main() -> int:
-    state, detail = worker_state()
+    state, fingerprint, detail = worker_state()
     try:
         previous = STATE_FILE.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         previous = ""
     except OSError:
         previous = ""
-    if state != previous:
+    if fingerprint != previous:
         _notify(state, detail)
         try:
             STATE_FILE.parent.mkdir(parents=True, exist_ok=True)

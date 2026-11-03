@@ -1,3 +1,7 @@
+## 3 November 2026 — watchdog can run when Docker daemon is down
+
+Removed the hard systemd `Requires=docker.service` dependency while retaining `After=docker.service` ordering. This avoids suppressing the host watchdog when Docker is failed/inactive; it can now report an `unknown` inspection state and attempt the configured HTTPS notification. A static unit regression test protects this behavior. Commits: `adf38c32cbb73b16f9f23494d7573906b2e23f38` and `e1bcae4a51ced3cd12a4b1af7eeba6c6a989fac4`. Exact-head CI pending. Independent monitoring is still needed for VM/host outage.
+
 ## Current verified Phase 4 checkpoint — 3 November 2026
 
 - Repository: `tarunsharma2610-del/tradepro-improved` only; implementation branch: `phase4/operational-alerting`.

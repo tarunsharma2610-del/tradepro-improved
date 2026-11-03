@@ -231,14 +231,14 @@ async def test_postgres_paper_stop_event_handler_sustained_load(monkeypatch, rec
     tasks = [asyncio.create_task(worker.run()) for worker in workers]
     started = time.perf_counter()
     try:
-        await asyncio.wait_for(dispatcher._queue.join(), timeout=90)
-    finally:
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
-    elapsed = time.perf_counter() - started
+        try:
+            await asyncio.wait_for(dispatcher._queue.join(), timeout=90)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        elapsed = time.perf_counter() - started
 
-    try:
         assert sum(worker.processed_count for worker in workers) == observation_count
         assert sum(worker.failure_count for worker in workers) == 0
         assert len(completion_latencies_ms) == observation_count

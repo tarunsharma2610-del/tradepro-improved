@@ -71,7 +71,7 @@ class RedisDispatchMetricsExporter:
 
     def __init__(self, *, worker_id: str | None = None) -> None:
         self.worker_id = worker_id or uuid4().hex
-        self._last_flushed = {name: 0 for name in _ALLOWED_COUNTERS}
+        self._last_flushed = dict(snapshot()["counters"])
         self._sequence = 0
 
     async def flush_once(self, redis_client) -> bool:

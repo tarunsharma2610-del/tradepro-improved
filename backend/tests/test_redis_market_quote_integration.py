@@ -9,7 +9,7 @@ import sys
 import time
 import textwrap
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from redis.asyncio import Redis

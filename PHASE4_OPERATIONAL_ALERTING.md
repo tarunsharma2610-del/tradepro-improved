@@ -79,3 +79,10 @@ A separate host-side watchdog has now been added because an in-process monitor c
 - Tests are in `backend/tests/test_host_worker_watchdog.py`.
 
 See `PHASE4_EXTERNAL_WATCHDOG.md` for installation and limitations. This is code and test coverage only; it has not been installed on the Oracle VM. VM/Docker daemon/systemd failure still requires cloud-provider instance monitoring and an independent notification route. A one-minute poll may miss brief failures that recover without incrementing Docker restart count.
+
+
+## Real Redis multi-client alert deduplication — 3 November 2026
+
+Added an integration test in `backend/tests/test_operational_alert_service.py` that uses the CI-provided `REDIS_TEST_URL` service and two independent Redis clients. Both clients concurrently attempt to claim the same unique alert fingerprint through Redis `SET NX EX`; the test requires exactly one successful claim and exactly one Telegram send. The test is skipped only when the dedicated Redis integration URL is absent (local environments without Redis); the backend CI workflow provisions Redis 7 and sets this URL.
+
+This strengthens the previous in-memory fake test but remains a focused atomic-deduplication integration test, not a full multi-process deployment or Telegram network smoke test. Real Telegram delivery and multi-container fault injection remain deployment gates. Exact-head Backend and Security CI are required for this test and the subsequent documentation sync.

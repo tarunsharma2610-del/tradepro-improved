@@ -316,3 +316,22 @@ This is a focused source-and-regression-test review, not a formal penetration te
 ### Safety
 
 PAPER remains mandatory. Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. PRs #9, #10, and #11 remain Draft/unmerged. Only `tradepro-improved` is in scope; original `Tradepro` is untouched.
+
+
+## MFA factor replacement hardening — 3 November 2026
+
+A deeper authentication review found that an authenticated user could call MFA enrollment while MFA was already enabled; the service would overwrite the stored encrypted secret without verifying the existing factor. This could permit replacement of an active factor from a compromised authenticated session.
+
+### Correction submitted in Draft PR #11
+
+- `AuthService.start_mfa_enrollment` now rejects replacement when `user.mfa_enabled` is true.
+- The API maps the service rejection to HTTP 409 Conflict.
+- Existing-factor replacement requires the user to prove the current factor through the password + TOTP disable flow before enrolling again.
+- Added service-level regression coverage proving the encrypted original secret is unchanged.
+- Added HTTP regression coverage proving an authenticated session cannot replace an already-enabled factor without disabling it through the protected flow.
+
+Latest PR #11 head: `8061500a90ec4a3aeaa52cce51f850773ef0414e`. New backend and security CI are running; do not transfer the previous head's green status to this commit. Previous exact-head verification at `c11dc9de719a3fb417a0c9760b2cff944aed4d7a` passed (1,633 backend tests, 8 warnings; CodeQL and dependency audit passed), but is superseded by the new factor-replacement hardening commit.
+
+### Remaining MFA review
+
+Review enrollment pending-state expiry, TOTP attempt throttling, recovery codes, notification of security-factor changes, and deployment/session revocation behavior. Do not claim MFA security is fully complete based on these fixes alone.

@@ -15,6 +15,7 @@ def quote(user_id, **overrides):
         "volume_traded_today": 125000, "open_interest": None,
         "total_buy_quantity": 600, "total_sell_quantity": 400,
         "option_greeks": {"delta": 0.62, "theta": None, "gamma": float("nan")},
+        "depth": [{"bid_price": 109.9, "ask_price": 110.1, "bid_quantity": 250, "ask_quantity": 300}],
     }
     data.update(overrides)
     return data
@@ -29,6 +30,11 @@ def test_scanner_computes_observation_without_trade_signal():
     assert result.open_interest is None
     assert result.buy_sell_imbalance == 0.2
     assert result.option_greeks == {"delta": 0.62}
+    assert result.best_bid_price == 109.9
+    assert result.best_ask_price == 110.1
+    assert round(result.spread_bps, 4) == round((0.2 / 110.0) * 10_000, 4)
+    assert result.best_bid_quantity == 250
+    assert result.best_ask_quantity == 300
     assert not hasattr(result, "signal")
     assert scanner.latest(user_id, result.instrument_key) == result
 
@@ -46,13 +52,16 @@ def test_scanner_preserves_missing_values():
     result = scanner.process_quote(user_id, quote(
         user_id, ohlc=[{"interval": "1m", "close": 100.0}],
         volume_traded_today=None, total_buy_quantity=None,
-        total_sell_quantity=None, option_greeks=None,
+        total_sell_quantity=None, option_greeks=None, depth=None,
     ))
     assert result is not None
     assert result.price_change_pct is None
     assert result.volume_traded_today is None
     assert result.buy_sell_imbalance is None
     assert result.option_greeks is None
+    assert result.spread_bps is None
+    assert result.best_bid_quantity is None
+    assert result.best_ask_quantity is None
 
 
 def test_scanner_rejects_invalid_boundary_fields():
@@ -132,3 +141,28 @@ def test_scanner_accepts_exchange_timestamp_within_future_clock_skew():
         now=now,
     )
     assert result is not None
+
+
+def test_scanner_rejects_crossed_or_invalid_top_of_book_spread():
+    user_id, scanner = uuid4(), MarketScanner()
+    crossed = scanner.process_quote(user_id, quote(
+        user_id,
+        depth=[{"bid_price": 101.0, "ask_price": 100.0,
+                "bid_quantity": 20, "ask_quantity": 30}],
+    ))
+    assert crossed is not None
+    assert crossed.best_bid_price is None
+    assert crossed.best_ask_price is None
+    assert crossed.spread_bps is None
+    assert crossed.best_bid_quantity == 20
+    assert crossed.best_ask_quantity == 30
+
+    invalid = scanner.process_quote(user_id, quote(
+        user_id, version=2,
+        depth=[{"bid_price": float("nan"), "ask_price": 100.0,
+                "bid_quantity": -1, "ask_quantity": float("inf")}],
+    ))
+    assert invalid is not None
+    assert invalid.spread_bps is None
+    assert invalid.best_bid_quantity is None
+    assert invalid.best_ask_quantity is None

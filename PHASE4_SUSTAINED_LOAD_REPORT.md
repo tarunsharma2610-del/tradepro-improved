@@ -1,3 +1,16 @@
+## Current verified operational checkpoint — 3 November 2026
+
+- Latest verified watchdog implementation: `af6d469af969d9705c4527922dcde96c9c373638`.
+- Backend CI [#41674075611 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41674075611): **1,654 passed, 8 warnings, zero skipped**. Broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips and synthetic restore drill passed.
+- Security CI [#41674075641 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41674075641): CodeQL and dependency audit passed.
+- The real Docker Compose two-replica kill/recovery test is already complete and green on implementation commit `ff0a4b42a9a6aab021dffa10835b29d6228a93e4` (Backend #41671768895, Security #41671768838). It is not pending.
+- The PostgreSQL SIGKILL stop-event execution-worker recovery test is also complete on its verified checkpoint; do not duplicate it.
+- The notification retry correction leaves the previous fingerprint unchanged when a configured webhook fails, so the next systemd timer invocation retries.
+- Still pending: Oracle VM installation and controlled failure/alert retry drill; independent cloud/VM monitoring; sustained load with full database-backed handler work and end-to-end latency; independent penetration review.
+- A short synthetic dispatcher benchmark is not a production capacity claim. No live broker writes are enabled; PAPER-only remains mandatory.
+
+---
+
 ## Current verified Phase 4 checkpoint — 3 November 2026
 
 - Repository: `tarunsharma2610-del/tradepro-improved` only; implementation branch: `phase4/operational-alerting`.

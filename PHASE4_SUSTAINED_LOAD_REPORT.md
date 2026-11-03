@@ -142,3 +142,10 @@ Draft PR #12 adds a PAPER worker-fleet alert monitor and admin-configured Telegr
 - Automated tests cover threshold deltas, aggregate-only content, Telegram delivery/dedupe, invalid destination and missing-worker threshold.
 
 PR #12 head is subject to exact-head Backend and Security CI. A successful CI run does not prove live Telegram delivery; a credentialed deployment smoke test and multi-replica fault-injection remain required. PAPER-only and broker-write restrictions remain unchanged. PR #12 is Draft/unmerged.
+
+
+## Operational alert follow-up — 3 November 2026
+
+Code review found and fixed a cooldown edge case: missing/invalid Telegram configuration previously could leave a Redis dedupe key active for the full five-minute cooldown. The monitor now releases that key so correcting the admin destination allows immediate retry. Added automated tests for two independent monitor instances sharing Redis (only one notification is sent for the same fleet delta) and configuration correction/retry without waiting for cooldown.
+
+See `PHASE4_OPERATIONAL_ALERTING.md`. Latest alert code commit before this documentation sync: `4f7829a8019758b9eb0fc770dcae80d9cbb1c428`. Backend and Security CI are running for the code follow-up; this documentation sync itself will trigger fresh exact-head workflows. Do not treat earlier green CI as verification of these new tests. Worker heartbeat remains an exporter heartbeat only; external monitoring is required to detect total container/process loss.

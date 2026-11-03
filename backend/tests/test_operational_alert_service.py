@@ -1,4 +1,9 @@
+import asyncio
+import os
+import uuid
 from unittest.mock import AsyncMock
+
+import redis.asyncio as redis_async
 
 import pytest
 
@@ -233,3 +238,48 @@ async def test_missing_destination_does_not_consume_alert_cooldown(monkeypatch):
     configured["chat_id"] = "12345"
     assert await monitor._send("config-retry", "test alert") is True
     sent.assert_awaited_once()
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    not os.getenv("REDIS_TEST_URL"),
+    reason="requires dedicated Redis integration-test database",
+)
+async def test_real_redis_deduplicates_alerts_across_monitor_instances(monkeypatch):
+    """Two independent Redis clients must atomically claim one alert cooldown."""
+    url = os.environ["REDIS_TEST_URL"]
+    client_one = redis_async.from_url(url, decode_responses=True)
+    client_two = redis_async.from_url(url, decode_responses=True)
+    sent = []
+
+    monkeypatch.setattr(
+        ops, "PlatformSettingsService",
+        lambda db: _Settings(db, {
+            "telegram_bot_token": "test-token",
+            "ops_alert_telegram_chat_id": "12345",
+        }),
+    )
+
+    async def send(token, chat_id, message):
+        sent.append((token, chat_id, message))
+        return type("Result", (), {"ok": True, "error": None})()
+
+    monkeypatch.setattr(ops.telegram_notifier, "send_message", send)
+    fingerprint = f"real-redis-integration-{uuid.uuid4().hex}"
+    first = ops.OperationalAlertMonitor(
+        client_one, session_factory=_Db, cooldown_seconds=30
+    )
+    second = ops.OperationalAlertMonitor(
+        client_two, session_factory=_Db, cooldown_seconds=30
+    )
+
+    try:
+        results = await asyncio.gather(
+            first._send(fingerprint, "synthetic integration alert"),
+            second._send(fingerprint, "synthetic integration alert"),
+        )
+        assert sorted(results) == [False, True]
+        assert len(sent) == 1
+    finally:
+        await client_one.delete(f"{ops._DEDUPE_PREFIX}{fingerprint}")
+        await client_one.aclose()
+        await client_two.aclose()

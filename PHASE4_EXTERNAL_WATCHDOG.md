@@ -1,3 +1,11 @@
+## Docker-daemon independence correction — 3 November 2026
+
+- Found and removed the systemd unit's hard `Requires=docker.service` dependency. The watchdog remains ordered after Docker when Docker is present, but systemd can now start the watchdog even when the Docker daemon is failed or inactive.
+- When Docker inspection is unavailable, the watchdog's existing fail-closed `unknown` state and optional external HTTPS notification path can run, provided the host and network remain available.
+- Added a regression test that asserts the service has `After=docker.service` and does not contain `Requires=docker.service`.
+- Implementation commits: `adf38c32cbb73b16f9f23494d7573906b2e23f38` (systemd unit) and `e1bcae4a51ced3cd12a4b1af7eeba6c6a989fac4` (test). CI is required on the final branch head.
+- This does not monitor a powered-off/unreachable VM. Independent cloud/VM monitoring remains required.
+
 ## Current verified Phase 4 checkpoint — 3 November 2026
 
 - Repository: `tarunsharma2610-del/tradepro-improved` only; implementation branch: `phase4/operational-alerting`.

@@ -204,3 +204,12 @@ Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`.
 - This does not claim Prometheus integration, production alerting, sustained-load acceptance, deployment readiness, or Phase 4 completion.
 - Remaining Phase 4 gates: end-to-end Redis snapshot recovery → scanner/dispatcher → durable stop-event intake → final PAPER ledger/position acceptance; more multi-process/crash-window races; PAPER/LIVE isolation audit; security/authorization/secret-redaction review; sustained-load and backpressure testing; exact-head documentation CI.
 - Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 Draft/unmerged; no merge/deployment/LIVE activation; original `Tradepro` repository untouched.
+
+
+## PostgreSQL recovery-sweeper fault-window coverage — 3 November 2026
+
+Added `test_postgres_recovery_sweeper_resumes_expired_executing_worker` to `backend/tests/test_paper_stop_event_claim_postgres_concurrency.py`. It uses the CI PostgreSQL 16 service, persists an EXECUTING stop-event claim with an expired lease (representing loss of the original worker after its transaction closed), invokes the actual `recover_expired_paper_stop_events_once` sweeper without Redis redelivery, verifies the old claim token is replaced, and completes the event using the replacement token. It asserts the durable row is COMPLETED with attempt_count=2. The execution service's broker-facing method is stubbed at the boundary so this recovery test exercises database lifecycle orchestration without any broker or order-write call.
+
+This is a PostgreSQL-backed recovery-sweeper integration test, not an OS-level SIGKILL of a worker process or a full end-to-end fill test. The earlier PostgreSQL concurrency tests continue to cover duplicate execution, indicator-vs-stop exit, concurrent expired-lease reclaim, stale-token fencing, and retry exhaustion. Corrected a stale model docstring that incorrectly said workers did not create stop events.
+
+Exact-head Backend and Security CI are required for this change and the final documentation sync. Do not infer a green result from the previous checkpoint.

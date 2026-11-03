@@ -1100,3 +1100,15 @@ Static review covered the 13 routers registered by `backend/app/api/v1/router.py
 - Backend gates also passed on the code head: broker-write boundary guard; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade; isolated synthetic PostgreSQL/document-volume restore and evidence retention.
 - Remaining gates: longer-duration multi-process/multi-replica load with recorded acceptance thresholds; broader end-to-end queue saturation/backpressure metrics under sustained traffic; Redis snapshot → scanner/dispatcher → durable PAPER stop-event → execution → final ledger/position reconciliation; final PAPER/LIVE isolation, endpoint authorization/IDOR, secret-redaction and broker-write reachability audits; operational alerts/runbooks and independent security testing.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN, Draft and unmerged; no merge, deployment or LIVE activation.
+
+
+## Latest sustained-load and alerting checkpoint — 3 November 2026
+
+- Exact verified benchmark head: `edec040c5bb43ea572419345c5ecd50b76ab1c86` on Draft PR #10.
+- Backend CI #41645265983: SUCCESS on this exact head; 1,632 passed, 8 warnings; broker-write boundary guard passed.
+- Security CI #41645266170: SUCCESS on this exact head; CodeQL and dependency audit passed.
+- Concurrent synthetic PAPER dispatcher smoke test: 5,000 observations, 8 workers, queue capacity 512, 112,920.26 observations/second, p50 3.2393 ms, p95 4.3143 ms, p99 4.4683 ms; 21 bounded-queue rejections were retried and all observations were processed. This is an in-process CI smoke benchmark, not production or end-to-end capacity evidence.
+- Full measurements and limitations: `PHASE4_SUSTAINED_LOAD_REPORT.md`.
+- Alerting is NOT implemented. Compose currently has PostgreSQL, Redis, backend, worker, frontend and Nginx, but no independent Prometheus/Alertmanager/notification service. Proposed thresholds are design candidates only, not approved production settings.
+- Remaining: independent alert delivery/failure recovery; endpoint-by-endpoint IDOR/cross-user authorization review; realistic sustained-load and multi-replica crash-window testing; final documentation synchronization and exact-head CI.
+- Safety unchanged: PAPER mandatory; live broker order writes disabled; PR #9 and #10 Draft/unmerged; only `tradepro-improved`; original `Tradepro` untouched.

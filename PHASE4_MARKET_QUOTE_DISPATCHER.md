@@ -279,3 +279,24 @@ Historical entries above are retained as historical evidence. Current authoritat
 - Backend gates also passed on the code head: broker-write boundary guard; SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade; isolated synthetic PostgreSQL/document-volume restore and evidence retention.
 - Remaining gates: longer-duration multi-process/multi-replica load with recorded acceptance thresholds; broader end-to-end queue saturation/backpressure metrics under sustained traffic; Redis snapshot → scanner/dispatcher → durable PAPER stop-event → execution → final ledger/position reconciliation; final PAPER/LIVE isolation, endpoint authorization/IDOR, secret-redaction and broker-write reachability audits; operational alerts/runbooks and independent security testing.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 OPEN, Draft and unmerged; no merge, deployment or LIVE activation.
+
+
+## Verified Docker Compose worker-fleet fault drill — 3 November 2026
+
+Supersedes earlier statements that the real multi-container watchdog drill was pending.
+
+- Exact implementation/test commit: `ff0a4b42a9a6aab021dffa10835b29d6228a93e4`.
+- Backend workflow [#41671768895 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41671768895): **1,651 passed, 8 warnings, zero skipped**; broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic PostgreSQL/document-volume restore drill passed.
+- Security workflow [#41671768838 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41671768838): CodeQL and Python dependency vulnerability audit passed.
+- Zero skipped tests confirms `test_real_compose_worker_replica_kill_and_recovery` ran in hosted CI rather than taking its Docker-unavailable skip path.
+- The test used two disposable BusyBox Compose workers: RUNNING (2/2), kill one → DEGRADED (1/2), kill second → DOWN (0/2), recreate both → RUNNING (2/2). Cleanup uses Compose down.
+- This closes the hosted-CI multi-container watchdog test gap. It does not prove Oracle VM installation, host-level alert delivery, independent cloud monitoring, or production availability.
+
+## Current state and next gate
+
+- PR #12 remains OPEN, Draft, and unmerged. No merge or ready-for-review transition without explicit user approval.
+- Only `tarunsharma2610-del/tradepro-improved` is in scope; original `tarunsharma2610-del/Tradepro` remains untouched.
+- PAPER-only remains mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled.
+- Remaining gates: install/exercise the external watchdog on Oracle VM; verify an independent notification destination and cloud/instance health monitoring; run sustained load with full database-backed handler work and measure latency/recovery; complete independent security/penetration review.
+- Do not duplicate the passing Docker Compose fault test or PostgreSQL SIGKILL stop-event recovery test. Inspect existing coverage before adding reliability work.
+- The follow-up documentation commit requires its own exact-head Backend and Security CI before becoming a verified documentation checkpoint.

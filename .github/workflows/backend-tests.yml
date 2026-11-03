@@ -69,7 +69,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-pytest-results
-          path: backend/pytest-results.xml
+          path: |
+            backend/pytest-results.xml
+            backend/dispatch-benchmark-results.json
           if-no-files-found: warn
           retention-days: 14
       - name: Enforce broker write boundary

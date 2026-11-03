@@ -376,3 +376,178 @@ def test_postgres_indicator_exit_and_stop_event_race_flatten_position_once():
     finally:
         _cleanup_execution_fixture(Session, ids)
         engine.dispose()
+
+
+def test_sigkilled_execution_worker_recovers_paper_stop_without_redis(tmp_path, monkeypatch):
+    """A real OS process dies after the claim commit; PostgreSQL recovery executes once.
+
+    The child uses the production _execute_event path and is SIGKILLed only
+    after that path commits the claim/token and enters execute_claimed. The
+    parent then recovers solely from PostgreSQL, with no Redis delivery.
+    """
+    import subprocess
+    import sys
+    import time
+    from pathlib import Path
+
+    engine = create_engine(
+        os.environ["TEST_POSTGRES_URL"],
+        pool_size=4,
+        max_overflow=0,
+        pool_pre_ping=True,
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    import app.services.paper_stop_event_dispatch_handler as handler
+    monkeypatch.setattr(handler, "SessionLocal", Session)
+    ids = _seed_execution_fixture(Session, uuid4().hex[:12])
+    user_id, portfolio_id, instrument_id, strategy_id = ids
+
+    with Session.begin() as db:
+        event = PaperStopEventClaimService(db).claim_trailing_stop(
+            user_id=user_id,
+            portfolio_id=portfolio_id,
+            strategy_id=strategy_id,
+            instrument_id=instrument_id,
+            quote_epoch=f"postgres-sigkill-{uuid4()}",
+            quote_version=1,
+            trigger_price=Decimal("98.25"),
+            lease_seconds=300,
+        )
+        assert event is not None
+        event_id, original_token = event.id, event.claim_token
+
+    marker = Path(tmp_path) / "execution-entered"
+    child_script = r"""
+import asyncio
+import os
+from uuid import UUID
+
+os.environ["DATABASE_URL"] = os.environ["TEST_POSTGRES_URL"]
+from app.services.paper_stop_event_dispatch_handler import _execute_event
+from app.services.paper_stop_event_execution_service import PaperStopEventExecutionService
+
+async def pause_after_claim_commit(self, **kwargs):
+    with open(os.environ["PAPER_STOP_CRASH_MARKER"], "w", encoding="utf-8") as marker:
+        marker.write(str(kwargs["claim_token"]))
+        marker.flush()
+        os.fsync(marker.fileno())
+    while True:
+        await asyncio.sleep(1)
+
+PaperStopEventExecutionService.execute_claimed = pause_after_claim_commit
+asyncio.run(_execute_event(UUID(os.environ["PAPER_STOP_EVENT_ID"]), UUID(os.environ["PAPER_STOP_USER_ID"])))
+"""
+    child_env = os.environ.copy()
+    child_env["DATABASE_URL"] = os.environ["TEST_POSTGRES_URL"]
+    child_env["PAPER_STOP_CRASH_MARKER"] = str(marker)
+    child_env["PAPER_STOP_EVENT_ID"] = str(event_id)
+    child_env["PAPER_STOP_USER_ID"] = str(user_id)
+    child = None
+
+    try:
+        child = subprocess.Popen(
+            [sys.executable, "-c", child_script],
+            cwd=os.getcwd(),
+            env=child_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline and not marker.exists():
+            if child.poll() is not None:
+                stdout, stderr = child.communicate(timeout=5)
+                pytest.fail(
+                    "Execution worker exited before claim-commit marker. "
+                    f"exit={child.returncode}; stdout={stdout}; stderr={stderr}"
+                )
+            time.sleep(0.05)
+        assert marker.exists(), "Execution worker never reached post-claim execution boundary"
+        assert marker.read_text(encoding="utf-8") == str(original_token)
+
+        # This is an actual process kill, not a mocked exception or cancellation.
+        child.kill()
+        child.wait(timeout=10)
+
+        with Session.begin() as db:
+            crashed_event = db.get(PaperStopEvent, event_id)
+            assert crashed_event is not None
+            assert crashed_event.state == "CLAIMED"
+            assert crashed_event.claim_token == original_token
+            crashed_event.claimed_until = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+        with Session() as db:
+            instrument_key = db.get(Instrument, instrument_id).instrument_key
+
+        now = datetime.now(timezone.utc).isoformat()
+        level = {"price": "99.00", "quantity": 100000, "orders": 10}
+        quote = {
+            "instrument_token": instrument_key,
+            "last_price": "99.00",
+            "last_trade_time": "1600000000000",
+            "timestamp": now,
+            "depth": {"buy": [level], "sell": [level]},
+        }
+        adapter = type("FakeAdapter", (), {
+            "get_full_quote": AsyncMock(return_value=BrokerCallResult(
+                ok=True, data={"data": {instrument_key: quote}}
+            ))
+        })()
+
+        # Recovery is called directly from PostgreSQL; no Redis publish,
+        # redelivery, or market-quote worker is involved.
+        with patch(
+            "app.services.execution_service.get_broker_adapter",
+            return_value=adapter,
+        ), patch(
+            "app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED",
+            False,
+        ):
+            recovered = asyncio.run(handler.recover_expired_paper_stop_events_once())
+
+        assert recovered == 1
+        assert adapter.get_full_quote.await_count == 1
+
+        with Session() as db:
+            saved_event = db.get(PaperStopEvent, event_id)
+            orders = db.query(Order).filter(Order.paper_stop_event_id == event_id).all()
+            executions = db.query(Execution).join(
+                Order, Execution.order_id == Order.id
+            ).filter(Order.paper_stop_event_id == event_id).all()
+            position = db.query(Position).filter_by(
+                portfolio_id=portfolio_id,
+                instrument_id=instrument_id,
+            ).one()
+            portfolio = db.get(Portfolio, portfolio_id)
+
+            assert saved_event.state == "COMPLETED"
+            assert saved_event.claim_token != original_token
+            assert saved_event.attempt_count == 2
+            assert len(orders) == 1 and orders[0].status == "FILLED"
+            assert len(executions) == 1
+            assert position.quantity == 0
+            assert portfolio.cash_balance != Decimal("100000.00")
+
+        # The token held by the killed process is fenced after recovery.
+        from app.services.paper_stop_event_execution_service import PaperStopEventExecutionRejected
+        with Session() as stale_session:
+            with pytest.raises(PaperStopEventExecutionRejected, match="Claim token"):
+                asyncio.run(PaperStopEventExecutionService(stale_session).execute_claimed(
+                    user_id=user_id,
+                    event_id=event_id,
+                    claim_token=original_token,
+                ))
+        with Session() as verify_session:
+            assert verify_session.query(Order).filter(
+                Order.paper_stop_event_id == event_id
+            ).count() == 1
+            assert verify_session.query(Execution).join(
+                Order, Execution.order_id == Order.id
+            ).filter(Order.paper_stop_event_id == event_id).count() == 1
+    finally:
+        if child is not None and child.poll() is None:
+            child.kill()
+            child.wait(timeout=10)
+        _cleanup_execution_fixture(Session, ids)
+        engine.dispose()

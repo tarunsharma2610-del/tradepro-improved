@@ -1,3 +1,36 @@
+## Authoritative end-of-day checkpoint — 3 November 2026
+
+This entry supersedes older "latest/current/next step" summaries below it. Historical entries are retained as audit history and must not be mistaken for current status.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Do not modify the original `tarunsharma2610-del/Tradepro`.
+- PR #12: OPEN, Draft, unmerged. Head branch: `phase4/operational-alerting`. Keep Draft/unmerged unless the user explicitly approves a change.
+- Verified implementation/test head: `4becf8bb3ee9f4d9f664cc30f5ca7d35edc65fe4`.
+- Backend CI #41682006365: SUCCESS on that exact head. Full pytest, benchmark evidence retention, broker-write boundary enforcement, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill all completed successfully.
+- Security CI #41682006641: SUCCESS on that exact head. CodeQL static analysis and Python dependency vulnerability audit both passed.
+- Today's latest engineering correction: `backend/tests/test_paper_stop_event_sustained_load_postgres.py` now calculates p50/p95/p99 using nearest-rank percentile indexing (`ceil(p*n)-1`), avoiding under-reporting tail latency with the 12-observation sample. This is test/measurement correctness only; no execution/accounting behavior changed.
+- Sustained-load test scope: 12 durable PAPER stop-event claims, four concurrent workers, PostgreSQL 16 persistence and production PAPER handler/execution/accounting path; asserts completed events, filled PAPER orders, executions, flat positions and cash mutations; records throughput and latency. Synthetic market depth and pre-seeded durable claims mean this is a CI smoke benchmark, not a long-duration soak, production capacity certification, or combined Redis-to-PostgreSQL pipeline proof.
+- Reliability coverage already completed and must not be repeated without a newly identified gap: PostgreSQL stop-event worker SIGKILL recovery and stale-token fencing; concurrent duplicate execution and indicator-exit/stop-event race; Redis restart/reconnect and supervised PAPER acceptance coverage; real Docker Compose two-worker watchdog kill/recovery; watchdog failed-notification retry; Docker-daemon-independent watchdog startup/visibility.
+- Operational alerting and host watchdog code/tests exist, but real Telegram delivery and Oracle VM systemd installation/failure drill are not certified.
+- Next distinct integration gap: a combined real Redis 7 + PostgreSQL 16 end-to-end PAPER acceptance test spanning quote publication/consumption, scanner/dispatch, durable claim, PAPER handler, fill/ledger effects and duplicate/retry behavior. Existing Redis-to-PAPER acceptance coverage uses SQLite for its DB fixture; existing PostgreSQL concurrency/load tests do not by themselves prove the complete combined pipeline. Inspect current tests first and extend/reuse fixtures rather than duplicate existing coverage.
+- Other remaining gates: realistic longer-duration PostgreSQL-backed soak with CPU/memory/connection-pool/queue metrics and explicit latency/throughput thresholds; Oracle VM watchdog installation and controlled notification drill; independent cloud/VM monitoring; independent security/penetration review; final Phase 4 acceptance review.
+- Scanner-to-PAPER end-to-end proof and scanner API/ranking validation remain a separate acceptance item; do not assume scanner implementation alone proves execution/ledger integration.
+- Safety: PAPER mode mandatory. Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. No LIVE readiness, production deployment, Telegram delivery, Oracle VM installation, or production-scale capacity claim is made by these CI results.
+- Tomorrow's resume procedure: first refresh PR #12 metadata and workflow runs for the newest documentation head; verify both Backend and Security CI on the exact final docs commit. Then inspect only the combined Redis+PostgreSQL integration gap and existing tests before coding. Do not rerun already-passing reliability tasks or perform a broad repository re-audit unless the targeted inspection reveals a concrete reason. This checkpoint is intended to be sufficient to resume without reconstructing today's work.
+
+## Superseding verified Phase 4 checkpoint — 3 November 2026
+
+- Latest implementation head: `1d5776724a02aa3a74c791cd3c775019c44ab499`.
+- Backend CI [#41679324261 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41679324261): **1,656 passed, 9 warnings**. Broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, and synthetic PostgreSQL/document-volume restore drill all passed.
+- Security CI [#41679324313 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41679324313): CodeQL and Python dependency vulnerability audit passed.
+- New PostgreSQL 16 handler-load smoke test: `backend/tests/test_paper_stop_event_sustained_load_postgres.py`. It dispatches 12 already-committed durable PAPER stop claims through four concurrent workers and the production `handle_paper_market_observation` / execution / accounting path. It verifies 12 completed events, 12 filled PAPER orders, 12 executions, 12 flat positions and positive cash-balance mutations. It records throughput and p50/p95/p99 completion latency.
+- Benchmark scope is deliberately bounded: synthetic market-depth responses; committed claims are seeded using the production claim service; Redis ingestion is covered separately by the existing real-Redis acceptance test. This is a CI smoke benchmark, not a long-duration soak, production capacity result, or end-to-end Redis+PostgreSQL production SLA.
+- Earlier verified reliability work remains complete: PostgreSQL SIGKILL recovery of the PAPER stop-event worker; real Docker Compose two-replica watchdog kill/recovery; watchdog failed-webhook retry; Docker-daemon-independent watchdog startup.
+- PR #12 remains OPEN, Draft and unmerged; base branch `phase4/sustained-load-benchmark`.
+- Remaining gates: longer realistic PostgreSQL-backed soak/load with resource metrics; combined real-Redis + PostgreSQL acceptance; Oracle VM watchdog installation and controlled alert retry drill; independent cloud/VM monitoring; independent penetration review.
+- Safety: PAPER-only; live broker `place_order`, `modify_order`, and `cancel_order` writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
+
+---
+
 ## Phase 4 latest verified recovery checkpoint — 3 November 2026
 
 - Verified implementation: `2ee2939969b9679dda859086278ef07c4355d173`; Backend #41610938641 and Security #41610938496 both passed on this exact commit.

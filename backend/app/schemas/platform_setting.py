@@ -8,6 +8,7 @@ KNOWN_PLATFORM_SETTING_KEYS = {
     "whatsapp_api_token",
     "whatsapp_phone_number_id",  # WhatsApp Cloud API needs both this and the token — see whatsapp_notifier.py
     "telegram_bot_token",
+    "ops_alert_telegram_chat_id",  # Admin-only PAPER operational alert destination; encrypted at rest.
     "ai_provider_api_key",
     "news_api_key",
 }

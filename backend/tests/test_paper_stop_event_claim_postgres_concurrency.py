@@ -478,3 +478,104 @@ def test_two_postgres_workers_cannot_exceed_retry_limit():
     finally:
         _cleanup_claim_fixture(Session, ids)
         engine.dispose()
+
+@pytest.mark.asyncio
+async def test_postgres_recovery_sweeper_resumes_expired_executing_worker(
+    monkeypatch,
+):
+    """The real PostgreSQL sweeper resumes a durable claim after worker loss."""
+    from datetime import datetime, timedelta, timezone
+    from app.services.paper_stop_event_dispatch_handler import (
+        recover_expired_paper_stop_events_once,
+    )
+    from app.services.paper_stop_event_lifecycle import PaperStopEventLifecycle
+    import app.services.paper_stop_event_dispatch_handler as handler
+
+    engine = create_engine(
+        os.environ["TEST_POSTGRES_URL"],
+        pool_size=3,
+        max_overflow=0,
+        pool_pre_ping=True,
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    monkeypatch.setattr(handler, "SessionLocal", Session)
+    ids = _seed_claim_fixture(Session, uuid4().hex[:12])
+    user_id, portfolio_id, instrument_id, strategy_id = ids
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+
+    try:
+        with Session.begin() as db:
+            event = PaperStopEventClaimService(db).claim_trailing_stop(
+                user_id=user_id,
+                portfolio_id=portfolio_id,
+                strategy_id=strategy_id,
+                instrument_id=instrument_id,
+                quote_epoch=f"postgres-worker-crash-{uuid4()}",
+                quote_version=1,
+                trigger_price=Decimal("98.25"),
+                lease_seconds=120,
+                now=now - timedelta(seconds=50),
+            )
+            assert event is not None
+            event_id = event.id
+            original_token = event.claim_token
+            executing = PaperStopEventLifecycle(db).begin_execution(
+                event_id=event_id,
+                claim_token=original_token,
+                lease_seconds=10,
+                now=now - timedelta(seconds=40),
+            )
+            assert executing is not None and executing.state == "EXECUTING"
+
+        # The first worker is considered terminated: its DB transaction is
+        # closed, and its EXECUTING lease is already expired. The recovery
+        # sweeper must find the row without any Redis redelivery.
+        resumed = []
+
+        async def recovered_execution(_service, *, user_id, event_id, claim_token):
+            assert user_id == ids[0]
+            with Session.begin() as db:
+                lifecycle = PaperStopEventLifecycle(db)
+                current = lifecycle.begin_execution(
+                    event_id=event_id,
+                    claim_token=claim_token,
+                    lease_seconds=30,
+                )
+                assert current is not None
+                completed = lifecycle.complete(
+                    event_id=event_id,
+                    claim_token=claim_token,
+                )
+                assert completed is not None
+            resumed.append((event_id, claim_token))
+
+        monkeypatch.setattr(
+            handler.PaperStopEventExecutionService,
+            "execute_claimed",
+            recovered_execution,
+        )
+
+        recovered_count = await recover_expired_paper_stop_events_once(limit=10)
+        assert recovered_count == 1
+        assert len(resumed) == 1
+        assert resumed[0][0] == event_id
+        assert resumed[0][1] != original_token
+
+        with Session() as db:
+            saved = db.get(PaperStopEvent, event_id)
+            assert saved.state == "COMPLETED"
+            assert saved.claim_token == resumed[0][1]
+            assert saved.attempt_count == 2
+
+        # A worker that resumes after lease recovery must be fenced out even
+        # after the replacement worker has completed the durable event.
+        with Session.begin() as db:
+            stale_completion = PaperStopEventLifecycle(db).complete(
+                event_id=event_id,
+                claim_token=original_token,
+            )
+            assert stale_completion is None
+    finally:
+        _cleanup_claim_fixture(Session, ids)
+        engine.dispose()

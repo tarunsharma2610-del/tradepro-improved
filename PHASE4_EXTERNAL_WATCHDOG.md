@@ -1,0 +1,141 @@
+## Authoritative end-of-day checkpoint — 3 November 2026
+
+This entry supersedes older "latest/current/next step" summaries below it. Historical entries are retained as audit history and must not be mistaken for current status.
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only. Do not modify the original `tarunsharma2610-del/Tradepro`.
+- PR #12: OPEN, Draft, unmerged. Head branch: `phase4/operational-alerting`. Keep Draft/unmerged unless the user explicitly approves a change.
+- Verified implementation/test head: `4becf8bb3ee9f4d9f664cc30f5ca7d35edc65fe4`.
+- Backend CI #41682006365: SUCCESS on that exact head. Full pytest, benchmark evidence retention, broker-write boundary enforcement, SQLite migration round-trip, PostgreSQL 16 migration round-trip, synthetic PostgreSQL/document-volume restore drill all completed successfully.
+- Security CI #41682006641: SUCCESS on that exact head. CodeQL static analysis and Python dependency vulnerability audit both passed.
+- Today's latest engineering correction: `backend/tests/test_paper_stop_event_sustained_load_postgres.py` now calculates p50/p95/p99 using nearest-rank percentile indexing (`ceil(p*n)-1`), avoiding under-reporting tail latency with the 12-observation sample. This is test/measurement correctness only; no execution/accounting behavior changed.
+- Sustained-load test scope: 12 durable PAPER stop-event claims, four concurrent workers, PostgreSQL 16 persistence and production PAPER handler/execution/accounting path; asserts completed events, filled PAPER orders, executions, flat positions and cash mutations; records throughput and latency. Synthetic market depth and pre-seeded durable claims mean this is a CI smoke benchmark, not a long-duration soak, production capacity certification, or combined Redis-to-PostgreSQL pipeline proof.
+- Reliability coverage already completed and must not be repeated without a newly identified gap: PostgreSQL stop-event worker SIGKILL recovery and stale-token fencing; concurrent duplicate execution and indicator-exit/stop-event race; Redis restart/reconnect and supervised PAPER acceptance coverage; real Docker Compose two-worker watchdog kill/recovery; watchdog failed-notification retry; Docker-daemon-independent watchdog startup/visibility.
+- Operational alerting and host watchdog code/tests exist, but real Telegram delivery and Oracle VM systemd installation/failure drill are not certified.
+- Next distinct integration gap: a combined real Redis 7 + PostgreSQL 16 end-to-end PAPER acceptance test spanning quote publication/consumption, scanner/dispatch, durable claim, PAPER handler, fill/ledger effects and duplicate/retry behavior. Existing Redis-to-PAPER acceptance coverage uses SQLite for its DB fixture; existing PostgreSQL concurrency/load tests do not by themselves prove the complete combined pipeline. Inspect current tests first and extend/reuse fixtures rather than duplicate existing coverage.
+- Other remaining gates: realistic longer-duration PostgreSQL-backed soak with CPU/memory/connection-pool/queue metrics and explicit latency/throughput thresholds; Oracle VM watchdog installation and controlled notification drill; independent cloud/VM monitoring; independent security/penetration review; final Phase 4 acceptance review.
+- Scanner-to-PAPER end-to-end proof and scanner API/ranking validation remain a separate acceptance item; do not assume scanner implementation alone proves execution/ledger integration.
+- Safety: PAPER mode mandatory. Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. No LIVE readiness, production deployment, Telegram delivery, Oracle VM installation, or production-scale capacity claim is made by these CI results.
+- Tomorrow's resume procedure: first refresh PR #12 metadata and workflow runs for the newest documentation head; verify both Backend and Security CI on the exact final docs commit. Then inspect only the combined Redis+PostgreSQL integration gap and existing tests before coding. Do not rerun already-passing reliability tasks or perform a broad repository re-audit unless the targeted inspection reveals a concrete reason. This checkpoint is intended to be sufficient to resume without reconstructing today's work.
+
+## Superseding verified Phase 4 checkpoint — 3 November 2026
+
+- Latest implementation head: `1d5776724a02aa3a74c791cd3c775019c44ab499`.
+- Backend CI [#41679324261 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41679324261): **1,656 passed, 9 warnings**. Broker-write boundary guard, SQLite migration round-trip, PostgreSQL 16 migration round-trip, and synthetic PostgreSQL/document-volume restore drill all passed.
+- Security CI [#41679324313 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41679324313): CodeQL and Python dependency vulnerability audit passed.
+- New PostgreSQL 16 handler-load smoke test: `backend/tests/test_paper_stop_event_sustained_load_postgres.py`. It dispatches 12 already-committed durable PAPER stop claims through four concurrent workers and the production `handle_paper_market_observation` / execution / accounting path. It verifies 12 completed events, 12 filled PAPER orders, 12 executions, 12 flat positions and positive cash-balance mutations. It records throughput and p50/p95/p99 completion latency.
+- Benchmark scope is deliberately bounded: synthetic market-depth responses; committed claims are seeded using the production claim service; Redis ingestion is covered separately by the existing real-Redis acceptance test. This is a CI smoke benchmark, not a long-duration soak, production capacity result, or end-to-end Redis+PostgreSQL production SLA.
+- Earlier verified reliability work remains complete: PostgreSQL SIGKILL recovery of the PAPER stop-event worker; real Docker Compose two-replica watchdog kill/recovery; watchdog failed-webhook retry; Docker-daemon-independent watchdog startup.
+- PR #12 remains OPEN, Draft and unmerged; base branch `phase4/sustained-load-benchmark`.
+- Remaining gates: longer realistic PostgreSQL-backed soak/load with resource metrics; combined real-Redis + PostgreSQL acceptance; Oracle VM watchdog installation and controlled alert retry drill; independent cloud/VM monitoring; independent penetration review.
+- Safety: PAPER-only; live broker `place_order`, `modify_order`, and `cancel_order` writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
+
+---
+
+## Docker-daemon independence correction — 3 November 2026
+
+- Found and removed the systemd unit's hard `Requires=docker.service` dependency. The watchdog remains ordered after Docker when Docker is present, but systemd can now start the watchdog even when the Docker daemon is failed or inactive.
+- When Docker inspection is unavailable, the watchdog's existing fail-closed `unknown` state and optional external HTTPS notification path can run, provided the host and network remain available.
+- Added a regression test that asserts the service has `After=docker.service` and does not contain `Requires=docker.service`.
+- Implementation commits: `adf38c32cbb73b16f9f23494d7573906b2e23f38` (systemd unit) and `e1bcae4a51ced3cd12a4b1af7eeba6c6a989fac4` (test). CI is required on the final branch head.
+- This does not monitor a powered-off/unreachable VM. Independent cloud/VM monitoring remains required.
+
+## Current verified Phase 4 checkpoint — 3 November 2026
+
+- Repository: `tarunsharma2610-del/tradepro-improved` only; implementation branch: `phase4/operational-alerting`.
+- Verified implementation commit: `e4910f3c93d556bf2c7c7d71df4a6b9f045a1f36`.
+- Backend CI [#41669605371 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41669605371): **1,650 passed, 8 warnings**; broker-write boundary guard passed; SQLite and PostgreSQL 16 migration round-trips passed; synthetic PostgreSQL/document-volume restore drill passed.
+- Security analysis [#41669605381 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41669605381): CodeQL and Python dependency audit passed.
+- Durable PAPER stop-event process recovery remains verified by `test_sigkilled_execution_worker_recovers_paper_stop_without_redis`: a separate worker process is killed after the production claim commit; PostgreSQL-only recovery completes the event, rejects the stale token, and leaves one filled PAPER order/execution, a flat position and one cash mutation.
+- Host watchdog now enumerates all Compose worker containers with `docker compose ps --all -q worker`, inspects each container, and reports `running`, `degraded`, `down`, or `unknown` fleet state. Tests cover mixed running/stopped replicas, all-stopped replicas, incomplete inspection, and restart-count transitions. These are unit tests with mocked Docker responses; a real Docker Compose multi-container fault drill and Oracle VM installation remain pending.
+- PR #12 remains **OPEN, Draft, and unmerged**. No merge or live broker order-write enablement is authorized.
+- Safety remains mandatory: PAPER-only; live broker `place_order`, `modify_order`, and `cancel_order` writes disabled; original `tarunsharma2610-del/Tradepro` untouched.
+- Remaining Phase 4 gates: real multi-container/replica failure injection; realistic sustained load using full database handler work (not just dispatcher throughput); Oracle VM watchdog installation and failure drill; independent cloud/VM monitoring; final independent security/penetration review. CI is not production-scale performance certification or deployment sign-off.
+
+Historical checkpoint notes below are retained as history; this section supersedes older "next step", test-count, commit, and PR-number summaries.
+# Phase 4 — external worker watchdog
+
+Date: 3 November 2026
+Repository: `tarunsharma2610-del/tradepro-improved`
+Branch: `phase4/operational-alerting`
+PR #12 remains Draft/unmerged.
+
+## Why this is separate
+
+The Telegram operational alert monitor runs inside the worker container. It cannot report the complete loss of that same container. The host-side watchdog runs independently under systemd and inspects Docker Compose state from the host.
+
+## Files
+
+- `ops/worker_watchdog.py`: standard-library-only host checker.
+- `ops/systemd/tradepro-worker-watchdog.service`: hardened oneshot systemd service.
+- `ops/systemd/tradepro-worker-watchdog.timer`: runs after boot and every minute.
+- `ops/worker-watchdog.env.example`: optional HTTPS webhook configuration.
+- `backend/tests/test_host_worker_watchdog.py`: tests running/missing/unavailable Docker states, transition deduplication, restart-count changes and HTTPS-only webhook enforcement.
+
+## Behavior
+
+- Checks the Compose `worker` service using the configured Compose file.
+- Reports missing, stopped, uninspectable and running states.
+- Tracks Docker restart count as part of its transition fingerprint. A worker restart is therefore reported even if Docker has already restarted it and it is running again at the next timer tick.
+- Emits transition-only messages to stdout, captured by the systemd journal.
+- Optionally posts a minimal JSON message to an administrator-configured HTTPS webhook. It never prints webhook URLs or exception details.
+- Returns nonzero when the worker is not confirmed running. Docker's existing `restart: unless-stopped` policy remains responsible for restart; this watchdog does not restart or mutate containers.
+
+## Installation on the deployment host
+
+The following assumes the repository is deployed at `/opt/tradepro-improved`. Adjust the paths if the actual deployment directory differs.
+
+1. Copy `ops/worker_watchdog.py` to `/opt/tradepro-improved/ops/worker_watchdog.py`.
+2. Copy the service and timer units to `/etc/systemd/system/`.
+3. Optionally copy `ops/worker-watchdog.env.example` to `/etc/tradepro/worker-watchdog.env`, set an HTTPS incident webhook, and restrict it to root (`chown root:root`, `chmod 600`). Do not store a Telegram bot token in this file.
+4. Ensure the service's `TRADEPRO_COMPOSE_FILE` points to the deployed Compose file and the state directory `/var/lib/tradepro-watchdog` is writable by root.
+5. Run `systemctl daemon-reload`, `systemctl enable --now tradepro-worker-watchdog.timer`, then `systemctl start tradepro-worker-watchdog.service`.
+6. Inspect `systemctl status tradepro-worker-watchdog.timer` and `journalctl -u tradepro-worker-watchdog.service`.
+7. In an isolated maintenance window, stop the worker container and verify a DOWN transition is emitted; start it again and verify a RUNNING/restart transition. Restore the worker immediately after the test.
+
+## Important limits
+
+- This is host-level Docker-state monitoring, not an external cloud monitor. If the VM, Docker daemon, host network, or systemd timer fails, it cannot send an alert. Use the cloud provider's VM/instance health monitoring and an independent notification destination for host-level failure.
+- Without an HTTPS webhook, messages are only in the host journal; they are not automatically forwarded to Telegram or another operator.
+- A one-minute timer can miss very short failures that begin and recover between checks; restart-count changes help detect Docker restarts that occurred between checks.
+- A successful test suite does not mean this watchdog has been installed or exercised on the Oracle VM. Deployment smoke test remains required.
+- The watchdog uses root to access Docker. Restrict access to the script, service, timer, environment file and host. Docker access is effectively host-root access.
+- No broker API or order path is called.
+
+## Safety
+
+PAPER mode remains mandatory. Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. This watchdog only observes container state. Original `tarunsharma2610-del/Tradepro` is out of scope and untouched.
+
+
+## Verified Docker Compose worker-fleet fault drill — 3 November 2026
+
+Supersedes earlier statements that the real multi-container watchdog drill was pending.
+
+- Exact implementation/test commit: `ff0a4b42a9a6aab021dffa10835b29d6228a93e4`.
+- Backend workflow [#41671768895 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41671768895): **1,651 passed, 8 warnings, zero skipped**; broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic PostgreSQL/document-volume restore drill passed.
+- Security workflow [#41671768838 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41671768838): CodeQL and Python dependency vulnerability audit passed.
+- Zero skipped tests confirms `test_real_compose_worker_replica_kill_and_recovery` ran in hosted CI rather than taking its Docker-unavailable skip path.
+- The test used two disposable BusyBox Compose workers: RUNNING (2/2), kill one → DEGRADED (1/2), kill second → DOWN (0/2), recreate both → RUNNING (2/2). Cleanup uses Compose down.
+- This closes the hosted-CI multi-container watchdog test gap. It does not prove Oracle VM installation, host-level alert delivery, independent cloud monitoring, or production availability.
+
+## Current state and next gate
+
+- PR #12 remains OPEN, Draft, and unmerged. No merge or ready-for-review transition without explicit user approval.
+- Only `tarunsharma2610-del/tradepro-improved` is in scope; original `tarunsharma2610-del/Tradepro` remains untouched.
+- PAPER-only remains mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled.
+- Remaining gates: install/exercise the external watchdog on Oracle VM; verify an independent notification destination and cloud/instance health monitoring; run sustained load with full database-backed handler work and measure latency/recovery; complete independent security/penetration review.
+- Do not duplicate the passing Docker Compose fault test or PostgreSQL SIGKILL stop-event recovery test. Inspect existing coverage before adding reliability work.
+- The follow-up documentation commit requires its own exact-head Backend and Security CI before becoming a verified documentation checkpoint.
+
+
+## Verified notification retry correction — 3 November 2026
+
+The current watchdog implementation is `af6d469af969d9705c4527922dcde96c9c373638`.
+
+- Backend workflow [#41674075611 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41674075611): **1,654 passed, 8 warnings, zero skipped**; broker-write boundary guard, SQLite/PostgreSQL 16 migration round-trips, and synthetic restore drill passed.
+- Security workflow [#41674075641 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41674075641): CodeQL and Python dependency vulnerability audit passed.
+- `_notify()` returns delivery success. With no webhook configured, the system journal is the intended destination. Failed HTTPS delivery, non-2xx response, or rejected non-HTTPS URL returns failure.
+- The transition fingerprint is persisted only after successful configured delivery (or journal-only operation), so a failed webhook remains retryable on the next timer invocation.
+- Regression tests cover failed delivery followed by successful retry, credential non-disclosure, and journal-only behavior.
+- This is CI verification only. No webhook endpoint has been configured/contacted and no Oracle VM installation or alert-delivery drill is claimed.
+
+Next: verify the deployment host prerequisites, install the watchdog reversibly under systemd, and test delivery/retry on the Oracle VM without enabling broker writes. Add independent cloud/VM monitoring because the host watchdog cannot report host or Docker-daemon failure.

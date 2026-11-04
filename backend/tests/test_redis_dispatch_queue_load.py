@@ -181,3 +181,132 @@ async def test_real_redis_quote_dispatch_load_and_latency_report():
             )
         ])
         await redis.aclose()
+
+
+@pytest.mark.asyncio
+async def test_real_dispatcher_capacity_saturation_and_backpressure_report():
+    """Prove unique-key overload is bounded and accepted work drains."""
+    user_id = uuid4()
+    instrument_count = 48
+    worker_count = 4
+    capacity = 16
+    keys = [f"NSE_EQ|SAT{index:05d}" for index in range(instrument_count)]
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(redis, user_id, max_age_seconds=15)
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=capacity)
+    pipeline = MarketScanDispatchPipeline(
+        scanner=MarketScanner(), dispatcher=dispatcher
+    )
+    accepted = 0
+    rejected = 0
+    peak_depth = 0
+    completed = 0
+    queue_wait_ms = []
+    completion = asyncio.Event()
+    tasks = []
+
+    async def handle(item):
+        nonlocal completed
+        queue_wait_ms.append(
+            (time.monotonic() - item.enqueued_at_monotonic) * 1000
+        )
+        await asyncio.sleep(0.01)
+        completed += 1
+        if completed == accepted:
+            completion.set()
+
+    workers = [
+        MarketQuoteDispatchWorker(
+            dispatcher, handle, min_backoff_seconds=0,
+            max_backoff_seconds=0, max_attempts=1,
+        )
+        for _ in range(worker_count)
+    ]
+    try:
+        assert await redis.ping()
+        # No consumers are running yet: this intentionally fills the bounded
+        # dispatcher, so overload policy is exercised deterministically.
+        for index, key in enumerate(keys):
+            now = datetime.now(timezone.utc)
+            tick = MarketTick(
+                instrument_key=key,
+                ltp=200.0 + index,
+                exchange_timestamp_ms=int(now.timestamp() * 1000),
+                received_at=now,
+                received_monotonic=time.monotonic(),
+                volume_traded_today=2000 + index,
+                open_interest=6000 + index,
+            )
+            assert await publisher.publish(tick)
+            quote = await consumer.get_quote(key)
+            assert quote is not None
+            if pipeline.on_quote(user_id, quote):
+                accepted += 1
+            else:
+                rejected += 1
+            depth = dispatcher.pending_keys + dispatcher.inflight_keys
+            peak_depth = max(peak_depth, depth)
+            assert depth <= capacity
+
+        assert accepted > 0
+        assert accepted <= capacity
+        assert rejected > 0
+        assert accepted + rejected == instrument_count
+        assert dispatcher.pending_keys == accepted
+        assert dispatcher.inflight_keys == 0
+        assert dispatcher.dropped_unique_keys == rejected
+
+        tasks = [asyncio.create_task(worker.run()) for worker in workers]
+        async with asyncio.timeout(15):
+            await completion.wait()
+
+        assert completed == accepted
+        assert dispatcher.pending_keys == 0
+        assert dispatcher.inflight_keys == 0
+        assert len(queue_wait_ms) == accepted
+        assert peak_depth == capacity
+        assert pipeline.accepted_observations == accepted
+        assert pipeline.rejected_dispatches == rejected
+        assert dispatcher.dropped_unique_keys == rejected
+
+        report = {
+            "mode": "PAPER",
+            "measurement_scope": "real Redis quote snapshots plus actual bounded dispatcher and supervised workers; synthetic handler, no PostgreSQL execution",
+            "unique_instruments_offered": instrument_count,
+            "dispatcher_capacity": capacity,
+            "workers": worker_count,
+            "accepted_unique": accepted,
+            "rejected_unique_at_capacity": rejected,
+            "coalesced_updates": 0,
+            "peak_pending_plus_inflight": peak_depth,
+            "completed_accepted_work": completed,
+            "pending_after_drain": dispatcher.pending_keys,
+            "inflight_after_drain": dispatcher.inflight_keys,
+            "queue_wait_latency_ms": {
+                "p50": _percentile(queue_wait_ms, 0.50),
+                "p95": _percentile(queue_wait_ms, 0.95),
+                "p99": _percentile(queue_wait_ms, 0.99),
+                "mean": round(statistics.fmean(queue_wait_ms), 3),
+                "samples": len(queue_wait_ms),
+            },
+            "overload_policy": "reject new unique keys at configured capacity; preserve admitted keys; caller clears scanner high-water for rejected instrument so authoritative Redis snapshot sweep can retry",
+            "scope_limit": "bounded deterministic saturation test, not a sustained overload soak or production capacity/SLA certification",
+        }
+        Path("redis-dispatch-saturation-results.json").write_text(
+            json.dumps(report, indent=2) + "\\n", encoding="utf-8"
+        )
+    finally:
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        await redis.delete(*[
+            key_name
+            for instrument_key in keys
+            for key_name in (
+                publisher.snapshot_key(instrument_key),
+                publisher.snapshot_key(instrument_key) + ":version",
+            )
+        ])
+        await redis.aclose()

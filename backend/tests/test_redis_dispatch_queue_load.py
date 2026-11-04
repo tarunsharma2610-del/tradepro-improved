@@ -120,7 +120,9 @@ async def test_real_redis_quote_dispatch_load_and_latency_report():
         assert completed == instrument_count
         assert dispatcher.pending_keys == 0
         assert dispatcher.inflight_keys == 0
-        assert pipeline.accepted_observations == instrument_count
+        # Accepted counter includes three coalesced updates for each of the
+        # original 16 admitted keys, plus the 32 keys admitted by resweep.
+        assert pipeline.accepted_observations == capacity * 4 + (instrument_count - capacity)
         assert pipeline.rejected_quotes == 0
         assert pipeline.rejected_dispatches == 0
 
@@ -409,6 +411,7 @@ async def test_rejected_keys_are_reswept_to_latest_version_during_quote_churn():
 
         assert len(processed_versions) == capacity
         assert all(processed_versions[key] == 4 for key in keys[:capacity])
+        await dispatcher._queue.join()
         assert dispatcher.pending_keys == 0
         assert dispatcher.inflight_keys == 0
 
@@ -430,6 +433,7 @@ async def test_rejected_keys_are_reswept_to_latest_version_during_quote_churn():
 
         async with asyncio.timeout(10):
             await all_latest_processed.wait()
+        await dispatcher._queue.join()
 
         assert set(processed_versions) == set(keys)
         assert all(version == 4 for version in processed_versions.values())

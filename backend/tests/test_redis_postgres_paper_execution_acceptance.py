@@ -279,6 +279,8 @@ async def test_real_redis_restart_and_dispatch_worker_interruption_recover_one_p
     import socket
     import subprocess
 
+    from unittest.mock import patch
+
     import app.services.paper_stop_event_dispatch_handler as handler
     from app.services.paper_stop_event_execution_service import PaperStopEventExecutionService
 
@@ -506,7 +508,10 @@ async def test_real_redis_restart_and_dispatch_worker_interruption_recover_one_p
         assert db_session.query(Execution).filter(
             Execution.order_id == saved_order.id
         ).count() == 1
-        assert dispatcher.pending_keys == 1  # Lost with the simulated process; never reused.
+        restarted_dispatcher = MarketQuoteDispatcher(max_pending_keys=4)
+        assert restarted_dispatcher.pending_keys == 0
+        assert restarted_dispatcher.inflight_keys == 0
+        assert dispatcher.pending_keys == 1  # Old process state is abandoned, not reused.
     finally:
         if worker_task is not None:
             worker_task.cancel()

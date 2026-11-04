@@ -343,7 +343,7 @@ async def test_rejected_keys_are_reswept_to_latest_version_during_quote_churn():
             four_workers_started.set()
         await handler_gate.wait()
         processed_versions[item.instrument_key] = item.version
-        if len(processed_versions) == capacity:
+        if all(processed_versions.get(key) == 4 for key in keys[:capacity]):
             first_wave_drained.set()
         if (
             len(processed_versions) == instrument_count

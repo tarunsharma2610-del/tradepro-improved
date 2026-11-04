@@ -54,7 +54,7 @@ async def test_real_redis_quote_dispatch_load_and_latency_report():
     completed = 0
     completion = asyncio.Event()
     peak_queued = 0
-    handler_delay_seconds = 0.002
+    handler_delay_seconds = 0.01
 
     async def handle(item):
         nonlocal completed
@@ -78,7 +78,8 @@ async def test_real_redis_quote_dispatch_load_and_latency_report():
         memory_before = int((await redis.info("memory"))["used_memory"])
         tasks = [asyncio.create_task(worker.run()) for worker in workers]
 
-        for index, key in enumerate(keys):
+        async def publish_and_dispatch(index, key):
+            nonlocal peak_queued
             now = datetime.now(timezone.utc)
             submitted_at[key] = time.perf_counter()
             tick = MarketTick(
@@ -97,6 +98,13 @@ async def test_real_redis_quote_dispatch_load_and_latency_report():
             peak_queued = max(
                 peak_queued, dispatcher.pending_keys + dispatcher.inflight_keys
             )
+
+        # Concurrent producers intentionally build a measurable queue backlog;
+        # serial publishing would mostly benchmark Redis round-trip latency.
+        await asyncio.gather(*(
+            publish_and_dispatch(index, key)
+            for index, key in enumerate(keys)
+        ))
 
         async with asyncio.timeout(15):
             await completion.wait()

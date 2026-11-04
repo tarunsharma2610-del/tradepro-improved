@@ -1,3 +1,16 @@
+## Phase 4 verified checkpoint — 4 November 2026 (corrected PostgreSQL PAPER soak)
+
+- Latest branch head and verified implementation commit: `73c8633aa20be04b09c18f621dafba1484102154` on `phase4/redis-postgres-acceptance`.
+- Backend CI [#41789248951 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41789248951) on exact SHA: **1,634 passed, 8 warnings in 101.14s**. The workflow uploaded `backend/postgres-paper-soak-results.json` as artifact `backend-pytest-results` (artifact ID 13302408580); broker-write boundary guard passed.
+- Security CI [#41789248952 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41789248952) on the same exact SHA.
+- PostgreSQL PAPER soak: 24 independent seeded fixtures, 4 concurrent workers, PostgreSQL-backed durable claims and execution; asserts per-fixture completed event, one FILLED order, one execution, flat position and changed cash balance; records throughput and claim-to-ledger p50/p95/p99 in the artifact. Percentiles use nearest-rank calculation. This is bounded CI soak evidence, not production capacity/SLA or long-duration soak certification.
+- Combined Redis 7 → scanner/dispatcher → PostgreSQL 16 durable PAPER acceptance was previously verified on `4236aa9c89fa6a41fc97125ac97db0209eec1dfc`: Backend #41786509176 (1,633 passed, 8 warnings) and Security #41786509180 both passed. The new soak extends that evidence; it does not replace it.
+- PR #13 remains OPEN, Draft and unmerged; head matches this commit; base `phase4/sustained-load-benchmark`. PR #12 remains separate, OPEN, Draft and unmerged at `56b0d1bb4fa1ee9363c4d675579e4438f70f6b11`; do not mix scopes or merge either without explicit approval.
+- Next: design/execute a longer realistic database-backed soak with CPU, memory, DB connection/pool, Redis memory/latency, queue lag and failure/recovery measurements; then Oracle VM watchdog + notification drill, independent monitoring, independent penetration review, and final scanner-to-PAPER acceptance/review.
+- Safety: PAPER mode mandatory for tests; no broker order-write endpoint is called; live `place_order`, `modify_order`, `cancel_order` writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` is in scope; original `tarunsharma2610-del/Tradepro` remains untouched.
+
+---
+
 ## Phase 4 combined Redis 7 + PostgreSQL 16 acceptance — 4 November 2026
 
 - Verified test commit: `4236aa9c89fa6a41fc97125ac97db0209eec1dfc` on `phase4/redis-postgres-acceptance`, PR #13 OPEN/Draft/unmerged (base `phase4/sustained-load-benchmark`).

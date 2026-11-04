@@ -531,7 +531,9 @@ async def test_real_redis_repeated_process_restarts_recover_with_four_dispatch_w
     publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
     consumer = RedisMarketQuoteConsumer(
         redis, user_id, max_age_seconds=15,
-        snapshot_recovery_interval_seconds=0.1,
+        # This test validates reconnect-triggered recovery; avoid periodic
+        # re-emission of unchanged snapshots being counted as quote rejects.
+        snapshot_recovery_interval_seconds=60,
     )
     dispatcher = MarketQuoteDispatcher(max_pending_keys=16)
     pipeline = MarketScanDispatchPipeline(dispatcher=dispatcher)

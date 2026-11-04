@@ -3719,3 +3719,14 @@ Documentation checkpoint before this addendum was verified on `22570af88916ea2c9
 - PR #14 OPEN/Draft/unmerged; PR #13 OPEN/Draft/unmerged. No merge or deployment.
 - Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled.
 - Next: exact-head documentation CI, then further transaction rollback edge cases and longer sustained multi-worker queue/recovery testing. This is not production readiness or Phase 4 completion.
+
+
+## Worker retry-backoff cancellation recovery — 4 November 2026
+
+- Test commit: `54b17e92f0c73a163f400537c2c0c65afe5df7e7`; new test `test_worker_cancellation_during_retry_backoff_releases_quote_for_replacement`.
+- Cancels the worker during retry backoff after a transient handler failure; verifies in-flight release, durable pending quote retention, replacement-worker completion, and zero pending/in-flight queue counters.
+- Backend CI #41801971475 passed. Inspected JUnit artifact ID `13308790472`: 1,640 tests, 0 failures, 0 errors, 0 skipped; 122.721 seconds. New test passed in 0.002 seconds.
+- Security CI #41801971488 passed: dependency vulnerability audit and CodeQL. Backend checks also passed broker-write boundary, SQLite/PostgreSQL 16 migration round-trips and synthetic restore steps.
+- CI load evidence: PostgreSQL 16 PAPER workload 96 events / 6 workers, 96 orders and executions, zero failed/duplicate fills, 47.09 completions/s; claim-to-ledger p95 156.161 ms. Redis dispatch 48 unique instruments / 4 workers, 48 completed, zero failed, 329.52/s; queue-wait p95 105.206 ms; queue drained. These are bounded CI workloads, not sustained production soak or SLA evidence.
+- PR #14 OPEN/Draft/unmerged; PR #13 OPEN/Draft/unmerged. PAPER-only; live broker writes disabled; original `Tradepro` repository untouched.
+- Next: longer multi-worker queue saturation/restart testing, explicit queue-lag/backpressure measurement, and continued security/PAPER-LIVE isolation audits. Phase 4 and production readiness are not complete.

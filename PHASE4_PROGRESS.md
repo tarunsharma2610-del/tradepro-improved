@@ -1,3 +1,31 @@
+## Phase 4 verified checkpoint — 4 November 2026 (expanded PostgreSQL PAPER load)
+
+- Latest verified implementation commit: `d86155d7c0f2033254a1261f7c26037e29e6f586` on `phase4/redis-postgres-acceptance`.
+- Backend CI [#41791124706 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41791124706) on exact SHA: **1,634 passed, 8 warnings in 120.29s**. Backend artifact `backend-pytest-results` ID `13302804824` contains `backend/postgres-paper-soak-results.json`; broker-write boundary guard passed.
+- Security CI [#41791124721 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41791124721) on the same exact SHA; dependency audit and CodeQL passed.
+- Expanded bounded PostgreSQL 16 PAPER load: 96 independent seeded fixtures, 6 concurrent workers, durable claims/execution, one FILLED order and one execution per event, flat position and cash effect; report includes throughput, nearest-rank claim-to-ledger p50/p95/p99, process CPU/peak RSS, PostgreSQL activity/transaction/row deltas and connection snapshots, plus Redis memory snapshots and PING latency. These Redis observations are diagnostic only: this direct DB execution test does not generate Redis queue load or measure queue lag.
+- Scope limitation: bounded CI concurrent load, not multi-hour soak, production capacity/SLA proof, or complete Redis/queue observability. Remaining soak must exercise actual dispatch queue and capture queue lag, Redis latency/memory under load, recovery, and sustained CPU/memory/DB-pool behavior.
+- Combined Redis 7 → scanner/dispatcher → PostgreSQL 16 PAPER acceptance separately verified on `4236aa9c89fa6a41fc97125ac97db0209eec1dfc`: Backend #41786509176 and Security #41786509180 passed.
+- PR #13 OPEN/Draft/unmerged; head matches implementation commit; base `phase4/sustained-load-benchmark`. PR #12 separate OPEN/Draft/unmerged at `56b0d1bb4fa1ee9363c4d675579e4438f70f6b11`. No merge without explicit authorization.
+- Next: timed Redis-dispatch + PostgreSQL soak with queue-lag/resource sampling; then Oracle VM watchdog/notification drill, independent monitoring, independent penetration review, final scanner-to-PAPER review.
+- PAPER mandatory; no broker order-write endpoint invoked; live `place_order`, `modify_order`, `cancel_order` writes remain disabled. Only `tarunsharma2610-del/tradepro-improved` in scope; original `tarunsharma2610-del/Tradepro` untouched.
+
+---
+
+## Phase 4 combined Redis 7 + PostgreSQL 16 acceptance — 4 November 2026
+
+- Verified test commit: `4236aa9c89fa6a41fc97125ac97db0209eec1dfc` on `phase4/redis-postgres-acceptance`, PR #13 OPEN/Draft/unmerged (base `phase4/sustained-load-benchmark`).
+- Backend CI [#41786509176 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41786509176): **1,633 passed, 8 warnings**. Real Redis 7 + PostgreSQL 16 combined acceptance test ran.
+- Security CI [#41786509180 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41786509180): CodeQL and Python dependency audit passed on the same exact SHA.
+- Added `backend/tests/test_redis_postgres_paper_execution_acceptance.py`: real Redis publisher/consumer, scanner/dispatcher and durable PAPER handler with handler-owned sessions routed to PostgreSQL; validates durable PAPER order/execution/accounting and retry exhaustion/snapshot replay idempotency. Broker quote reads are stubbed; no broker order-write endpoint is invoked.
+- Earlier commit `5c8baafae56f13d45d8f7aa656a26f126b228bf5` is diagnostic only: Backend CI found a detached ORM object in cleanup. Fixed by capturing scalar IDs before closing the session. Do not use the failed run as a checkpoint.
+- PR #12 remains separate, OPEN/Draft/unmerged at `56b0d1bb4fa1ee9363c4d675579e4438f70f6b11`; Backend #41683658262 and Security #41683658248 passed on that exact head. PR #13 does not modify PR #12.
+- This is bounded CI acceptance, not production soak certification, Oracle deployment, penetration test, LIVE readiness or authorization to enable broker writes.
+- Next: finish documentation synchronization and verify exact docs-head CI; then realistic database-backed soak/resource measurements, VM watchdog/notification drill, independent monitoring and remaining security review.
+- Safety: PAPER mandatory for development/tests/unverified workflows; live `place_order`, `modify_order`, `cancel_order` remain disabled; original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
+
+---
+
 ## Phase 4 concurrency and safety audit update — 3 November 2026
 
 Source review confirms these items are already implemented and covered; do not keep them on the unstarted list:

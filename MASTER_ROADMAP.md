@@ -1,3 +1,27 @@
+## Phase 4 verified checkpoint — 4 November 2026 (expanded PostgreSQL PAPER load)
+
+- Latest verified implementation commit: `d86155d7c0f2033254a1261f7c26037e29e6f586`. Backend CI [#41791124706 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41791124706): **1,634 passed, 8 warnings in 120.29s**; artifact `backend-pytest-results` ID `13302804824` contains `backend/postgres-paper-soak-results.json`; broker-write boundary guard passed. Security CI [#41791124721 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41791124721) passed (dependency audit + CodeQL).
+- Expanded bounded PostgreSQL 16 PAPER load: 96 independent fixtures, 6 workers; one FILLED order and execution per event; captures throughput, nearest-rank p50/p95/p99, process CPU/peak RSS, PostgreSQL activity/transaction/row deltas and connection snapshots, Redis memory snapshots/PING latency. Redis is diagnostic only here: no Redis queue load or queue-lag measurement.
+- Not a multi-hour soak, capacity/SLA proof, or full Redis observability test. Next soak must exercise actual dispatch queue and sample queue lag, Redis under load, recovery, CPU/memory and DB pool.
+- Combined Redis 7 → scanner/dispatcher → PostgreSQL 16 PAPER acceptance separately passed on `4236aa9c89fa6a41fc97125ac97db0209eec1dfc` (Backend #41786509176; Security #41786509180).
+- PR #13 and #12 remain OPEN/Draft/unmerged; no merge authorized. PAPER mandatory; live broker writes disabled; original `tarunsharma2610-del/Tradepro` untouched; only `tarunsharma2610-del/tradepro-improved` in scope.
+
+---
+
+## Phase 4 combined Redis 7 + PostgreSQL 16 acceptance — 4 November 2026
+
+- Verified test commit: `4236aa9c89fa6a41fc97125ac97db0209eec1dfc` on `phase4/redis-postgres-acceptance`, PR #13 OPEN/Draft/unmerged (base `phase4/sustained-load-benchmark`).
+- Backend CI [#41786509176 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41786509176): **1,633 passed, 8 warnings**. Real Redis 7 + PostgreSQL 16 combined acceptance test ran.
+- Security CI [#41786509180 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41786509180): CodeQL and Python dependency audit passed on the same exact SHA.
+- Added `backend/tests/test_redis_postgres_paper_execution_acceptance.py`: real Redis publisher/consumer, scanner/dispatcher and durable PAPER handler with handler-owned sessions routed to PostgreSQL; validates durable PAPER order/execution/accounting and retry exhaustion/snapshot replay idempotency. Broker quote reads are stubbed; no broker order-write endpoint is invoked.
+- Earlier commit `5c8baafae56f13d45d8f7aa656a26f126b228bf5` is diagnostic only: Backend CI found a detached ORM object in cleanup. Fixed by capturing scalar IDs before closing the session. Do not use the failed run as a checkpoint.
+- PR #12 remains separate, OPEN/Draft/unmerged at `56b0d1bb4fa1ee9363c4d675579e4438f70f6b11`; Backend #41683658262 and Security #41683658248 passed on that exact head. PR #13 does not modify PR #12.
+- This is bounded CI acceptance, not production soak certification, Oracle deployment, penetration test, LIVE readiness or authorization to enable broker writes.
+- Next: finish documentation synchronization and verify exact docs-head CI; then realistic database-backed soak/resource measurements, VM watchdog/notification drill, independent monitoring and remaining security review.
+- Safety: PAPER mandatory for development/tests/unverified workflows; live `place_order`, `modify_order`, `cancel_order` remain disabled; original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
+
+---
+
 ## Latest Phase 4 Redis supervised-dispatch verification — 3 November 2026
 
 - Latest verified engineering head: `2ee2939969b9679dda859086278ef07c4355d173` — added the missing `asyncio` import to the real Redis-to-PAPER supervised dispatch acceptance test after the prior run exposed a test-harness NameError.

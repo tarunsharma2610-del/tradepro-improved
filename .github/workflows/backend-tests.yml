@@ -72,6 +72,7 @@ jobs:
           path: |
             backend/pytest-results.xml
             backend/dispatch-benchmark-results.json
+            backend/postgres-paper-soak-results.json
           if-no-files-found: warn
           retention-days: 14
       - name: Enforce broker write boundary

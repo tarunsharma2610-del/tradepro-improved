@@ -1,3 +1,15 @@
+## Phase 4 verified checkpoint — 4 November 2026 (PostgreSQL PAPER fill rollback and retry)
+
+- Verified test commit: `a77c66b8a359b7a2852c70108a03731078294eb3` on `phase4/redis-queue-load-benchmark`; PR #14 remains OPEN, Draft and unmerged. No merge or deployment is authorized.
+- Backend CI [#41851355102 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41851355102): pytest artifact/log confirms **1,645 passed, 0 failed**, 8 warnings, 125.88 seconds. It explicitly ran and passed `test_postgres_paper_fill_flush_failure_rolls_back_then_retry_commits_once`; this PostgreSQL 16 test was not skipped.
+- Security CI [#41851355099 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41851355099): CodeQL and Python dependency vulnerability audit both passed on the same exact commit.
+- Test injects a failure after the PAPER order, position, portfolio cash and execution writes have been flushed but before the shared transaction commits. A separate session confirms no order/execution or partial cash/position update survives rollback. A fresh session retries the same economic intent and verifies exactly one FILLED PAPER order and one execution, quantity 2, and the expected cash effect. This is deterministic transaction-boundary fault injection, not a production broker test or deployment soak.
+- The fixture now persists the user before dependent portfolio rows and uses parameterized cleanup. Production database pool configuration and execution behavior were not changed.
+- Previous pool-exhaustion/recovery test remains in the same verified code history; this checkpoint adds transaction rollback/retry evidence. Remaining gates include repeated Redis/worker restarts under quote churn, sustained queue-lag/backpressure and resource sampling, deployment recovery drills, and authorization/cross-user isolation review.
+- Safety and scope: PAPER mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled and were not invoked. Work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
+
+---
+
 ## Phase 4 verified checkpoint — 4 November 2026 (rejected-key recovery under quote churn)
 
 - Verified implementation/test commit: `3b5ba4a2803d326f81a365f0ea31be3e267f4dab` on `phase4/redis-queue-load-benchmark`; PR #14 remains OPEN, Draft and unmerged. PR #13 remains OPEN, Draft and unmerged. No merge or deployment is authorized.

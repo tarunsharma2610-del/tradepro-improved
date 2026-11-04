@@ -473,6 +473,181 @@ async def test_real_redis_server_process_restart_recovers_without_reusing_stale_
 
 
 @pytest.mark.asyncio
+async def test_real_redis_repeated_process_restarts_recover_with_four_dispatch_workers(tmp_path):
+    """Three Redis process restarts must recover fresh snapshots with a live four-worker pool."""
+    redis_server = shutil.which("redis-server")
+    if not redis_server:
+        pytest.skip("redis-server executable is required for process-restart integration test")
+
+    instrument_count = 12
+    restart_count = 3
+    instruments = [f"NSE_EQ|RESTART{i:04d}" for i in range(instrument_count)]
+    with socket.socket() as port_socket:
+        port_socket.bind(("127.0.0.1", 0))
+        port = port_socket.getsockname()[1]
+    url = f"redis://127.0.0.1:{port}/0"
+    data_dir = tmp_path / "redis-restart-data"
+    data_dir.mkdir()
+
+    def start_server():
+        return subprocess.Popen(
+            [
+                redis_server, "--bind", "127.0.0.1", "--port", str(port),
+                "--protected-mode", "no", "--save", "", "--appendonly", "no",
+                "--dir", str(data_dir),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    async def wait_until_ready(client, process):
+        deadline = asyncio.get_running_loop().time() + 8
+        while asyncio.get_running_loop().time() < deadline:
+            if process.poll() is not None:
+                raise AssertionError("Redis server exited before becoming ready")
+            try:
+                if await client.ping():
+                    return
+            except Exception:
+                await asyncio.sleep(0.05)
+        raise AssertionError("Redis server did not become ready")
+
+    async def wait_for_subscription(client, channel):
+        deadline = asyncio.get_running_loop().time() + 10
+        while asyncio.get_running_loop().time() < deadline:
+            try:
+                subscriptions = await client.pubsub_numsub(channel)
+                if subscriptions and subscriptions[0][1] == 1:
+                    return
+            except Exception:
+                pass
+            await asyncio.sleep(0.05)
+        raise AssertionError("quote consumer did not resubscribe after Redis restart")
+
+    server = start_server()
+    redis = Redis.from_url(url, decode_responses=True, socket_connect_timeout=1)
+    admin = Redis.from_url(url, decode_responses=True, socket_connect_timeout=1)
+    user_id = uuid4()
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(
+        redis, user_id, max_age_seconds=15,
+        snapshot_recovery_interval_seconds=0.1,
+    )
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=16)
+    pipeline = MarketScanDispatchPipeline(dispatcher=dispatcher)
+    processed = {key: [] for key in instruments}
+    round_processed = set()
+    round_complete = asyncio.Event()
+    active_workers = 0
+    max_active_workers = 0
+    stop_workers = asyncio.Event()
+
+    async def listen_quotes():
+        async for quote in consumer.listen(
+            instruments, max_reconnect_attempts=12,
+            min_backoff_seconds=0.02, max_backoff_seconds=0.1,
+        ):
+            pipeline.on_quote(user_id, quote)
+
+    async def dispatch_worker():
+        nonlocal active_workers, max_active_workers
+        while not stop_workers.is_set():
+            try:
+                item = await asyncio.wait_for(dispatcher.get(), timeout=0.1)
+            except asyncio.TimeoutError:
+                continue
+            active_workers += 1
+            max_active_workers = max(max_active_workers, active_workers)
+            try:
+                await asyncio.sleep(0.01)
+                processed[item.instrument_key].append((item.epoch, item.version))
+                round_processed.add(item.instrument_key)
+                if len(round_processed) == instrument_count:
+                    round_complete.set()
+            finally:
+                active_workers -= 1
+                dispatcher.task_done()
+
+    listener_task = None
+    worker_tasks = []
+    epochs = []
+    try:
+        await wait_until_ready(redis, server)
+        listener_task = asyncio.create_task(listen_quotes(), name="redis-restart-listener")
+        worker_tasks = [
+            asyncio.create_task(dispatch_worker(), name=f"redis-restart-dispatch-{index}")
+            for index in range(4)
+        ]
+        await wait_for_subscription(admin, consumer.channel)
+
+        # Exercise the initial Redis epoch plus three actual process restarts.
+        for cycle in range(restart_count + 1):
+            round_processed.clear()
+            round_complete.clear()
+            ticks = [
+                publisher.publish(make_tick(key, 2800.0 + cycle + index / 100))
+                for index, key in enumerate(instruments)
+            ]
+            assert all(await asyncio.gather(*ticks))
+            await asyncio.wait_for(round_complete.wait(), timeout=8)
+            await asyncio.wait_for(dispatcher._queue.join(), timeout=5)
+
+            cycle_quotes = await consumer.recover(instruments)
+            assert set(cycle_quotes) == set(instruments)
+            cycle_epochs = {quote["epoch"] for quote in cycle_quotes.values()}
+            assert len(cycle_epochs) == 1
+            cycle_epoch = cycle_epochs.pop()
+            epochs.append(cycle_epoch)
+            for key in instruments:
+                assert processed[key][-1] == (cycle_epoch, 1)
+            assert dispatcher.pending_keys == 0
+            assert dispatcher.inflight_keys == 0
+            assert dispatcher._queue.qsize() == 0
+
+            if cycle == restart_count:
+                break
+
+            # Stop the Redis process itself; its volatile quote and version keys disappear.
+            server.terminate()
+            await asyncio.to_thread(server.wait, 5)
+            await asyncio.sleep(1.2)  # allow the listener's Pub/Sub heartbeat to detect the dead server
+            assert await consumer.get_quote(instruments[0]) is None
+
+            server = start_server()
+            await wait_until_ready(redis, server)
+            await wait_for_subscription(admin, consumer.channel)
+            # A new Redis process must not expose any pre-restart snapshot.
+            assert await consumer.get_quote(instruments[0]) is None
+
+        assert len(set(epochs)) == restart_count + 1
+        assert max_active_workers == 4
+        assert all(len(processed[key]) == restart_count + 1 for key in instruments)
+        assert all(len({epoch for epoch, _ in processed[key]}) == restart_count + 1 for key in instruments)
+        assert all(version == 1 for values in processed.values() for _, version in values)
+        assert pipeline.rejected_quotes == 0
+        assert pipeline.rejected_dispatches == 0
+        assert dispatcher.pending_keys == 0
+        assert dispatcher.inflight_keys == 0
+        assert dispatcher._queue.qsize() == 0
+    finally:
+        if listener_task is not None:
+            listener_task.cancel()
+            await asyncio.gather(listener_task, return_exceptions=True)
+        stop_workers.set()
+        for task in worker_tasks:
+            task.cancel()
+        await asyncio.gather(*worker_tasks, return_exceptions=True)
+        try:
+            server.terminate()
+            await asyncio.to_thread(server.wait, 5)
+        except (ProcessLookupError, subprocess.TimeoutExpired):
+            server.kill()
+            await asyncio.to_thread(server.wait)
+        await admin.aclose()
+        await redis.aclose()
+
+
+@pytest.mark.asyncio
 async def test_real_redis_snapshot_flows_into_scanner_dispatch_pipeline():
     """Exercise actual Redis snapshot recovery through scanner and bounded dispatch."""
     redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)

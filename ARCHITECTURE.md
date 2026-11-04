@@ -1,3 +1,15 @@
+## Phase 4 verified checkpoint — 4 November 2026 (post-commit/pre-ack worker crash recovery)
+
+- Implementation/test commit: `ae237057c83fa24d945ca7b01aa339afefeea645` on `phase4/redis-queue-load-benchmark`; PR #14 remains OPEN, Draft and unmerged. PR #13 remains OPEN, Draft and unmerged. No merge is authorized.
+- Backend CI [#41798679680 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41798679680). Downloaded `backend-pytest-results` artifact ID `13306118967` inspected: pytest XML reports **1,638 tests, 0 failures, 0 errors, 0 skipped**, completed in **102.106 seconds**. It explicitly includes and passes `test_real_redis_worker_crash_after_paper_commit_before_dispatch_ack_replays_without_duplicate_fill` (0.194 seconds). Broker-write boundary guard passed. SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade checks passed. Synthetic restore drill artifact ID `13306163589`.
+- Security CI [#41798679898 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41798679898): Python dependency vulnerability audit and CodeQL both passed.
+- New acceptance test drives the real Redis quote publisher/consumer, scanner/dispatcher, handler and PostgreSQL PAPER execution. It pauses after the real PAPER order, execution ledger and COMPLETED event have committed but before the dispatch worker can acknowledge the item; cancels the worker; creates replacement in-memory dispatcher/scanner state; rehydrates the same quote snapshot from Redis; and verifies safe replay. Assertions confirm one PAPER order, one execution, flat position, unchanged cash on subsequent redelivery, and successful acknowledgement by the replacement worker.
+- This is deterministic worker-cancellation/process-restart simulation at the post-commit/pre-ack boundary, not an OS-level kill test, multi-hour soak, broker certification, or production capacity guarantee. Prior Redis process-restart and PostgreSQL claim-recovery test remains separately covered. Other transaction crash windows and longer queue-lag/backpressure soak remain open.
+- Next engineering gate: inject a failure after PAPER order/execution rows are flushed but before the shared transaction commits; prove rollback leaves no partial order, fill, ledger, cash or position mutation; then verify a retry completes exactly once. Continue controlled repeated worker/Redis restart and sustained queue-lag tests. Keep all tests PAPER-only.
+- Safety and repository scope: live broker `place_order`, `modify_order`, `cancel_order` writes remain disabled; do not call broker order-write endpoints. Work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
+
+---
+
 ## Phase 4 verified checkpoint — 4 November 2026 (combined Redis/PostgreSQL recovery acceptance)
 
 - Implementation/test commit: `ef488e88e598eb3f727cd495936681df71b3df9e` on `phase4/redis-queue-load-benchmark`; PR #14 remains OPEN, Draft and unmerged. PR #13 remains OPEN, Draft and unmerged. No merge is authorized.

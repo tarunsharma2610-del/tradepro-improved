@@ -1,11 +1,10 @@
-## Phase 4 verified checkpoint — 4 November 2026 (corrected PostgreSQL PAPER soak)
+## Phase 4 verified checkpoint — 4 November 2026 (expanded PostgreSQL PAPER load)
 
-- Verified implementation: `73c8633aa20be04b09c18f621dafba1484102154`. Backend CI [#41789248951 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41789248951): **1,634 passed, 8 warnings in 101.14s**; artifact `backend-pytest-results` (ID 13302408580) includes `postgres-paper-soak-results.json`; broker-write boundary guard passed. Security CI [#41789248952 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41789248952) passed on the same SHA.
-- Bounded PostgreSQL 16 PAPER soak: 24 independent fixtures, 4 concurrent workers, durable claims/executions, one FILLED order and execution per event, flat position and cash-balance effect; report records throughput and nearest-rank p50/p95/p99. Not production capacity/SLA or long-duration certification.
+- Latest verified implementation: `d86155d7c0f2033254a1261f7c26037e29e6f586`. Backend CI [#41791124706 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41791124706): **1,634 passed, 8 warnings in 120.29s**; artifact `backend-pytest-results` ID `13302804824` includes PostgreSQL load JSON; broker-write boundary guard passed. Security CI [#41791124721 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41791124721): dependency audit and CodeQL passed.
+- Bounded PostgreSQL 16 PAPER load: 96 independent fixtures, 6 workers, one FILLED order/execution per event; captures throughput, nearest-rank p50/p95/p99, process CPU/peak RSS, PostgreSQL activity/transactions/row deltas/connections, Redis memory snapshots/PING latency. Redis is diagnostic only; no Redis queue load or queue-lag measurement.
+- Not a long-duration soak or capacity/SLA proof. Next: real dispatch-queue soak with queue-lag/resource sampling and recovery checks.
 - Combined Redis 7 → scanner/dispatcher → PostgreSQL 16 acceptance separately passed on `4236aa9c89fa6a41fc97125ac97db0209eec1dfc` (Backend #41786509176, Security #41786509180).
-- PR #13 OPEN/Draft/unmerged on `phase4/redis-postgres-acceptance`; PR #12 separate OPEN/Draft/unmerged. No merge authorized.
-- Remaining: long realistic soak/resource metrics; Oracle VM watchdog and notification drill; independent monitoring; independent penetration review; final scanner-to-PAPER review.
-- PAPER mandatory; live broker order writes disabled; original `tarunsharma2610-del/Tradepro` out of scope and untouched.
+- PR #13/#12 OPEN/Draft/unmerged. PAPER mandatory; live broker writes disabled; original `tarunsharma2610-del/Tradepro` untouched; only `tarunsharma2610-del/tradepro-improved` in scope.
 
 ---
 

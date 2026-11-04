@@ -388,6 +388,7 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
     It records end-to-end claim-to-ledger latency for concurrent independent
     portfolios while retaining real PostgreSQL transactions and row locks.
     """
+    from math import ceil
     from statistics import median
 
     engine = create_engine(
@@ -491,7 +492,7 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
                 assert portfolio.cash_balance != Decimal("100000.00")
 
         ordered = sorted(latencies_ms)
-        percentile = lambda p: ordered[min(len(ordered) - 1, int((len(ordered) - 1) * p))]
+        percentile = lambda p: ordered[min(len(ordered) - 1, max(0, ceil(len(ordered) * p) - 1))]
         report = {
             "database": "PostgreSQL 16",
             "mode": "PAPER",

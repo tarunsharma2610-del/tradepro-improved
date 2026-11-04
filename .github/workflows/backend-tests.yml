@@ -74,6 +74,7 @@ jobs:
             backend/dispatch-benchmark-results.json
             backend/postgres-paper-soak-results.json
             backend/redis-dispatch-load-results.json
+            backend/redis-dispatch-saturation-results.json
           if-no-files-found: warn
           retention-days: 14
       - name: Enforce broker write boundary

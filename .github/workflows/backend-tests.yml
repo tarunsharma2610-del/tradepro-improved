@@ -63,7 +63,7 @@ jobs:
           MASTER_ENCRYPTION_KEY: "HuszwzTH0J4Uzhmkxh7WgSPoUoZMkwOZDHZFlAZA-u24="
           SECRET_KEY: "test-secret-key-not-for-production"
           UPSTOX_CHARGE_ESTIMATES_ENABLED: "false"
-        run: python -m pytest -q --junitxml=pytest-results.xml
+        run: python -m pytest -vv --durations=30 --junitxml=pytest-results.xml
       - name: Retain pytest benchmark properties
         if: always()
         uses: actions/upload-artifact@v4
@@ -73,6 +73,8 @@ jobs:
             backend/pytest-results.xml
             backend/dispatch-benchmark-results.json
             backend/postgres-paper-soak-results.json
+            backend/redis-dispatch-load-results.json
+            backend/redis-dispatch-saturation-results.json
           if-no-files-found: warn
           retention-days: 14
       - name: Enforce broker write boundary

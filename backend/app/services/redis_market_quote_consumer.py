@@ -135,6 +135,10 @@ class RedisMarketQuoteConsumer:
                 for quote in (await self.recover(instrument_keys)).values():
                     yield quote
                 last_snapshot_recovery = asyncio.get_running_loop().time()
+                # A healthy subscription plus completed snapshot recovery starts
+                # a new consecutive-failure window for any later Redis outage.
+                reconnect_attempts = 0
+                backoff = min_backoff_seconds
 
                 while True:
                     # A blocking listen() can remain suspended on a dead TCP

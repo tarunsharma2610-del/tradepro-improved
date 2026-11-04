@@ -6,6 +6,7 @@ current consumer acknowledges completion. This is in-process coordination;
 durable cross-replica ownership remains the PostgreSQL claim-token service.
 """
 import asyncio
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,6 +20,7 @@ class DispatchedMarketObservation:
     epoch: str
     version: int
     observation: Any
+    enqueued_at_monotonic: float = 0.0
 
 
 class MarketQuoteDispatcher:
@@ -62,7 +64,7 @@ class MarketQuoteDispatcher:
                 increment("market_quote_dispatch_rejected_total")
                 return False
             self._pending[key] = DispatchedMarketObservation(
-                user_id, instrument_key, epoch, version, observation
+                user_id, instrument_key, epoch, version, observation, time.monotonic()
             )
             increment("market_quote_dispatch_coalesced_total")
             return True
@@ -73,7 +75,7 @@ class MarketQuoteDispatcher:
             return False
 
         self._pending[key] = DispatchedMarketObservation(
-            user_id, instrument_key, epoch, version, observation
+            user_id, instrument_key, epoch, version, observation, time.monotonic()
         )
         self._queue.put_nowait(key)
         increment("market_quote_dispatch_accepted_unique_total")

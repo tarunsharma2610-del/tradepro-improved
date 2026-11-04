@@ -10,7 +10,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
@@ -37,6 +37,7 @@ def test_postgres_paper_fill_flush_failure_rolls_back_then_retry_commits_once():
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, expire_on_commit=False)
     db = Session()
+    original_flush = db.flush
     user_id = uuid4()
     suffix = uuid4().hex[:12]
     portfolio = instrument = position = None
@@ -106,7 +107,6 @@ def test_postgres_paper_fill_flush_failure_rolls_back_then_retry_commits_once():
         # _fill performs four flushes in this fixture: order insert, position
         # update, portfolio update, then execution insert/final flush. Raise
         # only after the final flush has reached PostgreSQL.
-        original_flush = db.flush
         flush_calls = 0
 
         def fail_after_all_fill_rows_are_flushed(*args, **kwargs):
@@ -170,7 +170,7 @@ def test_postgres_paper_fill_flush_failure_rolls_back_then_retry_commits_once():
             assert saved_position.quantity == 2
             assert Decimal(str(saved_portfolio.cash_balance)) == Decimal("100000") + costs.net_cash_impact
     finally:
-        db.flush = getattr(db, "flush", db.flush)
+        db.flush = original_flush
         db.rollback()
         cleanup_ids = {
             "portfolio": str(portfolio.id) if portfolio is not None else None,
@@ -180,23 +180,22 @@ def test_postgres_paper_fill_flush_failure_rolls_back_then_retry_commits_once():
         db.close()
         with engine.begin() as connection:
             if cleanup_ids["portfolio"]:
-                connection.exec_driver_sql(
-                    "DELETE FROM executions WHERE portfolio_id = %s" % "'" + cleanup_ids["portfolio"] + "'"
-                )
-                connection.exec_driver_sql(
-                    "DELETE FROM orders WHERE portfolio_id = %s" % "'" + cleanup_ids["portfolio"] + "'"
-                )
-                connection.exec_driver_sql(
-                    "DELETE FROM positions WHERE portfolio_id = %s" % "'" + cleanup_ids["portfolio"] + "'"
-                )
-                connection.exec_driver_sql(
-                    "DELETE FROM portfolios WHERE id = %s" % "'" + cleanup_ids["portfolio"] + "'"
+                for table in ("executions", "orders", "positions"):
+                    connection.execute(
+                        text(f"DELETE FROM {table} WHERE portfolio_id = :portfolio_id"),
+                        {"portfolio_id": cleanup_ids["portfolio"]},
+                    )
+                connection.execute(
+                    text("DELETE FROM portfolios WHERE id = :portfolio_id"),
+                    {"portfolio_id": cleanup_ids["portfolio"]},
                 )
             if cleanup_ids["instrument"]:
-                connection.exec_driver_sql(
-                    "DELETE FROM instruments WHERE id = %s" % "'" + cleanup_ids["instrument"] + "'"
+                connection.execute(
+                    text("DELETE FROM instruments WHERE id = :instrument_id"),
+                    {"instrument_id": cleanup_ids["instrument"]},
                 )
-            connection.exec_driver_sql(
-                "DELETE FROM users WHERE id = %s" % "'" + cleanup_ids["user"] + "'"
+            connection.execute(
+                text("DELETE FROM users WHERE id = :user_id"),
+                {"user_id": cleanup_ids["user"]},
             )
         engine.dispose()

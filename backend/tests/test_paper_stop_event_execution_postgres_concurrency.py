@@ -9,6 +9,7 @@ import asyncio
 import os
 import json
 import time
+import resource
 import threading
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +21,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+import redis
 
 import app.models  # noqa: F401
 from app.core.database import Base
@@ -399,8 +401,8 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
     )
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, expire_on_commit=False)
-    workload_count = 24
-    worker_count = 4
+    workload_count = 96
+    worker_count = 6
     fixtures = [
         _seed_execution_fixture(Session, uuid4().hex[:12])
         for _ in range(workload_count)
@@ -455,6 +457,20 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
             latencies_ms.append(elapsed)
         return ids, event_id, order.id
 
+    redis_url = os.getenv("REDIS_TEST_URL")
+    redis_client = redis.Redis.from_url(redis_url, decode_responses=True) if redis_url else None
+    with Session() as db:
+        db_stats_before = db.execute(text("""
+            SELECT xact_commit, tup_inserted, tup_updated
+            FROM pg_stat_database WHERE datname = current_database()
+        """)).one()
+        connections_before = db.execute(text("SELECT count(*) FROM pg_stat_activity")).scalar_one()
+    rss_before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    cpu_before = resource.getrusage(resource.RUSAGE_SELF)
+    redis_before = None
+    if redis_client is not None:
+        redis_before = redis_client.info("memory")
+        redis_client.ping()
     started = time.perf_counter()
     try:
         with patch(
@@ -491,6 +507,19 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
                 assert position.quantity == 0
                 assert portfolio.cash_balance != Decimal("100000.00")
 
+        with Session() as db:
+            db_stats_after = db.execute(text("""
+                SELECT xact_commit, tup_inserted, tup_updated
+                FROM pg_stat_database WHERE datname = current_database()
+            """)).one()
+            connections_after = db.execute(text("SELECT count(*) FROM pg_stat_activity")).scalar_one()
+        cpu_after = resource.getrusage(resource.RUSAGE_SELF)
+        rss_after = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        redis_after = redis_client.info("memory") if redis_client is not None else None
+        redis_ping_started = time.perf_counter()
+        if redis_client is not None:
+            assert redis_client.ping() is True
+        redis_ping_ms = (time.perf_counter() - redis_ping_started) * 1000 if redis_client is not None else None
         ordered = sorted(latencies_ms)
         percentile = lambda p: ordered[min(len(ordered) - 1, max(0, ceil(len(ordered) * p) - 1))]
         report = {
@@ -499,6 +528,28 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
             "workloads": workload_count,
             "concurrent_workers": worker_count,
             "elapsed_seconds": round(elapsed_seconds, 4),
+            "process_resource_metrics": {
+                "max_rss_before_kib": rss_before,
+                "max_rss_after_kib": rss_after,
+                "user_cpu_seconds": round(cpu_after.ru_utime - cpu_before.ru_utime, 4),
+                "system_cpu_seconds": round(cpu_after.ru_stime - cpu_before.ru_stime, 4),
+            },
+            "postgres_metrics": {
+                "active_connections_before": connections_before,
+                "active_connections_after": connections_after,
+                "transaction_commits_delta": db_stats_after.xact_commit - db_stats_before.xact_commit,
+                "rows_inserted_delta": db_stats_after.tup_inserted - db_stats_before.tup_inserted,
+                "rows_updated_delta": db_stats_after.tup_updated - db_stats_before.tup_updated,
+                "sqlalchemy_pool_status": engine.pool.status(),
+            },
+            "redis_metrics": {
+                "available": redis_client is not None,
+                "used_memory_before_bytes": redis_before.get("used_memory") if redis_before else None,
+                "used_memory_after_bytes": redis_after.get("used_memory") if redis_after else None,
+                "ping_latency_ms": round(redis_ping_ms, 3) if redis_ping_ms is not None else None,
+                "queue_lag": None,
+                "queue_lag_note": "not measured by this direct PostgreSQL execution workload; measured separately in Redis dispatch integration coverage",
+            },
             "completed_per_second": round(workload_count / elapsed_seconds, 2),
             "claim_to_ledger_latency_ms": {
                 "p50": round(median(ordered), 3),
@@ -508,7 +559,7 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
             "persisted_orders": workload_count,
             "persisted_executions": workload_count,
             "failed_or_duplicate_fills": 0,
-            "scope_note": "bounded CI soak; not production capacity or SLA evidence",
+            "scope_note": "96-event concurrent CI load run with resource snapshots; not a timed production soak, capacity test, or SLA evidence",
         }
         Path("postgres-paper-soak-results.json").write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8"

@@ -775,3 +775,189 @@ async def test_real_redis_restart_and_dispatch_worker_interruption_recover_one_p
             for statement, value in cleanup:
                 connection.execute(text(statement), {"id": value})
         engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_postgres_paper_execution_flush_failure_rolls_back_then_retry_completes_once(monkeypatch):
+    """A failure after ORM flush but before commit leaves no partial PAPER fill."""
+    from unittest.mock import patch
+
+    import app.services.paper_stop_event_dispatch_handler as handler
+    from app.services.execution_service import ExecutionService
+    from app.services.market_quote_dispatcher import DispatchedMarketObservation
+
+    engine = create_engine(
+        TEST_POSTGRES_URL, pool_size=5, max_overflow=0, pool_pre_ping=True
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    db_session = Session()
+    user_id = uuid4()
+    suffix = uuid4().hex[:10]
+    from app.core.security import hash_password
+    user = User(
+        id=user_id, email=f"paper-rollback-{suffix}@example.invalid",
+        password_hash=hash_password("test-only-password"),
+        full_name="PAPER transaction rollback acceptance", is_admin=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+    portfolio = Portfolio(
+        user_id=user.id, name="PAPER rollback acceptance",
+        virtual_capital=Decimal("100000"), cash_balance=Decimal("100000"),
+        is_active=True,
+    )
+    instrument = Instrument(
+        instrument_key=f"NSE_EQ|{uuid4().hex[:12]}", exchange="NSE",
+        segment="NSE_EQ", instrument_type="EQUITY",
+        trading_symbol=f"RB{suffix.upper()}", name="PAPER transaction rollback acceptance",
+    )
+    db_session.add_all([portfolio, instrument])
+    db_session.flush()
+    strategy = Strategy(
+        portfolio_id=portfolio.id, instrument_id=instrument.id,
+        name="PAPER rollback trailing stop", segment="EQUITY_INTRADAY",
+        quantity=1, is_active=True, max_daily_loss=1000,
+        trailing_stop_pct=Decimal("2"), current_watermark=Decimal("100"),
+    )
+    position = Position(
+        portfolio_id=portfolio.id, instrument_id=instrument.id,
+        quantity=2, avg_price=Decimal("100"), realized_pnl=Decimal("0"),
+    )
+    db_session.add_all([strategy, position])
+    db_session.add(BrokerConnection(
+        user_id=user.id, broker="upstox",
+        api_key_encrypted=encrypt_value("test-key"),
+        api_secret_encrypted=encrypt_value("test-secret"),
+        redirect_uri="https://example.invalid/callback",
+        access_token_encrypted=encrypt_value("test-access"),
+        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        analytics_token_encrypted=encrypt_value("test-analytics"),
+        analytics_token_expires_at=datetime.now(timezone.utc) + timedelta(days=365),
+        is_connected=True,
+    ))
+    db_session.commit()
+
+    monkeypatch.setattr(handler, "SessionLocal", Session)
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    publisher = RedisMarketQuotePublisher(redis, user.id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(redis, user.id, max_age_seconds=15)
+    instrument_key = instrument.instrument_key
+    original_place_order = ExecutionService.place_order
+
+    async def fail_after_order_flush(self, *args, **kwargs):
+        order = await original_place_order(self, *args, **kwargs)
+        # The real PAPER service has staged and flushed its order, fill ledger,
+        # cash and position writes. The enclosing event transaction has not committed.
+        self.db.flush()
+        raise RuntimeError("injected failure after PAPER order flush")
+
+    try:
+        assert await redis.ping()
+        now = datetime.now(timezone.utc)
+        tick = MarketTick(
+            instrument_key=instrument_key, ltp=97.0,
+            exchange_timestamp_ms=int(now.timestamp() * 1000),
+            received_at=now, received_monotonic=1.0,
+            volume_traded_today=1200, open_interest=4500,
+            total_buy_quantity=700, total_sell_quantity=300,
+            ohlc=({"interval": "1d", "close": 100.0},),
+        )
+        assert await publisher.publish(tick)
+        recovered = await consumer.get_quote(instrument_key)
+        assert recovered is not None
+        observation = MarketScanner().process_quote(user.id, recovered)
+        assert observation is not None
+        dispatched = DispatchedMarketObservation(
+            str(user.id), instrument_key, observation.epoch,
+            observation.version, observation,
+        )
+
+        with patch(
+            "app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED",
+            False,
+        ), _quote_patch(instrument):
+            monkeypatch.setattr(ExecutionService, "place_order", fail_after_order_flush)
+            with pytest.raises(RuntimeError, match="injected failure after PAPER order flush"):
+                await handle_paper_market_observation(dispatched)
+
+            # The intake/claim is a prior durable transaction; only the failed
+            # execution transaction must roll back to CLAIMED with no accounting rows.
+            db_session.expire_all()
+            event = db_session.query(PaperStopEvent).filter(
+                PaperStopEvent.user_id == user.id,
+                PaperStopEvent.instrument_id == instrument.id,
+                PaperStopEvent.quote_epoch == recovered["epoch"],
+                PaperStopEvent.quote_version == recovered["version"],
+            ).one()
+            db_session.refresh(portfolio)
+            db_session.refresh(position)
+            assert event.state == "CLAIMED"
+            assert db_session.query(Order).filter(
+                Order.paper_stop_event_id == event.id
+            ).count() == 0
+            assert db_session.query(Execution).filter(
+                Execution.portfolio_id == portfolio.id
+            ).count() == 0
+            assert Decimal(str(portfolio.cash_balance)) == Decimal("100000")
+            assert position.quantity == 2
+            event_id = event.id
+
+            # Retry the same durable quote identity with the real execution method.
+            monkeypatch.setattr(ExecutionService, "place_order", original_place_order)
+            await handle_paper_market_observation(dispatched)
+
+        db_session.expire_all()
+        event = db_session.get(PaperStopEvent, event_id)
+        saved_order = db_session.query(Order).filter(
+            Order.paper_stop_event_id == event_id
+        ).one()
+        db_session.refresh(portfolio)
+        db_session.refresh(position)
+        assert event.state == "COMPLETED"
+        assert saved_order.status == "FILLED"
+        assert saved_order.trading_mode == "PAPER"
+        assert position.quantity == 0
+        assert Decimal(str(portfolio.cash_balance)) > Decimal("100000")
+        assert db_session.query(Execution).filter(
+            Execution.order_id == saved_order.id
+        ).count() == 1
+
+        cash_after_fill = Decimal(str(portfolio.cash_balance))
+        await handle_paper_market_observation(dispatched)
+        db_session.refresh(portfolio)
+        assert Decimal(str(portfolio.cash_balance)) == cash_after_fill
+        assert db_session.query(Order).filter(
+            Order.paper_stop_event_id == event_id
+        ).count() == 1
+        assert db_session.query(Execution).filter(
+            Execution.order_id == saved_order.id
+        ).count() == 1
+    finally:
+        await redis.delete(
+            publisher.snapshot_key(instrument_key),
+            publisher.snapshot_key(instrument_key) + ":version",
+        )
+        await redis.aclose()
+        cleanup_ids = {
+            "portfolio": str(portfolio.id),
+            "strategy": str(strategy.id),
+            "instrument": str(instrument.id),
+            "user": str(user.id),
+        }
+        db_session.close()
+        with engine.begin() as connection:
+            cleanup = (
+                ("DELETE FROM executions WHERE portfolio_id = :id", cleanup_ids["portfolio"]),
+                ("DELETE FROM orders WHERE portfolio_id = :id", cleanup_ids["portfolio"]),
+                ("DELETE FROM paper_stop_events WHERE strategy_id = :id", cleanup_ids["strategy"]),
+                ("DELETE FROM positions WHERE portfolio_id = :id", cleanup_ids["portfolio"]),
+                ("DELETE FROM strategies WHERE id = :id", cleanup_ids["strategy"]),
+                ("DELETE FROM broker_connections WHERE user_id = :id", cleanup_ids["user"]),
+                ("DELETE FROM portfolios WHERE id = :id", cleanup_ids["portfolio"]),
+                ("DELETE FROM instruments WHERE id = :id", cleanup_ids["instrument"]),
+                ("DELETE FROM users WHERE id = :id", cleanup_ids["user"]),
+            )
+            for statement, value in cleanup:
+                connection.execute(text(statement), {"id": value})
+        engine.dispose()

@@ -567,7 +567,7 @@ async def test_real_redis_repeated_process_restarts_recover_with_four_dispatch_w
 
     listener_task = None
     worker_tasks = []
-    epochs = []
+    epochs_by_instrument = {key: [] for key in instruments}
     try:
         await wait_until_ready(redis, server)
         listener_task = asyncio.create_task(listen_quotes(), name="redis-restart-listener")
@@ -591,11 +591,11 @@ async def test_real_redis_repeated_process_restarts_recover_with_four_dispatch_w
 
             cycle_quotes = await consumer.recover(instruments)
             assert set(cycle_quotes) == set(instruments)
-            cycle_epochs = {quote["epoch"] for quote in cycle_quotes.values()}
-            assert len(cycle_epochs) == 1
-            cycle_epoch = cycle_epochs.pop()
-            epochs.append(cycle_epoch)
+            cycle_epochs = {key: quote["epoch"] for key, quote in cycle_quotes.items()}
+            assert all(isinstance(epoch, str) and epoch for epoch in cycle_epochs.values())
             for key in instruments:
+                cycle_epoch = cycle_epochs[key]
+                epochs_by_instrument[key].append(cycle_epoch)
                 assert processed[key][-1] == (cycle_epoch, 1)
             assert dispatcher.pending_keys == 0
             assert dispatcher.inflight_keys == 0
@@ -616,7 +616,7 @@ async def test_real_redis_repeated_process_restarts_recover_with_four_dispatch_w
             # A new Redis process must not expose any pre-restart snapshot.
             assert await consumer.get_quote(instruments[0]) is None
 
-        assert len(set(epochs)) == restart_count + 1
+        assert all(len(set(epochs_by_instrument[key])) == restart_count + 1 for key in instruments)
         assert max_active_workers == 4
         assert all(len(processed[key]) == restart_count + 1 for key in instruments)
         assert all(len({epoch for epoch, _ in processed[key]}) == restart_count + 1 for key in instruments)

@@ -256,14 +256,14 @@ async def test_real_redis_snapshot_reaches_postgres_paper_fill_and_ledger(monkey
         with engine.begin() as connection:
             cleanup = (
                 ("DELETE FROM executions WHERE portfolio_id = :id", cleanup_ids["portfolio"]),
-                ("DELETE FROM orders WHERE portfolio_id = :id", str(portfolio.id)),
+                ("DELETE FROM orders WHERE portfolio_id = :id", cleanup_ids["portfolio"]),
                 ("DELETE FROM paper_stop_events WHERE strategy_id = :id", cleanup_ids["strategy"]),
-                ("DELETE FROM positions WHERE portfolio_id = :id", str(portfolio.id)),
-                ("DELETE FROM strategies WHERE id = :id", str(strategy.id)),
+                ("DELETE FROM positions WHERE portfolio_id = :id", cleanup_ids["portfolio"]),
+                ("DELETE FROM strategies WHERE id = :id", cleanup_ids["strategy"]),
                 ("DELETE FROM broker_connections WHERE user_id = :id", cleanup_ids["user"]),
-                ("DELETE FROM portfolios WHERE id = :id", str(portfolio.id)),
+                ("DELETE FROM portfolios WHERE id = :id", cleanup_ids["portfolio"]),
                 ("DELETE FROM instruments WHERE id = :id", cleanup_ids["instrument"]),
-                ("DELETE FROM users WHERE id = :id", str(user.id)),
+                ("DELETE FROM users WHERE id = :id", cleanup_ids["user"]),
             )
             for statement, value in cleanup:
                 connection.execute(text(statement), {"id": value})

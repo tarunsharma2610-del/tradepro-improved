@@ -241,14 +241,18 @@ async def test_listener_accepts_new_epoch_with_lower_version_after_redis_data_lo
 
     redis.pubsubs = [RestartingPubSub(fail=True), DisconnectingPubSub()]
     consumer = RedisMarketQuoteConsumer(redis, user_id)
-    recovered = [
-        quote async for quote in consumer.listen(
-            [instrument],
-            max_reconnect_attempts=1,
-            min_backoff_seconds=0,
-            max_backoff_seconds=0,
-        )
-    ]
+    listener = consumer.listen(
+        [instrument],
+        max_reconnect_attempts=1,
+        min_backoff_seconds=0,
+        max_backoff_seconds=0,
+    )
+    recovered = []
+    try:
+        recovered.append(await anext(listener))
+        recovered.append(await anext(listener))
+    finally:
+        await listener.aclose()
 
     assert [quote["epoch"] for quote in recovered] == ["before-restart", "after-restart"]
     assert [quote["version"] for quote in recovered] == [8, 1]

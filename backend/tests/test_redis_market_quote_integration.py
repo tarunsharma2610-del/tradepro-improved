@@ -552,10 +552,7 @@ async def test_real_redis_repeated_process_restarts_recover_with_four_dispatch_w
     async def dispatch_worker():
         nonlocal active_workers, max_active_workers
         while not stop_workers.is_set():
-            try:
-                item = await asyncio.wait_for(dispatcher.get(), timeout=0.1)
-            except asyncio.TimeoutError:
-                continue
+            item = await dispatcher.get()
             active_workers += 1
             max_active_workers = max(max_active_workers, active_workers)
             try:

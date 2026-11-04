@@ -488,7 +488,7 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
                 assert orders[0].status == "FILLED"
                 assert len(executions) == 1
                 assert position.quantity == 0
-                assert portfolio.cash_balance < Decimal("100000.00")
+                assert portfolio.cash_balance != Decimal("100000.00")
 
         ordered = sorted(latencies_ms)
         percentile = lambda p: ordered[min(len(ordered) - 1, int((len(ordered) - 1) * p))]

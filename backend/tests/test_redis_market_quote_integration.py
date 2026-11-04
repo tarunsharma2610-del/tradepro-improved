@@ -623,7 +623,10 @@ async def test_real_redis_repeated_process_restarts_recover_with_four_dispatch_w
         assert all(len(processed[key]) == restart_count + 1 for key in instruments)
         assert all(len({epoch for epoch, _ in processed[key]}) == restart_count + 1 for key in instruments)
         assert all(version == 1 for values in processed.values() for _, version in values)
-        assert pipeline.rejected_quotes == 0
+        # Pub/Sub notifications can race the authoritative startup recovery
+        # sweep and re-deliver the same version. The scanner must reject those
+        # duplicates; assert every unique cycle/instrument quote was accepted.
+        assert pipeline.accepted_observations == instrument_count * (restart_count + 1)
         assert pipeline.rejected_dispatches == 0
         assert dispatcher.pending_keys == 0
         assert dispatcher.inflight_keys == 0

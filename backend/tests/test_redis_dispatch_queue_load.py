@@ -310,3 +310,146 @@ async def test_real_dispatcher_capacity_saturation_and_backpressure_report():
             )
         ])
         await redis.aclose()
+
+
+
+@pytest.mark.asyncio
+async def test_rejected_keys_are_reswept_to_latest_version_during_quote_churn():
+    """A full queue must not strand instruments whose snapshots keep changing."""
+    user_id = uuid4()
+    instrument_count = 48
+    worker_count = 4
+    capacity = 16
+    keys = [f"NSE_EQ|RESWEEP{index:05d}" for index in range(instrument_count)]
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(redis, user_id)
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=capacity)
+    pipeline = MarketScanDispatchPipeline(
+        scanner=MarketScanner(), dispatcher=dispatcher
+    )
+    handler_gate = asyncio.Event()
+    four_workers_started = asyncio.Event()
+    first_wave_drained = asyncio.Event()
+    all_latest_processed = asyncio.Event()
+    started_handlers = 0
+    processed_versions = {}
+    tasks = []
+
+    async def handle(item):
+        nonlocal started_handlers
+        started_handlers += 1
+        if started_handlers == worker_count:
+            four_workers_started.set()
+        await handler_gate.wait()
+        processed_versions[item.instrument_key] = item.version
+        if len(processed_versions) == capacity:
+            first_wave_drained.set()
+        if (
+            len(processed_versions) == instrument_count
+            and all(version == 4 for version in processed_versions.values())
+        ):
+            all_latest_processed.set()
+
+    workers = [
+        MarketQuoteDispatchWorker(
+            dispatcher, handle, min_backoff_seconds=0,
+            max_backoff_seconds=0, max_attempts=1,
+        )
+        for _ in range(worker_count)
+    ]
+
+    async def publish_version(index, instrument_key, version):
+        now = datetime.now(timezone.utc)
+        tick = MarketTick(
+            instrument_key=instrument_key,
+            ltp=100.0 + index + version,
+            exchange_timestamp_ms=int(now.timestamp() * 1000),
+            received_at=now,
+            received_monotonic=time.monotonic(),
+            volume_traded_today=1000 + index,
+            open_interest=5000 + index,
+        )
+        assert await publisher.publish(tick)
+        quote = await consumer.get_quote(instrument_key)
+        assert quote is not None
+        assert quote["version"] == version
+        return pipeline.on_quote(user_id, quote)
+
+    try:
+        assert await redis.ping()
+
+        # Fill all 16 slots with the first version before workers start.
+        for index, key in enumerate(keys):
+            accepted = await publish_version(index, key, 1)
+            assert accepted is (index < capacity)
+
+        assert dispatcher.pending_keys == capacity
+        assert dispatcher.inflight_keys == 0
+        assert dispatcher.dropped_unique_keys == instrument_count - capacity
+
+        tasks = [asyncio.create_task(worker.run()) for worker in workers]
+        async with asyncio.timeout(5):
+            await four_workers_started.wait()
+
+        # Hold all four workers in-flight while every instrument publishes
+        # newer snapshots. The first 16 coalesce; the other 32 are rejected
+        # repeatedly and their scanner high-water entries are cleared.
+        for version in (2, 3, 4):
+            for index, key in enumerate(keys):
+                accepted = await publish_version(index, key, version)
+                assert accepted is (index < capacity)
+
+        assert dispatcher.pending_keys + dispatcher.inflight_keys == capacity
+        assert pipeline.rejected_dispatches == (instrument_count - capacity) * 3
+
+        handler_gate.set()
+        async with asyncio.timeout(10):
+            await first_wave_drained.wait()
+
+        assert len(processed_versions) == capacity
+        assert all(processed_versions[key] == 4 for key in keys[:capacity])
+        assert dispatcher.pending_keys == 0
+        assert dispatcher.inflight_keys == 0
+
+        # This is the same authoritative snapshot sweep used by the Redis
+        # consumer after its recovery interval. Previously rejected keys must
+        # now be admitted using their latest version, not an old Pub/Sub event.
+        recovered = await consumer.recover(keys)
+        assert set(recovered) == set(keys)
+        resweep_accepted = 0
+        resweep_duplicates = 0
+        for key, quote in recovered.items():
+            if pipeline.on_quote(user_id, quote):
+                resweep_accepted += 1
+            else:
+                resweep_duplicates += 1
+
+        assert resweep_accepted == instrument_count - capacity
+        assert resweep_duplicates == capacity
+
+        async with asyncio.timeout(10):
+            await all_latest_processed.wait()
+
+        assert set(processed_versions) == set(keys)
+        assert all(version == 4 for version in processed_versions.values())
+        assert dispatcher.pending_keys == 0
+        assert dispatcher.inflight_keys == 0
+        assert dispatcher._queue.qsize() == 0
+        assert pipeline.accepted_observations == instrument_count
+        assert pipeline.rejected_dispatches == (instrument_count - capacity) * 3
+    finally:
+        handler_gate.set()
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        await redis.delete(*[
+            key_name
+            for instrument_key in keys
+            for key_name in (
+                publisher.snapshot_key(instrument_key),
+                publisher.snapshot_key(instrument_key) + ":version",
+            )
+        ])
+        await redis.aclose()

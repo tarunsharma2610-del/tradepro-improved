@@ -4382,3 +4382,14 @@ Documentation checkpoint before this addendum was verified on `22570af88916ea2c9
 - PR #14 head is this test commit and remains OPEN/Draft/unmerged. PR #13 remains OPEN/Draft/unmerged. No merge or deployment.
 - Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled.
 - Next: run longer repeated overload/restart/redis-restart scenarios, explicitly validate rejected-key resweep under sustained quote churn, measure PostgreSQL pool exhaustion/recovery and queue lag, then continue PAPER/LIVE isolation audit. Phase 4 and production readiness are not complete.
+
+## Phase 4 Redis repeated-restart reliability checkpoint — 4 November 2026
+
+- Exact implementation/test head: `80b00681c3f8490d3f2675568b752de60eb5c164` on `phase4/redis-queue-load-benchmark`, PR #14 base `phase4/redis-postgres-acceptance`; PR #14 remains OPEN, Draft and unmerged.
+- Backend tests [#41846206794 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41846206794) and Security analysis [#41846206779 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41846206779) both passed on this exact implementation/test head.
+- Redis repeated-process-restart integration coverage: 12 instruments, four dispatch workers, three actual Redis process restarts (four epochs including initial startup), fresh snapshots and per-instrument epoch/version checks, no stale snapshot fallback, queue/pending/in-flight drain checks. Duplicate quote delivery is rejected by scanner high-water validation; the test asserts 48 unique accepted observations rather than incorrectly requiring zero duplicate rejections.
+- Listener reconnect retry budget/backoff resets after successful subscription and initial recovery. Listener lifecycle unit tests explicitly consume expected recovery snapshots and close the long-lived async generator.
+- Diagnostic Backend workflow now uses verbose pytest progress and slow-test reporting. No test assertions were weakened to mask restart or scanner correctness failures.
+- This is a bounded CI reliability test, not a sustained production soak or production-readiness certification. Phase 4 remains in progress.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled; no merge, deployment or LIVE activation.
+- Next gate: PostgreSQL pool exhaustion/recovery and queue-lag behavior under bounded concurrent PAPER load; then continue end-to-end Redis→scanner→dispatcher→durable PAPER stop-event→execution→ledger reconciliation and remaining security/isolation audits.

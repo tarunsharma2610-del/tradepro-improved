@@ -51,6 +51,7 @@ async def test_real_redis_quote_dispatch_load_and_latency_report():
     )
     submitted_at = {}
     latencies_ms = []
+    queue_wait_ms = []
     completed = 0
     completion = asyncio.Event()
     peak_queued = 0
@@ -58,6 +59,8 @@ async def test_real_redis_quote_dispatch_load_and_latency_report():
 
     async def handle(item):
         nonlocal completed
+        handler_started = time.monotonic()
+        queue_wait_ms.append((handler_started - item.enqueued_at_monotonic) * 1000)
         await asyncio.sleep(handler_delay_seconds)
         latencies_ms.append((time.perf_counter() - submitted_at[item.instrument_key]) * 1000)
         completed += 1
@@ -132,6 +135,14 @@ async def test_real_redis_quote_dispatch_load_and_latency_report():
             "failed": sum(worker.failure_count for worker in workers),
             "elapsed_seconds": round(elapsed, 4),
             "completed_per_second": round(completed / elapsed, 2),
+            "queue_wait_latency_ms": {
+                "p50": _percentile(queue_wait_ms, 0.50),
+                "p95": _percentile(queue_wait_ms, 0.95),
+                "p99": _percentile(queue_wait_ms, 0.99),
+                "mean": round(statistics.fmean(queue_wait_ms), 3),
+                "samples": len(queue_wait_ms),
+                "definition": "dispatcher admission timestamp to worker handler start; excludes Redis publish and snapshot read",
+            },
             "publish_to_handler_latency_ms": {
                 "p50": _percentile(latencies_ms, 0.50),
                 "p95": _percentile(latencies_ms, 0.95),

@@ -567,4 +567,6 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
     finally:
         for ids in fixtures:
             _cleanup_execution_fixture(Session, ids)
+        if redis_client is not None:
+            redis_client.close()
         engine.dispose()

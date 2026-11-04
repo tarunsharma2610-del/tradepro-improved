@@ -510,7 +510,7 @@ def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
             "scope_note": "bounded CI soak; not production capacity or SLA evidence",
         }
         Path("postgres-paper-soak-results.json").write_text(
-            json.dumps(report, indent=2) + "\\n", encoding="utf-8"
+            json.dumps(report, indent=2) + "\n", encoding="utf-8"
         )
     finally:
         for ids in fixtures:

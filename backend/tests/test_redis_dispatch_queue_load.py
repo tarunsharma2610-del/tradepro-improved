@@ -420,18 +420,32 @@ async def test_rejected_keys_are_reswept_to_latest_version_during_quote_churn():
         # This is the same authoritative snapshot sweep used by the Redis
         # consumer after its recovery interval. Previously rejected keys must
         # now be admitted using their latest version, not an old Pub/Sub event.
-        recovered = await consumer.recover(keys)
-        assert set(recovered) == set(keys)
         resweep_accepted = 0
+        resweep_capacity_rejections = 0
         resweep_duplicates = 0
-        for key, quote in recovered.items():
-            if pipeline.on_quote(user_id, quote):
-                resweep_accepted += 1
-            else:
-                resweep_duplicates += 1
+        # The first sweep can only fill 16 newly free slots. The rotating
+        # recovery cursor must give the remaining rejected keys a fair turn
+        # on the next sweep after workers drain that first recovered batch.
+        for _ in range(4):
+            recovered = await consumer.recover(keys)
+            assert set(recovered) == set(keys)
+            for key, quote in recovered.items():
+                if pipeline.on_quote(user_id, quote):
+                    resweep_accepted += 1
+                elif key not in processed_versions:
+                    resweep_capacity_rejections += 1
+                else:
+                    resweep_duplicates += 1
+            await dispatcher._queue.join()
+            if (
+                len(processed_versions) == instrument_count
+                and all(version == 4 for version in processed_versions.values())
+            ):
+                break
 
         assert resweep_accepted == instrument_count - capacity
-        assert resweep_duplicates == capacity
+        assert resweep_capacity_rejections == instrument_count - capacity - capacity // 2
+        assert resweep_duplicates >= capacity
 
         async with asyncio.timeout(10):
             await all_latest_processed.wait()
@@ -442,10 +456,10 @@ async def test_rejected_keys_are_reswept_to_latest_version_during_quote_churn():
         assert dispatcher.pending_keys == 0
         assert dispatcher.inflight_keys == 0
         assert dispatcher._queue.qsize() == 0
-        # Accepted counter includes three coalesced updates for each of the
-        # original 16 admitted keys, plus the 32 keys admitted by resweep.
+        # Accepted observations include the first 16 keys' initial version
+        # and three coalesced updates, plus 32 recovered unique instruments.
         assert pipeline.accepted_observations == capacity * 4 + (instrument_count - capacity)
-        assert pipeline.rejected_dispatches == (instrument_count - capacity) * 4
+        assert pipeline.rejected_dispatches == (instrument_count - capacity) * 4 + (instrument_count - capacity - capacity // 2)
     finally:
         handler_gate.set()
         for task in tasks:

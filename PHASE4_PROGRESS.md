@@ -936,3 +936,17 @@ Draft PR #11 MFA hardening is now verified on its latest head `10657cf099aaed17c
 The changes require password reauthentication for initial MFA enrollment, reject replacement while an MFA factor is enabled, and inject FastAPI Response so MFA enable/disable can clear browser cookies. Earlier failed backend runs on intermediate commits are superseded by this exact-head green result.
 
 Documentation checkpoint before this addendum was verified on `22570af88916ea2c940831051ed429da5a701319` (Backend #41648348189 and Security #41648348210 both SUCCESS). This addendum creates a new documentation commit and therefore requires fresh exact-head CI before it becomes a verified checkpoint.
+
+
+## Transaction-boundary failure injection — 4 November 2026
+
+- Implementation/test commit: `a06965e14a1f4e1687e9e1abf02015600ae61721`.
+- PostgreSQL 16 integration test: `test_postgres_paper_execution_flush_failure_rolls_back_then_retry_completes_once`.
+- Injects failure after real PAPER order-path ORM flush but before the enclosing transaction commits. Verifies no order/execution rows survive rollback, cash remains ₹100,000 and the original position remains quantity 2; retries the same durable event and verifies one FILLED PAPER order, one execution, flat position, and no duplicate accounting on replay.
+- Backend CI [#41800575406 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41800575406). Downloaded `backend-pytest-results` artifact ID `13307074537`; JUnit XML: **1,639 tests, 0 failures, 0 errors, 0 skipped**. New test present and passed in 0.264 seconds; suite runtime 119.545 seconds.
+- Security analysis [#41800575517 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41800575517): dependency vulnerability audit and CodeQL passed.
+- Backend workflow also passed broker-write boundary, SQLite and PostgreSQL 16 migration round-trips, and synthetic PostgreSQL/document-volume restore evidence steps.
+- Prior documentation head `64f3ef00163a8b11c729978856782aa6a461c1b9` passed Backend #41799708090 and Security #41799708076. This new documentation commit requires its own exact-head CI.
+- PR #14 OPEN/Draft/unmerged; PR #13 OPEN/Draft/unmerged. No merge or deployment.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled.
+- Next: exact-head documentation CI, then further transaction rollback edge cases and longer sustained multi-worker queue/recovery testing. This is not production readiness or Phase 4 completion.

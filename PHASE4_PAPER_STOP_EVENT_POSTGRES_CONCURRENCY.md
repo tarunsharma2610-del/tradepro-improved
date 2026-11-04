@@ -1,3 +1,14 @@
+## Phase 4 verified checkpoint — 4 November 2026 (corrected PostgreSQL PAPER soak)
+
+- Verified implementation: `73c8633aa20be04b09c18f621dafba1484102154`. Backend CI [#41789248951 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41789248951): **1,634 passed, 8 warnings in 101.14s**; artifact `backend-pytest-results` (ID 13302408580) includes `postgres-paper-soak-results.json`; broker-write boundary guard passed. Security CI [#41789248952 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41789248952) passed on the same SHA.
+- Bounded PostgreSQL 16 PAPER soak: 24 independent fixtures, 4 concurrent workers, durable claims/executions, one FILLED order and execution per event, flat position and cash-balance effect; report records throughput and nearest-rank p50/p95/p99. Not production capacity/SLA or long-duration certification.
+- Combined Redis 7 → scanner/dispatcher → PostgreSQL 16 acceptance separately passed on `4236aa9c89fa6a41fc97125ac97db0209eec1dfc` (Backend #41786509176, Security #41786509180).
+- PR #13 OPEN/Draft/unmerged on `phase4/redis-postgres-acceptance`; PR #12 separate OPEN/Draft/unmerged. No merge authorized.
+- Remaining: long realistic soak/resource metrics; Oracle VM watchdog and notification drill; independent monitoring; independent penetration review; final scanner-to-PAPER review.
+- PAPER mandatory; live broker order writes disabled; original `tarunsharma2610-del/Tradepro` out of scope and untouched.
+
+---
+
 ## Phase 4 combined Redis 7 + PostgreSQL 16 acceptance — 4 November 2026
 
 - Verified test commit: `4236aa9c89fa6a41fc97125ac97db0209eec1dfc`; Backend CI [#41786509176 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41786509176), **1,633 passed, 8 warnings**; Security CI [#41786509180 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41786509180), both on the exact same commit.

@@ -544,7 +544,7 @@ async def test_real_redis_repeated_process_restarts_recover_with_four_dispatch_w
 
     async def listen_quotes():
         async for quote in consumer.listen(
-            instruments, max_reconnect_attempts=12,
+            instruments, max_reconnect_attempts=None,
             min_backoff_seconds=0.02, max_backoff_seconds=0.1,
         ):
             pipeline.on_quote(user_id, quote)

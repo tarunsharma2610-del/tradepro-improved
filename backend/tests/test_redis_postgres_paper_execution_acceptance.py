@@ -271,6 +271,236 @@ async def test_real_redis_snapshot_reaches_postgres_paper_fill_and_ledger(monkey
 
 
 @pytest.mark.asyncio
+async def test_real_redis_worker_crash_after_paper_commit_before_dispatch_ack_replays_without_duplicate_fill(monkeypatch):
+    from unittest.mock import patch
+    import app.services.paper_stop_event_dispatch_handler as handler
+
+    engine = create_engine(
+        TEST_POSTGRES_URL, pool_size=5, max_overflow=0, pool_pre_ping=True
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    db_session = Session()
+    user_id = uuid4()
+    suffix = uuid4().hex[:10]
+    from app.core.security import hash_password
+    user = User(
+        id=user_id, email=f"redis-paper-{suffix}@example.invalid",
+        password_hash=hash_password("test-only-password"),
+        full_name="Redis PostgreSQL PAPER acceptance", is_admin=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+    portfolio = Portfolio(
+        user_id=user.id, name="Redis PAPER acceptance",
+        virtual_capital=Decimal("100000"), cash_balance=Decimal("100000"),
+        is_active=True,
+    )
+    instrument = Instrument(
+        instrument_key=f"NSE_EQ|{uuid4().hex[:12]}", exchange="NSE",
+        segment="NSE_EQ", instrument_type="EQUITY",
+        trading_symbol=f"RP{suffix.upper()}", name="Redis PostgreSQL PAPER acceptance",
+    )
+    db_session.add_all([portfolio, instrument])
+    db_session.flush()
+    strategy = Strategy(
+        portfolio_id=portfolio.id, instrument_id=instrument.id,
+        name="Redis PAPER trailing stop", segment="EQUITY_INTRADAY",
+        quantity=1, is_active=True, max_daily_loss=1000,
+        trailing_stop_pct=Decimal("2"), current_watermark=Decimal("100"),
+    )
+    position = Position(
+        portfolio_id=portfolio.id, instrument_id=instrument.id,
+        quantity=2, avg_price=Decimal("100"), realized_pnl=Decimal("0"),
+    )
+    db_session.add_all([strategy, position])
+    db_session.add(BrokerConnection(
+        user_id=user.id, broker="upstox",
+        api_key_encrypted=encrypt_value("test-key"),
+        api_secret_encrypted=encrypt_value("test-secret"),
+        redirect_uri="https://example.invalid/callback",
+        access_token_encrypted=encrypt_value("test-access"),
+        access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        analytics_token_encrypted=encrypt_value("test-analytics"),
+        analytics_token_expires_at=datetime.now(timezone.utc) + timedelta(days=365),
+        is_connected=True,
+    ))
+    db_session.commit()
+
+    # Handler transactions must use separate PostgreSQL sessions, not the
+    # SQLite pytest fixture or the seed/assertion session.
+    monkeypatch.setattr(handler, "SessionLocal", Session)
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    publisher = RedisMarketQuotePublisher(redis, user.id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(redis, user.id, max_age_seconds=15)
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=8)
+    scanner = MarketScanner()
+    pipeline = MarketScanDispatchPipeline(scanner=scanner, dispatcher=dispatcher)
+    instrument_key = instrument.instrument_key
+    committed_before_ack = asyncio.Event()
+    dispatched_items = []
+
+    async def handle_then_pause_after_commit(dispatched):
+        dispatched_items.append(dispatched)
+        # The real handler has committed the PAPER fill and COMPLETED event.
+        # Pause before returning to the worker, which is the exact window
+        # between durable commit and dispatcher task_done/acknowledgement.
+        await handle_paper_market_observation(dispatched)
+        committed_before_ack.set()
+        await asyncio.Future()
+
+    dispatch_worker = MarketQuoteDispatchWorker(
+        dispatcher,
+        handle_then_pause_after_commit,
+        min_backoff_seconds=0,
+        max_backoff_seconds=0,
+        max_attempts=5,
+        on_exhausted=lambda item: scanner.clear_instrument(
+            item.user_id, item.instrument_key
+        ),
+    )
+    worker_task = None
+
+    try:
+        assert await redis.ping()
+        now = datetime.now(timezone.utc)
+        tick = MarketTick(
+            instrument_key=instrument_key, ltp=97.0,
+            exchange_timestamp_ms=int(now.timestamp() * 1000),
+            received_at=now, received_monotonic=1.0,
+            volume_traded_today=1200, open_interest=4500,
+            total_buy_quantity=700, total_sell_quantity=300,
+            ohlc=({"interval": "1d", "close": 100.0},),
+        )
+        assert await publisher.publish(tick)
+
+        recovered = await consumer.get_quote(instrument_key)
+        assert recovered is not None
+        with patch(
+            "app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED",
+            False,
+        ), _quote_patch(instrument):
+            worker_task = asyncio.create_task(dispatch_worker.run())
+            assert pipeline.on_quote(user.id, recovered) is True
+            await asyncio.wait_for(committed_before_ack.wait(), timeout=3)
+            db_session.expire_all()
+            saved_event = db_session.query(PaperStopEvent).filter(
+                PaperStopEvent.user_id == user.id,
+                PaperStopEvent.instrument_id == instrument.id,
+                PaperStopEvent.quote_epoch == recovered["epoch"],
+                PaperStopEvent.quote_version == recovered["version"],
+            ).one()
+            saved_order = db_session.query(Order).filter(
+                Order.paper_stop_event_id == saved_event.id
+            ).one()
+            assert saved_event.state == "COMPLETED"
+            assert saved_order.status == "FILLED"
+            assert saved_order.trading_mode == "PAPER"
+
+            # Simulate process death after commit but before worker acknowledgement.
+            worker_task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await worker_task
+            worker_task = None
+            assert dispatcher.pending_keys == 1
+            assert dispatcher.inflight_keys == 0
+
+            # A replacement process has empty in-memory state. It rehydrates
+            # the same authoritative Redis snapshot and must safely acknowledge
+            # it without applying another PAPER order or accounting mutation.
+            restarted_dispatcher = MarketQuoteDispatcher(max_pending_keys=8)
+            restarted_scanner = MarketScanner()
+            restarted_pipeline = MarketScanDispatchPipeline(
+                scanner=restarted_scanner, dispatcher=restarted_dispatcher
+            )
+            replay_worker = MarketQuoteDispatchWorker(
+                restarted_dispatcher, handle_paper_market_observation,
+                min_backoff_seconds=0, max_backoff_seconds=0, max_attempts=3,
+            )
+            worker_task = asyncio.create_task(replay_worker.run())
+            replayed = await consumer.recover([instrument_key])
+            assert instrument_key in replayed
+            assert replayed[instrument_key]["epoch"] == recovered["epoch"]
+            assert replayed[instrument_key]["version"] == recovered["version"]
+            assert restarted_pipeline.on_quote(user.id, replayed[instrument_key]) is True
+            async with asyncio.timeout(3):
+                while replay_worker.processed_count != 1:
+                    await asyncio.sleep(0.01)
+
+        assert len(dispatched_items) == 1
+        assert dispatch_worker.processed_count == 0
+        assert replay_worker.processed_count == 1
+        assert restarted_dispatcher.pending_keys == 0
+        assert restarted_dispatcher.inflight_keys == 0
+        db_session.expire_all()
+        saved_event = db_session.query(PaperStopEvent).filter(
+            PaperStopEvent.user_id == user.id,
+            PaperStopEvent.instrument_id == instrument.id,
+            PaperStopEvent.quote_epoch == recovered["epoch"],
+            PaperStopEvent.quote_version == recovered["version"],
+        ).one()
+        saved_order = db_session.query(Order).filter(
+            Order.paper_stop_event_id == saved_event.id
+        ).one()
+        db_session.refresh(portfolio)
+        db_session.refresh(position)
+        assert saved_event.state == "COMPLETED"
+        assert saved_order.status == "FILLED"
+        assert saved_order.trading_mode == "PAPER"
+        assert position.quantity == 0
+        assert portfolio.cash_balance > Decimal("100000")
+        cash_after_fill = Decimal(str(portfolio.cash_balance))
+        assert db_session.query(Execution).filter(
+            Execution.order_id == saved_order.id
+        ).count() == 1
+
+        # A further redelivery must remain an accounting no-op.
+        await handle_paper_market_observation(dispatched_items[0])
+        db_session.refresh(portfolio)
+        assert Decimal(str(portfolio.cash_balance)) == cash_after_fill
+        assert db_session.query(Order).filter(
+            Order.paper_stop_event_id == saved_event.id
+        ).count() == 1
+        assert db_session.query(Execution).filter(
+            Execution.order_id == saved_order.id
+        ).count() == 1
+    finally:
+        if worker_task is not None:
+            worker_task.cancel()
+            await asyncio.gather(worker_task, return_exceptions=True)
+        await redis.delete(
+            publisher.snapshot_key(instrument_key),
+            publisher.snapshot_key(instrument_key) + ":version",
+        )
+        await redis.aclose()
+        # Capture scalar identifiers before closing the ORM session; detached
+        # model instances cannot safely lazy-refresh attributes during cleanup.
+        cleanup_ids = {
+            "portfolio": str(portfolio.id),
+            "strategy": str(strategy.id),
+            "instrument": str(instrument.id),
+            "user": str(user.id),
+        }
+        db_session.close()
+        # Remove only this test's rows from the CI-shared PostgreSQL database.
+        with engine.begin() as connection:
+            cleanup = (
+                ("DELETE FROM executions WHERE portfolio_id = :id", cleanup_ids["portfolio"]),
+                ("DELETE FROM orders WHERE portfolio_id = :id", cleanup_ids["portfolio"]),
+                ("DELETE FROM paper_stop_events WHERE strategy_id = :id", cleanup_ids["strategy"]),
+                ("DELETE FROM positions WHERE portfolio_id = :id", cleanup_ids["portfolio"]),
+                ("DELETE FROM strategies WHERE id = :id", cleanup_ids["strategy"]),
+                ("DELETE FROM broker_connections WHERE user_id = :id", cleanup_ids["user"]),
+                ("DELETE FROM portfolios WHERE id = :id", cleanup_ids["portfolio"]),
+                ("DELETE FROM instruments WHERE id = :id", cleanup_ids["instrument"]),
+                ("DELETE FROM users WHERE id = :id", cleanup_ids["user"]),
+            )
+            for statement, value in cleanup:
+                connection.execute(text(statement), {"id": value})
+        engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_real_redis_restart_and_dispatch_worker_interruption_recover_one_postgres_paper_fill(
     monkeypatch, tmp_path,
 ):

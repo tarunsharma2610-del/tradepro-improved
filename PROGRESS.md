@@ -4415,3 +4415,36 @@ Documentation checkpoint before this addendum was verified on `22570af88916ea2c9
 - This test exercises cancellation-safe release and latest-value coalescing across in-process worker-pool replacement while Redis remains running. It does NOT combine a Redis process restart with worker replacement, does not exercise PostgreSQL execution/ledger writes, and is not an OS-level kill, multi-hour soak, production capacity/SLA or deployment certification.
 - Next gate: combine repeated actual Redis process restarts with worker-pool replacement and changing quote versions; explicitly test rejected-key resweep/recovery and assert latest snapshots are not lost. Then add sustained queue-lag/backpressure time-series and resource measurements, keeping Redis transport benchmarks distinct from PostgreSQL PAPER execution evidence.
 - Safety and repository scope: PAPER mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled and were not invoked. Work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` remains out of scope and untouched.
+
+
+## Saved resume checkpoint — 4 November 2026 (end-of-session)
+
+### Latest verified code and documentation CI
+- Latest verified implementation/test commit: `7876015afeb785579111512e46bf9ee215f11438`.
+- Backend CI [#41854115344 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41854115344); Security / CodeQL [#41854115426 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41854115426). Both ran against the exact implementation commit above.
+- The eight-document synchronization commit is `863e53941ce00bb15719c3163767f6dd7586a435`. Documentation-head Backend CI [#41855112246 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41855112246); Security / CodeQL [#41855112159 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41855112159). Both ran against the exact documentation commit. Backend artifact `backend-pytest-results` (artifact ID `13337750660`) and synthetic restore drill evidence (artifact ID `13337535797`) were retained by CI.
+- PR #14 remains OPEN, Draft, and unmerged. Its head at this checkpoint is `863e53941ce00bb15719c3163767f6dd7586a435`. No merge or deployment is authorized.
+
+### What is complete
+1. Corrected PostgreSQL PAPER fill rollback/retry behavior passed on `a77c66b8a359b7a2852c70108a03731078294eb3`; the injected pre-commit failure rolls back and a fresh retry commits exactly once (Backend #41851355102; Security #41851355099).
+2. The rollback/retry checkpoint was documented; documentation CI passed on `ea5fbadcf2bb550808498a7809b8d336dba41e2d` (Backend #41852443999; Security #41852443877).
+3. Worker-pool replacement under changing quote versions passed on `7876015afeb785579111512e46bf9ee215f11438`. Real Redis test `test_real_redis_worker_pool_replacement_preserves_latest_quotes_during_churn` holds four workers, advances eight instruments through versions 2–5, cancels the original pool, starts four replacement workers, and verifies all eight latest version-5 observations drain with zero pending/in-flight/queued work (Backend #41854115344; Security #41854115426).
+4. All eight core documents were synchronized and documentation CI passed on exact head `863e53941ce00bb15719c3163767f6dd7586a435` (Backend #41855112246; Security #41855112159). This verifies the docs checkpoint itself, not just the preceding implementation.
+5. Existing bounded CI evidence includes PostgreSQL 16 migration/restore checks, broker-write boundary enforcement, Redis dispatch/saturation and worker shutdown/recovery tests. Treat all reported throughput/latency figures as bounded synthetic CI measurements, not sustained production capacity or SLA proof.
+
+### What remains
+- Combine repeated actual Redis process restarts with worker-pool shutdown/replacement while quotes continue changing.
+- Prove latest-snapshot recovery across Redis restarts, epoch/version changes and scanner high-water reset.
+- Exercise rejected-key resweep/recovery under sustained quote churn; account for accepted vs rejected keys and prove no admitted work is lost.
+- Add sustained queue-lag/backpressure time-series (p50/p95/p99), peak backlog, recovery throughput and Redis/worker resource measurements; distinguish Redis transport metrics from PostgreSQL PAPER execution metrics.
+- Measure PostgreSQL pool exhaustion/recovery under bounded concurrent PAPER workload; verify end-to-end Redis → scanner → dispatcher → durable PAPER stop claim → execution → position/cash/ledger reconciliation.
+- Continue PAPER/LIVE isolation, security, authorization, credential/token, deployment and operational recovery audits. Phase 4 and production readiness remain incomplete.
+
+### Exact next step for next session
+Resume from this checkpoint without repeating completed work. First re-fetch PR #14 head and both workflow results to confirm no newer commit superseded this record. Then implement the next isolated test: repeated real Redis process restarts during continuous quote updates with worker-pool replacement, epoch/version-aware latest-snapshot recovery, and explicit rejected-key resweep assertions. Run Backend and Security CI on the exact implementation commit. Only if both pass, synchronize the eight documents and require both workflows to pass on the exact documentation head before proceeding to sustained queue-lag/backpressure instrumentation.
+
+### Non-negotiable safeguards
+- Work only in `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` is out of scope and must remain untouched.
+- PAPER mode is mandatory. Live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled. Do not enable LIVE as part of Phase 4 testing.
+- PR #14 remains Draft/unmerged; do not merge, deploy, or activate LIVE without explicit authorization.
+- Never advance from a failed, skipped, stale or unverified checkpoint. Record exact commit SHAs and CI run IDs; update docs after verified milestones.

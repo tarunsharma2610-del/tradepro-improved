@@ -201,3 +201,20 @@ Draft PR #11 MFA hardening is now verified on its latest head `10657cf099aaed17c
 The changes require password reauthentication for initial MFA enrollment, reject replacement while an MFA factor is enabled, and inject FastAPI Response so MFA enable/disable can clear browser cookies. Earlier failed backend runs on intermediate commits are superseded by this exact-head green result.
 
 Documentation checkpoint before this addendum was verified on `22570af88916ea2c940831051ed429da5a701319` (Backend #41648348189 and Security #41648348210 both SUCCESS). This addendum creates a new documentation commit and therefore requires fresh exact-head CI before it becomes a verified checkpoint.
+
+
+## Worker-pool shutdown recovery and saturation evidence — 4 November 2026
+
+- Test commit: `b69f547a6b0526e411ed0d73e8163c9c47101dc6`.
+- New test: `test_worker_pool_partial_shutdown_recovers_all_inflight_and_pending_keys` in `backend/tests/test_market_quote_dispatch_worker.py`. Four workers are cancelled while all own in-flight keys; the test verifies all 12 admitted instrument keys are retained and then drained exactly once by four replacement workers, with pending/in-flight/queue counts returning to zero.
+- Backend CI [#41803480700 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41803480700). Downloaded and inspected JUnit artifact `backend-pytest-results` ID `13308268381`: **1,641 tests, 0 failures, 0 errors, 0 skipped**, suite runtime 108.650 seconds. The new worker-pool shutdown test is present and passed (0.002 seconds).
+- Security CI [#41803480703 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41803480703): CodeQL and Python dependency vulnerability audit passed.
+- Backend CI also passed broker-write boundary enforcement, SQLite and PostgreSQL 16 migration upgrade/downgrade/re-upgrade, and synthetic PostgreSQL/document-volume restore drill.
+- Additional artifact metrics (keep workload boundaries explicit):
+  - Dispatch microbenchmark: 5,000 observations, 8 workers, queue capacity 512; 123,222.87 observations/s; p50/p95/p99 3.006/3.963/4.038 ms; 20 backpressure retries and 20 rejections.
+  - PostgreSQL 16 PAPER execution workload: 96 events, 6 workers; 96 persisted orders and executions, zero failed/duplicate fills; 48.54 completions/s; claim-to-ledger p50/p95/p99 103.82/316.788/372.754 ms. Pool returned all 6 connections, zero checked out. This is a bounded 1.98-second CI workload, not a sustained production soak.
+  - Redis dispatch: 48 unique instruments, 4 workers, capacity 64; 48 completed, zero failed; 350.06/s; queue-wait p95 108.305 ms; publish-to-handler p95 133.751 ms; queue drained to zero pending/in-flight. Synthetic handler; no PostgreSQL execution in this measurement.
+  - Redis saturation: 48 unique keys offered to capacity 16; 16 admitted and completed, 32 rejected at capacity; zero lost admitted work; pending/in-flight returned to zero. Rejected keys rely on scanner high-water reset and authoritative Redis snapshot sweep for retry. Deterministic bounded saturation test, not a sustained overload soak.
+- PR #14 head is this test commit and remains OPEN/Draft/unmerged. PR #13 remains OPEN/Draft/unmerged. No merge or deployment.
+- Safety unchanged: work only in `tarunsharma2610-del/tradepro-improved`; original `Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled.
+- Next: run longer repeated overload/restart/redis-restart scenarios, explicitly validate rejected-key resweep under sustained quote churn, measure PostgreSQL pool exhaustion/recovery and queue lag, then continue PAPER/LIVE isolation audit. Phase 4 and production readiness are not complete.

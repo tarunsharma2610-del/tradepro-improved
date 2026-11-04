@@ -2239,3 +2239,14 @@ Latest verified implementation head: `29d165395259a73f819bf22327a44e0fe06f1600`.
 - This does not claim Prometheus integration, production alerting, sustained-load acceptance, deployment readiness, or Phase 4 completion.
 - Remaining Phase 4 gates: end-to-end Redis snapshot recovery → scanner/dispatcher → durable stop-event intake → final PAPER ledger/position acceptance; more multi-process/crash-window races; PAPER/LIVE isolation audit; security/authorization/secret-redaction review; sustained-load and backpressure testing; exact-head documentation CI.
 - Safety: PAPER mandatory; live broker `place_order`, `modify_order`, `cancel_order` writes disabled; PR #9 Draft/unmerged; no merge/deployment/LIVE activation; original `Tradepro` repository untouched.
+
+## Phase 4 Redis repeated-restart reliability checkpoint — 4 November 2026
+
+- Exact implementation/test head: `80b00681c3f8490d3f2675568b752de60eb5c164` on `phase4/redis-queue-load-benchmark`, PR #14 base `phase4/redis-postgres-acceptance`; PR #14 remains OPEN, Draft and unmerged.
+- Backend tests [#41846206794 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41846206794) and Security analysis [#41846206779 — SUCCESS](https://github.com/tarunsharma2610-del/tradepro-improved/actions/runs/41846206779) both passed on this exact implementation/test head.
+- Redis repeated-process-restart integration coverage: 12 instruments, four dispatch workers, three actual Redis process restarts (four epochs including initial startup), fresh snapshots and per-instrument epoch/version checks, no stale snapshot fallback, queue/pending/in-flight drain checks. Duplicate quote delivery is rejected by scanner high-water validation; the test asserts 48 unique accepted observations rather than incorrectly requiring zero duplicate rejections.
+- Listener reconnect retry budget/backoff resets after successful subscription and initial recovery. Listener lifecycle unit tests explicitly consume expected recovery snapshots and close the long-lived async generator.
+- Diagnostic Backend workflow now uses verbose pytest progress and slow-test reporting. No test assertions were weakened to mask restart or scanner correctness failures.
+- This is a bounded CI reliability test, not a sustained production soak or production-readiness certification. Phase 4 remains in progress.
+- Safety: only `tarunsharma2610-del/tradepro-improved`; original `tarunsharma2610-del/Tradepro` untouched; PAPER mandatory; live broker `place_order`, `modify_order`, and `cancel_order` writes remain disabled; no merge, deployment or LIVE activation.
+- Next gate: PostgreSQL pool exhaustion/recovery and queue-lag behavior under bounded concurrent PAPER load; then continue end-to-end Redis→scanner→dispatcher→durable PAPER stop-event→execution→ledger reconciliation and remaining security/isolation audits.

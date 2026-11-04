@@ -400,7 +400,11 @@ async def test_rejected_keys_are_reswept_to_latest_version_during_quote_churn():
                 accepted = await publish_version(index, key, version)
                 assert accepted is (index < capacity)
 
-        assert dispatcher.pending_keys + dispatcher.inflight_keys == capacity
+        # Four in-flight keys may each hold one coalesced latest value in
+        # pending, so the transient bound is queue capacity plus worker count.
+        assert dispatcher.pending_keys == capacity
+        assert dispatcher.inflight_keys == worker_count
+        assert dispatcher.pending_keys + dispatcher.inflight_keys == capacity + worker_count
         assert pipeline.rejected_dispatches == (instrument_count - capacity) * 4
 
         handler_gate.set()

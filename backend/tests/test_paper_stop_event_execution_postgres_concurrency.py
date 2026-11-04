@@ -7,7 +7,10 @@ callers. This test never calls a broker write API.
 """
 import asyncio
 import os
+import json
+import time
 import threading
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -375,4 +378,141 @@ def test_postgres_indicator_exit_and_stop_event_race_flatten_position_once():
                 assert saved_event.state == "COMPLETED"
     finally:
         _cleanup_execution_fixture(Session, ids)
+        engine.dispose()
+
+
+def test_postgres_paper_stop_execution_concurrent_soak_records_latency():
+    """Exercise repeated independent durable PAPER executions on PostgreSQL.
+
+    This is a bounded CI soak/load regression, not a production capacity test.
+    It records end-to-end claim-to-ledger latency for concurrent independent
+    portfolios while retaining real PostgreSQL transactions and row locks.
+    """
+    from statistics import median
+
+    engine = create_engine(
+        os.environ["TEST_POSTGRES_URL"],
+        pool_size=6,
+        max_overflow=0,
+        pool_pre_ping=True,
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    workload_count = 24
+    worker_count = 4
+    fixtures = [
+        _seed_execution_fixture(Session, uuid4().hex[:12])
+        for _ in range(workload_count)
+    ]
+    latencies_ms = []
+    result_lock = threading.Lock()
+
+    async def full_quote(_token, instrument_keys):
+        instrument_key = instrument_keys[0]
+        now = datetime.now(timezone.utc).isoformat()
+        level = {"price": "99.00", "quantity": 100000, "orders": 10}
+        quote = {
+            "instrument_token": instrument_key,
+            "last_price": "99.00",
+            "last_trade_time": "1600000000000",
+            "timestamp": now,
+            "depth": {"buy": [level], "sell": [level]},
+        }
+        return BrokerCallResult(ok=True, data={"data": {instrument_key: quote}})
+
+    adapter = type("SoakAdapter", (), {
+        "get_full_quote": AsyncMock(side_effect=full_quote)
+    })()
+
+    def execute_one(ids):
+        user_id, portfolio_id, instrument_id, strategy_id = ids
+        started = time.perf_counter()
+        with Session.begin() as db:
+            event = PaperStopEventClaimService(db).claim_trailing_stop(
+                user_id=user_id,
+                portfolio_id=portfolio_id,
+                strategy_id=strategy_id,
+                instrument_id=instrument_id,
+                quote_epoch=f"postgres-soak-{uuid4()}",
+                quote_version=1,
+                trigger_price=Decimal("98.25"),
+                lease_seconds=120,
+            )
+            assert event is not None
+            event_id, claim_token = event.id, event.claim_token
+        with Session() as db:
+            order = asyncio.run(
+                PaperStopEventExecutionService(db).execute_claimed(
+                    user_id=user_id,
+                    event_id=event_id,
+                    claim_token=claim_token,
+                )
+            )
+            assert order.status == "FILLED"
+        elapsed = (time.perf_counter() - started) * 1000
+        with result_lock:
+            latencies_ms.append(elapsed)
+        return ids, event_id, order.id
+
+    started = time.perf_counter()
+    try:
+        with patch(
+            "app.services.execution_service.get_broker_adapter",
+            return_value=adapter,
+        ), patch(
+            "app.services.execution_service.settings.UPSTOX_CHARGE_ESTIMATES_ENABLED",
+            False,
+        ):
+            with ThreadPoolExecutor(max_workers=worker_count) as pool:
+                results = list(pool.map(execute_one, fixtures))
+        elapsed_seconds = time.perf_counter() - started
+
+        assert len(results) == workload_count
+        assert adapter.get_full_quote.await_count == workload_count
+        for ids, event_id, order_id in results:
+            _, portfolio_id, instrument_id, strategy_id = ids
+            with Session() as db:
+                event = db.get(PaperStopEvent, event_id)
+                position = db.query(Position).filter_by(
+                    portfolio_id=portfolio_id, instrument_id=instrument_id
+                ).one()
+                orders = db.query(Order).filter(
+                    Order.paper_stop_event_id == event_id
+                ).all()
+                executions = db.query(Execution).join(
+                    Order, Execution.order_id == Order.id
+                ).filter(Order.paper_stop_event_id == event_id).all()
+                portfolio = db.get(Portfolio, portfolio_id)
+                assert event.state == "COMPLETED"
+                assert len(orders) == 1 and orders[0].id == order_id
+                assert orders[0].status == "FILLED"
+                assert len(executions) == 1
+                assert position.quantity == 0
+                assert portfolio.cash_balance < Decimal("100000.00")
+
+        ordered = sorted(latencies_ms)
+        percentile = lambda p: ordered[min(len(ordered) - 1, int((len(ordered) - 1) * p))]
+        report = {
+            "database": "PostgreSQL 16",
+            "mode": "PAPER",
+            "workloads": workload_count,
+            "concurrent_workers": worker_count,
+            "elapsed_seconds": round(elapsed_seconds, 4),
+            "completed_per_second": round(workload_count / elapsed_seconds, 2),
+            "claim_to_ledger_latency_ms": {
+                "p50": round(median(ordered), 3),
+                "p95": round(percentile(0.95), 3),
+                "p99": round(percentile(0.99), 3),
+            },
+            "persisted_orders": workload_count,
+            "persisted_executions": workload_count,
+            "failed_or_duplicate_fills": 0,
+            "scope_note": "bounded CI soak; not production capacity or SLA evidence",
+        }
+        Path("postgres-paper-soak-results.json").write_text(
+            json.dumps(report, indent=2) + "\\n", encoding="utf-8"
+        )
+    finally:
+        for ids in fixtures:
+            _cleanup_execution_fixture(Session, ids)
         engine.dispose()

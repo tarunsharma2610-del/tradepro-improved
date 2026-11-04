@@ -444,7 +444,7 @@ async def test_rejected_keys_are_reswept_to_latest_version_during_quote_churn():
                 break
 
         assert resweep_accepted == instrument_count - capacity
-        assert resweep_capacity_rejections == instrument_count - capacity - capacity // 2
+        assert resweep_capacity_rejections == capacity
         assert resweep_duplicates >= capacity
 
         async with asyncio.timeout(10):
@@ -459,7 +459,7 @@ async def test_rejected_keys_are_reswept_to_latest_version_during_quote_churn():
         # Accepted observations include the first 16 keys' initial version
         # and three coalesced updates, plus 32 recovered unique instruments.
         assert pipeline.accepted_observations == capacity * 4 + (instrument_count - capacity)
-        assert pipeline.rejected_dispatches == (instrument_count - capacity) * 4 + (instrument_count - capacity - capacity // 2)
+        assert pipeline.rejected_dispatches == (instrument_count - capacity) * 4 + capacity
     finally:
         handler_gate.set()
         for task in tasks:

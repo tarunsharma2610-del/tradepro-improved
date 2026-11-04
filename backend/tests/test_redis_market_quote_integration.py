@@ -1065,3 +1065,116 @@ async def test_real_redis_dispatcher_backpressure_recovers_dropped_snapshots():
             cleanup.extend([key, key + ":version"])
         await redis.delete(*cleanup)
         await redis.aclose()
+
+
+
+@pytest.mark.asyncio
+async def test_real_redis_worker_pool_replacement_preserves_latest_quotes_during_churn():
+    """A cancelled worker pool must release/coalesce work for replacement workers."""
+    from app.services.market_quote_dispatch_worker import MarketQuoteDispatchWorker
+
+    redis = Redis.from_url(REDIS_TEST_URL, decode_responses=True)
+    user_id = uuid4()
+    instruments = [f"NSE_EQ|POOLRESTART{i:04d}" for i in range(8)]
+    publisher = RedisMarketQuotePublisher(redis, user_id, ttl_seconds=15)
+    consumer = RedisMarketQuoteConsumer(redis, user_id, max_age_seconds=15)
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=8)
+    pipeline = MarketScanDispatchPipeline(dispatcher=dispatcher)
+    handler_gate = asyncio.Event()
+    four_started = asyncio.Event()
+    completed = asyncio.Event()
+    started = 0
+    processed = {}
+    first_pool = []
+    replacement_pool = []
+
+    async def publish_version(index, key, version):
+        tick = make_tick(key, 3000.0 + index + version)
+        assert await publisher.publish(tick)
+        quote = await consumer.get_quote(key)
+        assert quote is not None
+        assert quote["version"] == version
+        return pipeline.on_quote(user_id, quote)
+
+    async def handle(item):
+        nonlocal started
+        started += 1
+        if started == 4:
+            four_started.set()
+        await handler_gate.wait()
+        processed[item.instrument_key] = (item.epoch, item.version)
+        if len(processed) == len(instruments):
+            completed.set()
+
+    def workers():
+        return [
+            MarketQuoteDispatchWorker(
+                dispatcher, handle, min_backoff_seconds=0,
+                max_backoff_seconds=0, max_attempts=1,
+            )
+            for _ in range(4)
+        ]
+
+    try:
+        assert await redis.ping()
+        for index, key in enumerate(instruments):
+            assert await publish_version(index, key, 1)
+
+        first_workers = workers()
+        first_pool = [
+            asyncio.create_task(worker.run(), name=f"quote-pool-old-{index}")
+            for index, worker in enumerate(first_workers)
+        ]
+        async with asyncio.timeout(5):
+            await four_started.wait()
+
+        # Every instrument advances while the original pool is blocked:
+        # four in-flight keys coalesce and four queued keys are replaced in place.
+        for version in (2, 3, 4, 5):
+            for index, key in enumerate(instruments):
+                assert await publish_version(index, key, version)
+
+        assert dispatcher.inflight_keys == 4
+        assert dispatcher.pending_keys == 8
+        assert dispatcher.pending_keys + dispatcher.inflight_keys == 12
+
+        # Graceful pool replacement uses the worker's cancellation-safe release.
+        for task in first_pool:
+            task.cancel()
+        await asyncio.gather(*first_pool, return_exceptions=True)
+        first_pool = []
+        assert dispatcher.inflight_keys == 0
+        assert dispatcher.pending_keys == len(instruments)
+        assert dispatcher._queue.qsize() == len(instruments)
+
+        handler_gate.set()
+        replacement_workers = workers()
+        replacement_pool = [
+            asyncio.create_task(worker.run(), name=f"quote-pool-new-{index}")
+            for index, worker in enumerate(replacement_workers)
+        ]
+        async with asyncio.timeout(8):
+            await completed.wait()
+        await asyncio.wait_for(dispatcher._queue.join(), timeout=5)
+
+        assert set(processed) == set(instruments)
+        assert all(version == 5 for _, version in processed.values())
+        assert dispatcher.pending_keys == 0
+        assert dispatcher.inflight_keys == 0
+        assert dispatcher._queue.qsize() == 0
+        assert sum(worker.processed_count for worker in replacement_workers) == len(instruments)
+        assert sum(worker.processed_count for worker in first_workers) == 0
+    finally:
+        for task in first_pool + replacement_pool:
+            task.cancel()
+        if first_pool or replacement_pool:
+            await asyncio.gather(*(first_pool + replacement_pool), return_exceptions=True)
+        await redis.delete(*[
+            key_name
+            for key in instruments
+            for key_name in (
+                publisher.snapshot_key(key),
+                publisher.snapshot_key(key) + ":version",
+            )
+        ])
+        await redis.aclose()

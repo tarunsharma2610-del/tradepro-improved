@@ -342,3 +342,76 @@ async def test_worker_cancellation_during_retry_backoff_releases_quote_for_repla
     replacement_task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await replacement_task
+
+
+@pytest.mark.asyncio
+async def test_worker_pool_partial_shutdown_recovers_all_inflight_and_pending_keys():
+    """A simultaneous worker-pool shutdown must leave every admitted key drainable."""
+    capacity = 16
+    offered = 12
+    worker_count = 4
+    dispatcher = MarketQuoteDispatcher(max_pending_keys=capacity)
+    for index in range(offered):
+        assert dispatcher.publish(
+            Observation(instrument_key=f"NSE_EQ|POOL{index:03d}", version=1)
+        )
+
+    entered = set()
+    all_entered = asyncio.Event()
+    never = asyncio.Event()
+
+    async def interrupted_handler(item):
+        entered.add(item.instrument_key)
+        if len(entered) == worker_count:
+            all_entered.set()
+        await never.wait()
+
+    first_workers = [
+        asyncio.create_task(
+            MarketQuoteDispatchWorker(dispatcher, interrupted_handler).run()
+        )
+        for _ in range(worker_count)
+    ]
+    await asyncio.wait_for(all_entered.wait(), timeout=1)
+    assert dispatcher.inflight_keys == worker_count
+    assert dispatcher.pending_keys == offered - worker_count
+
+    # Stop the whole pool while every worker owns an in-flight key.
+    for task in first_workers:
+        task.cancel()
+    results = await asyncio.gather(*first_workers, return_exceptions=True)
+    assert all(isinstance(result, asyncio.CancelledError) for result in results)
+    assert dispatcher.inflight_keys == 0
+    assert dispatcher.pending_keys == offered
+    assert dispatcher._queue.qsize() == offered
+
+    recovered = []
+    completed = asyncio.Event()
+
+    async def replacement_handler(item):
+        recovered.append(item.instrument_key)
+        if len(recovered) == offered:
+            completed.set()
+
+    replacements = [
+        asyncio.create_task(
+            MarketQuoteDispatchWorker(dispatcher, replacement_handler).run()
+        )
+        for _ in range(worker_count)
+    ]
+    try:
+        await asyncio.wait_for(completed.wait(), timeout=2)
+        assert len(recovered) == offered
+        assert len(set(recovered)) == offered
+        assert set(recovered) == {
+            f"NSE_EQ|POOL{index:03d}" for index in range(offered)
+        }
+        assert dispatcher.pending_keys == 0
+        assert dispatcher.inflight_keys == 0
+        assert dispatcher._queue.qsize() == 0
+        await asyncio.wait_for(dispatcher._queue.join(), timeout=1)
+    finally:
+        for task in replacements:
+            task.cancel()
+        results = await asyncio.gather(*replacements, return_exceptions=True)
+        assert all(isinstance(result, asyncio.CancelledError) for result in results)

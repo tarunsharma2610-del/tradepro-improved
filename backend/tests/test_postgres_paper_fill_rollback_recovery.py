@@ -66,8 +66,16 @@ def test_postgres_paper_fill_flush_failure_rolls_back_then_retry_commits_once():
             trading_symbol=f"RB{suffix[:8].upper()}",
             name="Rollback acceptance instrument",
         )
-        db.add_all([user, portfolio, instrument])
+        db.add(user)
         db.flush()
+        assert db.get(User, user_id) is not None
+
+        db.add(portfolio)
+        db.add(instrument)
+        db.flush()
+        assert db.get(Portfolio, portfolio.id) is not None
+        assert db.get(Instrument, instrument.id) is not None
+
         position = Position(
             portfolio_id=portfolio.id,
             instrument_id=instrument.id,
@@ -173,9 +181,9 @@ def test_postgres_paper_fill_flush_failure_rolls_back_then_retry_commits_once():
         db.flush = original_flush
         db.rollback()
         cleanup_ids = {
-            "portfolio": str(portfolio.id) if portfolio is not None else None,
-            "instrument": str(instrument.id) if instrument is not None else None,
-            "user": str(user_id),
+            "portfolio": portfolio.id if portfolio is not None and portfolio.id is not None else None,
+            "instrument": instrument.id if instrument is not None and instrument.id is not None else None,
+            "user": user_id,
         }
         db.close()
         with engine.begin() as connection:
